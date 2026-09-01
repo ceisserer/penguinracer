@@ -9,6 +9,7 @@ id = &"wall"
 friction = 0.5
 emits_particles = false
 takes_trackmarks = false
+slide_sound = &"rock_sound"
 albedo = ExtResource("1_fgyg7")
 is_deformable = false
 legacy_color = Color(0.47058824, 0, 0, 1)

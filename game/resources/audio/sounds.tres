@@ -1,0 +1,78 @@
+[gd_resource type="Resource" script_class="SoundBank" format=3]
+
+[ext_resource type="Script" path="res://scripts/audio/sound_cue.gd" id="1_6yh40"]
+[ext_resource type="AudioStream" path="res://assets/sounds/tree_hit.wav" id="2_hwknb"]
+[ext_resource type="AudioStream" path="res://assets/sounds/snow_slide.wav" id="3_rx4bc"]
+[ext_resource type="AudioStream" path="res://assets/sounds/rock_slide.wav" id="4_1nphf"]
+[ext_resource type="AudioStream" path="res://assets/sounds/ice_slide.wav" id="5_ejxpi"]
+[ext_resource type="AudioStream" path="res://assets/sounds/grass_slide.wav" id="6_4h6k2"]
+[ext_resource type="AudioStream" path="res://assets/sounds/mud_slide.wav" id="7_1ljr6"]
+[ext_resource type="AudioStream" path="res://assets/sounds/leaves_slide.wav" id="8_taeoj"]
+[ext_resource type="AudioStream" path="res://assets/sounds/pickup1.wav" id="9_n7orn"]
+[ext_resource type="AudioStream" path="res://assets/sounds/pickup2.wav" id="10_o71yu"]
+[ext_resource type="AudioStream" path="res://assets/sounds/pickup3.wav" id="11_un8vo"]
+[ext_resource type="Script" path="res://scripts/audio/sound_bank.gd" id="12_745ui"]
+
+[sub_resource type="Resource" id="Resource_g11ae"]
+script = ExtResource("1_6yh40")
+id = &"tree_hit"
+stream = ExtResource("2_hwknb")
+
+[sub_resource type="Resource" id="Resource_mugv3"]
+script = ExtResource("1_6yh40")
+id = &"snow_sound"
+stream = ExtResource("3_rx4bc")
+race_gain = 1.5
+legacy_volume = 0.2
+
+[sub_resource type="Resource" id="Resource_obgkj"]
+script = ExtResource("1_6yh40")
+id = &"rock_sound"
+stream = ExtResource("4_1nphf")
+race_gain = 1.1
+
+[sub_resource type="Resource" id="Resource_ec044"]
+script = ExtResource("1_6yh40")
+id = &"ice_sound"
+stream = ExtResource("5_ejxpi")
+race_gain = 0.6
+legacy_volume = 0.6
+
+[sub_resource type="Resource" id="Resource_otuxh"]
+script = ExtResource("1_6yh40")
+id = &"grass_sound"
+stream = ExtResource("6_4h6k2")
+legacy_volume = 0.6
+
+[sub_resource type="Resource" id="Resource_m0q6y"]
+script = ExtResource("1_6yh40")
+id = &"mud_sound"
+stream = ExtResource("7_1ljr6")
+legacy_volume = 0.6
+
+[sub_resource type="Resource" id="Resource_8bi8g"]
+script = ExtResource("1_6yh40")
+id = &"leaves_sound"
+stream = ExtResource("8_taeoj")
+legacy_volume = 0.6
+
+[sub_resource type="Resource" id="Resource_ipwnt"]
+script = ExtResource("1_6yh40")
+id = &"pickup1"
+stream = ExtResource("9_n7orn")
+
+[sub_resource type="Resource" id="Resource_bjqdd"]
+script = ExtResource("1_6yh40")
+id = &"pickup2"
+stream = ExtResource("10_o71yu")
+race_gain = 0.8
+
+[sub_resource type="Resource" id="Resource_xapuv"]
+script = ExtResource("1_6yh40")
+id = &"pickup3"
+stream = ExtResource("11_un8vo")
+race_gain = 0.8
+
+[resource]
+script = ExtResource("12_745ui")
+cues = Array[ExtResource("1_6yh40")]([SubResource("Resource_g11ae"), SubResource("Resource_mugv3"), SubResource("Resource_obgkj"), SubResource("Resource_ec044"), SubResource("Resource_otuxh"), SubResource("Resource_m0q6y"), SubResource("Resource_8bi8g"), SubResource("Resource_ipwnt"), SubResource("Resource_bjqdd"), SubResource("Resource_xapuv")])

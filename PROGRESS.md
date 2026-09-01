@@ -385,10 +385,85 @@ it. Corrected 2026-09-01. The lesson is that a migrated field is not ported unti
 it: the resources looked complete and the tests passed because the tests only asserted what the
 consumer happened to consume.
 
-Still not ported from `terrains.lst`: `[sound]` (`TerrainLayer.footstep_sound` exists and is
-always null — there is no audio system yet, Phase 5) and `[starttex]`/`[tracktex]`/`[stoptex]`,
-which are the original's trackmark decal atlas indices and have no analogue here — the GPU trail
-map replaced them.
+Still not ported from `terrains.lst`: `[starttex]`/`[tracktex]`/`[stoptex]`, which are the
+original's trackmark decal atlas indices and have no analogue here — the GPU trail map replaced
+them. `[sound]` followed in §16.
+
+### 16. The sound system is small, and most of it is the original's mixer being odd
+
+Audio was the last unported subsystem: 10 effects, 10 music pieces and three racing themes, all
+of it sitting in `data/sounds/` and `data/music/` behind two `.lst` files. The code that plays
+them (`audio.cpp`, 289 lines) took longer to read than to rebuild, because almost every part of
+it behaves in a way a modern mixer does not — and each of those is load-bearing somewhere.
+
+**One voice per cue, not a pool.** `TSound` owns a single `sf::Sound` and `Play` returns early
+while it is still playing, so a sound can never overlap itself. That is not a limitation the game
+works around, it is a thing the content depends on: collecting a herring fires `pickup1`,
+`pickup2` *and* `pickup3` together, three separate cues for one event, because one cue could not
+have layered with itself. `AudioDirector` keeps one `AudioStreamPlayer` per cue for the same
+reason — a voice pool would silently change how a burst of pickups sounds.
+
+**`Halt` only stops looping sounds.** `CSound::Halt` checks `getLoop()` first, so a one-shot
+cannot be cut off by anything except `HaltAll`. Reproduced, because the terrain slide is the only
+looped cue and that check is what stops a terrain change from clipping a pickup.
+
+**Volumes are percentages clipped at 100, and `[vol]` is dead.** `sounds.lst` carries a `[vol]`
+column that nothing reads: `LoadChunk` builds every chunk at `param.sound_volume` and the only
+code that ever revisits a volume is `SetSoundVolumes` in `racing.cpp`, which overrides six of the
+ten by name with different numbers. `snow_sound` is `[vol] 0.2` in the file and gain 1.5 in the
+code. Both are migrated — the live one onto `SoundCue.race_gain`, the dead one onto
+`legacy_volume` next to it, the way `TerrainLayer.legacy_color` is kept — because a re-import
+should be diffable against the source and because the discrepancy is worth being able to see.
+The ceiling matters too: `MIX_MAX_VOLUME` is 100 and `CalcSoundVol` clips there, so at the
+default effects volume of 90 the snow slide's 1.5 gain is really 1.11.
+
+**The slide sound has no speed term.** There is a `SlideVolume` in `racing.cpp` that scales with
+speed, lean, braking and jumping — commented out, above the line "this function is not used yet".
+So the terrain slide is on or off and nothing else, and that is what was ported. It is the single
+most obvious thing to improve and the single easiest thing to get wrong by assuming.
+
+**And the commonest terrain in the game is silent.** 12 of the 43 records in `terrains.lst` have
+no `[sound]`, `snow` among them — only `dirty_snow` ever reaches `snow_slide.wav`. `ice2` is
+silent while `ice1` is not. Migrated as it stands: it is one string per terrain to change, but
+choosing which terrains should make a noise is a design decision, not a port, and doing it
+quietly would have buried the fact that the original does not. `test_audio.gd` asserts the
+silence so that filling it in later is a visible change.
+
+Music is simpler and has one behaviour worth keeping: `CMusic::Play` compares against the
+currently playing piece and returns without restarting if they match. That is what lets a menu
+open over a race without cutting the track, and it is why `AudioDirector` tracks the stream
+rather than just calling `play()`.
+
+Three things came out of the port that were not about audio:
+
+- **`terrains.lst` declares `pave04` three times**, with three different textures, three colour
+  keys and a `[sound]` on only the first. The original indexes `TerrList` by position and never
+  looks a terrain up by name, so it keeps all three; the importer keys layer resources by name
+  and the last record wins — which means two of those colour keys have been getting the wrong
+  texture and friction since Phase 1. Left as it is, because disambiguating the names
+  re-identifies every course's splat layers, but the importer now warns instead of collapsing
+  them silently.
+- **`TerrainLayer.footstep_sound` was the wrong shape.** It held an `AudioStream`, so every
+  course would have referenced the slide effects through its terrain layers and pulled 4 MB of
+  shared streams into each course pack. ETR stores a *name* resolved against the global bank, and
+  so does `slide_sound: StringName` now.
+- **A stopped playback is never reaped under the dummy audio driver.** This container has no
+  sound card, so every run falls back to it — and it never mixes, so `AudioServer` never retires
+  a playback that has been stopped. Godot then reports "4 ObjectDB instances were leaked at exit"
+  over every screenshot. It is not the streams being held: stopping on `tree_exiting`, clearing
+  the player's stream and freeing the node all happen and change nothing, and a bare
+  play-then-stop of a single WAV in a five-line script reproduces it. `tools/shot.sh` passes
+  `--no-audio` now, which is right on its own terms — a capture has nothing to hear — and the
+  capture it produces is byte-identical to the one from before this change.
+- **The test runner had to move off `_initialize`.** The tree's root Window is not yet inside the
+  tree when a `SceneTree` script's `_initialize` runs, and an `AudioStreamPlayer` refuses to start
+  outside one. Everything now runs on the first `_process` instead. The physics suite does not
+  care; anything node-shaped added later will.
+
+Ported 2026-09-01. 100 assertions cover the bank, the themes, the volume arithmetic, the
+terrain → cue mapping and the three mixer behaviours above. Traced through a real run, a carve
+down Frozen River moves snow → `ice_sound` → snow and drops the loop while airborne; the same
+carve down Bunny Hill is silent from top to bottom, because Bunny Hill is snow.
 
 ## Built
 
@@ -467,7 +542,7 @@ and authored skinned glTF art drops in later against the same joint names.
 
 ---
 
-### Phase 5 — game shell · **course selection done, rest not started**
+### Phase 5 — game shell · **course selection and audio done, rest not started**
 
 The first slice: picking what to race next. `scenes/course_menu.tscn` + `scripts/shell/course_menu.gd`
 list all 44 courses with preview, author, length, slope and description, and hand the choice to
@@ -498,8 +573,39 @@ Three decisions worth keeping:
 The 13 imported translations are registered in `project.godot` and the menu reads its labels
 through `tr()`, so the semantic keys from Phase 1 are exercised for the first time.
 
+The second slice: sound. `scripts/audio/` holds the two generated banks — `SoundBank` from
+`sounds.lst`, `MusicLibrary` from `music.lst` + `racing_themes.lst` — and `AudioDirector`, an
+autoload that is `CSound` and `CMusic` rebuilt on Godot's audio server, one voice per cue and a
+`Music`/`SFX` bus pair under Master. All 20 streams are migrated unchanged.
+
+What plays, and where the original plays it:
+
+| Event | Cue | ETR |
+|---|---|---|
+| Herring collected | `pickup1` + `pickup2` + `pickup3` | `CControl::CheckItemCollection` |
+| Tree hit | `tree_hit` | `CControl::CheckTreeCollisions` |
+| Riding a terrain | `[sound]` of the dominant layer, looped | `PlayTerrainSound` |
+| Racing | theme's `[race]`, from `CourseData.music_theme` | `CRacing::Enter` |
+| Menu over a race | `param.menu_music` — `start_1` | every menu screen |
+| Menu after a finish | theme's `[wonrace]` | `CGameOver::Enter` |
+
+Two decisions worth keeping:
+
+- **The banks are global resources, not per-course references.** `TerrainLayer.slide_sound` is a
+  `StringName` resolved against `SoundBank`, exactly as `TerrList[i].sound` is an index resolved
+  against `CSound`. Holding an `AudioStream` there instead would have pulled the same 4 MB of
+  shared effects into all 44 course packs.
+- **The win sting waits for the menu.** Crossing the line keeps the racing track under the 3 s
+  finish deceleration and the theme's `[wonrace]` starts with the results panel — which is the
+  same order the original has, since its finish keyframe runs inside the racing state and
+  `CGameOver::Enter` is what changes the music.
+
+`-- --no-audio` gates the whole thing, for capture runs where a soundtrack is only a slow start.
+Volumes are the original's `param.sound_volume` 90 / `param.music_volume` 20 and live on the
+director; there is no options screen to move them from yet.
+
 Not done, and none of it started: cups and events (the resources are imported and unused),
-medals from the migrated thresholds, save profiles, settings, audio.
+medals from the migrated thresholds, save profiles, settings.
 
 ## Known gaps
 
@@ -526,9 +632,15 @@ medals from the migrated thresholds, save profiles, settings, audio.
   one-line changes; together they are why a side-by-side still looks different after the shading
   matches — ours shows a third less sky. Left alone because it changes how the game plays, not
   how it looks, and that is a design call rather than a fidelity one.
-- **The game shell stops at course selection** (Phase 5): no cup progression, medals, save
-  profiles, settings or audio. The migrated event thresholds are sitting there ready; the
+- **The game shell stops at course selection and sound** (Phase 5): no cup progression, medals,
+  save profiles or settings. The migrated event thresholds are sitting there ready; the
   translations are now wired up.
+- **The terrain slide sound is on or off**, because the original's speed-and-lean `SlideVolume`
+  ships commented out (§16), and 12 of the 43 terrains — `snow` among them — name no sound at
+  all. Both are faithful and both are the obvious first thing to improve; the mapping is one
+  `StringName` per terrain resource and the volume is one call in `RaceScene`.
+- **Web cold load gains 18 MB of audio** on top of the 161 MB, and music is the easiest part of
+  the pack to stream rather than bundle — 14 MB of it, none needed before the first frame.
 - **Heightmap dequantization has not been eyeballed per course** (risk S3). The pipeline runs on
   all 44; three courses of differing character should be compared against original screenshots.
 - **The snow and ice shading terms are tuned by eye, not against a reference.** Unlike the tone

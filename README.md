@@ -21,11 +21,14 @@ game/                     Godot project
   scripts/camera/         chase camera
   scripts/race/           the race scene: wires simulation to presentation
   scripts/shell/          HUD and course menu
+  scripts/audio/          the AudioDirector autoload and the sound/music banks
   scenes/                 race.tscn, course_menu.tscn
   addons/etr_import/      one-way, re-runnable importer from the ETR data tree
   courses/<name>/         generated: course.tres, course.tscn, heightmap.res, splat_*.png
   resources/              generated: terrain layers, object prefabs, environments, events,
-                          courses.tres (the course-menu index)
+                          courses.tres (the course-menu index), the sound bank and
+                          music library
+  assets/                 generated: textures, skyboxes and the migrated audio
   tests/                  headless physics suite + ODE benchmark
   spikes/s1_pingpong/     the ping-pong render-target spike (risk S1)
 etr-0.8.4/                the original source and data, read-only
@@ -61,6 +64,7 @@ godot --path game                                    # play
 godot --headless --path game --script res://tests/run_tests.gd   # physics suite + benchmark
 godot --path game spikes/s1_pingpong/s1_spike.tscn   # snow render-target spike
 godot --path game res://scenes/key_log.tscn          # keyboard delivery probe
+godot --path game -- --no-audio                      # play with the sound off
 ```
 
 Controls: `A`/`D` steer, `W` paddles, `S` brakes, space charges a jump, `Ctrl` plus a direction
@@ -72,6 +76,12 @@ translating one — a translating mode sends held keys as zero-length pulses, an
 and jump all stop working while `R` and `Esc` carry on. `res://scenes/key_log.tscn` says which one
 you are on. Where the remote cannot be changed, `godot --path game -- --remote-keyboard` bridges
 the pulses; it is off by default because it costs a tenth of a second on every release.
+
+Sound and music are the original's, and so is the way they are mixed: the herring chime is three
+overlapping cues because ETR gives each sound a single voice, riding a terrain loops whatever
+`terrains.lst` names for it, and the racing track comes from the course's theme. Two of the
+original's quirks came along deliberately — the slide sound has no speed term (ETR wrote one and
+left it commented out) and 12 of its 43 terrains, `snow` included, name no sound at all.
 
 The game opens on the course menu, drawn over the loaded course: all 44 courses with preview,
 author and description, arrows and Enter to pick one. It comes back up a few seconds after the

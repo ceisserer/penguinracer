@@ -44,6 +44,9 @@ func _initialize() -> void:
 	print("PenguinRacer importer — stage '%s', source %s" % [stage, source])
 	var start: int = Time.get_ticks_msec()
 
+	# Audio first: the sound bank names the cues `terrains.lst` refers to, so
+	# importing it before the layers is what turns a typo into a warning.
+	imp.import_audio(stage)
 	var terrains: Dictionary = imp.import_terrains(stage)
 	var object_types: Array[Dictionary] = imp.import_objects(stage)
 	var prefabs: Dictionary[String, ObjectPrefab] = {}

@@ -20,7 +20,16 @@ extends Resource
 @export var emits_particles: bool = true
 ## Whether the surface deforms and holds a trench. `[trackmarks]`.
 @export var takes_trackmarks: bool = true
-@export var footstep_sound: AudioStream
+## The looping slide effect this terrain plays under the player, named against
+## [SoundBank]. ETR `[sound]`, which is a cue name there too — `TerrList[i].sound`
+## is `Sound.GetSoundIdx` of it, resolved once at course load.
+##
+## Empty for 12 of the 43 records, including `snow` itself: the original rides
+## the commonest surface in the game in silence, and only `dirty_snow` ever
+## reaches `snow_sound`. `ice2` is silent while `ice1` is not. Migrated as it
+## stands — it is one string per terrain to change, and inventing the missing
+## ones is a design decision, not a port.
+@export var slide_sound: StringName = &""
 
 @export_group("Rendering")
 @export var albedo: Texture2D

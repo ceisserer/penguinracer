@@ -5,7 +5,15 @@
 ## Exits non-zero on any failure so it can gate CI.
 extends SceneTree
 
-func _initialize() -> void:
+## Everything runs on the first frame rather than in `_initialize`, because the
+## tree's root is not itself inside the tree yet at that point and an
+## [AudioStreamPlayer] refuses to start outside one. The physics suite does not
+## care either way; the audio group does.
+func _process(_delta: float) -> bool:
+	_run()
+	return true
+
+func _run() -> void:
 	var t := TestCase.new()
 	var start: int = Time.get_ticks_msec()
 
@@ -13,6 +21,7 @@ func _initialize() -> void:
 	TestSimulation.run(t)
 	TestSurface.run(t)
 	TestInput.run(t)
+	TestAudio.run(t)
 
 	var elapsed: int = Time.get_ticks_msec() - start
 	print("")

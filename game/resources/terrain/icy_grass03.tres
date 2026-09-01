@@ -10,6 +10,7 @@ friction = 0.4
 compression_depth = 0.02
 emits_particles = false
 takes_trackmarks = false
+slide_sound = &"grass_sound"
 albedo = ExtResource("1_yub0p")
 is_deformable = false
 legacy_color = Color(0, 0.7058824, 0.23529412, 1)

@@ -52,6 +52,13 @@ var _keys := KeyHoldFilter.new(PackedStringArray(["steer_left", "steer_right",
 var _player_node: Node3D
 var _sun: DirectionalLight3D
 
+## The terrain slide effect currently looping, or empty. ETR keeps the same
+## pair of "last"/"new" ids in `racing.cpp`.
+var _slide_cue: StringName = &""
+## Reused by the once-a-frame terrain query behind the slide sound, so the
+## audio does not allocate on the hot path.
+var _slide_sample := SurfaceSample.new()
+
 ## Development-only scripted input, for headless verification shots.
 ## `--auto-input=carve` slaloms, `--auto-input=brake` drags the belly.
 var _auto_input: String = ""
@@ -103,6 +110,8 @@ func _install_character() -> void:
 	_player_node.add_child(rig)
 
 func load_course(path: String) -> void:
+	_stop_slide_sound()
+	Audio.halt_all()
 	if course_root != null:
 		course_root.queue_free()
 		course_root = null
@@ -131,6 +140,7 @@ func load_course(path: String) -> void:
 	physics.item_collected.connect(_on_item_collected)
 	physics.substep_advanced.connect(_on_substep)
 	physics.race_finished.connect(_on_race_finished)
+	physics.tree_hit.connect(_on_tree_hit)
 
 	terrain = TerrainRenderer.new()
 	terrain.name = "Terrain"
@@ -166,6 +176,8 @@ func restart() -> void:
 	terrain.update_streaming(physics.pos)
 	# Drop the authoring markers only once the batches and grids exist.
 	course_root.release_markers()
+	_stop_slide_sound()
+	Audio.play_theme(course.music_theme, MusicTheme.Situation.RACE)
 	# Marker for the browser harness: the course is loaded and the first frame
 	# of simulation has run.
 	print("RACE_READY %s %d chunks" % [course.display_name, terrain.chunk_count()])
@@ -178,10 +190,20 @@ func open_menu(result_text: String = "") -> void:
 	if menu == null or menu.visible:
 		return
 	paused = true
+	_stop_slide_sound()
+	# The original's menus all play `param.menu_music`, and its game-over screen
+	# plays the theme's win sting — which is the screen this becomes when it
+	# comes up carrying a result. Opening the menu mid-race is the other case.
+	if result_text.is_empty():
+		Audio.play_menu_music()
+	else:
+		Audio.halt_all()
+		Audio.play_theme(course_root.course_data.music_theme, MusicTheme.Situation.WON)
 	menu.open(current_course_dir, running, result_text)
 
 func _on_menu_closed() -> void:
 	paused = false
+	Audio.play_theme(course_root.course_data.music_theme, MusicTheme.Situation.RACE)
 
 func _on_course_chosen(listing: CourseListing) -> void:
 	paused = false
@@ -284,6 +306,7 @@ func _process(delta: float) -> void:
 	_player_node.global_position = physics.pos + Vector3(0.0, PhysConst.TUX_Y_CORR, 0.0)
 	_player_node.global_basis = Basis(physics.orientation)
 
+	_update_slide_sound()
 	spray.flush(delta)
 	camera.track(physics.pos, physics.vel, physics.plane_nml, delta)
 	terrain.update_streaming(physics.pos)
@@ -318,6 +341,49 @@ func _on_item_collected(index: int) -> void:
 	herring += 1
 	course_root.hide_item(index)
 	herring_changed.emit(herring)
+	# Three cues, fired together, deliberately: the original has one voice per
+	# sound, so a single pickup effect could never have layered with itself.
+	Audio.play(&"pickup1")
+	Audio.play(&"pickup2")
+	Audio.play(&"pickup3")
+
+func _on_tree_hit(_tree_pos: Vector3) -> void:
+	Audio.play(&"tree_hit")
+
+# ------------------------------------------------------------------
+#                          terrain slide loop
+# ------------------------------------------------------------------
+
+## `PlayTerrainSound` in `racing.cpp`: the terrain under the player names a
+## looping cue, which is halted when the terrain changes or the player leaves
+## the ground. There is no speed or lean term — the original wrote one
+## (`SlideVolume`) and left it commented out with "this function is not used
+## yet", so the slide is on or off and nothing else.
+##
+## DEVIATION: the terrain is the dominant splat layer at the contact point,
+## where the original took `Course.GetTerrainIdx(x, z, 0.5)` — the type holding
+## at least half the blend, else nothing. Ours always resolves to a layer, so
+## the sound changes a little earlier across a boundary; the flip side is that
+## no blend of terrains is ever silent when both halves make a noise.
+func _update_slide_sound() -> void:
+	var cue: StringName = &""
+	if not physics.airborne:
+		course_root.surface.sample_into(physics.pos.x, physics.pos.z, _slide_sample)
+		var layers: Array[TerrainLayer] = course_root.course_data.terrain_layers
+		var id: int = _slide_sample.terrain_id
+		if id >= 0 and id < layers.size() and layers[id] != null:
+			cue = layers[id].slide_sound
+	if cue != _slide_cue:
+		if not _slide_cue.is_empty():
+			Audio.halt(_slide_cue)
+		_slide_cue = cue
+	if not cue.is_empty():
+		Audio.play(cue, true)
+
+func _stop_slide_sound() -> void:
+	if not _slide_cue.is_empty():
+		Audio.halt(_slide_cue)
+		_slide_cue = &""
 
 func _on_race_finished() -> void:
 	race_completed.emit(race_time, herring)

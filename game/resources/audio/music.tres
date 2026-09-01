@@ -1,0 +1,91 @@
+[gd_resource type="Resource" script_class="MusicLibrary" format=3]
+
+[ext_resource type="Script" path="res://scripts/audio/music_library.gd" id="1_8xi46"]
+[ext_resource type="Script" path="res://scripts/audio/music_theme.gd" id="2_kv6n0"]
+[ext_resource type="AudioStream" path="res://assets/music/lostrace-ks.ogg" id="3_34a5w"]
+[ext_resource type="AudioStream" path="res://assets/music/race1-jt.ogg" id="4_1ol75"]
+[ext_resource type="AudioStream" path="res://assets/music/wonrace1-jt.ogg" id="5_fgcbl"]
+[ext_resource type="AudioStream" path="res://assets/music/calmrace-ks.ogg" id="6_vbau0"]
+[ext_resource type="AudioStream" path="res://assets/music/spunkyrace-ks.ogg" id="7_ky3v4"]
+[ext_resource type="Script" path="res://scripts/audio/music_track.gd" id="8_ramsb"]
+[ext_resource type="AudioStream" path="res://assets/music/credits1-cp.ogg" id="9_hb7qa"]
+[ext_resource type="AudioStream" path="res://assets/music/freezingpoint.ogg" id="10_ohd05"]
+[ext_resource type="AudioStream" path="res://assets/music/options1-jt.ogg" id="11_1x8ba"]
+[ext_resource type="AudioStream" path="res://assets/music/raceintro-ks.ogg" id="12_7a5p3"]
+[ext_resource type="AudioStream" path="res://assets/music/start1-jt.ogg" id="13_nypj4"]
+
+[sub_resource type="Resource" id="Resource_iduo8"]
+script = ExtResource("2_kv6n0")
+id = &"normal"
+race = ExtResource("4_1ol75")
+won = ExtResource("5_fgcbl")
+lost = ExtResource("3_34a5w")
+
+[sub_resource type="Resource" id="Resource_lrtf4"]
+script = ExtResource("2_kv6n0")
+id = &"calm"
+race = ExtResource("6_vbau0")
+won = ExtResource("5_fgcbl")
+lost = ExtResource("3_34a5w")
+
+[sub_resource type="Resource" id="Resource_pg0hx"]
+script = ExtResource("2_kv6n0")
+id = &"spunky"
+race = ExtResource("7_ky3v4")
+won = ExtResource("5_fgcbl")
+lost = ExtResource("3_34a5w")
+
+[sub_resource type="Resource" id="Resource_2stnu"]
+script = ExtResource("8_ramsb")
+id = &"credits_1"
+stream = ExtResource("9_hb7qa")
+
+[sub_resource type="Resource" id="Resource_nctck"]
+script = ExtResource("8_ramsb")
+id = &"calmrace"
+stream = ExtResource("6_vbau0")
+
+[sub_resource type="Resource" id="Resource_u5k6x"]
+script = ExtResource("8_ramsb")
+id = &"freezingpoint"
+stream = ExtResource("10_ohd05")
+
+[sub_resource type="Resource" id="Resource_750xn"]
+script = ExtResource("8_ramsb")
+id = &"lostrace_1"
+stream = ExtResource("3_34a5w")
+
+[sub_resource type="Resource" id="Resource_rfyq1"]
+script = ExtResource("8_ramsb")
+id = &"options_1"
+stream = ExtResource("11_1x8ba")
+
+[sub_resource type="Resource" id="Resource_qtjpf"]
+script = ExtResource("8_ramsb")
+id = &"race_1"
+stream = ExtResource("4_1ol75")
+
+[sub_resource type="Resource" id="Resource_oggxl"]
+script = ExtResource("8_ramsb")
+id = &"raceintro"
+stream = ExtResource("12_7a5p3")
+
+[sub_resource type="Resource" id="Resource_42v4r"]
+script = ExtResource("8_ramsb")
+id = &"spunkyrace"
+stream = ExtResource("7_ky3v4")
+
+[sub_resource type="Resource" id="Resource_4qx2p"]
+script = ExtResource("8_ramsb")
+id = &"start_1"
+stream = ExtResource("13_nypj4")
+
+[sub_resource type="Resource" id="Resource_vadkh"]
+script = ExtResource("8_ramsb")
+id = &"wonrace_1"
+stream = ExtResource("5_fgcbl")
+
+[resource]
+script = ExtResource("1_8xi46")
+tracks = Array[ExtResource("8_ramsb")]([SubResource("Resource_2stnu"), SubResource("Resource_nctck"), SubResource("Resource_u5k6x"), SubResource("Resource_750xn"), SubResource("Resource_rfyq1"), SubResource("Resource_qtjpf"), SubResource("Resource_oggxl"), SubResource("Resource_42v4r"), SubResource("Resource_4qx2p"), SubResource("Resource_vadkh")])
+themes = Array[ExtResource("2_kv6n0")]([SubResource("Resource_iduo8"), SubResource("Resource_lrtf4"), SubResource("Resource_pg0hx")])

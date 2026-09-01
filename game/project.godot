@@ -97,3 +97,4 @@ texture={
 [autoload]
 
 DebugCapture="*res://scripts/debug/debug_capture.gd"
+Audio="*res://scripts/audio/audio_director.gd"

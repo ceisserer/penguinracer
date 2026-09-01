@@ -10,6 +10,7 @@ friction = 0.2
 compression_depth = 0.03
 emits_particles = false
 takes_trackmarks = false
+slide_sound = &"ice_sound"
 albedo = ExtResource("1_21v4m")
 is_deformable = false
 legacy_color = Color(0.23529412, 0, 0.7058824, 1)

@@ -12,7 +12,10 @@
 #
 # Either way `--fixed-fps` makes the simulation advance by frame count rather
 # than by how slowly it happens to draw, which is what makes two runs — and the
-# two paths — comparable at all.
+# two paths — comparable at all. `--no-audio` keeps the run silent: a capture
+# has nothing to hear, and a container with no sound card falls back to the
+# dummy driver, which never mixes and so never reaps a stopped playback —
+# leaving a "leaked at exit" warning over every screenshot.
 set -euo pipefail
 OUT="${1:?output png}"
 FRAMES="${2:-250}"
@@ -24,7 +27,7 @@ GODOT="${GODOT:-godot}"
 ARGS=(--path "$ROOT/game" --rendering-driver opengl3
     --resolution 1280x720 --fixed-fps 60 --
     --capture="$OUT" --capture-frames="$FRAMES"
-    --auto-input="$INPUT" --course="$COURSE")
+    --auto-input="$INPUT" --course="$COURSE" --no-audio)
 
 WL_SOCKET="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/${WAYLAND_DISPLAY:-wayland-0}"
 if [[ -z "${SHOT_FORCE_SOFTWARE:-}" && -S "$WL_SOCKET" && -e /dev/dri/renderD128 ]]; then

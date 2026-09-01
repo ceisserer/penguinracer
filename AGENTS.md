@@ -27,6 +27,7 @@ game/                     Godot project (project.godot, gl_compatibility)
   scripts/course/         CourseData, TerrainLayer, prefabs, events, environments
   scripts/render/         terrain chunks, GPU snow field, spray
   scripts/camera/         chase camera        scripts/shell/  HUD, course menu
+  scripts/audio/          AudioDirector autoload + generated sound/music banks
   scripts/debug/          DebugCapture autoload (headless screenshots / scripted input),
                           key_log (what a remote desktop is doing to the keyboard)
   shaders/                terrain (splat + snow/ice shading), etr_skybox,
@@ -34,7 +35,8 @@ game/                     Godot project (project.godot, gl_compatibility)
   addons/etr_import/      one-way, re-runnable importer from the ETR data tree
   courses/<name>/         GENERATED: course.tres, course.tscn, heightmap.res, splat_*.png
   resources/  i18n/       GENERATED: layers, prefabs, environments, events, course
-                          catalog, 13 translations
+                          catalog, sound bank + music library, 13 translations
+  assets/sounds|music/    GENERATED: the 10 effects and 10 pieces, copied verbatim
   scenes/                 race.tscn, course_menu.tscn, key_log.tscn
   tests/                  headless physics suite + ODE benchmark
   spikes/s1_pingpong/     ping-pong render-target spike (risk S1)
@@ -53,6 +55,7 @@ Not a git repository.
 ```bash
 godot --path game                                                  # play (Esc = course menu)
 godot --path game -- --remote-keyboard                             # ... over a pulsed remote keyboard
+godot --path game -- --no-audio                                    # ... silent, for captures
 godot --path game res://scenes/key_log.tscn                        # what the link does to the keyboard
 godot --headless --path game --script res://tests/run_tests.gd     # physics suite + benchmark
 godot --path game spikes/s1_pingpong/s1_spike.tscn                 # snow RT spike
@@ -83,12 +86,12 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 
 | Phase | State |
 |---|---|
-| 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 2293 assertions, 0 failures, 0.8 s headless. |
+| 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 2393 assertions, 0 failures, 0.9 s headless. |
 | 1 — importer + first course | **done** — all 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. bunny_hill drivable in a browser; wild_mountains (100×1000) runs. |
 | 2 — rendering | partial — splat PBR, chunked terrain, instanced trees, HUD, migrated skyboxes. Tone matched to the original on Bunny Hill; no LightmapGI bake. Snow and ice carry procedural micro-relief, a twinkling crystal glint and a Fresnel sky reflection. |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror both wired; a carve leaves a track with a shaded trench, a self-occluded floor and a bright ploughed lip. |
 | 4 — character | placeholder done — welded ArrayMesh from `shape.lst` + Skeleton3D with ETR joint names + keyframe AnimationLibrary. |
-| 5 — game shell | partial — course-select menu over the live race, generated course catalog, 13 languages wired to `tr()`. No cups, medals, profiles or audio (data is imported and waiting). |
+| 5 — game shell | partial — course-select menu over the live race, generated course catalog, 13 languages wired to `tr()`, and audio: 10 effects + 10 pieces + 3 racing themes on an `AudioDirector` autoload that reproduces ETR's one-voice-per-cue mixer. No cups, medals or profiles (data is imported and waiting). |
 | 6 — polish/ship | not started. |
 
 ### Spikes
@@ -104,7 +107,10 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 
 - Near-field terrain mesh too coarse (~0.5 m vertices vs a 0.45 m contact patch) — the trench reads
   in lighting but not in silhouette. Fix: denser mesh for chunks inside the deformation window.
-- Web cold load 161 MB (128 MB pck) — all 44 courses bundled. Needs per-course streaming (Phase 6).
+- Web cold load 161 MB (128 MB pck) — all 44 courses bundled, plus 18 MB of audio. Needs
+  per-course streaming (Phase 6); the 14 MB of music is the easiest part to load on demand.
+- The terrain slide sound is on/off with no speed term, and 12 of the 43 terrains (including
+  `snow`) name no sound — both faithful, both the obvious first improvement. See the deviations.
 - Snow tone is matched on one course under one environment (Bunny Hill / `tuxracer_sunny`).
   The other seven presets and the evening/night curves have not been compared against the
   original. The snow/ice/roughness tables now cover all eight splat layers.
@@ -221,6 +227,25 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   deformation stamp gated on `[part]` instead. The two agree on every terrain a shipped course
   uses, and the tests passed because they asserted only what the consumer consumed. When adding a
   surface property, trace it to its consumer and test it there.
+- **ETR's mixer has one voice per sound, and the content relies on it.** `TSound` owns a single
+  `sf::Sound` and `Play` early-returns while it is playing, so a cue cannot overlap itself — which
+  is why a herring fires `pickup1`, `pickup2` *and* `pickup3`, three cues for one event. A voice
+  pool would change how a burst sounds. `Halt` likewise checks `getLoop()` first, so one-shots
+  can only be stopped by `HaltAll`. Both are reproduced in `AudioDirector`.
+- **`[vol]` in `sounds.lst` is dead data.** `CSound::LoadChunk` builds every chunk at
+  `param.sound_volume` and never reads the column; the only live per-sound mix is
+  `SetSoundVolumes` in `racing.cpp`, which names six of the ten with *different* numbers
+  (`snow_sound` is `[vol] 0.2` in the file and gain 1.5 in the code). Both are migrated —
+  `SoundCue.race_gain` is the live one, `legacy_volume` the file's — and volumes clip at
+  `MIX_MAX_VOLUME` = 100, so at the default 90 that 1.5 is really 1.11.
+- **The dummy audio driver never reaps a stopped playback.** A container with no sound card
+  falls back to it, and Godot then prints "N ObjectDB instances were leaked at exit" after any
+  run that played anything — stopping the player, clearing its stream and freeing the node
+  change nothing, and a five-line play-then-stop reproduces it. `tools/shot.sh` passes
+  `--no-audio`; do not go hunting for a leak in `AudioDirector` when a capture reports one.
+- **A `SceneTree` script's `_initialize` runs before the root Window is inside the tree**, and an
+  `AudioStreamPlayer` refuses to start outside one. `tests/run_tests.gd` runs everything on the
+  first `_process` for that reason — do not move it back.
 - **Directional shadows stop at `directional_shadow_max_distance`**, on a sphere around the camera.
   Set shorter than the visible slope it reads as an arc of shadow travelling in front of the
   player. It is derived from the environment's fog range in `RaceScene._shadow_range_for` — keep it
@@ -267,6 +292,13 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 - **Ambient comes from the migrated `[amb]`, not from the sky** —
   `Environment.ambient_light_sky_contribution` has to be set to 0 for that to be true. See the
   trap list.
+- **The terrain slide sound resolves through the dominant splat layer**, where ETR used
+  `Course.GetTerrainIdx(x, z, 0.5)` — the type holding at least half the blend, else nothing. Ours
+  always resolves to a layer, so the cue changes slightly earlier across a boundary and a blend of
+  two noisy terrains is never silent.
+- **The slide has no speed or lean term.** ETR wrote one — `SlideVolume` in `racing.cpp` — and
+  ships it commented out above "this function is not used yet", so the sound is on or off. Ported
+  as it stands; the same goes for the 12 terrains that name no `[sound]` at all, `snow` included.
 - Numeric string IDs became semantic keys (`PRESS_ANY_KEY_TO_START`); old IDs are traceable via
   `i18n/legacy_string_ids.cfg`.
 

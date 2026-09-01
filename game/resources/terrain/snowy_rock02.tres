@@ -10,6 +10,7 @@ friction = 0.6
 compression_depth = 0.01
 emits_particles = false
 takes_trackmarks = false
+slide_sound = &"rock_sound"
 albedo = ExtResource("1_cas20")
 is_deformable = false
 legacy_color = Color(0.7058824, 0.5882353, 0.5882353, 1)

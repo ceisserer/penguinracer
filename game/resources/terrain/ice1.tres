@@ -10,6 +10,7 @@ friction = 0.2
 compression_depth = 0.03
 emits_particles = false
 takes_trackmarks = false
+slide_sound = &"ice_sound"
 albedo = ExtResource("1_lvluj")
 is_deformable = false
 shiny = true

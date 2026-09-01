@@ -37,10 +37,25 @@ const OUT_TERRAIN := "res://resources/terrain"
 const OUT_OBJECTS := "res://resources/objects"
 const OUT_ENV := "res://resources/environments"
 const OUT_EVENTS := "res://resources/events"
+const OUT_AUDIO := "res://resources/audio"
 const OUT_COURSES := "res://courses"
 const ASSET_TERRAIN := "res://assets/terrain"
 const ASSET_OBJECTS := "res://assets/objects"
 const ASSET_ENV := "res://assets/env"
+const ASSET_SOUNDS := "res://assets/sounds"
+const ASSET_MUSIC := "res://assets/music"
+
+## `SetSoundVolumes` in `racing.cpp` — the original's whole per-sound mix, and
+## the only thing that ever revisits a chunk's volume after it is loaded. The
+## four cues missing from it keep the plain effects volume, exactly as there.
+const RACE_SOUND_GAIN: Dictionary = {
+	"pickup1": 1.0,
+	"pickup2": 0.8,
+	"pickup3": 0.8,
+	"snow_sound": 1.5,
+	"ice_sound": 0.6,
+	"rock_sound": 1.1,
+}
 
 var source_dir: String = ""
 var force: bool = false
@@ -49,6 +64,9 @@ var warnings: PackedStringArray = PackedStringArray()
 ## Menu index rows, accumulated by [method import_course] during the resources
 ## stage and written out by [method write_course_catalog].
 var catalog_entries: Array[CourseListing] = []
+## Cue names seen in `sounds.lst`, so [method import_terrains] can tell a
+## terrain that names a missing effect from one that names none.
+var sound_cue_names: PackedStringArray = PackedStringArray()
 
 func _log(msg: String) -> void:
 	log_lines.push_back(msg)
@@ -122,9 +140,26 @@ func import_terrains(stage: String) -> Dictionary:
 		layer.takes_trackmarks = SPList.get_bool(rec, "trackmarks", false)
 		layer.shiny = SPList.get_bool(rec, "shiny", false)
 		layer.legacy_color = SPList.get_color3(rec, "col")
+		layer.slide_sound = StringName(SPList.get_str(rec, "sound"))
+		# Silence is normal here — 12 of the 43 records ship without a `[sound]`,
+		# `snow` among them. A name that resolves to nothing is not.
+		if not layer.slide_sound.is_empty() and not sound_cue_names.is_empty() \
+				and not sound_cue_names.has(String(layer.slide_sound)):
+			_warn("terrain '%s' names unknown sound cue '%s'" % [name, layer.slide_sound])
 		# Snow deforms, ice and rock do not. The original had no such concept —
 		# it only knew whether a terrain took a decal.
 		layer.is_deformable = layer.takes_trackmarks
+
+		# `terrains.lst` reuses `pave04` for three different records — different
+		# texture, different colour key, and only the first carries a `[sound]`.
+		# The original indexes `TerrList` by position and never looks a terrain
+		# up by name, so it keeps all three; keying the layer resources by name
+		# collapses them and the last one wins. Pre-existing and untouched here
+		# — disambiguating the names re-identifies every course's splat layers —
+		# but it should not be silent.
+		if by_name.has(name):
+			_warn("terrain '%s' is declared more than once; the last record wins"
+				% name)
 
 		# The original matches colours within ±30 per channel against a 45-entry
 		# list, so two terrains can silently collide (etracer.md §9). Report it
@@ -166,6 +201,107 @@ static func match_terrain(r: int, g: int, b: int, colors: Array[Color]) -> int:
 				and absi(b - c.b8) < TERRAIN_COLOR_TOLERANCE:
 			return i
 	return 0
+
+# ====================================================================
+#                       global: sounds + music
+# ====================================================================
+
+## `sounds/sounds.lst` + `music/music.lst` + `music/racing_themes.lst` → one
+## [SoundBank] and one [MusicLibrary].
+##
+## Both are single global resources rather than per-course references: the ten
+## effects and ten pieces are the same on every course, and a per-course
+## reference would duplicate 18 MB of streams into every pack that gets
+## exported separately.
+##
+## Only files the lists actually name are copied. The original loads by list
+## too, so anything else in those directories was never reachable.
+func import_audio(stage: String) -> void:
+	var sounds: Array[Dictionary] = SPList.load_file(
+		source_dir.path_join("sounds/sounds.lst"))
+	var pieces: Array[Dictionary] = SPList.load_file(
+		source_dir.path_join("music/music.lst"))
+
+	sound_cue_names = PackedStringArray()
+	for rec: Dictionary in sounds:
+		var name: String = SPList.get_str(rec, "name")
+		if not name.is_empty():
+			sound_cue_names.push_back(name)
+
+	if stage == STAGE_ASSETS:
+		ensure_dir(ASSET_SOUNDS)
+		ensure_dir(ASSET_MUSIC)
+		var copied: int = 0
+		for rec: Dictionary in sounds:
+			var f: String = SPList.get_str(rec, "file")
+			if not f.is_empty() and copy_file(
+					source_dir.path_join("sounds").path_join(f),
+					ASSET_SOUNDS.path_join(f)):
+				copied += 1
+		for rec: Dictionary in pieces:
+			var f: String = SPList.get_str(rec, "file")
+			if not f.is_empty() and copy_file(
+					source_dir.path_join("music").path_join(f),
+					ASSET_MUSIC.path_join(f)):
+				copied += 1
+		_log("audio files copied: %d" % copied)
+		return
+
+	ensure_dir(OUT_AUDIO)
+	var bank := SoundBank.new()
+	for rec: Dictionary in sounds:
+		var name: String = SPList.get_str(rec, "name")
+		var file: String = SPList.get_str(rec, "file")
+		if name.is_empty() or file.is_empty():
+			continue
+		var cue := SoundCue.new()
+		cue.id = StringName(name)
+		# `[vol]` is dead in the original — see SoundCue — so the live number is
+		# the gain `racing.cpp` sets by name, or 1.0 for the cues it never names.
+		cue.legacy_volume = SPList.get_float(rec, "vol", 1.0)
+		cue.race_gain = float(RACE_SOUND_GAIN.get(name, 1.0))
+		cue.stream = _load_audio(ASSET_SOUNDS.path_join(file), "sound '%s'" % name)
+		bank.cues.push_back(cue)
+	ResourceSaver.save(bank, SoundBank.PATH)
+
+	var lib := MusicLibrary.new()
+	var streams: Dictionary[String, AudioStream] = {}
+	for rec: Dictionary in pieces:
+		var name: String = SPList.get_str(rec, "name")
+		var file: String = SPList.get_str(rec, "file")
+		if name.is_empty() or file.is_empty():
+			continue
+		var track := MusicTrack.new()
+		track.id = StringName(name)
+		track.stream = _load_audio(ASSET_MUSIC.path_join(file), "music '%s'" % name)
+		streams[name] = track.stream
+		lib.tracks.push_back(track)
+
+	for rec: Dictionary in SPList.load_file(source_dir.path_join("music/racing_themes.lst")):
+		var name: String = SPList.get_str(rec, "name")
+		if name.is_empty():
+			continue
+		var theme := MusicTheme.new()
+		theme.id = StringName(name)
+		# The defaults are the original's own — `CMusic::LoadMusicList` passes
+		# them to `SPStrN`, so a theme may name only the track that differs.
+		theme.race = streams.get(SPList.get_str(rec, "race", "race_1"), null)
+		theme.won = streams.get(SPList.get_str(rec, "wonrace", "wonrace_1"), null)
+		theme.lost = streams.get(SPList.get_str(rec, "lostrace", "lostrace_1"), null)
+		lib.themes.push_back(theme)
+
+	ResourceSaver.save(lib, MusicLibrary.PATH)
+	_log("audio: %d effects, %d music pieces, %d themes"
+		% [bank.cues.size(), lib.tracks.size(), lib.themes.size()])
+
+## A copied audio file as a stream, warning rather than failing if the editor's
+## import pass has not seen it yet — the two-stage split exists for exactly
+## this, and a missing stream leaves a named cue that simply makes no sound.
+func _load_audio(path: String, what: String) -> AudioStream:
+	if not ResourceLoader.exists(path):
+		_warn("%s has no imported stream at %s" % [what, path])
+		return null
+	return load(path) as AudioStream
 
 # ====================================================================
 #                      heightmap: decode + dequantize
