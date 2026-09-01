@@ -13,3 +13,5 @@ takes_trackmarks = false
 albedo = ExtResource("1_bytsf")
 is_deformable = false
 legacy_color = Color(1, 0.7058824, 0.5882353, 1)
+legacy_name = &"snowy_pebbles"
+legacy_index = 33

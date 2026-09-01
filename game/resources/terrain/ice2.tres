@@ -14,3 +14,5 @@ albedo = ExtResource("1_vi0to")
 is_deformable = false
 shiny = true
 legacy_color = Color(0, 0.23529412, 0.47058824, 1)
+legacy_name = &"ice2"
+legacy_index = 1

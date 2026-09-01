@@ -9,3 +9,5 @@ id = &"snow"
 compression_depth = 0.11
 albedo = ExtResource("1_gr0t1")
 legacy_color = Color(1, 1, 1, 1)
+legacy_name = &"snow"
+legacy_index = 4

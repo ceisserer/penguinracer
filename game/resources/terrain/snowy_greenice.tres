@@ -14,3 +14,5 @@ slide_sound = &"ice_sound"
 albedo = ExtResource("1_0pdta")
 is_deformable = false
 legacy_color = Color(0, 0.23529412, 0.7058824, 1)
+legacy_name = &"snowy_greenice"
+legacy_index = 8

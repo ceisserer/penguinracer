@@ -11,3 +11,5 @@ compression_depth = 0.07
 slide_sound = &"snow_sound"
 albedo = ExtResource("1_eelok")
 legacy_color = Color(0.9019608, 0.9019608, 1, 1)
+legacy_name = &"dirty_snow"
+legacy_index = 5

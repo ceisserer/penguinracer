@@ -13,3 +13,5 @@ takes_trackmarks = false
 albedo = ExtResource("1_ofix8")
 is_deformable = false
 legacy_color = Color(0.7058824, 0.3529412, 0, 1)
+legacy_name = &"fine_pebbles"
+legacy_index = 32

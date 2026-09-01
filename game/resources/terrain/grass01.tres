@@ -14,3 +14,5 @@ slide_sound = &"grass_sound"
 albedo = ExtResource("1_v0mk3")
 is_deformable = false
 legacy_color = Color(0, 0.47058824, 0, 1)
+legacy_name = &"grass01"
+legacy_index = 37

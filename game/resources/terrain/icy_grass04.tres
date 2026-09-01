@@ -14,3 +14,5 @@ slide_sound = &"grass_sound"
 albedo = ExtResource("1_mowy5")
 is_deformable = false
 legacy_color = Color(0.11764706, 0.9411765, 0.11764706, 1)
+legacy_name = &"icy_grass04"
+legacy_index = 42

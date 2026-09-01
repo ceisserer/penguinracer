@@ -13,3 +13,5 @@ takes_trackmarks = false
 albedo = ExtResource("1_7mfqt")
 is_deformable = false
 legacy_color = Color(0.9411765, 0.3529412, 0, 1)
+legacy_name = &"icy_pave"
+legacy_index = 31

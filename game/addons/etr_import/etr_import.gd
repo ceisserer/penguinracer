@@ -107,13 +107,24 @@ static func load_external_image(path: String) -> Image:
 #                       global: terrain layers
 # ====================================================================
 
-## `terrains.lst` → one [TerrainLayer] per type. Gameplay numbers are migrated
+## `terrains.lst` → one [TerrainLayer] per record. Gameplay numbers are migrated
 ## verbatim (they are tuned balance data); the PBR slots are left for authoring.
+##
+## One layer per *record*, never per `[name]`: the original indexes `TerrList`
+## by position and `TTerrType` does not even store the name, so a repeated name
+## is legal there and `terrains.lst` uses one three times. See
+## [method _layer_id_for].
 func import_terrains(stage: String) -> Dictionary:
 	var recs: Array[Dictionary] = SPList.load_file(source_dir.path_join("terrains/terrains.lst"))
-	var by_name: Dictionary[String, TerrainLayer] = {}
+	var by_id: Dictionary[String, TerrainLayer] = {}
 	var order: Array[String] = []
 	var colors: Array[Color] = []
+	# How often each `[name]` is declared, so the first holder of a repeated one
+	# can keep it and the rest can be told apart. Needs the whole file first.
+	var name_counts: Dictionary[String, int] = {}
+	for rec: Dictionary in recs:
+		var n: String = SPList.get_str(rec, "name")
+		name_counts[n] = name_counts.get(n, 0) + 1
 
 	if stage == STAGE_ASSETS:
 		ensure_dir(ASSET_TERRAIN)
@@ -125,15 +136,30 @@ func import_terrains(stage: String) -> Dictionary:
 			if copy_file(source_dir.path_join("terrains").path_join(tex),
 					ASSET_TERRAIN.path_join(tex)):
 				copied += 1
+			else:
+				# Two records name a texture that is not in the tree: `pave04`
+				# wants a `pave04.png` nobody shipped, and `snowy_hockey_ice`
+				# writes `snowy_ice02` without the extension. `TTexture::Load`
+				# concatenates dir and filename and guesses nothing, so both are
+				# untextured in the original as well — migrated as they stand,
+				# but the layer that comes out with no albedo should say why.
+				_warn("terrain '%s' texture '%s' is not in the source tree"
+					% [SPList.get_str(rec, "name"), tex])
 		_log("terrain textures copied: %d" % copied)
 
 	ensure_dir(OUT_TERRAIN)
 	var seen_colors: Dictionary[int, String] = {}
 	for i: int in recs.size():
 		var rec: Dictionary = recs[i]
-		var name: String = SPList.get_str(rec, "name", "terrain_%d" % i)
+		var declared: String = SPList.get_str(rec, "name", "terrain_%d" % i)
+		var id: String = _layer_id_for(rec, i, name_counts, by_id)
+		if id != declared:
+			_log("terrain record %d is a second '%s' (%s); imported as '%s'"
+				% [i, declared, SPList.get_str(rec, "texture", "no texture"), id])
 		var layer := TerrainLayer.new()
-		layer.id = StringName(name)
+		layer.id = StringName(id)
+		layer.legacy_name = StringName(declared)
+		layer.legacy_index = i
 		layer.friction = SPList.get_float(rec, "friction", 0.35)
 		layer.compression_depth = SPList.get_float(rec, "depth", 0.05)
 		layer.emits_particles = SPList.get_bool(rec, "part", false)
@@ -145,21 +171,10 @@ func import_terrains(stage: String) -> Dictionary:
 		# `snow` among them. A name that resolves to nothing is not.
 		if not layer.slide_sound.is_empty() and not sound_cue_names.is_empty() \
 				and not sound_cue_names.has(String(layer.slide_sound)):
-			_warn("terrain '%s' names unknown sound cue '%s'" % [name, layer.slide_sound])
+			_warn("terrain '%s' names unknown sound cue '%s'" % [id, layer.slide_sound])
 		# Snow deforms, ice and rock do not. The original had no such concept —
 		# it only knew whether a terrain took a decal.
 		layer.is_deformable = layer.takes_trackmarks
-
-		# `terrains.lst` reuses `pave04` for three different records — different
-		# texture, different colour key, and only the first carries a `[sound]`.
-		# The original indexes `TerrList` by position and never looks a terrain
-		# up by name, so it keeps all three; keying the layer resources by name
-		# collapses them and the last one wins. Pre-existing and untouched here
-		# — disambiguating the names re-identifies every course's splat layers —
-		# but it should not be silent.
-		if by_name.has(name):
-			_warn("terrain '%s' is declared more than once; the last record wins"
-				% name)
 
 		# The original matches colours within ±30 per channel against a 45-entry
 		# list, so two terrains can silently collide (etracer.md §9). Report it
@@ -169,8 +184,8 @@ func import_terrains(stage: String) -> Dictionary:
 		for other_key: int in seen_colors:
 			if _colors_collide(key, other_key):
 				_warn("terrain '%s' colour key collides with '%s' (±%d matching)"
-					% [name, seen_colors[other_key], TERRAIN_COLOR_TOLERANCE])
-		seen_colors[key] = name
+					% [id, seen_colors[other_key], TERRAIN_COLOR_TOLERANCE])
+		seen_colors[key] = id
 
 		if stage == STAGE_RESOURCES:
 			var tex_name: String = SPList.get_str(rec, "texture")
@@ -178,14 +193,41 @@ func import_terrains(stage: String) -> Dictionary:
 				var tex_path: String = ASSET_TERRAIN.path_join(tex_name)
 				if ResourceLoader.exists(tex_path):
 					layer.albedo = load(tex_path)
-			ResourceSaver.save(layer, OUT_TERRAIN.path_join("%s.tres" % name))
+			ResourceSaver.save(layer, OUT_TERRAIN.path_join("%s.tres" % id))
 
-		by_name[name] = layer
-		order.push_back(name)
+		by_id[id] = layer
+		order.push_back(id)
 		colors.push_back(layer.legacy_color)
 
-	_log("terrain layers: %d" % recs.size())
-	return {"by_name": by_name, "order": order, "colors": colors}
+	_log("terrain layers: %d" % by_id.size())
+	if by_id.size() != recs.size():
+		_warn("terrain layers collapsed: %d records → %d resources"
+			% [recs.size(), by_id.size()])
+	return {"by_id": by_id, "order": order, "colors": colors}
+
+## The resource id for terrain record [param index], unique across the file.
+##
+## `terrains.lst` declares `pave04` three times — different texture, different
+## colour key, and only the first carries a `[sound]`. That is legal in the
+## original: courses reference a terrain by *colour*, `CCourse::LoadTerrainTypes`
+## indexes `TerrList` by position, and `TTerrType` has no name field at all. Here
+## each record becomes a file, so a repeated name has to be resolved or two of
+## the three are lost.
+##
+## The first holder keeps the plain name — for `pave04` that is the record whose
+## texture is `pave04.png`. A later one takes its texture stem, which is unique
+## across all 43 records and is what actually tells them apart, matching how the
+## file already names `icy_pave05` after `icy_pave05.png`. The record index is
+## the fallback if a stem is taken, empty, or is some other record's name.
+static func _layer_id_for(rec: Dictionary, index: int, name_counts: Dictionary,
+		taken: Dictionary) -> String:
+	var name: String = SPList.get_str(rec, "name", "terrain_%d" % index)
+	if int(name_counts.get(name, 1)) < 2 or not taken.has(name):
+		return name
+	var stem: String = SPList.get_str(rec, "texture").get_basename()
+	if not stem.is_empty() and not taken.has(stem) and not name_counts.has(stem):
+		return stem
+	return "%s_%d" % [name, index]
 
 static func _colors_collide(a: int, b: int) -> bool:
 	return absi((a >> 16 & 0xFF) - (b >> 16 & 0xFF)) < TERRAIN_COLOR_TOLERANCE \
@@ -788,6 +830,15 @@ func import_course(group: String, dir_name: String,
 		var lp: String = OUT_TERRAIN.path_join("%s.tres" % n)
 		if ResourceLoader.exists(lp):
 			layers.push_back(load(lp))
+		else:
+			# Skipping the slot would slide every later layer onto the wrong
+			# splat channel — the course would still load and play the wrong
+			# friction. Keep the position and make the hole loud instead.
+			_warn("%s: terrain layer '%s' is missing; splat channel %d gets a default"
+				% [dir_name, n, layers.size()])
+			var missing := TerrainLayer.new()
+			missing.id = StringName(n)
+			layers.push_back(missing)
 	course.terrain_layers = layers
 
 	var splat_maps: Array[Texture2D] = []

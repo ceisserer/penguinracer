@@ -13,3 +13,5 @@ slide_sound = &"rock_sound"
 albedo = ExtResource("1_fgyg7")
 is_deformable = false
 legacy_color = Color(0.47058824, 0, 0, 1)
+legacy_name = &"wall"
+legacy_index = 25

@@ -12,3 +12,5 @@ takes_trackmarks = false
 albedo = ExtResource("1_gbkil")
 is_deformable = false
 legacy_color = Color(1, 0.9019608, 1, 1)
+legacy_name = &"strike_snow"
+legacy_index = 7

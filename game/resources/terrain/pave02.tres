@@ -12,3 +12,5 @@ takes_trackmarks = false
 albedo = ExtResource("1_a3u1i")
 is_deformable = false
 legacy_color = Color(0.8235294, 0, 0, 1)
+legacy_name = &"pave02"
+legacy_index = 27

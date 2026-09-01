@@ -42,7 +42,17 @@ extends Resource
 ## Migrated `[shiny]` flag — drives the specular/sparkle term.
 @export var shiny: bool = false
 ## Original RGB colour key from terrain.png, kept for re-import diffing only.
+##
+## This, not [member id], is what identifies a terrain in the original: a course
+## paints colours and `CCourse::GetTerrainIdx` resolves them within ±30.
 @export var legacy_color: Color = Color.MAGENTA
+## The `[name]` this record carries in `terrains.lst`. Differs from [member id]
+## only where the file declares one name twice — `pave04`, three times — which
+## is legal there because nothing looks a terrain up by name.
+@export var legacy_name: StringName = &""
+## Position of the record in `terrains.lst`, which is the original's real terrain
+## index (`TerrList[i]`). Kept for re-import diffing; nothing here indexes by it.
+@export var legacy_index: int = -1
 
 ## Whether this layer should be shaded as ice rather than as snow or rock.
 ##

@@ -9,3 +9,5 @@ id = &"thin_snow"
 friction = 0.4
 albedo = ExtResource("1_lpjxy")
 legacy_color = Color(0.9019608, 1, 1, 1)
+legacy_name = &"thin_snow"
+legacy_index = 6

@@ -14,3 +14,5 @@ slide_sound = &"rock_sound"
 albedo = ExtResource("1_cas20")
 is_deformable = false
 legacy_color = Color(0.7058824, 0.5882353, 0.5882353, 1)
+legacy_name = &"snowy_rock02"
+legacy_index = 15

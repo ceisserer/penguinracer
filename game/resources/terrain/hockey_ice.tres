@@ -14,3 +14,5 @@ slide_sound = &"ice_sound"
 albedo = ExtResource("1_swghe")
 is_deformable = false
 legacy_color = Color(0.11764706, 0.11764706, 0.47058824, 1)
+legacy_name = &"hockey_ice"
+legacy_index = 3

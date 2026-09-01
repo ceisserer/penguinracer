@@ -20,6 +20,7 @@ func _run() -> void:
 	TestForces.run(t)
 	TestSimulation.run(t)
 	TestSurface.run(t)
+	TestTerrainLibrary.run(t)
 	TestInput.run(t)
 	TestAudio.run(t)
 

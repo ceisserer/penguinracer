@@ -14,3 +14,5 @@ slide_sound = &"mud_sound"
 albedo = ExtResource("1_o137u")
 is_deformable = false
 legacy_color = Color(0.8235294, 0.8235294, 0, 1)
+legacy_name = &"dirt"
+legacy_index = 22
