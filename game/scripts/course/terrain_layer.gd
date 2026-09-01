@@ -34,3 +34,14 @@ extends Resource
 @export var shiny: bool = false
 ## Original RGB colour key from terrain.png, kept for re-import diffing only.
 @export var legacy_color: Color = Color.MAGENTA
+
+## Whether this layer should be shaded as ice rather than as snow or rock.
+##
+## ETR has no such flag: `[shiny]` is the closest thing, but the data only sets
+## it on three of the five ice terrains — `hockey_ice` and `snowy_ice` are ice
+## by every other measure and ship without it. The friction clause catches them:
+## ETR gives every ice terrain `[friction] 0.2`, and nothing else in
+## `terrains.lst` goes below 0.3. `icy_pave`/`icy_grass03` sit at 0.4 and are
+## correctly excluded — they are frozen ground, not a frozen surface.
+func is_ice() -> bool:
+	return shiny or (friction <= 0.25 and not is_deformable)

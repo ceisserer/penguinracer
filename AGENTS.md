@@ -28,7 +28,8 @@ game/                     Godot project (project.godot, gl_compatibility)
   scripts/render/         terrain chunks, GPU snow field, spray
   scripts/camera/         chase camera        scripts/shell/  HUD, course menu
   scripts/debug/          DebugCapture autoload (headless screenshots / scripted input)
-  shaders/                terrain, etr_skybox, snow_trail, s1_displace
+  shaders/                terrain (splat + snow/ice shading), etr_skybox,
+                          snow_trail, s1_displace
   addons/etr_import/      one-way, re-runnable importer from the ETR data tree
   courses/<name>/         GENERATED: course.tres, course.tscn, heightmap.res, splat_*.png
   resources/  i18n/       GENERATED: layers, prefabs, environments, events, course
@@ -37,7 +38,8 @@ game/                     Godot project (project.godot, gl_compatibility)
   tests/                  headless physics suite + ODE benchmark
   spikes/s1_pingpong/     ping-pong render-target spike (risk S1)
 etr-0.8.4/                original source + data — READ-ONLY, never write here
-tools/                    import_all.sh, shot.sh (deterministic screenshot),
+tools/                    import_all.sh, shot.sh (deterministic screenshot, real GPU
+                          when there is one),
                           png.py + regionstats.py + linstats.py (compare a
                           capture against a reference numerically),
                           webtest/ (COOP/COEP server + puppeteer runner)
@@ -68,14 +70,20 @@ Export presets: `Web` (all 44 courses), `WebOneCourse` (bunny_hill, 6.6 MB pck),
 The test server must set COOP/COEP and `.wasm`/`.pck` MIME types or the export fails obscurely.
 Prerequisite: Godot 4.7.2 on `PATH` as `godot`, plus export templates for web.
 
+`tools/shot.sh` renders on the container's real GPU (Wayland socket + `/dev/dri/renderD128`),
+which needs `libegl1 libegl-mesa0 libdecor-0-0` installed; without them Godot reports it as
+"your video card drivers seem not to support the required OpenGL version" and silently falls
+back. 120 frames of Bunny Hill: ~3 s on the GPU, ~2 min under llvmpipe. `SHOT_FORCE_SOFTWARE=1`
+takes the slow path, which is worth doing before trusting a small tone measurement.
+
 ## Current state
 
 | Phase | State |
 |---|---|
 | 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 2278 assertions, 0 failures, 0.7 s headless. |
 | 1 — importer + first course | **done** — all 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. bunny_hill drivable in a browser; wild_mountains (100×1000) runs. |
-| 2 — rendering | partial — splat PBR, chunked terrain, instanced trees, HUD, migrated skyboxes. Tone matched to the original on Bunny Hill; no LightmapGI bake. |
-| 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror both wired; a carve leaves a visible track. |
+| 2 — rendering | partial — splat PBR, chunked terrain, instanced trees, HUD, migrated skyboxes. Tone matched to the original on Bunny Hill; no LightmapGI bake. Snow and ice carry procedural micro-relief, a twinkling crystal glint and a Fresnel sky reflection. |
+| 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror both wired; a carve leaves a track with a shaded trench, a self-occluded floor and a bright ploughed lip. |
 | 4 — character | placeholder done — welded ArrayMesh from `shape.lst` + Skeleton3D with ETR joint names + keyframe AnimationLibrary. |
 | 5 — game shell | partial — course-select menu over the live race, generated course catalog, 13 languages wired to `tr()`. No cups, medals, profiles or audio (data is imported and waiting). |
 | 6 — polish/ship | not started. |
@@ -96,7 +104,7 @@ Prerequisite: Godot 4.7.2 on `PATH` as `godot`, plus export templates for web.
 - Web cold load 161 MB (128 MB pck) — all 44 courses bundled. Needs per-course streaming (Phase 6).
 - Snow tone is matched on one course under one environment (Bunny Hill / `tuxracer_sunny`).
   The other seven presets and the evening/night curves have not been compared against the
-  original, and `layer_snowness` still only covers the first four splat layers.
+  original. The snow/ice/roughness tables now cover all eight splat layers.
 - Asset licence audit not started — blocks Phase 5, long lead time.
 
 ## Architecture rules
@@ -182,6 +190,21 @@ Prerequisite: Godot 4.7.2 on `PATH` as `godot`, plus export templates for web.
   F0 as `0.16 * s * s`, so 0.5 means F0 = 0.04 — snow's is nearer 0.02, and ETR gives its terrain
   light a black `[spec]`, i.e. none at all. On a surface already close to the ceiling that
   difference is the near field pinning at 255 and the albedo texture disappearing.
+- **A procedural relief field's strength is not a 0..1 knob.** The detail map stores the
+  gradient of a height field *with respect to UV*, and that gradient peaks near 12 — so a
+  "strength" of 0.18 is a slope of 2.9, i.e. a 71 degree tilt, and the first render of it was a
+  field of blue blotches. The uniforms are metres of relief (`detail_relief_fine` = 8 mm of wind
+  crust) and the shader divides by metres-per-repeat to get a slope. Write the unit in the name.
+- **`normalize()` of a mipped white-noise tap is a NaN.** White noise averages to middle grey,
+  which decodes to the zero vector at the far end of the mip chain — and a NaN in
+  `SPECULAR_LIGHT` survives being multiplied by a zero distance fade, so the term you thought you
+  had faded out paints the whole horizon. Add the raw vector to the normal instead and let it
+  degenerate: as the facets average out, the glint normal slides back to the surface normal,
+  which is what a field of sub-pixel crystals does anyway.
+- **`git stash` for an A/B render stashes your test harness too.** Capturing a "before" frame by
+  stashing the working tree also reverted the change to `tools/shot.sh` that made captures fast,
+  so the baseline silently went back to the two-minute software path and timed out mid-script,
+  leaving the work stashed. Commit tooling changes first, then `git stash push -- game`.
 - **Directional shadows stop at `directional_shadow_max_distance`**, on a sphere around the camera.
   Set shorter than the visible slope it reads as an arc of shadow travelling in front of the
   player. It is derived from the environment's fog range in `RaceScene._shadow_range_for` — keep it
@@ -199,6 +222,20 @@ Prerequisite: Godot 4.7.2 on `PATH` as `godot`, plus export templates for web.
   slow), so a trench is faster and racing lines matter. Plan §4.3 originally said "raise"; that was
   a wording error, corrected 2026-08-31. Both coefficients are exported so the feel can be redone.
 - **Finish sequence keeps real gravity** instead of the original's flat 500 N hack.
+- **Snow and ice get view-dependent terms the original has no equivalent for.** ETR shades both
+  as flat textured diffuse; what distinguishes them there is the texture and `[friction]`. Here
+  snow gets two octaves of procedural micro-relief (wind crust and wind-stretched drifts, faded
+  by distance) and a glint built from per-texel facet normals, so a different scatter of crystals
+  catches the sun as you ride past. Ice gets a Fresnel-weighted sky reflection through `EMISSION`
+  — Compatibility will not bind the `Sky` to a spatial shader and the environment reflection is
+  deliberately off, so the sky is a two-colour ramp from the preset — plus a tight sun glare on
+  the same Fresnel weight, and a diffuse albedo scaled to 0.82. The albedo cut is the part that
+  makes the rest visible: Schlick at the ~65 degree incidence a chase camera sits at is about
+  0.09, and 0.09 of sky over an already near-white albedo is four levels nobody sees. All of it
+  is behind uniforms; `ice_albedo = 1.0` and `detail_relief_* = 0` restore the previous look.
+- **Which layers are ice is `TerrainLayer.is_ice()`, not `[shiny]`.** The data only marks three of
+  the five ice terrains shiny; `hockey_ice` and `snowy_ice` ship without it. The friction clause
+  catches them, because every ETR ice terrain is `[friction] 0.2` and nothing else goes below 0.3.
 - **Linear tone mapper, no glow, no SSAO.** ETR clamps in display space and has neither effect;
   a filmic curve redistributes both ends of the snow's range and glow smears the highlights that
   snow is mostly made of. Reproducing a fixed-function look means reproducing its transfer curve.

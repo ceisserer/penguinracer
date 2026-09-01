@@ -50,37 +50,183 @@ func _build_material() -> ShaderMaterial:
 	if course.splat_maps.size() > 1:
 		mat.set_shader_parameter("splat_1", course.splat_maps[1])
 
-	var roughness := Vector4(0.85, 0.85, 0.85, 0.85)
-	var snowness := Vector4.ZERO
+	# Four-wide tables in two halves: the shader indexes `layer_*` with the first
+	# splat texture's weights and `layer_*_hi` with the second's. Filling only
+	# the first four was a real gap — an eight-layer course got "rough, not
+	# snow, not ice" for its last four terrains.
+	var roughness := [0.85, 0.85, 0.85, 0.85, 0.85, 0.85, 0.85, 0.85]
+	var snowness := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+	var iceness := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 	for i: int in mini(layers.size(), 8):
 		if layers[i].albedo != null:
 			mat.set_shader_parameter("albedo_%d" % i, layers[i].albedo)
-		if i < 4:
-			# Shiny terrains — the original's `[shiny]` flag — are ice.
-			roughness[i] = 0.25 if layers[i].shiny else 0.85
-			# `is_deformable` is the migrated "snow deforms, rock does not"
-			# flag, which is exactly the distinction the wrap and sparkle
-			# terms want: shade snow as a translucent medium, rock as rock.
-			snowness[i] = 1.0 if layers[i].is_deformable else 0.0
-	mat.set_shader_parameter("layer_roughness", roughness)
-	mat.set_shader_parameter("layer_snowness", snowness)
+		var ice: bool = layers[i].is_ice()
+		roughness[i] = 0.25 if ice else 0.85
+		iceness[i] = 1.0 if ice else 0.0
+		# `is_deformable` is the migrated "snow deforms, rock does not" flag,
+		# which is exactly the distinction the wrap, micro-relief and glint
+		# terms want: shade snow as a translucent medium, rock as rock. Ice is
+		# non-deformable too, so the ice test has to come first — it does, in
+		# the sense that nothing here is deformable *and* ice.
+		snowness[i] = 1.0 if layers[i].is_deformable else 0.0
+	_set_layer_table(mat, "layer_roughness", roughness)
+	_set_layer_table(mat, "layer_snowness", snowness)
+	_set_layer_table(mat, "layer_iceness", iceness)
 	mat.set_shader_parameter("uv_scale", layers[0].uv_scale if layers.size() > 0 else 6.0)
 	mat.set_shader_parameter("sparkle_noise", _sparkle_texture())
+	mat.set_shader_parameter("detail_map", _detail_texture())
+	mat.set_shader_parameter("detail_gradient_scale", _detail_gradient_scale)
 	return mat
 
-## Small tiling value-noise texture for the snow glint term.
+static func _set_layer_table(mat: ShaderMaterial, name: String, v: Array) -> void:
+	mat.set_shader_parameter(name, Vector4(v[0], v[1], v[2], v[3]))
+	mat.set_shader_parameter(name + "_hi", Vector4(v[4], v[5], v[6], v[7]))
+
+## Tell the terrain what the ice is reflecting.
+##
+## Compatibility does not bind the `Sky` to a spatial shader and the environment
+## reflection is deliberately off (it was pinning the snow at white — PROGRESS
+## §11), so ice gets a two-colour vertical ramp instead of a real reflection.
+## The horizon end is the fog colour rather than the skybox's nadir: near the
+## horizon, which is where a grazing chase camera reflects, ETR's sky *is* its
+## fog — the skybox is a wall of the same white haze.
+func set_sky_tint(zenith: Color, horizon: Color) -> void:
+	if _material == null:
+		return
+	_material.set_shader_parameter("sky_zenith", zenith)
+	_material.set_shader_parameter("sky_horizon", horizon)
+
+# ------------------------------------------------------------------
+#                        procedural noise bakes
+# ------------------------------------------------------------------
+#
+# Both textures are course-independent, so they are baked once and shared. They
+# are generated rather than authored because they have to tile exactly: the
+# detail map repeats every 1.1 m of world, and a seam at that pitch is a grid
+# drawn across the whole course. `FastNoiseLite` does not tile, so the lattice
+# below wraps its own indices instead.
+
+const DETAIL_SIZE := 128
+const SPARKLE_SIZE := 256
+
+static var _detail_tex: ImageTexture
+static var _detail_gradient_scale: float = 1.0
+static var _sparkle_tex: ImageTexture
+
+## White noise, one facet direction per texel, for the crystal glint.
+##
+## Mipmapped on purpose: as the texels shrink below a pixel the chain averages
+## the facets back toward the surface normal, which is what a field of
+## sub-pixel crystals does. The explicit distance fade in the shader then
+## retires the term before the averaging leaves a smooth sheen behind.
 static func _sparkle_texture() -> ImageTexture:
-	var noise := FastNoiseLite.new()
-	noise.noise_type = FastNoiseLite.TYPE_VALUE
-	noise.frequency = 0.35
-	noise.seed = 7
-	var img := Image.create_empty(128, 128, true, Image.FORMAT_R8)
-	for y: int in 128:
-		for x: int in 128:
-			var v: float = noise.get_noise_2d(float(x), float(y)) * 0.5 + 0.5
-			img.set_pixel(x, y, Color(v, v, v))
+	if _sparkle_tex != null:
+		return _sparkle_tex
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20260901
+	var bytes := PackedByteArray()
+	bytes.resize(SPARKLE_SIZE * SPARKLE_SIZE * 3)
+	for i: int in bytes.size():
+		bytes[i] = rng.randi_range(0, 255)
+	var img := Image.create_from_data(
+		SPARKLE_SIZE, SPARKLE_SIZE, false, Image.FORMAT_RGB8, bytes)
 	img.generate_mipmaps()
-	return ImageTexture.create_from_image(img)
+	_sparkle_tex = ImageTexture.create_from_image(img)
+	return _sparkle_tex
+
+## Tiling micro-relief: RG = the gradient of a height field with respect to UV,
+## packed around 0.5 and divided by [member _detail_gradient_scale]; B = the
+## height. One tap per octave instead of the three a heightmap would need.
+static func _detail_texture() -> ImageTexture:
+	if _detail_tex != null:
+		return _detail_tex
+	var n: int = DETAIL_SIZE
+	var height := PackedFloat32Array()
+	height.resize(n * n)
+	# (lattice period in cells, amplitude). Every period divides DETAIL_SIZE,
+	# which is what makes all three octaves wrap on the same boundary.
+	var octaves: Array[Vector2] = [Vector2(4, 1.0), Vector2(8, 0.5), Vector2(16, 0.25)]
+	var seed: int = 1337
+	for oct: Vector2 in octaves:
+		var period: int = int(oct.x)
+		var amp: float = oct.y
+		var lattice := PackedFloat32Array()
+		lattice.resize(period * period)
+		var rng := RandomNumberGenerator.new()
+		rng.seed = seed
+		seed += 101
+		for i: int in lattice.size():
+			lattice[i] = rng.randf()
+		var cell: float = float(n) / float(period)
+		for y: int in n:
+			for x: int in n:
+				height[y * n + x] += amp * _lattice_value(
+					lattice, period, float(x) / cell, float(y) / cell)
+
+	# Normalise to 0..1 first: the shader's relief uniforms are metres of relief
+	# for a unit-amplitude field, so the amplitude has to be known here rather
+	# than being whatever three octaves happened to sum to.
+	var lo: float = height[0]
+	var hi: float = height[0]
+	for v: float in height:
+		lo = minf(lo, v)
+		hi = maxf(hi, v)
+	var span: float = maxf(hi - lo, 1e-4)
+	for i: int in height.size():
+		height[i] = (height[i] - lo) / span
+
+	# Central differences, wrapped, in texels; then to per-UV by multiplying by
+	# the texel count, which is the derivative of texel index against UV.
+	var gx := PackedFloat32Array()
+	var gy := PackedFloat32Array()
+	gx.resize(n * n)
+	gy.resize(n * n)
+	var peak: float = 0.0
+	for y: int in n:
+		for x: int in n:
+			var i: int = y * n + x
+			var half_n: float = 0.5 * float(n)
+			gx[i] = (height[y * n + (x + 1) % n]
+				- height[y * n + (x + n - 1) % n]) * half_n
+			gy[i] = (height[((y + 1) % n) * n + x]
+				- height[((y + n - 1) % n) * n + x]) * half_n
+			peak = maxf(peak, maxf(absf(gx[i]), absf(gy[i])))
+	_detail_gradient_scale = maxf(peak, 1e-4)
+
+	var bytes := PackedByteArray()
+	bytes.resize(n * n * 3)
+	for i: int in n * n:
+		bytes[i * 3] = _pack_signed(gx[i] / _detail_gradient_scale)
+		bytes[i * 3 + 1] = _pack_signed(gy[i] / _detail_gradient_scale)
+		bytes[i * 3 + 2] = int(clampf(height[i], 0.0, 1.0) * 255.0)
+	var img := Image.create_from_data(n, n, false, Image.FORMAT_RGB8, bytes)
+	img.generate_mipmaps()
+	_detail_tex = ImageTexture.create_from_image(img)
+	return _detail_tex
+
+static func _pack_signed(v: float) -> int:
+	return int(clampf(v * 0.5 + 0.5, 0.0, 1.0) * 255.0)
+
+## Value noise on a `period`-wide wrapping lattice, quintic-interpolated.
+##
+## Quintic rather than cubic because the shader differentiates this field: a
+## smoothstep has a discontinuous second derivative at the lattice lines, and a
+## normal built from its gradient creases along them.
+static func _lattice_value(lattice: PackedFloat32Array, period: int,
+		u: float, v: float) -> float:
+	var x0: int = int(floor(u))
+	var y0: int = int(floor(v))
+	var fx: float = u - float(x0)
+	var fy: float = v - float(y0)
+	x0 = ((x0 % period) + period) % period
+	y0 = ((y0 % period) + period) % period
+	var x1: int = (x0 + 1) % period
+	var y1: int = (y0 + 1) % period
+	var sx: float = fx * fx * fx * (fx * (fx * 6.0 - 15.0) + 10.0)
+	var sy: float = fy * fy * fy * (fy * (fy * 6.0 - 15.0) + 10.0)
+	var a: float = lerpf(lattice[y0 * period + x0], lattice[y0 * period + x1], sx)
+	var b: float = lerpf(lattice[y1 * period + x0], lattice[y1 * period + x1], sx)
+	return lerpf(a, b, sy)
 
 ## Point the shader at the live snow trail map.
 func set_trail_map(tex: Texture2D, origin: Vector2, extent: float, depth_scale: float) -> void:

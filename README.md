@@ -77,12 +77,19 @@ godot --path game -- --capture=/tmp/shot.png --capture-frames=200 \
     --auto-input=carve --camera=above --course=wild_mountains
 ```
 
-On a machine with no GPU, `tools/shot.sh` wraps the same flags in Xvfb and llvmpipe and pins the
-simulation to `--fixed-fps 60`, so the frame count *is* the race time and two runs are comparable:
+`tools/shot.sh` wraps the same flags and pins the simulation to `--fixed-fps 60`, so the frame
+count *is* the race time and two runs are comparable:
 
 ```bash
 tools/shot.sh /tmp/shot.png 200 bunny_hill paddle    # out, frames, course, scripted input
 ```
+
+It renders on the real GPU when the machine has a Wayland socket and a DRI render node — that
+needs `libegl1 libegl-mesa0 libdecor-0-0`, without which Godot misreports the missing EGL library
+as an unsupported OpenGL version — and falls back to Xvfb + llvmpipe otherwise. 120 frames of
+Bunny Hill take about 3 s on the GPU and a little over two minutes in software.
+`SHOT_FORCE_SOFTWARE=1` forces the slow path; the two rasterisers do not agree to the last level,
+so it is worth using before trusting a small tone measurement.
 
 To compare a capture against a reference screenshot rather than squinting at it — there is no
 Pillow in the container, so these are a small pure-Python PNG reader and two readers on top of it:

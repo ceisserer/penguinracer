@@ -271,6 +271,70 @@ the original's 0.90, which is a factor of two, not a nudge.
 
 ---
 
+### 12. Snow and ice needed the terms a splat-blended albedo cannot carry
+
+*2026-09-01.* With the transfer curve matched (§11), the remaining problem with the snow was not
+its tone — it was that it had no surface. ETR's albedo is roughly one texel per metre of terrain,
+so from the chase camera the near field was a flat pale sheet, and the only shading variation
+anywhere on the course came from the heightmap. Ice had the same problem and a worse one: nothing
+in the shader distinguished it from snow except a roughness of 0.25.
+
+Five things went into `shaders/terrain.gdshader`, all inside the Compatibility feature set and all
+behind uniforms:
+
+1. **Procedural micro-relief**, two octaves. A baked 128² map stores the *gradient* of a tiling
+   height field (RG) and the height (B), so a normal perturbation costs one tap per octave instead
+   of the three a heightmap needs. Fine (1.1 m/repeat, 25 mm) is wind crust; coarse (9 m, 0.35 m)
+   is drift structure, stretched 3.4× along a wind axis so it forms sastrugi ridges rather than
+   isotropic lumps — the chain rule carries the stretch, or the ridges light as though they ran
+   the other way. Both fade with distance, fine first. `FastNoiseLite` does not tile and a seam
+   every 1.1 m is a grid drawn across the course, so the noise is a wrapping quintic value lattice
+   generated in `TerrainRenderer`.
+2. **A crystal glint that twinkles.** The old term was `pow(noise, 24)` written into `SPECULAR` —
+   static, so it survived being looked at but not being ridden past. Now each texel of a white-
+   noise map is a facet direction, and `light()` asks whether that facet bisects eye and sun
+   through a sharp lobe. A different scatter fires every frame you move. The mip chain averages
+   the facets back toward the surface normal with distance, which is what sub-pixel crystals do.
+3. **The trench shades itself.** Ambient-only AO from the trail-map depth (`AO_LIGHT_AFFECT` 0 —
+   the sun is already handled by the tilted normal), and the ridge the vertex stage raises now
+   also brightens the albedo, because snow that was turned over a moment ago has not crusted yet.
+4. **Ice as a reflective dielectric.** A Schlick-weighted sky reflection through `EMISSION`, a
+   tight sun glare on the same weight, and diffuse albedo scaled to 0.82.
+5. **The per-layer tables now cover all eight layers.** `layer_roughness` / `layer_snowness` were
+   four-wide, so an eight-layer course got "rough, not snow, not ice" for its last four terrains.
+
+**The ice albedo cut is the load-bearing part, and it is a deviation.** Fresnel at the ~65°
+incidence a chase camera sits at is only about 0.09. Laid over ETR's ice albedo — already
+three-quarters of the way to white, and clipping in blue — that is four levels nobody sees, which
+is why the first version of the reflection measured a mean difference of 1.0/255 over a whole
+frame of `inception`, a course made entirely of ice. Lowering the diffuse gives the additive terms
+somewhere to land, and it is also the physics: a smooth dielectric reflects the light a snowpack
+would have scattered back at you. On `follow_white_rabbit` the near-field ice goes from
+(R 192, G 212, B 255-clipped) to (145, 162, 217) and stops clipping at all.
+
+**The Bunny Hill fit survives.** The fitted near-field region moves from median R 236 to 238
+against ETR's 240 — inside the noise of the original fit, because relief adds variance rather than
+level. No measurable frame-time cost either: 900 frames at 3840×2160 take 26–30 s before and
+after, which is run-to-run noise on a windowed compositor.
+
+**Two mistakes worth not repeating**, both now in `AGENTS.md`: a relief "strength" of 0.18 is a
+71° tilt when the stored gradient peaks near 12 (write the unit in the uniform name), and
+`normalize()` of a mipped white-noise tap is a NaN that survives being multiplied by a zero fade.
+
+### 13. The container had a GPU the whole time
+
+*2026-09-01.* `tools/shot.sh` ran under Xvfb and llvmpipe because Godot said "your video card
+drivers seem not to support the required OpenGL version". It does. The container has a Wayland
+socket at `$XDG_RUNTIME_DIR/wayland-0` and a DRI render node, and the only thing missing was
+`libegl1`/`libegl-mesa0`/`libdecor-0-0` — the real error, one line higher, is "Can't load EGL
+dynamic library", and the OpenGL complaint is the fallback misdiagnosing it.
+
+With those installed and `--display-driver wayland`, a 120-frame Bunny Hill capture takes 3 s
+against radeonsi instead of a little over two minutes. `shot.sh` picks the GPU path when both the
+socket and the render node exist; `SHOT_FORCE_SOFTWARE=1` forces llvmpipe, which is still the
+right call before trusting a small tone measurement, since the two rasterisers do not agree to
+the last level.
+
 ## Built
 
 ### Phase 0 — physics core · **done**
@@ -329,7 +393,8 @@ Both halves of the dual representation exist and are wired in:
 
 The terrain shader displaces from the trail map, raises ridges at the trench lip from the
 Laplacian of the depth field, and reconstructs normals from it. A carve leaves a visible track
-down the slope in the running game.
+down the slope in the running game — since §12, one with a self-occluded floor and a brighter
+ploughed lip as well as a shaded wall.
 
 **On the direction of the gameplay effect.** Plan §4.3 says packed snow should "raise friction
 and lower compression_depth", but the paragraph below it — and the whole design rationale — is
@@ -396,8 +461,8 @@ medals from the migrated thresholds, save profiles, settings, audio.
   close it; so would migrating the light colours through `linear_to_srgb`, at the cost of the
   generated presets no longer matching `light.lst` on sight.
 - **The snow is tuned against one frame of one course.** Bunny Hill under `tuxracer_sunny` now
-  matches the original at both ends of its range (§11), but the fit is two scalars solved on two
-  surfaces in one screenshot. The other seven environments — the three `etr` skyboxes are 1024²
+  matches the original at both ends of its range (§11, still true after §12), but the fit is two
+  scalars solved on two surfaces in one screenshot. The other seven environments — the three `etr` skyboxes are 1024²
   and much brighter, and `night` and `evening` invert the balance between sun and ambient — have
   not been compared against anything. Same method, one reference capture each.
 - **The camera does not frame the course the way the original does.** `race.tscn` uses a 70°
@@ -411,5 +476,11 @@ medals from the migrated thresholds, save profiles, settings, audio.
   translations are now wired up.
 - **Heightmap dequantization has not been eyeballed per course** (risk S3). The pipeline runs on
   all 44; three courses of differing character should be compared against original screenshots.
+- **The snow and ice shading terms are tuned by eye, not against a reference.** Unlike the tone
+  fit, §12's relief amplitudes, glint sharpness and ice albedo have no measured target — the
+  original has no equivalent to measure against. They are all uniforms with the neutral value
+  documented, so backing any of them out is a one-line change.
+- **`wind_direction` is a shader constant, not course data.** Every course's sastrugi run the same
+  way. It wants to come off the environment preset, or at least be seeded per course.
 - **Asset licence audit not started** (risk S5). Independent of engineering, long lead time,
   blocks Phase 5.

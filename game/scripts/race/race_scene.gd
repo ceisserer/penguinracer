@@ -209,6 +209,12 @@ func _apply_environment(preset: EnvironmentPreset) -> void:
 	_sun.look_at_from_position(Vector3.ZERO, -preset.sun_direction, Vector3.UP)
 	_sun.directional_shadow_max_distance = _shadow_range_for(preset)
 	spray.particle_color = preset.particle_color
+	if terrain != null:
+		# What the ice reflects. The horizon end is the fog colour: at the
+		# grazing angle a chase camera reflects at, ETR's sky is its own white
+		# haze, and the skybox's nadir average is a downward direction ice
+		# never shows you.
+		terrain.set_sky_tint(preset.sky_zenith_color, preset.fog_color)
 
 ## How far directional shadows have to reach for this environment.
 ##
