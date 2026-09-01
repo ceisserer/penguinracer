@@ -10,3 +10,5 @@ etr-0.8.4.tar.xz
 # Local capture / comparison artifacts
 *.log
 difference_snow.png
+tools/webtest/node_modules/
+__pycache__/
