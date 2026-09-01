@@ -27,14 +27,15 @@ game/                     Godot project (project.godot, gl_compatibility)
   scripts/course/         CourseData, TerrainLayer, prefabs, events, environments
   scripts/render/         terrain chunks, GPU snow field, spray
   scripts/camera/         chase camera        scripts/shell/  HUD, course menu
-  scripts/debug/          DebugCapture autoload (headless screenshots / scripted input)
+  scripts/debug/          DebugCapture autoload (headless screenshots / scripted input),
+                          key_log (what a remote desktop is doing to the keyboard)
   shaders/                terrain (splat + snow/ice shading), etr_skybox,
                           snow_trail, s1_displace
   addons/etr_import/      one-way, re-runnable importer from the ETR data tree
   courses/<name>/         GENERATED: course.tres, course.tscn, heightmap.res, splat_*.png
   resources/  i18n/       GENERATED: layers, prefabs, environments, events, course
                           catalog, 13 translations
-  scenes/                 race.tscn, course_menu.tscn
+  scenes/                 race.tscn, course_menu.tscn, key_log.tscn
   tests/                  headless physics suite + ODE benchmark
   spikes/s1_pingpong/     ping-pong render-target spike (risk S1)
 etr-0.8.4/                original source + data — READ-ONLY, never write here
@@ -51,6 +52,8 @@ Not a git repository.
 
 ```bash
 godot --path game                                                  # play (Esc = course menu)
+godot --path game -- --remote-keyboard                             # ... over a pulsed remote keyboard
+godot --path game res://scenes/key_log.tscn                        # what the link does to the keyboard
 godot --headless --path game --script res://tests/run_tests.gd     # physics suite + benchmark
 godot --path game spikes/s1_pingpong/s1_spike.tscn                 # snow RT spike
 
@@ -205,6 +208,14 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   stashing the working tree also reverted the change to `tools/shot.sh` that made captures fast,
   so the baseline silently went back to the two-minute software path and timed out mid-script,
   leaving the work stashed. Commit tooling changes first, then `git stash push -- game`.
+- **`Input.is_action_just_pressed()` stays true for a key that has already been released.** It
+  compares the latched press frame to the current frame and never looks at the key state, so a
+  keyboard forwarded as zero-length down/up pulses (RustDesk's Legacy/Translate mode, some VNC
+  clients) drives every edge-triggered control and none of the held ones — `r` restarts the race
+  while WASD and space do nothing. `KeyHoldFilter` notices the pulse and says so once; passing
+  `-- --remote-keyboard` makes it stretch such a press to 100 ms, which is opt-in because the
+  stretch costs a local keyboard its frame-exact release. `godot --path game
+  res://scenes/key_log.tscn` prints what the link is actually delivering.
 - **Directional shadows stop at `directional_shadow_max_distance`**, on a sphere around the camera.
   Set shorter than the visible slope it reads as an arc of shadow travelling in front of the
   player. It is derived from the environment's fog range in `RaceScene._shadow_range_for` — keep it

@@ -12,6 +12,7 @@ func _initialize() -> void:
 	TestForces.run(t)
 	TestSimulation.run(t)
 	TestSurface.run(t)
+	TestInput.run(t)
 
 	var elapsed: int = Time.get_ticks_msec() - start
 	print("")

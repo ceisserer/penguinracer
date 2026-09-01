@@ -45,6 +45,10 @@ var current_course_dir: String = ""
 var _run_id: int = 0
 
 var _input := RaceInput.new()
+## Polls the held controls. A plain poll unless `--remote-keyboard` asked it to
+## bridge a keyboard that arrives as zero-length pulses.
+var _keys := KeyHoldFilter.new(PackedStringArray(["steer_left", "steer_right",
+	"paddle", "brake", "jump", "trick_modifier"]))
 var _player_node: Node3D
 var _sun: DirectionalLight3D
 
@@ -67,6 +71,8 @@ func _ready() -> void:
 				camera.mode = ChaseCamera.Mode.ABOVE
 			elif arg.ends_with("trail"):
 				camera.mode = ChaseCamera.Mode.TRAIL
+		elif arg == "--remote-keyboard":
+			_keys.compensate = true
 		elif arg.begins_with("--course="):
 			course_scene_path = "res://courses/%s/course.tscn" % arg.trim_prefix("--course=")
 	menu = $CourseMenu
@@ -233,17 +239,18 @@ func _shadow_range_for(preset: EnvironmentPreset) -> float:
 		return camera.far
 	return clampf(preset.fog_end * preset.fog_distance_scale, 120.0, camera.far)
 
-func _read_input() -> void:
+func _read_input(delta: float) -> void:
 	if not _auto_input.is_empty():
 		_scripted_input()
 		return
-	_input.left_turn = Input.is_action_pressed("steer_left")
-	_input.right_turn = Input.is_action_pressed("steer_right")
-	_input.stick_turn = Input.get_axis("steer_left", "steer_right")
-	_input.paddling = Input.is_action_pressed("paddle")
-	_input.braking = Input.is_action_pressed("brake")
-	_input.charging = Input.is_action_pressed("jump")
-	_input.trick_modifier = Input.is_action_pressed("trick_modifier")
+	_keys.poll(delta)
+	_input.left_turn = _keys.pressed("steer_left")
+	_input.right_turn = _keys.pressed("steer_right")
+	_input.stick_turn = _keys.axis("steer_left", "steer_right")
+	_input.paddling = _keys.pressed("paddle")
+	_input.braking = _keys.pressed("brake")
+	_input.charging = _keys.pressed("jump")
+	_input.trick_modifier = _keys.pressed("trick_modifier")
 
 ## Scripted stand-in for a player, so a headless run can produce the same
 ## carve every time.
@@ -268,7 +275,7 @@ func _process(delta: float) -> void:
 	if not running:
 		return
 
-	_read_input()
+	_read_input(delta)
 	physics.step(_input, delta)
 	if not physics.finished:
 		race_time += delta

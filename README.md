@@ -60,10 +60,18 @@ carries a provenance flag and is skipped unless `--force` is given.
 godot --path game                                    # play
 godot --headless --path game --script res://tests/run_tests.gd   # physics suite + benchmark
 godot --path game spikes/s1_pingpong/s1_spike.tscn   # snow render-target spike
+godot --path game res://scenes/key_log.tscn          # keyboard delivery probe
 ```
 
-Controls: arrows steer, up paddles, down brakes, space charges a jump, `R` restarts,
-`Esc` opens the course menu.
+Controls: `A`/`D` steer, `W` paddles, `S` brakes, space charges a jump, `Ctrl` plus a direction
+turns an air into a trick, `R` restarts, `Esc` opens the course menu. A gamepad's left stick
+steers.
+
+Playing over a remote desktop, set its keyboard to a raw/map mode rather than a character
+translating one — a translating mode sends held keys as zero-length pulses, and steering, paddling
+and jump all stop working while `R` and `Esc` carry on. `res://scenes/key_log.tscn` says which one
+you are on. Where the remote cannot be changed, `godot --path game -- --remote-keyboard` bridges
+the pulses; it is off by default because it costs a tenth of a second on every release.
 
 The game opens on the course menu, drawn over the loaded course: all 44 courses with preview,
 author and description, arrows and Enter to pick one. It comes back up a few seconds after the

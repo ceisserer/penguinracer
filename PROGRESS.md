@@ -335,6 +335,33 @@ socket and the render node exist; `SHOT_FORCE_SOFTWARE=1` forces llvmpipe, which
 right call before trusting a small tone measurement, since the two rasterisers do not agree to
 the last level.
 
+### 14. `is_action_just_pressed()` does not mean the key is still down
+
+*2026-09-01.* Over a RustDesk session, WASD steering and the space-bar jump did nothing while `r`
+restarted the race normally. The input map was not the difference — every action is mapped by
+keycode with `physical_keycode` 0, `r` (82) shaped exactly like `a` (65). The difference is how
+each one is read: `r` goes through `Input.is_action_just_pressed()`, everything the player holds
+goes through `Input.is_action_pressed()` and `Input.get_axis()`.
+
+Godot latches the press *frame*, not the press *state*. Injecting a down and an up into one
+inter-frame gap and polling on the next frame gives `pressed=false just_pressed=true axis=0.00`;
+a genuinely held key gives `pressed=true just_pressed=true axis=-1.00`. So a keyboard forwarded
+as zero-length pulses — RustDesk's Legacy/Translate mode synthesises keystrokes from characters
+and repeats the down/up pair at the autorepeat rate — fires every edge-triggered control and is
+invisible to every polled one. Nothing is dropped; the presses just have no duration left by the
+time the frame poll runs.
+
+Switching the session to RustDesk's Map mode is the real fix. `KeyHoldFilter` can paper over it
+instead: `-- --remote-keyboard` stretches a press that did not survive to the next poll to 100 ms,
+which bridges the ~33 ms between autorepeat pulses and turns the train of them back into a hold.
+That is opt-in and off by default, because the stretch is not free — a release lingers a tenth of
+a second, which is the difference between a trick landing and a crash, and paying that on every
+local keyboard to fix a transport almost nobody is on is the wrong trade. What is always on is the
+*detection*: a pulse prints one line naming itself and the flag, so the next person to hit this
+reads the answer off the console instead of re-deriving it. `scenes/key_log.tscn` prints how long
+each key was actually held and states which keyboard it is looking at — run it over the link
+rather than guessing.
+
 ## Built
 
 ### Phase 0 — physics core · **done**
