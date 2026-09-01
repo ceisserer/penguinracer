@@ -13,11 +13,14 @@ the game). Everything else is redesigned; original content is imported into the 
 |---|---|
 | `etracer.md` | What the original C++ does. §4.1 = physics constants (authoritative), §5 = legacy file formats. |
 | `godot-port-plan.md` | Architecture, data model, phases, risks. |
-| `PROGRESS.md` | Detailed build state, spike results, and what the plan got wrong. |
+| `PROGRESS.md` | What is built today, and the known gaps. The running log. |
+| `history.md` | How it got here: the two spikes in full, and the seventeen things the plan did not know. Settled — read it for the reasoning behind a decision, not for current state. |
 | `README.md` | Commands, prerequisites, layout. |
 
-Keep all four current when you change things. `PROGRESS.md` is the running log; corrections to the
-plan go in `godot-port-plan.md` marked with a date.
+Keep all five current when you change things. State goes in `PROGRESS.md`; once a piece of it is
+settled and only the reasoning is still worth having, move it to `history.md` and leave the
+distilled lesson in the trap list below. Corrections to the plan go in `godot-port-plan.md`
+marked with a date.
 
 ## Layout
 
@@ -38,7 +41,8 @@ game/                     Godot project (project.godot, gl_compatibility)
                           catalog, sound bank + music library, 13 translations
   assets/sounds|music/    GENERATED: the 10 effects and 10 pieces, copied verbatim
   scenes/                 race.tscn, course_menu.tscn, key_log.tscn
-  tests/                  headless physics suite + ODE benchmark
+  tests/                  headless suite (physics, surface, input, audio, imported
+                          terrain library) + ODE benchmark
   spikes/s1_pingpong/     ping-pong render-target spike (risk S1)
 etr-0.8.4/                original source + data — READ-ONLY, never write here
 tools/                    import_all.sh, shot.sh (deterministic screenshot, real GPU
@@ -48,7 +52,17 @@ tools/                    import_all.sh, shot.sh (deterministic screenshot, real
                           webtest/ (COOP/COEP server + puppeteer runner)
 ```
 
-Not a git repository.
+Generated trees (`game/courses/`, `game/resources/`, `game/assets/`) are committed. Re-running the
+importer rewrites every `course.tscn` and `.tres` with fresh random node/sub-resource ids even
+where nothing changed, so check what a re-import actually altered before committing 116 000 lines
+of churn:
+
+```bash
+git diff -U0 -- 'game/courses/*/course.tscn' \
+    | grep '^[-+]' | grep -v '^[-+][-+][-+]' | grep -v 'unique_id='
+```
+
+Empty output means the scenes only churned ids — `git checkout` them and commit what is left.
 
 ## Commands
 
@@ -86,7 +100,7 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 
 | Phase | State |
 |---|---|
-| 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 2393 assertions, 0 failures, 0.9 s headless. |
+| 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 2921 assertions, 0 failures, 0.9 s headless. |
 | 1 — importer + first course | **done** — all 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. bunny_hill drivable in a browser; wild_mountains (100×1000) runs. |
 | 2 — rendering | partial — splat PBR, chunked terrain, instanced trees, HUD, migrated skyboxes. Tone matched to the original on Bunny Hill; no LightmapGI bake. Snow and ice carry procedural micro-relief, a twinkling crystal glint and a Fresnel sky reflection. |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror both wired; a carve leaves a track with a shaded trench, a self-occluded floor and a bright ploughed lip. |
@@ -153,6 +167,20 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   resamples three real faces to fill three empty ones.
 - ETR's terrain colour keys genuinely collide within ±30 (`snow`, `dirty_snow`, `thin_snow`,
   `strike_snow`). The importer warns rather than hiding it.
+- **A terrain's identity is its record, not its `[name]`.** `terrains.lst` declares `pave04`
+  three times with three textures, three colour keys and one `[sound]` between them, and that is
+  legal: courses paint a colour, `GetTerrainIdx` resolves it to a position in `TerrList`, and
+  `TTerrType` has no name field at all. One resource per name silently kept whichever record
+  came last, for a whole phase, because no shipped course paints any of the three keys — nothing
+  rendered wrong and nothing went red. The importer keys on the record and disambiguates a
+  repeated name by its texture stem (`pave04`, `icy_rock06`, `icy_pave04`); `legacy_name` and
+  `legacy_index` on `TerrainLayer` point back at the file. Two more records name a texture that
+  is not in the tree at all (`pave04.png` was never shipped, `snowy_hockey_ice` writes
+  `snowy_ice02` without the extension) — untextured in the original too, warned about here.
+- **A course's splat channels are positional, so a layer that fails to load cannot be skipped.**
+  Dropping it slides every later layer onto the wrong channel and the course plays the wrong
+  friction under the right texture — silently, since it still loads. The importer keeps the slot,
+  fills it with a default and warns.
 - **ETR's character model frame is +Y forward, +Z belly**, not Godot's +Y up / −Z forward.
   `AdjustOrientation` sets `new_y` = velocity and `new_z` = −surface normal; `shape.lst` agrees
   (head at +Y, legs at −Y, tail at −Y −Z). The importer bakes `ETRImport.MODEL_TO_GODOT` into the
@@ -223,7 +251,7 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   stretch costs a local keyboard its frame-exact release. `godot --path game
   res://scenes/key_log.tscn` prints what the link is actually delivering.
 - **A migrated field is not ported until something reads it.** `[trackmarks]` was imported onto
-  `TerrainLayer` and written into all 41 layer resources, but never reached `SurfaceSample`, so the
+  `TerrainLayer` and written into every layer resource, but never reached `SurfaceSample`, so the
   deformation stamp gated on `[part]` instead. The two agree on every terrain a shipped course
   uses, and the tests passed because they asserted only what the consumer consumed. When adding a
   surface property, trace it to its consumer and test it there.

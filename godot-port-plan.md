@@ -144,6 +144,16 @@ class_name TerrainLayer extends Resource
 @export var is_deformable: bool             # snow yes, rock no
 ```
 
+**Correction, 2026-09-01.** Two fields of that sketch did not survive contact with the data.
+`footstep_sound` is a `slide_sound: StringName` resolved against a global `SoundBank`, because
+`terrains.lst` names a cue exactly as `TerrList[i].sound` does and holding the stream here would
+pull 4 MB of shared effects into all 44 course packs. And `id` is **the record, not the
+`[name]`**: the file declares `pave04` three times with three textures and three colour keys,
+which is legal because the original identifies a terrain by the colour a course paints and
+`TTerrType` has no name field at all. One resource per name kept only the last of the three.
+Layers are keyed per record, a repeated name is disambiguated by its texture stem, and
+`legacy_name`/`legacy_index`/`legacy_color` point back at the source row. See history §17.
+
 ### 3.3 Objects as scene nodes
 
 Trees and items become real `Node3D`s in `course.tscn`, instanced from prefabs. Gains: arbitrary
@@ -278,7 +288,7 @@ from a noise texture, and careful in-shader tonemapping to fight the `RGBA8` LDR
   above all — not the ceiling itself.
 - **The skyboxes are not panoramas.** Three flat cube faces (front/left/right); top, bottom and
   back do not exist in the data. `shaders/etr_skybox.gdshader` samples the cube directly. See
-  PROGRESS.md §10.
+  history.md §10.
 
 The fog range in §4.3 is likewise the original's 75 m, not a stretched version of it: ETR's white
 haze is load-bearing for how its snow reads, and the skybox is what sits behind it.
@@ -316,7 +326,7 @@ that dependency entirely.)
 
 | Source | Target |
 |---|---|
-| `terrains.lst` | `TerrainLayer` resources; old diffuse PNGs wired as `albedo`, normal/roughness left null for later authoring |
+| `terrains.lst` | One `TerrainLayer` resource **per record** (§3.2 correction); old diffuse PNGs wired as `albedo`, normal/roughness left null for later authoring |
 | `object_types.lst` + object textures | Object prefab scenes (`.tscn`) |
 | `events.lst` | `Race` / `Cup` / `EventSet` resources — **keep the herring/time thresholds verbatim** |
 | `char/<name>/shape.lst` | Placeholder `ArrayMesh` + `Skeleton3D` (§3.4) |
@@ -405,7 +415,7 @@ Do these **before** committing to the phase plan.
 | **S5** | Asset licence audit blocks reuse of music/courses | Medium | Audit before Phase 5. Independent of engineering — start now. |
 | **S6** | Web cold-load size (ETR ships 14 MB music + 11 MB skyboxes) | Low | Stream per-course; compress skyboxes; music on demand. |
 
-**Status, 2026-08-31 — see [`PROGRESS.md`](./PROGRESS.md):** S1 **retired, PASS** in a web export
+**Status, 2026-08-31 — see [`history.md`](./history.md):** S1 **retired, PASS** in a web export
 under Chromium/WebGL2 (Firefox still unverified for want of a GPU in the build container). S2
 **retired, PASS with margin** — 0.073 ms per frame in-browser, 0.44 % of a 16.7 ms budget, so the
 GDExtension contingency should not be built. S3–S6 remain open.
@@ -417,7 +427,7 @@ Godot defaults that each looked reasonable in isolation (`SPECULAR` 0.5, sky-dri
 environment reflections, a filmic tone curve). ETR clips its own lit snow too; the near field is
 *meant* to sit in a narrow band just under the ceiling. Bunny Hill now matches the original at
 both ends of that band. The mitigation that mattered was not "build the shader early" but
-"capture the same frame from both games and measure it" — see PROGRESS.md §11.
+"capture the same frame from both games and measure it" — see history.md §11.
 
 **Explicitly not a risk:** Godot's physics engine. We do not use it — the simulation is a custom point
 mass against our own heightmap, exactly as ETR did. Its limitations do not apply to us.

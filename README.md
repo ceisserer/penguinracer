@@ -9,7 +9,9 @@ Targets **web (WebGL2 / Compatibility renderer)** and **desktop native** from on
   the original does*, especially §4.1 (physics constants) and §5 (legacy file formats).
 - [`godot-port-plan.md`](./godot-port-plan.md) — the rebuild plan: architecture, new data model,
   phases and risks.
-- [`PROGRESS.md`](./PROGRESS.md) — what is built, what was learned, what is next.
+- [`PROGRESS.md`](./PROGRESS.md) — what is built and what is knowingly missing.
+- [`history.md`](./history.md) — how it got here: the de-risking spikes and the discoveries that
+  changed the plan.
 
 ## Layout
 
@@ -29,7 +31,8 @@ game/                     Godot project
                           courses.tres (the course-menu index), the sound bank and
                           music library
   assets/                 generated: textures, skyboxes and the migrated audio
-  tests/                  headless physics suite + ODE benchmark
+  tests/                  headless suite (physics, surface, input, audio, terrain
+                          library) + ODE benchmark
   spikes/s1_pingpong/     the ping-pong render-target spike (risk S1)
 etr-0.8.4/                the original source and data, read-only
 tools/                    importer driver and the browser test harness
@@ -61,7 +64,7 @@ carries a provenance flag and is skipped unless `--force` is given.
 
 ```bash
 godot --path game                                    # play
-godot --headless --path game --script res://tests/run_tests.gd   # physics suite + benchmark
+godot --headless --path game --script res://tests/run_tests.gd   # test suite + benchmark
 godot --path game spikes/s1_pingpong/s1_spike.tscn   # snow render-target spike
 godot --path game res://scenes/key_log.tscn          # keyboard delivery probe
 godot --path game -- --no-audio                      # play with the sound off
