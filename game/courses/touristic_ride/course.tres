@@ -1,0 +1,36 @@
+[gd_resource type="Resource" script_class="CourseData" format=3]
+
+[ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_0ryd2"]
+[ext_resource type="Image" path="res://courses/touristic_ride/heightmap.res" id="1_o4yi3"]
+[ext_resource type="Texture2D" path="res://courses/touristic_ride/preview.png" id="2_0ryd2"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_6pe7p"]
+[ext_resource type="Texture2D" path="res://courses/touristic_ride/splat_0.png" id="4_q4j28"]
+[ext_resource type="Texture2D" path="res://courses/touristic_ride/splat_1.png" id="5_7i0gk"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_0h5mf"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="7_rmenx"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="8_bufw0"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="9_ayxv7"]
+[ext_resource type="Resource" path="res://resources/terrain/rock06.tres" id="10_5fww1"]
+[ext_resource type="Resource" path="res://resources/terrain/rock04.tres" id="11_4it1p"]
+[ext_resource type="Resource" path="res://resources/terrain/rock01.tres" id="12_xm3n5"]
+
+[resource]
+script = ExtResource("3_6pe7p")
+display_name = "Touristic Ride"
+author = "BlankHare"
+preview = ExtResource("2_0ryd2")
+heightmap = ExtResource("1_o4yi3")
+heightmap_size = Vector2i(199, 1999)
+world_size = Vector2(75, 1200)
+height_scale = 12.0
+splat_maps = Array[Texture2D]([ExtResource("4_q4j28"), ExtResource("5_7i0gk")])
+splat_size = Vector2i(199, 1999)
+terrain_layers = Array[ExtResource("6_0h5mf")]([ExtResource("7_rmenx"), ExtResource("8_bufw0"), ExtResource("9_ayxv7"), ExtResource("10_5fww1"), ExtResource("11_4it1p"), ExtResource("12_xm3n5")])
+start_position = Vector2(50, 3)
+finish_line_z = -1200.0
+play_bounds = PackedVector2Array(1, 1, 74, 1, 74, -1220, 1, -1220)
+play_size = Vector2(73, 1200)
+environment_preset = ExtResource("1_0ryd2")
+use_keyframe = false
+imported_from = "extras/touristic_ride"
+import_version = 1

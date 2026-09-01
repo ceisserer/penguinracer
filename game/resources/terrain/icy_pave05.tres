@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="TerrainLayer" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/terrain/icy_pave05.png" id="1_jwdrg"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="2_jjdln"]
+
+[resource]
+script = ExtResource("2_jjdln")
+id = &"icy_pave05"
+friction = 0.5
+emits_particles = false
+takes_trackmarks = false
+albedo = ExtResource("1_jwdrg")
+is_deformable = false
+legacy_color = Color(0.9411765, 0.11764706, 0.11764706, 1)

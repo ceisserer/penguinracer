@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="CourseData" format=3]
+
+[ext_resource type="Image" path="res://courses/quiet_river/heightmap.res" id="1_8wc3q"]
+[ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_to68l"]
+[ext_resource type="Texture2D" path="res://courses/quiet_river/preview.png" id="2_to68l"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_nr1yl"]
+[ext_resource type="Texture2D" path="res://courses/quiet_river/splat_0.png" id="4_sg7td"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_rd335"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="6_11rsg"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="7_aql7c"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="8_vt7fq"]
+
+[resource]
+script = ExtResource("3_nr1yl")
+display_name = "Quiet River"
+author = "BlankHare"
+description = "This one is willingly a very fast and technical ride. Keeping the pace and getting all the herrings will be quite tricky (yes, it _is_ possible) and it's easyer to \"fall\" of the frosen rivver than to come back on it."
+preview = ExtResource("2_to68l")
+heightmap = ExtResource("1_8wc3q")
+heightmap_size = Vector2i(199, 1999)
+world_size = Vector2(50, 2000)
+height_scale = 12.0
+splat_maps = Array[Texture2D]([ExtResource("4_sg7td")])
+splat_size = Vector2i(199, 1999)
+terrain_layers = Array[ExtResource("5_rd335")]([ExtResource("6_11rsg"), ExtResource("7_aql7c"), ExtResource("8_vt7fq")])
+start_position = Vector2(20, 3)
+finish_line_z = -2000.0
+play_bounds = PackedVector2Array(0.5, 1, 49.5, 1, 49.5, -2020, 0.5, -2020)
+play_size = Vector2(49, 2000)
+environment_preset = ExtResource("1_to68l")
+use_keyframe = false
+imported_from = "default/quiet_river"
+import_version = 1

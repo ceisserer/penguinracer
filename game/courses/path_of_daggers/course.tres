@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="CourseData" format=3]
+
+[ext_resource type="Image" path="res://courses/path_of_daggers/heightmap.res" id="1_2brks"]
+[ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_aoud8"]
+[ext_resource type="Texture2D" path="res://courses/path_of_daggers/preview.png" id="2_aoud8"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_cn1yr"]
+[ext_resource type="Texture2D" path="res://courses/path_of_daggers/splat_0.png" id="4_yrogg"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_wc84v"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="6_is513"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="7_8dg3a"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="8_2q6e4"]
+
+[resource]
+script = ExtResource("3_cn1yr")
+display_name = "Path of Daggers"
+author = "Jasmin Patry"
+description = "Big spikes may prove to be the least of your worries on this course. Multiple paths allow you to take low or high roads, each with their own challenges."
+preview = ExtResource("2_aoud8")
+heightmap = ExtResource("1_2brks")
+heightmap_size = Vector2i(79, 1199)
+world_size = Vector2(54, 800)
+height_scale = 12.0
+base_angle = 23.0
+splat_maps = Array[Texture2D]([ExtResource("4_yrogg")])
+splat_size = Vector2i(79, 1199)
+terrain_layers = Array[ExtResource("5_wc84v")]([ExtResource("6_is513"), ExtResource("7_8dg3a"), ExtResource("8_2q6e4")])
+start_position = Vector2(45, 3)
+finish_line_z = -795.0
+play_bounds = PackedVector2Array(3, 1, 51, 1, 51, -815, 3, -815)
+play_size = Vector2(48, 795)
+environment_preset = ExtResource("1_aoud8")
+use_keyframe = false
+imported_from = "default/path_of_daggers"
+import_version = 1

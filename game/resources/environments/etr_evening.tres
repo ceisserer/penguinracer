@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="EnvironmentPreset" format=3]
+
+[ext_resource type="Script" path="res://scripts/course/environment_preset.gd" id="1_yh5og"]
+[ext_resource type="Texture2D" path="res://assets/env/etr_evening/front.png" id="2_vfh45"]
+[ext_resource type="Texture2D" path="res://assets/env/etr_evening/left.png" id="3_2o8gs"]
+[ext_resource type="Texture2D" path="res://assets/env/etr_evening/right.png" id="4_8jdl7"]
+
+[resource]
+script = ExtResource("1_yh5og")
+id = &"etr_evening"
+sun_direction = Vector3(-0.6666667, 0.6666667, 0.33333334)
+sun_color = Color(0.58, 0.47, 0.38, 1)
+ambient_color = Color(0.45, 0.43, 0.37, 1)
+fog_color = Color(0.6, 0.6, 0.53, 1)
+fog_start = 30.0
+fog_end = 80.0
+fog_height = 5.0
+particle_color = Color(0.9, 0.9, 0.7, 1)
+sky_front = ExtResource("2_vfh45")
+sky_left = ExtResource("3_2o8gs")
+sky_right = ExtResource("4_8jdl7")
+sky_zenith_color = Color(0.2279081, 0.19948862, 0.16552025, 1)
+sky_nadir_color = Color(0.27582932, 0.2965865, 0.3721389, 1)

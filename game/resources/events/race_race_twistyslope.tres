@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="RaceEvent" format=3]
+
+[ext_resource type="Resource" path="res://courses/twisty_slope/course.tres" id="1_lp5ne"]
+[ext_resource type="Script" path="res://scripts/course/race_event.gd" id="2_f1t2h"]
+
+[resource]
+script = ExtResource("2_f1t2h")
+id = &"race_twistyslope"
+course_dir = "twisty_slope"
+course = ExtResource("1_lp5ne")
+light = &"night"
+herring = Vector3i(21, 23, 24)
+time = Vector3(43, 39, 34)
+music_theme = &"spunky"

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="TerrainLayer" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/terrain/floor01.png" id="1_pk4hx"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="2_1jc6h"]
+
+[resource]
+script = ExtResource("2_1jc6h")
+id = &"forest_floor1"
+friction = 0.5
+compression_depth = 0.02
+emits_particles = false
+takes_trackmarks = false
+albedo = ExtResource("1_pk4hx")
+is_deformable = false
+legacy_color = Color(0.3529412, 0.3529412, 0.11764706, 1)

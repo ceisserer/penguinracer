@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="TerrainLayer" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/terrain/pebbles05.png" id="1_bytsf"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="2_013p4"]
+
+[resource]
+script = ExtResource("2_013p4")
+id = &"snowy_pebbles"
+friction = 0.5
+compression_depth = 0.02
+emits_particles = false
+takes_trackmarks = false
+albedo = ExtResource("1_bytsf")
+is_deformable = false
+legacy_color = Color(1, 0.7058824, 0.5882353, 1)

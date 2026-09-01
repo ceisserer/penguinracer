@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="TerrainLayer" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/terrain/ice03.png" id="1_m0h0h"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="2_84qby"]
+
+[resource]
+script = ExtResource("2_84qby")
+id = &"greenice"
+friction = 0.2
+compression_depth = 0.03
+emits_particles = false
+takes_trackmarks = false
+albedo = ExtResource("1_m0h0h")
+is_deformable = false
+shiny = true
+legacy_color = Color(0, 0.3529412, 0.47058824, 1)

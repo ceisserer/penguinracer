@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="CourseData" format=3]
+
+[ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_1qasf"]
+[ext_resource type="Image" path="res://courses/wild_mountains/heightmap.res" id="1_m7uyy"]
+[ext_resource type="Texture2D" path="res://courses/wild_mountains/preview.png" id="2_1qasf"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_67obt"]
+[ext_resource type="Texture2D" path="res://courses/wild_mountains/splat_0.png" id="4_1308g"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_jv0ey"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="6_agol6"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="7_ijtss"]
+[ext_resource type="Resource" path="res://resources/terrain/rock06.tres" id="8_58xy4"]
+
+[resource]
+script = ExtResource("3_67obt")
+display_name = "Wild Mountains"
+author = "Reinhard Niehoff"
+description = "Cleft mountains of ice and snow - bizarre and dangerous. If you like climbing you are encouraged to quit the paths. But be careful!"
+preview = ExtResource("2_1qasf")
+heightmap = ExtResource("1_m7uyy")
+heightmap_size = Vector2i(199, 1999)
+world_size = Vector2(100, 2000)
+height_scale = 15.0
+base_angle = 28.0
+splat_maps = Array[Texture2D]([ExtResource("4_1308g")])
+splat_size = Vector2i(199, 1999)
+terrain_layers = Array[ExtResource("5_jv0ey")]([ExtResource("6_agol6"), ExtResource("7_ijtss"), ExtResource("8_58xy4")])
+start_position = Vector2(50, 3)
+finish_line_z = -1980.0
+play_bounds = PackedVector2Array(2.5, 1, 97.5, 1, 97.5, -2000, 2.5, -2000)
+play_size = Vector2(95, 1980)
+environment_preset = ExtResource("1_1qasf")
+use_keyframe = false
+imported_from = "default/wild_mountains"
+import_version = 1

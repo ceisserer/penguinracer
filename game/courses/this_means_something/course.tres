@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="CourseData" format=3]
+
+[ext_resource type="Image" path="res://courses/this_means_something/heightmap.res" id="1_3qblf"]
+[ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_27yef"]
+[ext_resource type="Texture2D" path="res://courses/this_means_something/preview.png" id="2_27yef"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_mcccl"]
+[ext_resource type="Texture2D" path="res://courses/this_means_something/splat_0.png" id="4_msgjn"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_rhg0s"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="6_vtrm0"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="7_nx5qh"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="8_bvv62"]
+
+[resource]
+script = ExtResource("3_mcccl")
+display_name = "This Means Thomething"
+author = "Milo Fungus"
+description = "This course was inspired by the Steven Spielberg film \"Close Encounters of the Third Kind\". Tux travels speedily towards the monolith over ice and snow through three difficult pathways. When he reaches the tower he must jump over it or get stuck in the trees and dirt. So that's sort of like going in a spacecraft. Kind of."
+preview = ExtResource("2_27yef")
+heightmap = ExtResource("1_3qblf")
+heightmap_size = Vector2i(79, 1199)
+world_size = Vector2(54, 800)
+height_scale = 36.0
+base_angle = 23.0
+splat_maps = Array[Texture2D]([ExtResource("4_msgjn")])
+splat_size = Vector2i(79, 1199)
+terrain_layers = Array[ExtResource("5_rhg0s")]([ExtResource("6_vtrm0"), ExtResource("7_nx5qh"), ExtResource("8_bvv62")])
+start_position = Vector2(32, 2)
+finish_line_z = -800.0
+play_bounds = PackedVector2Array(0, 1, 54, 1, 54, -820, 0, -820)
+play_size = Vector2(54, 800)
+environment_preset = ExtResource("1_27yef")
+use_keyframe = false
+imported_from = "default/this_means_something"
+import_version = 1

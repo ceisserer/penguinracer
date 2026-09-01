@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="CourseData" format=3]
+
+[ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_jltcn"]
+[ext_resource type="Image" path="res://courses/penguins_day/heightmap.res" id="1_ts4qp"]
+[ext_resource type="Texture2D" path="res://courses/penguins_day/preview.png" id="2_jltcn"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_5u5i0"]
+[ext_resource type="Texture2D" path="res://courses/penguins_day/splat_0.png" id="4_riv8c"]
+[ext_resource type="Texture2D" path="res://courses/penguins_day/splat_1.png" id="5_y5r4x"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_wm36h"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="7_fysps"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="8_0331u"]
+[ext_resource type="Resource" path="res://resources/terrain/rock06.tres" id="9_jexk5"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="10_ptjbd"]
+[ext_resource type="Resource" path="res://resources/terrain/rock04.tres" id="11_xirvv"]
+[ext_resource type="Resource" path="res://resources/terrain/rock01.tres" id="12_xlnsa"]
+
+[resource]
+script = ExtResource("3_5u5i0")
+display_name = "Penguin's Day"
+author = "Korora the Penguin"
+preview = ExtResource("2_jltcn")
+heightmap = ExtResource("1_ts4qp")
+heightmap_size = Vector2i(999, 999)
+world_size = Vector2(500, 500)
+height_scale = 20.0
+base_angle = 30.0
+splat_maps = Array[Texture2D]([ExtResource("4_riv8c"), ExtResource("5_y5r4x")])
+splat_size = Vector2i(999, 999)
+terrain_layers = Array[ExtResource("6_wm36h")]([ExtResource("7_fysps"), ExtResource("8_0331u"), ExtResource("9_jexk5"), ExtResource("10_ptjbd"), ExtResource("11_xirvv"), ExtResource("12_xlnsa")])
+start_position = Vector2(250, 1)
+finish_line_z = -500.0
+play_bounds = PackedVector2Array(0, 1, 500, 1, 500, -520, 0, -520)
+play_size = Vector2(500, 500)
+environment_preset = ExtResource("1_jltcn")
+use_keyframe = false
+imported_from = "extras/penguins_day"
+import_version = 1

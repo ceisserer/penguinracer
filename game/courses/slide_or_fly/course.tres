@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="CourseData" format=3]
+
+[ext_resource type="Image" path="res://courses/slide_or_fly/heightmap.res" id="1_03rsh"]
+[ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_8ab37"]
+[ext_resource type="Texture2D" path="res://courses/slide_or_fly/preview.png" id="2_8ab37"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_bxir8"]
+[ext_resource type="Texture2D" path="res://courses/slide_or_fly/splat_0.png" id="4_1cjs7"]
+[ext_resource type="Texture2D" path="res://courses/slide_or_fly/splat_1.png" id="5_r0758"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_e3bv0"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="7_qi6w6"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="8_knotn"]
+[ext_resource type="Resource" path="res://resources/terrain/rock04.tres" id="9_7ih7e"]
+[ext_resource type="Resource" path="res://resources/terrain/rock06.tres" id="10_nxiis"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="11_86llk"]
+[ext_resource type="Resource" path="res://resources/terrain/rock01.tres" id="12_mjhsq"]
+
+[resource]
+script = ExtResource("3_bxir8")
+display_name = "Slide or Fly"
+author = "Korora the Penguin"
+preview = ExtResource("2_8ab37")
+heightmap = ExtResource("1_03rsh")
+heightmap_size = Vector2i(255, 1023)
+world_size = Vector2(128, 512)
+height_scale = 36.0
+base_angle = 20.0
+splat_maps = Array[Texture2D]([ExtResource("4_1cjs7"), ExtResource("5_r0758")])
+splat_size = Vector2i(255, 1023)
+terrain_layers = Array[ExtResource("6_e3bv0")]([ExtResource("7_qi6w6"), ExtResource("8_knotn"), ExtResource("9_7ih7e"), ExtResource("10_nxiis"), ExtResource("11_86llk"), ExtResource("12_mjhsq")])
+start_position = Vector2(60, 0)
+finish_line_z = -512.0
+play_bounds = PackedVector2Array(0, 1, 128, 1, 128, -532, 0, -532)
+play_size = Vector2(128, 512)
+environment_preset = ExtResource("1_8ab37")
+use_keyframe = false
+imported_from = "extras/slide_or_fly"
+import_version = 1

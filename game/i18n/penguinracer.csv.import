@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://d4b6w65qy3mj5"
+
+[deps]
+
+files=["res://i18n/penguinracer.en.translation", "res://i18n/penguinracer.cs_CZ.translation", "res://i18n/penguinracer.de_DE.translation", "res://i18n/penguinracer.fi_FI.translation", "res://i18n/penguinracer.es_ES.translation", "res://i18n/penguinracer.fr_FR.translation", "res://i18n/penguinracer.pl_PL.translation", "res://i18n/penguinracer.pt_PT.translation", "res://i18n/penguinracer.se_SE.translation", "res://i18n/penguinracer.eo.translation", "res://i18n/penguinracer.du_NL.translation", "res://i18n/penguinracer.ro_RO.translation", "res://i18n/penguinracer.it_IT.translation"]
+
+source_file="res://i18n/penguinracer.csv"
+dest_files=["res://i18n/penguinracer.en.translation", "res://i18n/penguinracer.cs_CZ.translation", "res://i18n/penguinracer.de_DE.translation", "res://i18n/penguinracer.fi_FI.translation", "res://i18n/penguinracer.es_ES.translation", "res://i18n/penguinracer.fr_FR.translation", "res://i18n/penguinracer.pl_PL.translation", "res://i18n/penguinracer.pt_PT.translation", "res://i18n/penguinracer.se_SE.translation", "res://i18n/penguinracer.eo.translation", "res://i18n/penguinracer.du_NL.translation", "res://i18n/penguinracer.ro_RO.translation", "res://i18n/penguinracer.it_IT.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

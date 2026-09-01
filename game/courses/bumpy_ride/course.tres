@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="CourseData" format=3]
+
+[ext_resource type="Image" path="res://courses/bumpy_ride/heightmap.res" id="1_8nes8"]
+[ext_resource type="Resource" path="res://resources/environments/tuxracer_sunny.tres" id="1_ikr2n"]
+[ext_resource type="Texture2D" path="res://courses/bumpy_ride/preview.png" id="2_ikr2n"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_uvrap"]
+[ext_resource type="Texture2D" path="res://courses/bumpy_ride/splat_0.png" id="4_5tql7"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_pd6et"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="6_gu4nh"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="7_0bcug"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="8_jfj2w"]
+
+[resource]
+script = ExtResource("3_uvrap")
+display_name = "Bumpy Ride"
+author = "Jasmin Patry"
+description = "This hill has a series of ramps to tackle. Be sure to line yourself up before getting airborne."
+preview = ExtResource("2_ikr2n")
+heightmap = ExtResource("1_8nes8")
+heightmap_size = Vector2i(119, 599)
+world_size = Vector2(60, 604)
+height_scale = 8.0
+base_angle = 30.0
+splat_maps = Array[Texture2D]([ExtResource("4_5tql7")])
+splat_size = Vector2i(119, 599)
+terrain_layers = Array[ExtResource("5_pd6et")]([ExtResource("6_gu4nh"), ExtResource("7_0bcug"), ExtResource("8_jfj2w")])
+start_position = Vector2(30, 3.1)
+finish_line_z = -550.0
+play_bounds = PackedVector2Array(15, 1, 45, 1, 45, -570, 15, -570)
+play_size = Vector2(30, 550)
+environment_preset = ExtResource("1_ikr2n")
+music_theme = &"calm"
+finish_brake = 15.0
+imported_from = "default/bumpy_ride"
+import_version = 1

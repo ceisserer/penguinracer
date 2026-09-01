@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="CourseData" format=3]
+
+[ext_resource type="Image" path="res://courses/challenge_one/heightmap.res" id="1_3i5ug"]
+[ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_o8kmg"]
+[ext_resource type="Texture2D" path="res://courses/challenge_one/preview.png" id="2_o8kmg"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_71mrg"]
+[ext_resource type="Texture2D" path="res://courses/challenge_one/splat_0.png" id="4_274xs"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_j4d30"]
+[ext_resource type="Resource" path="res://resources/terrain/rock05.tres" id="6_q5k1t"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="7_ypdct"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="8_a3np4"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="9_c7esc"]
+
+[resource]
+script = ExtResource("3_71mrg")
+display_name = "Challenge One"
+author = "unknown"
+description = "A dangerous path along the mountains. Try to catch more than 60 herrings. It is possible!"
+preview = ExtResource("2_o8kmg")
+heightmap = ExtResource("1_3i5ug")
+heightmap_size = Vector2i(199, 1999)
+world_size = Vector2(100, 1500)
+height_scale = 20.0
+base_angle = 28.0
+splat_maps = Array[Texture2D]([ExtResource("4_274xs")])
+splat_size = Vector2i(199, 1999)
+terrain_layers = Array[ExtResource("5_j4d30")]([ExtResource("6_q5k1t"), ExtResource("7_ypdct"), ExtResource("8_a3np4"), ExtResource("9_c7esc")])
+start_position = Vector2(50, 3)
+finish_line_z = -1485.0
+play_bounds = PackedVector2Array(2.5, 1, 97.5, 1, 97.5, -1505, 2.5, -1505)
+play_size = Vector2(95, 1485)
+environment_preset = ExtResource("1_o8kmg")
+use_keyframe = false
+imported_from = "default/challenge_one"
+import_version = 1

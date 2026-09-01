@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="RaceEvent" format=3]
+
+[ext_resource type="Resource" path="res://courses/bunny_hill/course.tres" id="1_cyar0"]
+[ext_resource type="Script" path="res://scripts/course/race_event.gd" id="2_gsyox"]
+
+[resource]
+script = ExtResource("2_gsyox")
+id = &"race_bunnyhill"
+course_dir = "bunny_hill"
+course = ExtResource("1_cyar0")
+herring = Vector3i(20, 22, 23)
+time = Vector3(37, 34, 30)
+music_theme = &"calm"

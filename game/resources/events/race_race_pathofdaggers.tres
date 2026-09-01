@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="RaceEvent" format=3]
+
+[ext_resource type="Resource" path="res://courses/path_of_daggers/course.tres" id="1_2fjy3"]
+[ext_resource type="Script" path="res://scripts/course/race_event.gd" id="2_2ho11"]
+
+[resource]
+script = ExtResource("2_2ho11")
+id = &"race_pathofdaggers"
+course_dir = "path_of_daggers"
+course = ExtResource("1_2fjy3")
+snow = 1
+herring = Vector3i(34, 38, 42)
+time = Vector3(149, 132, 128)

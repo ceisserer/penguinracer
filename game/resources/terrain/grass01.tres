@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="TerrainLayer" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/terrain/grass01.png" id="1_v0mk3"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="2_ru3ms"]
+
+[resource]
+script = ExtResource("2_ru3ms")
+id = &"grass01"
+friction = 0.5
+compression_depth = 0.02
+emits_particles = false
+takes_trackmarks = false
+albedo = ExtResource("1_v0mk3")
+is_deformable = false
+legacy_color = Color(0, 0.47058824, 0, 1)

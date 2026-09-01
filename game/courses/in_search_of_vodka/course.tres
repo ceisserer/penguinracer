@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="CourseData" format=3]
+
+[ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_a8dft"]
+[ext_resource type="Image" path="res://courses/in_search_of_vodka/heightmap.res" id="1_s5si0"]
+[ext_resource type="Texture2D" path="res://courses/in_search_of_vodka/preview.png" id="2_a8dft"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_62nt0"]
+[ext_resource type="Texture2D" path="res://courses/in_search_of_vodka/splat_0.png" id="4_ukvqa"]
+[ext_resource type="Texture2D" path="res://courses/in_search_of_vodka/splat_1.png" id="5_4bcih"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_ccbuj"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="7_ftdn2"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="8_h06ye"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="9_dm2u6"]
+[ext_resource type="Resource" path="res://resources/terrain/rock04.tres" id="10_20fpl"]
+[ext_resource type="Resource" path="res://resources/terrain/rock06.tres" id="11_5tu82"]
+[ext_resource type="Resource" path="res://resources/terrain/rock01.tres" id="12_theky"]
+
+[resource]
+script = ExtResource("3_62nt0")
+display_name = "In Search Of Vodka"
+author = "unknown"
+description = "A course with a bit of everything; bumpy ice, fast trenches, jumps, tree dodging and more. Hope you enjoy."
+preview = ExtResource("2_a8dft")
+heightmap = ExtResource("1_s5si0")
+heightmap_size = Vector2i(119, 3599)
+world_size = Vector2(60, 2500)
+height_scale = 10.0
+splat_maps = Array[Texture2D]([ExtResource("4_ukvqa"), ExtResource("5_4bcih")])
+splat_size = Vector2i(119, 3599)
+terrain_layers = Array[ExtResource("6_ccbuj")]([ExtResource("7_ftdn2"), ExtResource("8_h06ye"), ExtResource("9_dm2u6"), ExtResource("10_20fpl"), ExtResource("11_5tu82"), ExtResource("12_theky")])
+start_position = Vector2(30, 3.5)
+finish_line_z = -2500.0
+play_bounds = PackedVector2Array(0, 1, 60, 1, 60, -2520, 0, -2520)
+play_size = Vector2(60, 2500)
+environment_preset = ExtResource("1_a8dft")
+use_keyframe = false
+imported_from = "default/in_search_of_vodka"
+import_version = 1

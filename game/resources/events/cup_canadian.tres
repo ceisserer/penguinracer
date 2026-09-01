@@ -1,0 +1,41 @@
+[gd_resource type="Resource" script_class="RaceCup" format=3]
+
+[ext_resource type="Script" path="res://scripts/course/race_event.gd" id="1_5fdtv"]
+[ext_resource type="Resource" path="res://courses/bunny_hill/course.tres" id="2_akyic"]
+[ext_resource type="Resource" path="res://courses/twisty_slope/course.tres" id="3_xiat6"]
+[ext_resource type="Resource" path="res://courses/bumpy_ride/course.tres" id="4_pibeo"]
+[ext_resource type="Script" path="res://scripts/course/race_cup.gd" id="5_pbv0h"]
+
+[sub_resource type="Resource" id="Resource_l2w5n"]
+script = ExtResource("1_5fdtv")
+id = &"race_bunnyhill"
+course_dir = "bunny_hill"
+course = ExtResource("2_akyic")
+herring = Vector3i(20, 22, 23)
+time = Vector3(37, 34, 30)
+music_theme = &"calm"
+
+[sub_resource type="Resource" id="Resource_hd5v7"]
+script = ExtResource("1_5fdtv")
+id = &"race_twistyslope"
+course_dir = "twisty_slope"
+course = ExtResource("3_xiat6")
+light = &"night"
+herring = Vector3i(21, 23, 24)
+time = Vector3(43, 39, 34)
+music_theme = &"spunky"
+
+[sub_resource type="Resource" id="Resource_bf03g"]
+script = ExtResource("1_5fdtv")
+id = &"race_bumpyride"
+course_dir = "bumpy_ride"
+course = ExtResource("4_pibeo")
+herring = Vector3i(13, 16, 17)
+time = Vector3(35, 31, 28)
+
+[resource]
+script = ExtResource("5_pbv0h")
+id = &"canadian"
+display_name = "Canadian Cup"
+description = "The classic Tux Racer cup for beginners. Learn to paddle and to find the best track."
+races = Array[ExtResource("1_5fdtv")]([SubResource("Resource_l2w5n"), SubResource("Resource_hd5v7"), SubResource("Resource_bf03g")])

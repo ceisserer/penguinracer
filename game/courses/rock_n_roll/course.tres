@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="CourseData" format=3]
+
+[ext_resource type="Image" path="res://courses/rock_n_roll/heightmap.res" id="1_lwkc3"]
+[ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_xjx31"]
+[ext_resource type="Texture2D" path="res://courses/rock_n_roll/preview.png" id="2_xjx31"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_kgqd5"]
+[ext_resource type="Texture2D" path="res://courses/rock_n_roll/splat_0.png" id="4_cn2im"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_u8k54"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="6_l3deh"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="7_pt33y"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="8_ob83d"]
+
+[resource]
+script = ExtResource("3_kgqd5")
+display_name = "Rock'n'Roll"
+author = "Siechfred"
+preview = ExtResource("2_xjx31")
+heightmap = ExtResource("1_lwkc3")
+heightmap_size = Vector2i(199, 3999)
+world_size = Vector2(100, 2000)
+height_scale = 8.0
+base_angle = 31.0
+splat_maps = Array[Texture2D]([ExtResource("4_cn2im")])
+splat_size = Vector2i(199, 3999)
+terrain_layers = Array[ExtResource("5_u8k54")]([ExtResource("6_l3deh"), ExtResource("7_pt33y"), ExtResource("8_ob83d")])
+start_position = Vector2(32, 1)
+finish_line_z = -2000.0
+play_bounds = PackedVector2Array(0, 1, 100, 1, 100, -2020, 0, -2020)
+play_size = Vector2(100, 2000)
+environment_preset = ExtResource("1_xjx31")
+use_keyframe = false
+imported_from = "extras/rock_n_roll"
+import_version = 1

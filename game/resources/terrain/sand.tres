@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="TerrainLayer" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/terrain/sand01.png" id="1_pr2cp"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="2_yxpqe"]
+
+[resource]
+script = ExtResource("2_yxpqe")
+id = &"sand"
+friction = 0.5
+emits_particles = false
+takes_trackmarks = false
+albedo = ExtResource("1_pr2cp")
+is_deformable = false
+legacy_color = Color(0.9411765, 0.9411765, 0, 1)

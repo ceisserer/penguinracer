@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="RaceCup" format=3]
+
+[ext_resource type="Script" path="res://scripts/course/race_event.gd" id="1_a7ps8"]
+[ext_resource type="Resource" path="res://courses/frozen_river/course.tres" id="2_3nvng"]
+[ext_resource type="Resource" path="res://courses/path_of_daggers/course.tres" id="3_fhe4o"]
+[ext_resource type="Script" path="res://scripts/course/race_cup.gd" id="4_3ltrv"]
+
+[sub_resource type="Resource" id="Resource_xfk3u"]
+script = ExtResource("1_a7ps8")
+id = &"race_frozenriver"
+course_dir = "frozen_river"
+course = ExtResource("2_3nvng")
+light = &"evening"
+herring = Vector3i(40, 48, 52)
+time = Vector3(160, 150, 146)
+
+[sub_resource type="Resource" id="Resource_ron0s"]
+script = ExtResource("1_a7ps8")
+id = &"race_pathofdaggers"
+course_dir = "path_of_daggers"
+course = ExtResource("3_fhe4o")
+snow = 1
+herring = Vector3i(34, 38, 42)
+time = Vector3(149, 132, 128)
+
+[resource]
+script = ExtResource("4_3ltrv")
+id = &"swiss"
+display_name = "Swiss Cup"
+description = "Two slightly more challenging courses that shipped with the original Tux Racer."
+races = Array[ExtResource("1_a7ps8")]([SubResource("Resource_xfk3u"), SubResource("Resource_ron0s")])

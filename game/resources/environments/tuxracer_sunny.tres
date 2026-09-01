@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="EnvironmentPreset" format=3]
+
+[ext_resource type="Script" path="res://scripts/course/environment_preset.gd" id="1_srbvw"]
+[ext_resource type="Texture2D" path="res://assets/env/tuxracer_sunny/front.png" id="2_2fyb2"]
+[ext_resource type="Texture2D" path="res://assets/env/tuxracer_sunny/left.png" id="3_f51ab"]
+[ext_resource type="Texture2D" path="res://assets/env/tuxracer_sunny/right.png" id="4_hwsw1"]
+
+[resource]
+script = ExtResource("1_srbvw")
+id = &"tuxracer_sunny"
+sun_direction = Vector3(0.70710677, 0.70710677, 0)
+sun_color = Color(1, 0.9, 1, 1)
+ambient_color = Color(0.7025, 0.78249997, 1, 1)
+specular_color = Color(0.4, 0.4, 0.4, 1)
+sky_front = ExtResource("2_2fyb2")
+sky_left = ExtResource("3_f51ab")
+sky_right = ExtResource("4_hwsw1")
+sky_zenith_color = Color(0.9594491, 0.96556747, 0.98315346, 1)
+sky_nadir_color = Color(0.6584578, 0.69527555, 0.8149585, 1)

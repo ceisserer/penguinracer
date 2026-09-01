@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="TerrainLayer" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/terrain/rock.png" id="1_xen4a"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="2_ci0sg"]
+
+[resource]
+script = ExtResource("2_ci0sg")
+id = &"rock"
+friction = 0.7
+compression_depth = 0.01
+emits_particles = false
+takes_trackmarks = false
+albedo = ExtResource("1_xen4a")
+is_deformable = false
+legacy_color = Color(0.49803922, 0.49803922, 0.49803922, 1)

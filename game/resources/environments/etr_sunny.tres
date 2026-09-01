@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="EnvironmentPreset" format=3]
+
+[ext_resource type="Script" path="res://scripts/course/environment_preset.gd" id="1_2vypn"]
+[ext_resource type="Texture2D" path="res://assets/env/etr_sunny/front.png" id="2_ufy82"]
+[ext_resource type="Texture2D" path="res://assets/env/etr_sunny/left.png" id="3_0n6fo"]
+[ext_resource type="Texture2D" path="res://assets/env/etr_sunny/right.png" id="4_3kmke"]
+
+[resource]
+script = ExtResource("1_2vypn")
+id = &"etr_sunny"
+sun_direction = Vector3(0.70710677, 0.70710677, 0)
+sun_color = Color(1, 0.9, 1, 1)
+ambient_color = Color(0.7025, 0.78249997, 1, 1)
+specular_color = Color(0.4, 0.4, 0.4, 1)
+sky_front = ExtResource("2_ufy82")
+sky_left = ExtResource("3_0n6fo")
+sky_right = ExtResource("4_3kmke")
+sky_zenith_color = Color(0.22906467, 0.28442848, 0.43340638, 1)
+sky_nadir_color = Color(0.6130968, 0.6223903, 0.6550796, 1)

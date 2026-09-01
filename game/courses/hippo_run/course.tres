@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="CourseData" format=3]
+
+[ext_resource type="Image" path="res://courses/hippo_run/heightmap.res" id="1_2s65a"]
+[ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_uey31"]
+[ext_resource type="Texture2D" path="res://courses/hippo_run/preview.png" id="2_uey31"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_am21u"]
+[ext_resource type="Texture2D" path="res://courses/hippo_run/splat_0.png" id="4_nkbb8"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_fspnx"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="6_ui3nr"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="7_b7gt1"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="8_y6tux"]
+
+[resource]
+script = ExtResource("3_am21u")
+display_name = "Hippo Run"
+author = "unknown"
+description = "The author says: This is a fast course that makes you think. There are three major sections to the course. The first is a twisty ride over hills and ice. The second is up on top, and the third is the fastest part of all."
+preview = ExtResource("2_uey31")
+heightmap = ExtResource("1_2s65a")
+heightmap_size = Vector2i(99, 6999)
+world_size = Vector2(30, 3500)
+height_scale = 13.5
+splat_maps = Array[Texture2D]([ExtResource("4_nkbb8")])
+splat_size = Vector2i(99, 6999)
+terrain_layers = Array[ExtResource("5_fspnx")]([ExtResource("6_ui3nr"), ExtResource("7_b7gt1"), ExtResource("8_y6tux")])
+start_position = Vector2(16, 3.5)
+finish_line_z = -3495.0
+play_bounds = PackedVector2Array(0, 1, 30, 1, 30, -3515, 0, -3515)
+play_size = Vector2(30, 3495)
+environment_preset = ExtResource("1_uey31")
+use_keyframe = false
+imported_from = "default/hippo_run"
+import_version = 1

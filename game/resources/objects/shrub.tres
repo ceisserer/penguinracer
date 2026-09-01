@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="ObjectPrefab" format=3]
+
+[ext_resource type="Shader" path="res://shaders/object_billboard.gdshader" id="1_0p4b4"]
+[ext_resource type="Texture2D" path="res://assets/objects/shrub.png" id="2_1dnvd"]
+[ext_resource type="Script" path="res://scripts/course/object_prefab.gd" id="3_18s2x"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_x1vcr"]
+render_priority = 0
+shader = ExtResource("1_0p4b4")
+shader_parameter/albedo_texture = ExtResource("2_1dnvd")
+shader_parameter/albedo_tint = null
+shader_parameter/alpha_scissor = 0.5
+shader_parameter/roughness_value = null
+shader_parameter/normal_roundness = null
+shader_parameter/normal_up_bias = null
+
+[sub_resource type="QuadMesh" id="QuadMesh_18ja8"]
+center_offset = Vector3(0, 0.5, 0)
+
+[resource]
+script = ExtResource("3_18s2x")
+id = &"shrub"
+mesh = SubResource("QuadMesh_18ja8")
+material = SubResource("ShaderMaterial_x1vcr")
+collidable = true

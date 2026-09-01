@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="TerrainLayer" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/terrain/snowy_rock06.png" id="1_7746k"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="2_0osf0"]
+
+[resource]
+script = ExtResource("2_0osf0")
+id = &"snowy_rock06"
+friction = 0.6
+compression_depth = 0.01
+emits_particles = false
+takes_trackmarks = false
+albedo = ExtResource("1_7746k")
+is_deformable = false
+legacy_color = Color(0.3529412, 0.23529412, 0.3529412, 1)

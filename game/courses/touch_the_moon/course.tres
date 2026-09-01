@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="CourseData" format=3]
+
+[ext_resource type="Image" path="res://courses/touch_the_moon/heightmap.res" id="1_2rtw2"]
+[ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_kpaay"]
+[ext_resource type="Texture2D" path="res://courses/touch_the_moon/preview.png" id="2_kpaay"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_4ks1a"]
+[ext_resource type="Texture2D" path="res://courses/touch_the_moon/splat_0.png" id="4_weat8"]
+[ext_resource type="Texture2D" path="res://courses/touch_the_moon/splat_1.png" id="5_nhqmn"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_bl1qp"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="7_1fih5"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="8_k0av5"]
+[ext_resource type="Resource" path="res://resources/terrain/rock06.tres" id="9_qvsx3"]
+[ext_resource type="Resource" path="res://resources/terrain/rock04.tres" id="10_47yba"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="11_vubr4"]
+[ext_resource type="Resource" path="res://resources/terrain/rock01.tres" id="12_jhxlm"]
+
+[resource]
+script = ExtResource("3_4ks1a")
+display_name = "Touch the Moon"
+author = "Crazywater"
+preview = ExtResource("2_kpaay")
+heightmap = ExtResource("1_2rtw2")
+heightmap_size = Vector2i(119, 3599)
+world_size = Vector2(60, 3000)
+height_scale = 10.0
+base_angle = 43.0
+splat_maps = Array[Texture2D]([ExtResource("4_weat8"), ExtResource("5_nhqmn")])
+splat_size = Vector2i(119, 3599)
+terrain_layers = Array[ExtResource("6_bl1qp")]([ExtResource("7_1fih5"), ExtResource("8_k0av5"), ExtResource("9_qvsx3"), ExtResource("10_47yba"), ExtResource("11_vubr4"), ExtResource("12_jhxlm")])
+start_position = Vector2(30, 3.5)
+finish_line_z = -3000.0
+play_bounds = PackedVector2Array(0, 1, 60, 1, 60, -3020, 0, -3020)
+play_size = Vector2(60, 3000)
+environment_preset = ExtResource("1_kpaay")
+use_keyframe = false
+imported_from = "extras/touch_the_moon"
+import_version = 1

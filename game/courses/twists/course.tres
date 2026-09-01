@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="CourseData" format=3]
+
+[ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_oxqyc"]
+[ext_resource type="Image" path="res://courses/twists/heightmap.res" id="1_xi21h"]
+[ext_resource type="Texture2D" path="res://courses/twists/preview.png" id="2_oxqyc"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_m35st"]
+[ext_resource type="Texture2D" path="res://courses/twists/splat_0.png" id="4_hdhqy"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_dwhp5"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="6_rjqi0"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="7_jx3pp"]
+
+[resource]
+script = ExtResource("3_m35st")
+display_name = "Twists"
+author = "John Michael Mulesa"
+preview = ExtResource("2_oxqyc")
+heightmap = ExtResource("1_xi21h")
+heightmap_size = Vector2i(399, 3999)
+world_size = Vector2(200, 2000)
+splat_maps = Array[Texture2D]([ExtResource("4_hdhqy")])
+splat_size = Vector2i(399, 3999)
+terrain_layers = Array[ExtResource("5_dwhp5")]([ExtResource("6_rjqi0"), ExtResource("7_jx3pp")])
+start_position = Vector2(112, 23)
+finish_line_z = -2000.0
+play_bounds = PackedVector2Array(0, 1, 200, 1, 200, -2020, 0, -2020)
+play_size = Vector2(200, 2000)
+environment_preset = ExtResource("1_oxqyc")
+use_keyframe = false
+imported_from = "extras/twists"
+import_version = 1

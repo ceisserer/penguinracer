@@ -1,0 +1,2509 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/course/course_root.gd" id="1_fj3p4"]
+[ext_resource type="Resource" path="res://courses/penguins_day/course.tres" id="2_0wc7d"]
+[ext_resource type="Script" path="res://scripts/course/object_prefab.gd" id="3_geaoj"]
+[ext_resource type="Shader" path="res://shaders/object_billboard.gdshader" id="4_i6twe"]
+[ext_resource type="Texture2D" path="res://assets/objects/herring.png" id="5_xtwue"]
+[ext_resource type="Texture2D" path="res://assets/objects/flag.png" id="6_elftf"]
+[ext_resource type="Texture2D" path="res://assets/objects/start.png" id="7_8if6k"]
+[ext_resource type="Texture2D" path="res://assets/objects/finish.png" id="8_fr81g"]
+[ext_resource type="Texture2D" path="res://assets/objects/snowy_tree1.png" id="9_nuccu"]
+[ext_resource type="Texture2D" path="res://assets/objects/tree_barren2.png" id="10_h0fxj"]
+[ext_resource type="Texture2D" path="res://assets/objects/shrub.png" id="11_iet5e"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_ceccp"]
+render_priority = 0
+shader = ExtResource("4_i6twe")
+shader_parameter/albedo_texture = ExtResource("5_xtwue")
+shader_parameter/albedo_tint = null
+shader_parameter/alpha_scissor = 0.5
+shader_parameter/roughness_value = null
+shader_parameter/normal_roundness = null
+shader_parameter/normal_up_bias = null
+
+[sub_resource type="QuadMesh" id="QuadMesh_wym0m"]
+center_offset = Vector3(0, 0.5, 0)
+
+[sub_resource type="Resource" id="Resource_metol"]
+script = ExtResource("3_geaoj")
+id = &"herring"
+mesh = SubResource("QuadMesh_wym0m")
+material = SubResource("ShaderMaterial_ceccp")
+collectable = true
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_1r5jp"]
+render_priority = 0
+shader = ExtResource("4_i6twe")
+shader_parameter/albedo_texture = ExtResource("6_elftf")
+shader_parameter/albedo_tint = null
+shader_parameter/alpha_scissor = 0.5
+shader_parameter/roughness_value = null
+shader_parameter/normal_roundness = null
+shader_parameter/normal_up_bias = null
+
+[sub_resource type="QuadMesh" id="QuadMesh_n2cbq"]
+center_offset = Vector3(0, 0.5, 0)
+
+[sub_resource type="Resource" id="Resource_exme5"]
+script = ExtResource("3_geaoj")
+id = &"flag"
+mesh = SubResource("QuadMesh_n2cbq")
+material = SubResource("ShaderMaterial_1r5jp")
+decorative = true
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_kp70p"]
+render_priority = 0
+shader = ExtResource("4_i6twe")
+shader_parameter/albedo_texture = ExtResource("7_8if6k")
+shader_parameter/albedo_tint = null
+shader_parameter/alpha_scissor = 0.5
+shader_parameter/roughness_value = null
+shader_parameter/normal_roundness = null
+shader_parameter/normal_up_bias = null
+
+[sub_resource type="QuadMesh" id="QuadMesh_1thkq"]
+center_offset = Vector3(0, 0.5, 0)
+
+[sub_resource type="Resource" id="Resource_hkl0p"]
+script = ExtResource("3_geaoj")
+id = &"start"
+mesh = SubResource("QuadMesh_1thkq")
+material = SubResource("ShaderMaterial_kp70p")
+decorative = true
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_74i7d"]
+render_priority = 0
+shader = ExtResource("4_i6twe")
+shader_parameter/albedo_texture = ExtResource("8_fr81g")
+shader_parameter/albedo_tint = null
+shader_parameter/alpha_scissor = 0.5
+shader_parameter/roughness_value = null
+shader_parameter/normal_roundness = null
+shader_parameter/normal_up_bias = null
+
+[sub_resource type="QuadMesh" id="QuadMesh_maoaf"]
+center_offset = Vector3(0, 0.5, 0)
+
+[sub_resource type="Resource" id="Resource_jvb6v"]
+script = ExtResource("3_geaoj")
+id = &"finish"
+mesh = SubResource("QuadMesh_maoaf")
+material = SubResource("ShaderMaterial_74i7d")
+decorative = true
+
+[sub_resource type="Resource" id="Resource_wo033"]
+script = ExtResource("3_geaoj")
+id = &"float"
+decorative = true
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_fgdwc"]
+render_priority = 0
+shader = ExtResource("4_i6twe")
+shader_parameter/albedo_texture = ExtResource("9_nuccu")
+shader_parameter/albedo_tint = null
+shader_parameter/alpha_scissor = 0.5
+shader_parameter/roughness_value = null
+shader_parameter/normal_roundness = null
+shader_parameter/normal_up_bias = null
+
+[sub_resource type="QuadMesh" id="QuadMesh_usjam"]
+center_offset = Vector3(0, 0.5, 0)
+
+[sub_resource type="Resource" id="Resource_nss7u"]
+script = ExtResource("3_geaoj")
+id = &"tree"
+mesh = SubResource("QuadMesh_usjam")
+material = SubResource("ShaderMaterial_fgdwc")
+collidable = true
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_vqipt"]
+render_priority = 0
+shader = ExtResource("4_i6twe")
+shader_parameter/albedo_texture = ExtResource("10_h0fxj")
+shader_parameter/albedo_tint = null
+shader_parameter/alpha_scissor = 0.5
+shader_parameter/roughness_value = null
+shader_parameter/normal_roundness = null
+shader_parameter/normal_up_bias = null
+
+[sub_resource type="QuadMesh" id="QuadMesh_w2kcw"]
+center_offset = Vector3(0, 0.5, 0)
+
+[sub_resource type="Resource" id="Resource_6cv1o"]
+script = ExtResource("3_geaoj")
+id = &"tree_barren"
+mesh = SubResource("QuadMesh_w2kcw")
+material = SubResource("ShaderMaterial_vqipt")
+collidable = true
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_x1vcr"]
+render_priority = 0
+shader = ExtResource("4_i6twe")
+shader_parameter/albedo_texture = ExtResource("11_iet5e")
+shader_parameter/albedo_tint = null
+shader_parameter/alpha_scissor = 0.5
+shader_parameter/roughness_value = null
+shader_parameter/normal_roundness = null
+shader_parameter/normal_up_bias = null
+
+[sub_resource type="QuadMesh" id="QuadMesh_18ja8"]
+center_offset = Vector3(0, 0.5, 0)
+
+[sub_resource type="Resource" id="Resource_ijs2g"]
+script = ExtResource("3_geaoj")
+id = &"shrub"
+mesh = SubResource("QuadMesh_18ja8")
+material = SubResource("ShaderMaterial_x1vcr")
+collidable = true
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_k1gr5"]
+render_priority = 0
+shader = ExtResource("4_i6twe")
+shader_parameter/albedo_texture = ExtResource("10_h0fxj")
+shader_parameter/albedo_tint = null
+shader_parameter/alpha_scissor = 0.5
+shader_parameter/roughness_value = null
+shader_parameter/normal_roundness = null
+shader_parameter/normal_up_bias = null
+
+[sub_resource type="QuadMesh" id="QuadMesh_vr4y1"]
+center_offset = Vector3(0, 0.5, 0)
+
+[sub_resource type="Resource" id="Resource_rw78v"]
+script = ExtResource("3_geaoj")
+id = &"tree_barren2"
+mesh = SubResource("QuadMesh_vr4y1")
+material = SubResource("ShaderMaterial_k1gr5")
+collidable = true
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_nbulg"]
+render_priority = 0
+shader = ExtResource("4_i6twe")
+shader_parameter/albedo_texture = ExtResource("9_nuccu")
+shader_parameter/albedo_tint = null
+shader_parameter/alpha_scissor = 0.5
+shader_parameter/roughness_value = null
+shader_parameter/normal_roundness = null
+shader_parameter/normal_up_bias = null
+
+[sub_resource type="QuadMesh" id="QuadMesh_440gf"]
+center_offset = Vector3(0, 0.5, 0)
+
+[sub_resource type="Resource" id="Resource_u4q1e"]
+script = ExtResource("3_geaoj")
+id = &"tree1"
+mesh = SubResource("QuadMesh_440gf")
+material = SubResource("ShaderMaterial_nbulg")
+collidable = true
+
+[sub_resource type="Resource" id="Resource_2mnuf"]
+script = ExtResource("3_geaoj")
+id = &"tree2"
+collidable = true
+
+[sub_resource type="Resource" id="Resource_ykou3"]
+script = ExtResource("3_geaoj")
+id = &"tree3"
+collidable = true
+
+[sub_resource type="Resource" id="Resource_1sv0t"]
+script = ExtResource("3_geaoj")
+id = &"tree4"
+collidable = true
+
+[sub_resource type="Resource" id="Resource_6niai"]
+script = ExtResource("3_geaoj")
+id = &"tree5"
+collidable = true
+
+[node name="penguins_day" type="Node3D" unique_id=44135172]
+script = ExtResource("1_fj3p4")
+course_data = ExtResource("2_0wc7d")
+object_prefabs = Dictionary[String, ExtResource("3_geaoj")]({
+"finish": SubResource("Resource_jvb6v"),
+"flag": SubResource("Resource_exme5"),
+"float": SubResource("Resource_wo033"),
+"herring": SubResource("Resource_metol"),
+"shrub": SubResource("Resource_ijs2g"),
+"start": SubResource("Resource_hkl0p"),
+"tree": SubResource("Resource_nss7u"),
+"tree1": SubResource("Resource_u4q1e"),
+"tree2": SubResource("Resource_2mnuf"),
+"tree3": SubResource("Resource_ykou3"),
+"tree4": SubResource("Resource_1sv0t"),
+"tree5": SubResource("Resource_6niai"),
+"tree_barren": SubResource("Resource_6cv1o"),
+"tree_barren2": SubResource("Resource_rw78v")
+})
+
+[node name="Objects" type="Node3D" parent="." unique_id=1558403770]
+
+[node name="herring" type="Node3D" parent="Objects" unique_id=577015844]
+
+[node name="herring_0" type="Marker3D" parent="Objects/herring" unique_id=491790802]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -496.994)
+
+[node name="herring_1" type="Marker3D" parent="Objects/herring" unique_id=1009861391]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -496.994)
+
+[node name="herring_2" type="Marker3D" parent="Objects/herring" unique_id=733429328]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -495.99197)
+
+[node name="herring_3" type="Marker3D" parent="Objects/herring" unique_id=1485104065]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -495.99197)
+
+[node name="herring_4" type="Marker3D" parent="Objects/herring" unique_id=1937670666]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -494.99)
+
+[node name="herring_5" type="Marker3D" parent="Objects/herring" unique_id=912819955]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -494.99)
+
+[node name="herring_6" type="Marker3D" parent="Objects/herring" unique_id=1301488223]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -493.98798)
+
+[node name="herring_7" type="Marker3D" parent="Objects/herring" unique_id=939400960]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -493.98798)
+
+[node name="herring_8" type="Marker3D" parent="Objects/herring" unique_id=576756125]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -492.98596)
+
+[node name="herring_9" type="Marker3D" parent="Objects/herring" unique_id=983761420]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -492.98596)
+
+[node name="herring_10" type="Marker3D" parent="Objects/herring" unique_id=770998237]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -491.98398)
+
+[node name="herring_11" type="Marker3D" parent="Objects/herring" unique_id=908231323]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -491.98398)
+
+[node name="herring_12" type="Marker3D" parent="Objects/herring" unique_id=444929095]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -490.98196)
+
+[node name="herring_13" type="Marker3D" parent="Objects/herring" unique_id=243980176]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -490.98196)
+
+[node name="herring_14" type="Marker3D" parent="Objects/herring" unique_id=998970811]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -489.97995)
+
+[node name="herring_15" type="Marker3D" parent="Objects/herring" unique_id=1336131303]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -489.97995)
+
+[node name="herring_16" type="Marker3D" parent="Objects/herring" unique_id=1759805899]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -488.97797)
+
+[node name="herring_17" type="Marker3D" parent="Objects/herring" unique_id=2105906383]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -488.97797)
+
+[node name="herring_18" type="Marker3D" parent="Objects/herring" unique_id=443174637]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -487.97595)
+
+[node name="herring_19" type="Marker3D" parent="Objects/herring" unique_id=1556219959]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -487.97595)
+
+[node name="herring_20" type="Marker3D" parent="Objects/herring" unique_id=1599101795]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -486.97394)
+
+[node name="herring_21" type="Marker3D" parent="Objects/herring" unique_id=278867370]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -486.97394)
+
+[node name="herring_22" type="Marker3D" parent="Objects/herring" unique_id=507583538]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -485.97195)
+
+[node name="herring_23" type="Marker3D" parent="Objects/herring" unique_id=349435258]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -485.97195)
+
+[node name="herring_24" type="Marker3D" parent="Objects/herring" unique_id=108078072]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -484.96994)
+
+[node name="herring_25" type="Marker3D" parent="Objects/herring" unique_id=871231817]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -484.96994)
+
+[node name="herring_26" type="Marker3D" parent="Objects/herring" unique_id=379683908]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -483.96793)
+
+[node name="herring_27" type="Marker3D" parent="Objects/herring" unique_id=1600471312]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -483.96793)
+
+[node name="herring_28" type="Marker3D" parent="Objects/herring" unique_id=927582440]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -482.96594)
+
+[node name="herring_29" type="Marker3D" parent="Objects/herring" unique_id=700732127]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -482.96594)
+
+[node name="herring_30" type="Marker3D" parent="Objects/herring" unique_id=1015947398]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -481.96393)
+
+[node name="herring_31" type="Marker3D" parent="Objects/herring" unique_id=1461469425]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 247.495, 0, -481.96393)
+
+[node name="herring_32" type="Marker3D" parent="Objects/herring" unique_id=1287192910]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -480.9619)
+
+[node name="herring_33" type="Marker3D" parent="Objects/herring" unique_id=850864749]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 247.495, 0, -480.9619)
+
+[node name="herring_34" type="Marker3D" parent="Objects/herring" unique_id=948267364]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -479.95993)
+
+[node name="herring_35" type="Marker3D" parent="Objects/herring" unique_id=1601373977]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 247.495, 0, -479.95993)
+
+[node name="herring_36" type="Marker3D" parent="Objects/herring" unique_id=126242773]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -478.95792)
+
+[node name="herring_37" type="Marker3D" parent="Objects/herring" unique_id=1858317414]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 247.495, 0, -478.95792)
+
+[node name="herring_38" type="Marker3D" parent="Objects/herring" unique_id=134844844]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -477.9559)
+
+[node name="herring_39" type="Marker3D" parent="Objects/herring" unique_id=256261102]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 247.495, 0, -477.9559)
+
+[node name="herring_40" type="Marker3D" parent="Objects/herring" unique_id=1604067862]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -476.95392)
+
+[node name="herring_41" type="Marker3D" parent="Objects/herring" unique_id=264069692]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 247.495, 0, -476.95392)
+
+[node name="herring_42" type="Marker3D" parent="Objects/herring" unique_id=91464615]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -475.9519)
+
+[node name="herring_43" type="Marker3D" parent="Objects/herring" unique_id=825128501]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 247.495, 0, -475.9519)
+
+[node name="herring_44" type="Marker3D" parent="Objects/herring" unique_id=111552213]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -474.9499)
+
+[node name="herring_45" type="Marker3D" parent="Objects/herring" unique_id=1758141594]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 247.495, 0, -474.9499)
+
+[node name="herring_46" type="Marker3D" parent="Objects/herring" unique_id=1947988631]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -473.9479)
+
+[node name="herring_47" type="Marker3D" parent="Objects/herring" unique_id=4819719]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -473.9479)
+
+[node name="herring_48" type="Marker3D" parent="Objects/herring" unique_id=113672428]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -472.9459)
+
+[node name="herring_49" type="Marker3D" parent="Objects/herring" unique_id=1350788926]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -472.9459)
+
+[node name="herring_50" type="Marker3D" parent="Objects/herring" unique_id=708034261]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -471.94388)
+
+[node name="herring_51" type="Marker3D" parent="Objects/herring" unique_id=1618471351]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -471.94388)
+
+[node name="herring_52" type="Marker3D" parent="Objects/herring" unique_id=1544966516]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -470.9419)
+
+[node name="herring_53" type="Marker3D" parent="Objects/herring" unique_id=775610304]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -470.9419)
+
+[node name="herring_54" type="Marker3D" parent="Objects/herring" unique_id=1018664092]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -469.93988)
+
+[node name="herring_55" type="Marker3D" parent="Objects/herring" unique_id=123662831]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -469.93988)
+
+[node name="herring_56" type="Marker3D" parent="Objects/herring" unique_id=1536103771]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -468.93787)
+
+[node name="herring_57" type="Marker3D" parent="Objects/herring" unique_id=364255037]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -468.93787)
+
+[node name="herring_58" type="Marker3D" parent="Objects/herring" unique_id=1677884468]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -467.93588)
+
+[node name="herring_59" type="Marker3D" parent="Objects/herring" unique_id=1616599279]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -467.93588)
+
+[node name="herring_60" type="Marker3D" parent="Objects/herring" unique_id=659085137]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -466.93387)
+
+[node name="herring_61" type="Marker3D" parent="Objects/herring" unique_id=1240967446]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -466.93387)
+
+[node name="herring_62" type="Marker3D" parent="Objects/herring" unique_id=557433614]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -465.93185)
+
+[node name="herring_63" type="Marker3D" parent="Objects/herring" unique_id=2107767892]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -465.93185)
+
+[node name="herring_64" type="Marker3D" parent="Objects/herring" unique_id=1524194370]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -464.92987)
+
+[node name="herring_65" type="Marker3D" parent="Objects/herring" unique_id=91820319]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -464.92987)
+
+[node name="herring_66" type="Marker3D" parent="Objects/herring" unique_id=88759010]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -463.92786)
+
+[node name="herring_67" type="Marker3D" parent="Objects/herring" unique_id=1749710060]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -463.92786)
+
+[node name="herring_68" type="Marker3D" parent="Objects/herring" unique_id=154617325]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -462.92584)
+
+[node name="herring_69" type="Marker3D" parent="Objects/herring" unique_id=341876480]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -462.92584)
+
+[node name="herring_70" type="Marker3D" parent="Objects/herring" unique_id=594591156]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -461.92386)
+
+[node name="herring_71" type="Marker3D" parent="Objects/herring" unique_id=142478147]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -461.92386)
+
+[node name="herring_72" type="Marker3D" parent="Objects/herring" unique_id=1639012953]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -460.92184)
+
+[node name="herring_73" type="Marker3D" parent="Objects/herring" unique_id=1811745159]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -460.92184)
+
+[node name="herring_74" type="Marker3D" parent="Objects/herring" unique_id=1462150997]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -459.91983)
+
+[node name="herring_75" type="Marker3D" parent="Objects/herring" unique_id=109826864]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -459.91983)
+
+[node name="herring_76" type="Marker3D" parent="Objects/herring" unique_id=1696713209]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -458.91785)
+
+[node name="herring_77" type="Marker3D" parent="Objects/herring" unique_id=409199859]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -458.91785)
+
+[node name="herring_78" type="Marker3D" parent="Objects/herring" unique_id=2072485417]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -457.91583)
+
+[node name="herring_79" type="Marker3D" parent="Objects/herring" unique_id=1418766088]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -457.91583)
+
+[node name="herring_80" type="Marker3D" parent="Objects/herring" unique_id=749308565]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -456.91382)
+
+[node name="herring_81" type="Marker3D" parent="Objects/herring" unique_id=1924644463]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -456.91382)
+
+[node name="herring_82" type="Marker3D" parent="Objects/herring" unique_id=1522442914]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -455.91183)
+
+[node name="herring_83" type="Marker3D" parent="Objects/herring" unique_id=16788384]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -455.91183)
+
+[node name="herring_84" type="Marker3D" parent="Objects/herring" unique_id=2037712746]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -454.90982)
+
+[node name="herring_85" type="Marker3D" parent="Objects/herring" unique_id=849134643]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -454.90982)
+
+[node name="herring_86" type="Marker3D" parent="Objects/herring" unique_id=133289445]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -453.9078)
+
+[node name="herring_87" type="Marker3D" parent="Objects/herring" unique_id=747838886]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -453.9078)
+
+[node name="herring_88" type="Marker3D" parent="Objects/herring" unique_id=692790818]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -452.90582)
+
+[node name="herring_89" type="Marker3D" parent="Objects/herring" unique_id=1973433816]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -452.90582)
+
+[node name="herring_90" type="Marker3D" parent="Objects/herring" unique_id=1405150932]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -451.9038)
+
+[node name="herring_91" type="Marker3D" parent="Objects/herring" unique_id=880107593]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -451.9038)
+
+[node name="herring_92" type="Marker3D" parent="Objects/herring" unique_id=715530313]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -450.9018)
+
+[node name="herring_93" type="Marker3D" parent="Objects/herring" unique_id=1803581844]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -450.9018)
+
+[node name="herring_94" type="Marker3D" parent="Objects/herring" unique_id=2087180031]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -449.8998)
+
+[node name="herring_95" type="Marker3D" parent="Objects/herring" unique_id=1434846396]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -449.8998)
+
+[node name="herring_96" type="Marker3D" parent="Objects/herring" unique_id=677602280]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -448.8978)
+
+[node name="herring_97" type="Marker3D" parent="Objects/herring" unique_id=241308337]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -448.8978)
+
+[node name="herring_98" type="Marker3D" parent="Objects/herring" unique_id=208392321]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -447.89578)
+
+[node name="herring_99" type="Marker3D" parent="Objects/herring" unique_id=143624802]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -447.89578)
+
+[node name="herring_100" type="Marker3D" parent="Objects/herring" unique_id=570476341]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -446.8938)
+
+[node name="herring_101" type="Marker3D" parent="Objects/herring" unique_id=147529098]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -446.8938)
+
+[node name="herring_102" type="Marker3D" parent="Objects/herring" unique_id=707294943]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -445.89178)
+
+[node name="herring_103" type="Marker3D" parent="Objects/herring" unique_id=1461668725]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -445.89178)
+
+[node name="herring_104" type="Marker3D" parent="Objects/herring" unique_id=649311677]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -444.88977)
+
+[node name="herring_105" type="Marker3D" parent="Objects/herring" unique_id=490152319]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -444.88977)
+
+[node name="herring_106" type="Marker3D" parent="Objects/herring" unique_id=1048240173]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -443.8878)
+
+[node name="herring_107" type="Marker3D" parent="Objects/herring" unique_id=1270326342]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -443.8878)
+
+[node name="herring_108" type="Marker3D" parent="Objects/herring" unique_id=22567128]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -442.88577)
+
+[node name="herring_109" type="Marker3D" parent="Objects/herring" unique_id=521465547]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -442.88577)
+
+[node name="herring_110" type="Marker3D" parent="Objects/herring" unique_id=2021485716]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -441.88376)
+
+[node name="herring_111" type="Marker3D" parent="Objects/herring" unique_id=34747127]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.022044, 0, -400.8016)
+
+[node name="herring_112" type="Marker3D" parent="Objects/herring" unique_id=1589313410]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.0200405, 0, -400.8016)
+
+[node name="herring_113" type="Marker3D" parent="Objects/herring" unique_id=1252487218]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.024048, 0, -399.7996)
+
+[node name="herring_114" type="Marker3D" parent="Objects/herring" unique_id=74733454]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.022044, 0, -399.7996)
+
+[node name="herring_115" type="Marker3D" parent="Objects/herring" unique_id=1937508579]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.024048, 0, -398.7976)
+
+[node name="herring_116" type="Marker3D" parent="Objects/herring" unique_id=685228437]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.022044, 0, -398.7976)
+
+[node name="herring_117" type="Marker3D" parent="Objects/herring" unique_id=1879584052]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.024048, 0, -397.7956)
+
+[node name="herring_118" type="Marker3D" parent="Objects/herring" unique_id=1694534553]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.022044, 0, -397.7956)
+
+[node name="herring_119" type="Marker3D" parent="Objects/herring" unique_id=796929790]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.024048, 0, -396.79358)
+
+[node name="herring_120" type="Marker3D" parent="Objects/herring" unique_id=882333669]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.022044, 0, -396.79358)
+
+[node name="herring_121" type="Marker3D" parent="Objects/herring" unique_id=16996334]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.024048, 0, -395.7916)
+
+[node name="herring_122" type="Marker3D" parent="Objects/herring" unique_id=1403064981]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.022044, 0, -395.7916)
+
+[node name="herring_123" type="Marker3D" parent="Objects/herring" unique_id=2085872780]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.024048, 0, -394.78958)
+
+[node name="herring_124" type="Marker3D" parent="Objects/herring" unique_id=275180296]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.022044, 0, -394.78958)
+
+[node name="herring_125" type="Marker3D" parent="Objects/herring" unique_id=346213950]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.022044, 0, -393.78757)
+
+[node name="herring_126" type="Marker3D" parent="Objects/herring" unique_id=2080272959]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.0200405, 0, -393.78757)
+
+[node name="herring_127" type="Marker3D" parent="Objects/herring" unique_id=1946391581]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.022044, 0, -392.78558)
+
+[node name="herring_128" type="Marker3D" parent="Objects/herring" unique_id=1404136213]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.0200405, 0, -392.78558)
+
+[node name="herring_129" type="Marker3D" parent="Objects/herring" unique_id=155547283]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.022044, 0, -391.78357)
+
+[node name="herring_130" type="Marker3D" parent="Objects/herring" unique_id=2080867817]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.0200405, 0, -391.78357)
+
+[node name="herring_131" type="Marker3D" parent="Objects/herring" unique_id=1388818955]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.0200405, 0, -390.78156)
+
+[node name="herring_132" type="Marker3D" parent="Objects/herring" unique_id=441000021]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.018036, 0, -390.78156)
+
+[node name="herring_133" type="Marker3D" parent="Objects/herring" unique_id=1847257512]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.0200405, 0, -389.77957)
+
+[node name="herring_134" type="Marker3D" parent="Objects/herring" unique_id=1997256928]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.018036, 0, -389.77957)
+
+[node name="herring_135" type="Marker3D" parent="Objects/herring" unique_id=1794002448]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.0200405, 0, -388.77756)
+
+[node name="herring_136" type="Marker3D" parent="Objects/herring" unique_id=1359974868]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.018036, 0, -388.77756)
+
+[node name="herring_137" type="Marker3D" parent="Objects/herring" unique_id=726163992]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.018036, 0, -387.77554)
+
+[node name="herring_138" type="Marker3D" parent="Objects/herring" unique_id=2116706955]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.016032, 0, -387.77554)
+
+[node name="herring_139" type="Marker3D" parent="Objects/herring" unique_id=1740734712]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.018036, 0, -386.77356)
+
+[node name="herring_140" type="Marker3D" parent="Objects/herring" unique_id=1515099215]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.016032, 0, -386.77356)
+
+[node name="herring_141" type="Marker3D" parent="Objects/herring" unique_id=1110358447]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.018036, 0, -385.77155)
+
+[node name="herring_142" type="Marker3D" parent="Objects/herring" unique_id=450128044]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.016032, 0, -385.77155)
+
+[node name="herring_143" type="Marker3D" parent="Objects/herring" unique_id=2121339162]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.018036, 0, -384.76953)
+
+[node name="herring_144" type="Marker3D" parent="Objects/herring" unique_id=1071364002]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.016032, 0, -384.76953)
+
+[node name="herring_145" type="Marker3D" parent="Objects/herring" unique_id=1596628633]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.018036, 0, -383.76755)
+
+[node name="herring_146" type="Marker3D" parent="Objects/herring" unique_id=544031312]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.016032, 0, -383.76755)
+
+[node name="herring_147" type="Marker3D" parent="Objects/herring" unique_id=935597915]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.0200405, 0, -382.76553)
+
+[node name="herring_148" type="Marker3D" parent="Objects/herring" unique_id=2078298840]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.018036, 0, -382.76553)
+
+[node name="herring_149" type="Marker3D" parent="Objects/herring" unique_id=193356739]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 461.92386, 0, -381.76352)
+
+[node name="herring_150" type="Marker3D" parent="Objects/herring" unique_id=1441364522]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 460.92184, 0, -381.76352)
+
+[node name="herring_151" type="Marker3D" parent="Objects/herring" unique_id=1025863856]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 459.91983, 0, -381.76352)
+
+[node name="herring_152" type="Marker3D" parent="Objects/herring" unique_id=1787217654]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.0200405, 0, -381.76352)
+
+[node name="herring_153" type="Marker3D" parent="Objects/herring" unique_id=465389213]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.018036, 0, -381.76352)
+
+[node name="herring_154" type="Marker3D" parent="Objects/herring" unique_id=2115819157]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 463.92786, 0, -380.76154)
+
+[node name="herring_155" type="Marker3D" parent="Objects/herring" unique_id=1486130879]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 462.92584, 0, -380.76154)
+
+[node name="herring_156" type="Marker3D" parent="Objects/herring" unique_id=1364612420]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 461.92386, 0, -380.76154)
+
+[node name="herring_157" type="Marker3D" parent="Objects/herring" unique_id=2084721347]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 460.92184, 0, -380.76154)
+
+[node name="herring_158" type="Marker3D" parent="Objects/herring" unique_id=442165080]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.0200405, 0, -380.76154)
+
+[node name="herring_159" type="Marker3D" parent="Objects/herring" unique_id=1337924244]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.018036, 0, -380.76154)
+
+[node name="herring_160" type="Marker3D" parent="Objects/herring" unique_id=700080646]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 465.93185, 0, -379.75952)
+
+[node name="herring_161" type="Marker3D" parent="Objects/herring" unique_id=1273985485]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 464.92987, 0, -379.75952)
+
+[node name="herring_162" type="Marker3D" parent="Objects/herring" unique_id=2055544812]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 463.92786, 0, -379.75952)
+
+[node name="herring_163" type="Marker3D" parent="Objects/herring" unique_id=1662974162]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.0200405, 0, -379.75952)
+
+[node name="herring_164" type="Marker3D" parent="Objects/herring" unique_id=1555774894]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.018036, 0, -379.75952)
+
+[node name="herring_165" type="Marker3D" parent="Objects/herring" unique_id=1194454263]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 468.93787, 0, -378.7575)
+
+[node name="herring_166" type="Marker3D" parent="Objects/herring" unique_id=1165610835]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 467.93588, 0, -378.7575)
+
+[node name="herring_167" type="Marker3D" parent="Objects/herring" unique_id=731787357]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 466.93387, 0, -378.7575)
+
+[node name="herring_168" type="Marker3D" parent="Objects/herring" unique_id=604919095]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 465.93185, 0, -378.7575)
+
+[node name="herring_169" type="Marker3D" parent="Objects/herring" unique_id=1612693948]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 464.92987, 0, -378.7575)
+
+[node name="herring_170" type="Marker3D" parent="Objects/herring" unique_id=1966067667]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.022044, 0, -378.7575)
+
+[node name="herring_171" type="Marker3D" parent="Objects/herring" unique_id=2014699021]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.0200405, 0, -378.7575)
+
+[node name="herring_172" type="Marker3D" parent="Objects/herring" unique_id=988770121]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 470.9419, 0, -377.75552)
+
+[node name="herring_173" type="Marker3D" parent="Objects/herring" unique_id=1862717195]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 469.93988, 0, -377.75552)
+
+[node name="herring_174" type="Marker3D" parent="Objects/herring" unique_id=1256021572]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 468.93787, 0, -377.75552)
+
+[node name="herring_175" type="Marker3D" parent="Objects/herring" unique_id=1106780332]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 467.93588, 0, -377.75552)
+
+[node name="herring_176" type="Marker3D" parent="Objects/herring" unique_id=2068560099]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 466.93387, 0, -377.75552)
+
+[node name="herring_177" type="Marker3D" parent="Objects/herring" unique_id=428561528]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.022044, 0, -377.75552)
+
+[node name="herring_178" type="Marker3D" parent="Objects/herring" unique_id=351219212]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.0200405, 0, -377.75552)
+
+[node name="herring_179" type="Marker3D" parent="Objects/herring" unique_id=666184781]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 473.9479, 0, -376.7535)
+
+[node name="herring_180" type="Marker3D" parent="Objects/herring" unique_id=1577457289]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 472.9459, 0, -376.7535)
+
+[node name="herring_181" type="Marker3D" parent="Objects/herring" unique_id=1435843639]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 471.94388, 0, -376.7535)
+
+[node name="herring_182" type="Marker3D" parent="Objects/herring" unique_id=666163052]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 470.9419, 0, -376.7535)
+
+[node name="herring_183" type="Marker3D" parent="Objects/herring" unique_id=1134776111]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 469.93988, 0, -376.7535)
+
+[node name="herring_184" type="Marker3D" parent="Objects/herring" unique_id=1742675810]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.022044, 0, -376.7535)
+
+[node name="herring_185" type="Marker3D" parent="Objects/herring" unique_id=97235349]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.0200405, 0, -376.7535)
+
+[node name="herring_186" type="Marker3D" parent="Objects/herring" unique_id=460275755]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 477.9559, 0, -375.7515)
+
+[node name="herring_187" type="Marker3D" parent="Objects/herring" unique_id=743090273]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 476.95392, 0, -375.7515)
+
+[node name="herring_188" type="Marker3D" parent="Objects/herring" unique_id=974185250]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 475.9519, 0, -375.7515)
+
+[node name="herring_189" type="Marker3D" parent="Objects/herring" unique_id=1425831351]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 474.9499, 0, -375.7515)
+
+[node name="herring_190" type="Marker3D" parent="Objects/herring" unique_id=770232174]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 473.9479, 0, -375.7515)
+
+[node name="herring_191" type="Marker3D" parent="Objects/herring" unique_id=1695584925]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 472.9459, 0, -375.7515)
+
+[node name="herring_192" type="Marker3D" parent="Objects/herring" unique_id=487238149]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 471.94388, 0, -375.7515)
+
+[node name="herring_193" type="Marker3D" parent="Objects/herring" unique_id=2067227751]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.022044, 0, -375.7515)
+
+[node name="herring_194" type="Marker3D" parent="Objects/herring" unique_id=803156542]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.0200405, 0, -375.7515)
+
+[node name="herring_195" type="Marker3D" parent="Objects/herring" unique_id=2125897984]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 480.9619, 0, -374.7495)
+
+[node name="herring_196" type="Marker3D" parent="Objects/herring" unique_id=1747781100]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 479.95993, 0, -374.7495)
+
+[node name="herring_197" type="Marker3D" parent="Objects/herring" unique_id=806370670]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 478.95792, 0, -374.7495)
+
+[node name="herring_198" type="Marker3D" parent="Objects/herring" unique_id=1304692429]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 477.9559, 0, -374.7495)
+
+[node name="herring_199" type="Marker3D" parent="Objects/herring" unique_id=16117880]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 476.95392, 0, -374.7495)
+
+[node name="herring_200" type="Marker3D" parent="Objects/herring" unique_id=1507855547]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 475.9519, 0, -374.7495)
+
+[node name="herring_201" type="Marker3D" parent="Objects/herring" unique_id=1910799557]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.022044, 0, -374.7495)
+
+[node name="herring_202" type="Marker3D" parent="Objects/herring" unique_id=1644533358]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.0200405, 0, -374.7495)
+
+[node name="herring_203" type="Marker3D" parent="Objects/herring" unique_id=1429495747]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 483.96793, 0, -373.7475)
+
+[node name="herring_204" type="Marker3D" parent="Objects/herring" unique_id=1235710121]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 482.96594, 0, -373.7475)
+
+[node name="herring_205" type="Marker3D" parent="Objects/herring" unique_id=942248580]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 481.96393, 0, -373.7475)
+
+[node name="herring_206" type="Marker3D" parent="Objects/herring" unique_id=1902059234]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 480.9619, 0, -373.7475)
+
+[node name="herring_207" type="Marker3D" parent="Objects/herring" unique_id=852120985]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 479.95993, 0, -373.7475)
+
+[node name="herring_208" type="Marker3D" parent="Objects/herring" unique_id=918025292]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 478.95792, 0, -373.7475)
+
+[node name="herring_209" type="Marker3D" parent="Objects/herring" unique_id=1259118417]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.0200405, 0, -373.7475)
+
+[node name="herring_210" type="Marker3D" parent="Objects/herring" unique_id=266064993]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.018036, 0, -373.7475)
+
+[node name="herring_211" type="Marker3D" parent="Objects/herring" unique_id=1440352485]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 485.97195, 0, -372.74548)
+
+[node name="herring_212" type="Marker3D" parent="Objects/herring" unique_id=1046022074]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 484.96994, 0, -372.74548)
+
+[node name="herring_213" type="Marker3D" parent="Objects/herring" unique_id=136884529]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 483.96793, 0, -372.74548)
+
+[node name="herring_214" type="Marker3D" parent="Objects/herring" unique_id=55188314]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 482.96594, 0, -372.74548)
+
+[node name="herring_215" type="Marker3D" parent="Objects/herring" unique_id=702599916]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 481.96393, 0, -372.74548)
+
+[node name="herring_216" type="Marker3D" parent="Objects/herring" unique_id=734255550]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.0200405, 0, -372.74548)
+
+[node name="herring_217" type="Marker3D" parent="Objects/herring" unique_id=1385445259]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.018036, 0, -372.74548)
+
+[node name="herring_218" type="Marker3D" parent="Objects/herring" unique_id=324272148]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 487.97595, 0, -371.7435)
+
+[node name="herring_219" type="Marker3D" parent="Objects/herring" unique_id=1602644449]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 486.97394, 0, -371.7435)
+
+[node name="herring_220" type="Marker3D" parent="Objects/herring" unique_id=749514533]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 485.97195, 0, -371.7435)
+
+[node name="herring_221" type="Marker3D" parent="Objects/herring" unique_id=42973148]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 484.96994, 0, -371.7435)
+
+[node name="herring_222" type="Marker3D" parent="Objects/herring" unique_id=78339701]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.0200405, 0, -371.7435)
+
+[node name="herring_223" type="Marker3D" parent="Objects/herring" unique_id=2130645222]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.018036, 0, -371.7435)
+
+[node name="herring_224" type="Marker3D" parent="Objects/herring" unique_id=194801287]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 487.97595, 0, -370.7415)
+
+[node name="herring_225" type="Marker3D" parent="Objects/herring" unique_id=1602730851]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 486.97394, 0, -370.7415)
+
+[node name="herring_226" type="Marker3D" parent="Objects/herring" unique_id=859272880]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.018036, 0, -370.7415)
+
+[node name="herring_227" type="Marker3D" parent="Objects/herring" unique_id=1736816489]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.016032, 0, -370.7415)
+
+[node name="herring_228" type="Marker3D" parent="Objects/herring" unique_id=465065342]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.018036, 0, -369.73947)
+
+[node name="herring_229" type="Marker3D" parent="Objects/herring" unique_id=583316829]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.016032, 0, -369.73947)
+
+[node name="herring_230" type="Marker3D" parent="Objects/herring" unique_id=310809327]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.018036, 0, -368.7375)
+
+[node name="herring_231" type="Marker3D" parent="Objects/herring" unique_id=1852056275]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.016032, 0, -368.7375)
+
+[node name="herring_232" type="Marker3D" parent="Objects/herring" unique_id=497980742]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.0200405, 0, -367.73547)
+
+[node name="herring_233" type="Marker3D" parent="Objects/herring" unique_id=187672626]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.018036, 0, -367.73547)
+
+[node name="herring_234" type="Marker3D" parent="Objects/herring" unique_id=1854157950]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -359.71945)
+
+[node name="herring_235" type="Marker3D" parent="Objects/herring" unique_id=83048435]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -359.71945)
+
+[node name="herring_236" type="Marker3D" parent="Objects/herring" unique_id=500341864]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -358.71744)
+
+[node name="herring_237" type="Marker3D" parent="Objects/herring" unique_id=201246797]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -358.71744)
+
+[node name="herring_238" type="Marker3D" parent="Objects/herring" unique_id=1550406599]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -357.71542)
+
+[node name="herring_239" type="Marker3D" parent="Objects/herring" unique_id=1936469387]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -357.71542)
+
+[node name="herring_240" type="Marker3D" parent="Objects/herring" unique_id=190988861]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -356.71344)
+
+[node name="herring_241" type="Marker3D" parent="Objects/herring" unique_id=1164608629]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -356.71344)
+
+[node name="herring_242" type="Marker3D" parent="Objects/herring" unique_id=621331431]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -355.71143)
+
+[node name="herring_243" type="Marker3D" parent="Objects/herring" unique_id=1406580324]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -355.71143)
+
+[node name="herring_244" type="Marker3D" parent="Objects/herring" unique_id=649675235]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -354.7094)
+
+[node name="herring_245" type="Marker3D" parent="Objects/herring" unique_id=1151062405]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -354.7094)
+
+[node name="herring_246" type="Marker3D" parent="Objects/herring" unique_id=937222978]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -353.70743)
+
+[node name="herring_247" type="Marker3D" parent="Objects/herring" unique_id=699144858]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -353.70743)
+
+[node name="herring_248" type="Marker3D" parent="Objects/herring" unique_id=402623375]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -352.7054)
+
+[node name="herring_249" type="Marker3D" parent="Objects/herring" unique_id=17472897]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -352.7054)
+
+[node name="herring_250" type="Marker3D" parent="Objects/herring" unique_id=129141061]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -351.7034)
+
+[node name="herring_251" type="Marker3D" parent="Objects/herring" unique_id=125396058]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -351.7034)
+
+[node name="herring_252" type="Marker3D" parent="Objects/herring" unique_id=1195817733]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -350.70142)
+
+[node name="herring_253" type="Marker3D" parent="Objects/herring" unique_id=1413196522]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -350.70142)
+
+[node name="herring_254" type="Marker3D" parent="Objects/herring" unique_id=1759288003]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -349.6994)
+
+[node name="herring_255" type="Marker3D" parent="Objects/herring" unique_id=763723174]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -349.6994)
+
+[node name="herring_256" type="Marker3D" parent="Objects/herring" unique_id=412453950]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -348.6974)
+
+[node name="herring_257" type="Marker3D" parent="Objects/herring" unique_id=1987239151]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -348.6974)
+
+[node name="herring_258" type="Marker3D" parent="Objects/herring" unique_id=1297256673]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -347.6954)
+
+[node name="herring_259" type="Marker3D" parent="Objects/herring" unique_id=2104568171]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -347.6954)
+
+[node name="herring_260" type="Marker3D" parent="Objects/herring" unique_id=1394454864]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -345.69138)
+
+[node name="herring_261" type="Marker3D" parent="Objects/herring" unique_id=246334465]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -345.69138)
+
+[node name="herring_262" type="Marker3D" parent="Objects/herring" unique_id=2076193899]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -344.6894)
+
+[node name="herring_263" type="Marker3D" parent="Objects/herring" unique_id=1458075200]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -344.6894)
+
+[node name="herring_264" type="Marker3D" parent="Objects/herring" unique_id=1708293038]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -343.68738)
+
+[node name="herring_265" type="Marker3D" parent="Objects/herring" unique_id=805803898]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -343.68738)
+
+[node name="herring_266" type="Marker3D" parent="Objects/herring" unique_id=1868089868]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -342.68536)
+
+[node name="herring_267" type="Marker3D" parent="Objects/herring" unique_id=821253614]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -342.68536)
+
+[node name="herring_268" type="Marker3D" parent="Objects/herring" unique_id=1171988154]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -341.68338)
+
+[node name="herring_269" type="Marker3D" parent="Objects/herring" unique_id=715839015]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -341.68338)
+
+[node name="herring_270" type="Marker3D" parent="Objects/herring" unique_id=245889454]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -340.68137)
+
+[node name="herring_271" type="Marker3D" parent="Objects/herring" unique_id=63635553]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -340.68137)
+
+[node name="herring_272" type="Marker3D" parent="Objects/herring" unique_id=85949442]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 131.26253, 0, -340.68137)
+
+[node name="herring_273" type="Marker3D" parent="Objects/herring" unique_id=1039669244]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 130.26053, 0, -340.68137)
+
+[node name="herring_274" type="Marker3D" parent="Objects/herring" unique_id=1017118591]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -339.67935)
+
+[node name="herring_275" type="Marker3D" parent="Objects/herring" unique_id=752146120]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -339.67935)
+
+[node name="herring_276" type="Marker3D" parent="Objects/herring" unique_id=1784078648]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 132.26453, 0, -339.67935)
+
+[node name="herring_277" type="Marker3D" parent="Objects/herring" unique_id=1292701262]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 131.26253, 0, -339.67935)
+
+[node name="herring_278" type="Marker3D" parent="Objects/herring" unique_id=64916783]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -338.67737)
+
+[node name="herring_279" type="Marker3D" parent="Objects/herring" unique_id=1487404721]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -338.67737)
+
+[node name="herring_280" type="Marker3D" parent="Objects/herring" unique_id=270272824]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 133.26654, 0, -338.67737)
+
+[node name="herring_281" type="Marker3D" parent="Objects/herring" unique_id=1908681375]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 132.26453, 0, -338.67737)
+
+[node name="herring_282" type="Marker3D" parent="Objects/herring" unique_id=694763896]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -337.67535)
+
+[node name="herring_283" type="Marker3D" parent="Objects/herring" unique_id=1006810872]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -337.67535)
+
+[node name="herring_284" type="Marker3D" parent="Objects/herring" unique_id=1201413256]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 135.27054, 0, -337.67535)
+
+[node name="herring_285" type="Marker3D" parent="Objects/herring" unique_id=1630010294]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 134.26854, 0, -337.67535)
+
+[node name="herring_286" type="Marker3D" parent="Objects/herring" unique_id=544242507]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -336.67334)
+
+[node name="herring_287" type="Marker3D" parent="Objects/herring" unique_id=879356711]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -336.67334)
+
+[node name="herring_288" type="Marker3D" parent="Objects/herring" unique_id=1178809474]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 136.27255, 0, -336.67334)
+
+[node name="herring_289" type="Marker3D" parent="Objects/herring" unique_id=1191417333]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 135.27054, 0, -336.67334)
+
+[node name="herring_290" type="Marker3D" parent="Objects/herring" unique_id=851292703]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 137.27455, 0, -335.67136)
+
+[node name="herring_291" type="Marker3D" parent="Objects/herring" unique_id=1595937622]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 136.27255, 0, -335.67136)
+
+[node name="herring_292" type="Marker3D" parent="Objects/herring" unique_id=2080166126]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 139.27856, 0, -334.66934)
+
+[node name="herring_293" type="Marker3D" parent="Objects/herring" unique_id=1197048245]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 138.27655, 0, -334.66934)
+
+[node name="herring_294" type="Marker3D" parent="Objects/herring" unique_id=1780406310]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 137.27455, 0, -334.66934)
+
+[node name="herring_295" type="Marker3D" parent="Objects/herring" unique_id=1648701164]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 140.28056, 0, -333.66733)
+
+[node name="herring_296" type="Marker3D" parent="Objects/herring" unique_id=1369171892]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 139.27856, 0, -333.66733)
+
+[node name="herring_297" type="Marker3D" parent="Objects/herring" unique_id=772803456]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 141.28256, 0, -332.66534)
+
+[node name="herring_298" type="Marker3D" parent="Objects/herring" unique_id=292509086]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 140.28056, 0, -332.66534)
+
+[node name="herring_299" type="Marker3D" parent="Objects/herring" unique_id=1981143909]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 143.28658, 0, -331.66333)
+
+[node name="herring_300" type="Marker3D" parent="Objects/herring" unique_id=494796092]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 142.28458, 0, -331.66333)
+
+[node name="herring_301" type="Marker3D" parent="Objects/herring" unique_id=593327727]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 141.28256, 0, -331.66333)
+
+[node name="herring_302" type="Marker3D" parent="Objects/herring" unique_id=181190114]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 144.28857, 0, -330.66132)
+
+[node name="herring_303" type="Marker3D" parent="Objects/herring" unique_id=1878679545]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 143.28658, 0, -330.66132)
+
+[node name="herring_304" type="Marker3D" parent="Objects/herring" unique_id=444833295]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 142.28458, 0, -330.66132)
+
+[node name="herring_305" type="Marker3D" parent="Objects/herring" unique_id=1697207842]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 146.29259, 0, -329.65933)
+
+[node name="herring_306" type="Marker3D" parent="Objects/herring" unique_id=1550276112]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 145.29059, 0, -329.65933)
+
+[node name="herring_307" type="Marker3D" parent="Objects/herring" unique_id=1736541183]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 144.28857, 0, -329.65933)
+
+[node name="herring_308" type="Marker3D" parent="Objects/herring" unique_id=234276767]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 143.28658, 0, -329.65933)
+
+[node name="herring_309" type="Marker3D" parent="Objects/herring" unique_id=576595844]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 142.28458, 0, -329.65933)
+
+[node name="herring_310" type="Marker3D" parent="Objects/herring" unique_id=965137746]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 147.29459, 0, -328.65732)
+
+[node name="herring_311" type="Marker3D" parent="Objects/herring" unique_id=1117785726]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 146.29259, 0, -328.65732)
+
+[node name="herring_312" type="Marker3D" parent="Objects/herring" unique_id=339354412]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 144.28857, 0, -328.65732)
+
+[node name="herring_313" type="Marker3D" parent="Objects/herring" unique_id=890425987]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 143.28658, 0, -328.65732)
+
+[node name="herring_314" type="Marker3D" parent="Objects/herring" unique_id=370682759]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 149.2986, 0, -327.6553)
+
+[node name="herring_315" type="Marker3D" parent="Objects/herring" unique_id=2018788679]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 148.2966, 0, -327.6553)
+
+[node name="herring_316" type="Marker3D" parent="Objects/herring" unique_id=2142019306]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 147.29459, 0, -327.6553)
+
+[node name="herring_317" type="Marker3D" parent="Objects/herring" unique_id=345207413]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 144.28857, 0, -327.6553)
+
+[node name="herring_318" type="Marker3D" parent="Objects/herring" unique_id=1244062960]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 143.28658, 0, -327.6553)
+
+[node name="herring_319" type="Marker3D" parent="Objects/herring" unique_id=1665549744]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 152.30461, 0, -326.65332)
+
+[node name="herring_320" type="Marker3D" parent="Objects/herring" unique_id=169610678]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 151.30261, 0, -326.65332)
+
+[node name="herring_321" type="Marker3D" parent="Objects/herring" unique_id=588728973]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 150.3006, 0, -326.65332)
+
+[node name="herring_322" type="Marker3D" parent="Objects/herring" unique_id=1491321909]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 149.2986, 0, -326.65332)
+
+[node name="herring_323" type="Marker3D" parent="Objects/herring" unique_id=55281371]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 148.2966, 0, -326.65332)
+
+[node name="herring_324" type="Marker3D" parent="Objects/herring" unique_id=432590775]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 144.28857, 0, -326.65332)
+
+[node name="herring_325" type="Marker3D" parent="Objects/herring" unique_id=1680786147]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 143.28658, 0, -326.65332)
+
+[node name="herring_326" type="Marker3D" parent="Objects/herring" unique_id=116204016]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 154.30862, 0, -325.6513)
+
+[node name="herring_327" type="Marker3D" parent="Objects/herring" unique_id=520187931]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 153.30661, 0, -325.6513)
+
+[node name="herring_328" type="Marker3D" parent="Objects/herring" unique_id=1251884137]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 152.30461, 0, -325.6513)
+
+[node name="herring_329" type="Marker3D" parent="Objects/herring" unique_id=1737612043]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 151.30261, 0, -325.6513)
+
+[node name="herring_330" type="Marker3D" parent="Objects/herring" unique_id=96024887]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 150.3006, 0, -325.6513)
+
+[node name="herring_331" type="Marker3D" parent="Objects/herring" unique_id=1604435825]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 144.28857, 0, -325.6513)
+
+[node name="herring_332" type="Marker3D" parent="Objects/herring" unique_id=220503302]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 143.28658, 0, -325.6513)
+
+[node name="herring_333" type="Marker3D" parent="Objects/herring" unique_id=25252366]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 155.31062, 0, -324.6493)
+
+[node name="herring_334" type="Marker3D" parent="Objects/herring" unique_id=469770274]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 154.30862, 0, -324.6493)
+
+[node name="herring_335" type="Marker3D" parent="Objects/herring" unique_id=1450800121]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 144.28857, 0, -324.6493)
+
+[node name="herring_336" type="Marker3D" parent="Objects/herring" unique_id=1839048905]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 143.28658, 0, -324.6493)
+
+[node name="herring_337" type="Marker3D" parent="Objects/herring" unique_id=148900085]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 155.31062, 0, -323.6473)
+
+[node name="herring_338" type="Marker3D" parent="Objects/herring" unique_id=814935301]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 144.28857, 0, -323.6473)
+
+[node name="herring_339" type="Marker3D" parent="Objects/herring" unique_id=743242214]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 143.28658, 0, -323.6473)
+
+[node name="herring_340" type="Marker3D" parent="Objects/herring" unique_id=922638032]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 143.28658, 0, -322.6453)
+
+[node name="herring_341" type="Marker3D" parent="Objects/herring" unique_id=1926242826]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 142.28458, 0, -322.6453)
+
+[node name="herring_342" type="Marker3D" parent="Objects/herring" unique_id=1502927220]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 142.28458, 0, -321.64328)
+
+[node name="herring_343" type="Marker3D" parent="Objects/herring" unique_id=1821526950]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 141.28256, 0, -321.64328)
+
+[node name="herring_344" type="Marker3D" parent="Objects/herring" unique_id=1986259884]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 142.28458, 0, -320.6413)
+
+[node name="herring_345" type="Marker3D" parent="Objects/herring" unique_id=1242754866]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 141.28256, 0, -320.6413)
+
+[node name="herring_346" type="Marker3D" parent="Objects/herring" unique_id=682588475]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 142.28458, 0, -319.63928)
+
+[node name="herring_347" type="Marker3D" parent="Objects/herring" unique_id=1230716343]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 141.28256, 0, -319.63928)
+
+[node name="herring_348" type="Marker3D" parent="Objects/herring" unique_id=1084981587]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 381.76352, 0, -318.63727)
+
+[node name="herring_349" type="Marker3D" parent="Objects/herring" unique_id=156496609]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 380.76154, 0, -318.63727)
+
+[node name="herring_350" type="Marker3D" parent="Objects/herring" unique_id=1602016801]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 142.28458, 0, -318.63727)
+
+[node name="herring_351" type="Marker3D" parent="Objects/herring" unique_id=343959136]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 141.28256, 0, -318.63727)
+
+[node name="herring_352" type="Marker3D" parent="Objects/herring" unique_id=1335490479]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 381.76352, 0, -317.63528)
+
+[node name="herring_353" type="Marker3D" parent="Objects/herring" unique_id=1415184578]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 380.76154, 0, -317.63528)
+
+[node name="herring_354" type="Marker3D" parent="Objects/herring" unique_id=1558211542]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 142.28458, 0, -317.63528)
+
+[node name="herring_355" type="Marker3D" parent="Objects/herring" unique_id=1801362630]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 141.28256, 0, -317.63528)
+
+[node name="herring_356" type="Marker3D" parent="Objects/herring" unique_id=1156123912]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 381.76352, 0, -316.63327)
+
+[node name="herring_357" type="Marker3D" parent="Objects/herring" unique_id=2011793617]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 380.76154, 0, -316.63327)
+
+[node name="herring_358" type="Marker3D" parent="Objects/herring" unique_id=1612756321]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 142.28458, 0, -316.63327)
+
+[node name="herring_359" type="Marker3D" parent="Objects/herring" unique_id=1704753690]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 141.28256, 0, -316.63327)
+
+[node name="herring_360" type="Marker3D" parent="Objects/herring" unique_id=831319630]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 381.76352, 0, -315.63126)
+
+[node name="herring_361" type="Marker3D" parent="Objects/herring" unique_id=1405709218]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 380.76154, 0, -315.63126)
+
+[node name="herring_362" type="Marker3D" parent="Objects/herring" unique_id=1602918809]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 381.76352, 0, -314.62927)
+
+[node name="herring_363" type="Marker3D" parent="Objects/herring" unique_id=2028282098]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 380.76154, 0, -314.62927)
+
+[node name="herring_364" type="Marker3D" parent="Objects/herring" unique_id=2001441199]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 381.76352, 0, -313.62726)
+
+[node name="herring_365" type="Marker3D" parent="Objects/herring" unique_id=180989070]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 380.76154, 0, -313.62726)
+
+[node name="herring_366" type="Marker3D" parent="Objects/herring" unique_id=131876215]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 381.76352, 0, -312.62524)
+
+[node name="herring_367" type="Marker3D" parent="Objects/herring" unique_id=1538622195]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 380.76154, 0, -312.62524)
+
+[node name="herring_368" type="Marker3D" parent="Objects/herring" unique_id=2117267001]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 381.76352, 0, -311.62326)
+
+[node name="herring_369" type="Marker3D" parent="Objects/herring" unique_id=1488159708]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 380.76154, 0, -311.62326)
+
+[node name="herring_370" type="Marker3D" parent="Objects/herring" unique_id=1510220665]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 374.7495, 0, -311.62326)
+
+[node name="herring_371" type="Marker3D" parent="Objects/herring" unique_id=1004555000]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 373.7475, 0, -311.62326)
+
+[node name="herring_372" type="Marker3D" parent="Objects/herring" unique_id=1348054685]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 372.74548, 0, -311.62326)
+
+[node name="herring_373" type="Marker3D" parent="Objects/herring" unique_id=1578224367]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 371.7435, 0, -311.62326)
+
+[node name="herring_374" type="Marker3D" parent="Objects/herring" unique_id=1211886741]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 370.7415, 0, -311.62326)
+
+[node name="herring_375" type="Marker3D" parent="Objects/herring" unique_id=1091634744]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 369.73947, 0, -311.62326)
+
+[node name="herring_376" type="Marker3D" parent="Objects/herring" unique_id=1064064006]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 381.76352, 0, -310.62125)
+
+[node name="herring_377" type="Marker3D" parent="Objects/herring" unique_id=17058696]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 380.76154, 0, -310.62125)
+
+[node name="herring_378" type="Marker3D" parent="Objects/herring" unique_id=2051733095]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 376.7535, 0, -310.62125)
+
+[node name="herring_379" type="Marker3D" parent="Objects/herring" unique_id=1297685089]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 375.7515, 0, -310.62125)
+
+[node name="herring_380" type="Marker3D" parent="Objects/herring" unique_id=1323711585]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 374.7495, 0, -310.62125)
+
+[node name="herring_381" type="Marker3D" parent="Objects/herring" unique_id=1477031318]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 373.7475, 0, -310.62125)
+
+[node name="herring_382" type="Marker3D" parent="Objects/herring" unique_id=727785968]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 372.74548, 0, -310.62125)
+
+[node name="herring_383" type="Marker3D" parent="Objects/herring" unique_id=1501315258]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 371.7435, 0, -310.62125)
+
+[node name="herring_384" type="Marker3D" parent="Objects/herring" unique_id=278805861]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 370.7415, 0, -310.62125)
+
+[node name="herring_385" type="Marker3D" parent="Objects/herring" unique_id=736159389]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 369.73947, 0, -310.62125)
+
+[node name="herring_386" type="Marker3D" parent="Objects/herring" unique_id=410661222]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 368.7375, 0, -310.62125)
+
+[node name="herring_387" type="Marker3D" parent="Objects/herring" unique_id=164548449]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 367.73547, 0, -310.62125)
+
+[node name="herring_388" type="Marker3D" parent="Objects/herring" unique_id=208812479]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 380.76154, 0, -309.61923)
+
+[node name="herring_389" type="Marker3D" parent="Objects/herring" unique_id=1329788278]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 379.75952, 0, -309.61923)
+
+[node name="herring_390" type="Marker3D" parent="Objects/herring" unique_id=71475673]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 378.7575, 0, -309.61923)
+
+[node name="herring_391" type="Marker3D" parent="Objects/herring" unique_id=1988340889]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 377.75552, 0, -309.61923)
+
+[node name="herring_392" type="Marker3D" parent="Objects/herring" unique_id=131586557]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 376.7535, 0, -309.61923)
+
+[node name="herring_393" type="Marker3D" parent="Objects/herring" unique_id=1326216251]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 375.7515, 0, -309.61923)
+
+[node name="herring_394" type="Marker3D" parent="Objects/herring" unique_id=34481902]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 367.73547, 0, -309.61923)
+
+[node name="herring_395" type="Marker3D" parent="Objects/herring" unique_id=855461017]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 366.73346, 0, -309.61923)
+
+[node name="herring_396" type="Marker3D" parent="Objects/herring" unique_id=1736418392]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 365.73148, 0, -309.61923)
+
+[node name="herring_397" type="Marker3D" parent="Objects/herring" unique_id=442155402]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 364.72946, 0, -309.61923)
+
+[node name="herring_398" type="Marker3D" parent="Objects/herring" unique_id=271685089]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 363.72745, 0, -309.61923)
+
+[node name="herring_399" type="Marker3D" parent="Objects/herring" unique_id=1193762165]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 362.72546, 0, -309.61923)
+
+[node name="herring_400" type="Marker3D" parent="Objects/herring" unique_id=679082081]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 361.72345, 0, -309.61923)
+
+[node name="herring_401" type="Marker3D" parent="Objects/herring" unique_id=894947942]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 360.72144, 0, -309.61923)
+
+[node name="herring_402" type="Marker3D" parent="Objects/herring" unique_id=1170301606]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 359.71945, 0, -309.61923)
+
+[node name="herring_403" type="Marker3D" parent="Objects/herring" unique_id=1185903401]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 358.71744, 0, -309.61923)
+
+[node name="herring_404" type="Marker3D" parent="Objects/herring" unique_id=444295022]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 357.71542, 0, -309.61923)
+
+[node name="herring_405" type="Marker3D" parent="Objects/herring" unique_id=436632515]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 356.71344, 0, -309.61923)
+
+[node name="herring_406" type="Marker3D" parent="Objects/herring" unique_id=977089648]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 355.71143, 0, -309.61923)
+
+[node name="herring_407" type="Marker3D" parent="Objects/herring" unique_id=2051799839]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 354.7094, 0, -309.61923)
+
+[node name="herring_408" type="Marker3D" parent="Objects/herring" unique_id=1461568230]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 353.70743, 0, -309.61923)
+
+[node name="herring_409" type="Marker3D" parent="Objects/herring" unique_id=1711874226]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 352.7054, 0, -309.61923)
+
+[node name="herring_410" type="Marker3D" parent="Objects/herring" unique_id=1755972162]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 351.7034, 0, -309.61923)
+
+[node name="herring_411" type="Marker3D" parent="Objects/herring" unique_id=81338951]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 350.70142, 0, -309.61923)
+
+[node name="herring_412" type="Marker3D" parent="Objects/herring" unique_id=1988117274]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 349.6994, 0, -309.61923)
+
+[node name="herring_413" type="Marker3D" parent="Objects/herring" unique_id=1867960251]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 348.6974, 0, -309.61923)
+
+[node name="herring_414" type="Marker3D" parent="Objects/herring" unique_id=379369762]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 379.75952, 0, -308.61725)
+
+[node name="herring_415" type="Marker3D" parent="Objects/herring" unique_id=160868368]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 378.7575, 0, -308.61725)
+
+[node name="herring_416" type="Marker3D" parent="Objects/herring" unique_id=498678378]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 377.75552, 0, -308.61725)
+
+[node name="herring_417" type="Marker3D" parent="Objects/herring" unique_id=845897005]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 366.73346, 0, -308.61725)
+
+[node name="herring_418" type="Marker3D" parent="Objects/herring" unique_id=721662009]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 365.73148, 0, -308.61725)
+
+[node name="herring_419" type="Marker3D" parent="Objects/herring" unique_id=1998845701]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 364.72946, 0, -308.61725)
+
+[node name="herring_420" type="Marker3D" parent="Objects/herring" unique_id=1636714351]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 363.72745, 0, -308.61725)
+
+[node name="herring_421" type="Marker3D" parent="Objects/herring" unique_id=1833333841]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 362.72546, 0, -308.61725)
+
+[node name="herring_422" type="Marker3D" parent="Objects/herring" unique_id=1623304200]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 361.72345, 0, -308.61725)
+
+[node name="herring_423" type="Marker3D" parent="Objects/herring" unique_id=1379985875]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 360.72144, 0, -308.61725)
+
+[node name="herring_424" type="Marker3D" parent="Objects/herring" unique_id=1934206229]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 359.71945, 0, -308.61725)
+
+[node name="herring_425" type="Marker3D" parent="Objects/herring" unique_id=1380829110]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 358.71744, 0, -308.61725)
+
+[node name="herring_426" type="Marker3D" parent="Objects/herring" unique_id=2128063089]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 357.71542, 0, -308.61725)
+
+[node name="herring_427" type="Marker3D" parent="Objects/herring" unique_id=1870002439]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 356.71344, 0, -308.61725)
+
+[node name="herring_428" type="Marker3D" parent="Objects/herring" unique_id=740061063]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 355.71143, 0, -308.61725)
+
+[node name="herring_429" type="Marker3D" parent="Objects/herring" unique_id=397501797]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 354.7094, 0, -308.61725)
+
+[node name="herring_430" type="Marker3D" parent="Objects/herring" unique_id=68672665]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 353.70743, 0, -308.61725)
+
+[node name="herring_431" type="Marker3D" parent="Objects/herring" unique_id=1454691201]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 352.7054, 0, -308.61725)
+
+[node name="herring_432" type="Marker3D" parent="Objects/herring" unique_id=686715247]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 351.7034, 0, -308.61725)
+
+[node name="herring_433" type="Marker3D" parent="Objects/herring" unique_id=145626346]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 350.70142, 0, -308.61725)
+
+[node name="herring_434" type="Marker3D" parent="Objects/herring" unique_id=701069165]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 349.6994, 0, -308.61725)
+
+[node name="herring_435" type="Marker3D" parent="Objects/herring" unique_id=1997207101]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 348.6974, 0, -308.61725)
+
+[node name="herring_436" type="Marker3D" parent="Objects/herring" unique_id=1833442836]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 379.75952, 0, -307.61523)
+
+[node name="herring_437" type="Marker3D" parent="Objects/herring" unique_id=432191804]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 378.7575, 0, -307.61523)
+
+[node name="herring_438" type="Marker3D" parent="Objects/herring" unique_id=759620911]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 378.7575, 0, -306.61322)
+
+[node name="herring_439" type="Marker3D" parent="Objects/herring" unique_id=1396607654]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 377.75552, 0, -306.61322)
+
+[node name="herring_440" type="Marker3D" parent="Objects/herring" unique_id=1699911186]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 378.7575, 0, -305.61124)
+
+[node name="herring_441" type="Marker3D" parent="Objects/herring" unique_id=465960290]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 377.75552, 0, -305.61124)
+
+[node name="herring_442" type="Marker3D" parent="Objects/herring" unique_id=2105168819]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 378.7575, 0, -304.60922)
+
+[node name="herring_443" type="Marker3D" parent="Objects/herring" unique_id=2083498338]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 377.75552, 0, -304.60922)
+
+[node name="herring_444" type="Marker3D" parent="Objects/herring" unique_id=1225603297]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 378.7575, 0, -303.6072)
+
+[node name="herring_445" type="Marker3D" parent="Objects/herring" unique_id=1394938344]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 377.75552, 0, -303.6072)
+
+[node name="herring_446" type="Marker3D" parent="Objects/herring" unique_id=1994837435]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 378.7575, 0, -302.60522)
+
+[node name="herring_447" type="Marker3D" parent="Objects/herring" unique_id=378578127]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 377.75552, 0, -302.60522)
+
+[node name="herring_448" type="Marker3D" parent="Objects/herring" unique_id=1504242874]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 253.50702, 0, -210.42084)
+
+[node name="herring_449" type="Marker3D" parent="Objects/herring" unique_id=419339557]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 252.505, 0, -210.42084)
+
+[node name="herring_450" type="Marker3D" parent="Objects/herring" unique_id=1446250531]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 251.503, 0, -210.42084)
+
+[node name="herring_451" type="Marker3D" parent="Objects/herring" unique_id=1046218596]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -210.42084)
+
+[node name="herring_452" type="Marker3D" parent="Objects/herring" unique_id=1426998153]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -210.42084)
+
+[node name="herring_453" type="Marker3D" parent="Objects/herring" unique_id=51962865]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -210.42084)
+
+[node name="herring_454" type="Marker3D" parent="Objects/herring" unique_id=1909738245]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 255.51102, 0, -209.41884)
+
+[node name="herring_455" type="Marker3D" parent="Objects/herring" unique_id=1238645359]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 254.50902, 0, -209.41884)
+
+[node name="herring_456" type="Marker3D" parent="Objects/herring" unique_id=771822098]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 253.50702, 0, -209.41884)
+
+[node name="herring_457" type="Marker3D" parent="Objects/herring" unique_id=46262482]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 252.505, 0, -209.41884)
+
+[node name="herring_458" type="Marker3D" parent="Objects/herring" unique_id=75362279]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 251.503, 0, -209.41884)
+
+[node name="herring_459" type="Marker3D" parent="Objects/herring" unique_id=1156794625]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -209.41884)
+
+[node name="herring_460" type="Marker3D" parent="Objects/herring" unique_id=1014514140]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -209.41884)
+
+[node name="herring_461" type="Marker3D" parent="Objects/herring" unique_id=1921078917]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -209.41884)
+
+[node name="herring_462" type="Marker3D" parent="Objects/herring" unique_id=85733252]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 247.495, 0, -209.41884)
+
+[node name="herring_463" type="Marker3D" parent="Objects/herring" unique_id=1242683444]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 246.49298, 0, -209.41884)
+
+[node name="herring_464" type="Marker3D" parent="Objects/herring" unique_id=700739197]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256.51303, 0, -208.41684)
+
+[node name="herring_465" type="Marker3D" parent="Objects/herring" unique_id=1288326405]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 255.51102, 0, -208.41684)
+
+[node name="herring_466" type="Marker3D" parent="Objects/herring" unique_id=1600250131]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 254.50902, 0, -208.41684)
+
+[node name="herring_467" type="Marker3D" parent="Objects/herring" unique_id=1931479667]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 253.50702, 0, -208.41684)
+
+[node name="herring_468" type="Marker3D" parent="Objects/herring" unique_id=943717061]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 252.505, 0, -208.41684)
+
+[node name="herring_469" type="Marker3D" parent="Objects/herring" unique_id=22953075]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 251.503, 0, -208.41684)
+
+[node name="herring_470" type="Marker3D" parent="Objects/herring" unique_id=370773103]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -208.41684)
+
+[node name="herring_471" type="Marker3D" parent="Objects/herring" unique_id=1070886070]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -208.41684)
+
+[node name="herring_472" type="Marker3D" parent="Objects/herring" unique_id=298231156]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -208.41684)
+
+[node name="herring_473" type="Marker3D" parent="Objects/herring" unique_id=16784812]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 247.495, 0, -208.41684)
+
+[node name="herring_474" type="Marker3D" parent="Objects/herring" unique_id=879715561]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 246.49298, 0, -208.41684)
+
+[node name="herring_475" type="Marker3D" parent="Objects/herring" unique_id=1470691292]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 245.49098, 0, -208.41684)
+
+[node name="herring_476" type="Marker3D" parent="Objects/herring" unique_id=1463520552]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 257.51505, 0, -207.41483)
+
+[node name="herring_477" type="Marker3D" parent="Objects/herring" unique_id=862247116]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256.51303, 0, -207.41483)
+
+[node name="herring_478" type="Marker3D" parent="Objects/herring" unique_id=571310836]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 255.51102, 0, -207.41483)
+
+[node name="herring_479" type="Marker3D" parent="Objects/herring" unique_id=1442231065]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 254.50902, 0, -207.41483)
+
+[node name="herring_480" type="Marker3D" parent="Objects/herring" unique_id=545414761]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 253.50702, 0, -207.41483)
+
+[node name="herring_481" type="Marker3D" parent="Objects/herring" unique_id=1074245705]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 252.505, 0, -207.41483)
+
+[node name="herring_482" type="Marker3D" parent="Objects/herring" unique_id=552889359]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 251.503, 0, -207.41483)
+
+[node name="herring_483" type="Marker3D" parent="Objects/herring" unique_id=1173058064]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -207.41483)
+
+[node name="herring_484" type="Marker3D" parent="Objects/herring" unique_id=2091847894]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -207.41483)
+
+[node name="herring_485" type="Marker3D" parent="Objects/herring" unique_id=550930295]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -207.41483)
+
+[node name="herring_486" type="Marker3D" parent="Objects/herring" unique_id=648205960]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 247.495, 0, -207.41483)
+
+[node name="herring_487" type="Marker3D" parent="Objects/herring" unique_id=626883559]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 246.49298, 0, -207.41483)
+
+[node name="herring_488" type="Marker3D" parent="Objects/herring" unique_id=1936447902]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 245.49098, 0, -207.41483)
+
+[node name="herring_489" type="Marker3D" parent="Objects/herring" unique_id=164720312]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -207.41483)
+
+[node name="herring_490" type="Marker3D" parent="Objects/herring" unique_id=1755817103]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 258.51703, 0, -206.41283)
+
+[node name="herring_491" type="Marker3D" parent="Objects/herring" unique_id=292638816]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 257.51505, 0, -206.41283)
+
+[node name="herring_492" type="Marker3D" parent="Objects/herring" unique_id=2040155859]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256.51303, 0, -206.41283)
+
+[node name="herring_493" type="Marker3D" parent="Objects/herring" unique_id=1750102778]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 255.51102, 0, -206.41283)
+
+[node name="herring_494" type="Marker3D" parent="Objects/herring" unique_id=2016493150]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 254.50902, 0, -206.41283)
+
+[node name="herring_495" type="Marker3D" parent="Objects/herring" unique_id=242073006]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 253.50702, 0, -206.41283)
+
+[node name="herring_496" type="Marker3D" parent="Objects/herring" unique_id=1423765992]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 252.505, 0, -206.41283)
+
+[node name="herring_497" type="Marker3D" parent="Objects/herring" unique_id=679165458]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 251.503, 0, -206.41283)
+
+[node name="herring_498" type="Marker3D" parent="Objects/herring" unique_id=525764420]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -206.41283)
+
+[node name="herring_499" type="Marker3D" parent="Objects/herring" unique_id=1174229829]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -206.41283)
+
+[node name="herring_500" type="Marker3D" parent="Objects/herring" unique_id=1457634801]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -206.41283)
+
+[node name="herring_501" type="Marker3D" parent="Objects/herring" unique_id=1084769310]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 247.495, 0, -206.41283)
+
+[node name="herring_502" type="Marker3D" parent="Objects/herring" unique_id=1828903755]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 246.49298, 0, -206.41283)
+
+[node name="herring_503" type="Marker3D" parent="Objects/herring" unique_id=1722380895]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 245.49098, 0, -206.41283)
+
+[node name="herring_504" type="Marker3D" parent="Objects/herring" unique_id=1754266505]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -206.41283)
+
+[node name="herring_505" type="Marker3D" parent="Objects/herring" unique_id=647066985]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 243.48697, 0, -206.41283)
+
+[node name="herring_506" type="Marker3D" parent="Objects/herring" unique_id=1332944425]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 258.51703, 0, -205.41083)
+
+[node name="herring_507" type="Marker3D" parent="Objects/herring" unique_id=733752419]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 257.51505, 0, -205.41083)
+
+[node name="herring_508" type="Marker3D" parent="Objects/herring" unique_id=551146441]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256.51303, 0, -205.41083)
+
+[node name="herring_509" type="Marker3D" parent="Objects/herring" unique_id=940426258]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 255.51102, 0, -205.41083)
+
+[node name="herring_510" type="Marker3D" parent="Objects/herring" unique_id=1498372035]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 254.50902, 0, -205.41083)
+
+[node name="herring_511" type="Marker3D" parent="Objects/herring" unique_id=1551644521]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 253.50702, 0, -205.41083)
+
+[node name="herring_512" type="Marker3D" parent="Objects/herring" unique_id=1447532368]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 252.505, 0, -205.41083)
+
+[node name="herring_513" type="Marker3D" parent="Objects/herring" unique_id=405378508]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 251.503, 0, -205.41083)
+
+[node name="herring_514" type="Marker3D" parent="Objects/herring" unique_id=824227256]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -205.41083)
+
+[node name="herring_515" type="Marker3D" parent="Objects/herring" unique_id=870626331]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -205.41083)
+
+[node name="herring_516" type="Marker3D" parent="Objects/herring" unique_id=135848404]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -205.41083)
+
+[node name="herring_517" type="Marker3D" parent="Objects/herring" unique_id=703326632]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 247.495, 0, -205.41083)
+
+[node name="herring_518" type="Marker3D" parent="Objects/herring" unique_id=593006297]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 246.49298, 0, -205.41083)
+
+[node name="herring_519" type="Marker3D" parent="Objects/herring" unique_id=1497882045]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 245.49098, 0, -205.41083)
+
+[node name="herring_520" type="Marker3D" parent="Objects/herring" unique_id=863220881]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -205.41083)
+
+[node name="herring_521" type="Marker3D" parent="Objects/herring" unique_id=559939986]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 243.48697, 0, -205.41083)
+
+[node name="herring_522" type="Marker3D" parent="Objects/herring" unique_id=263516995]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 259.51904, 0, -204.40881)
+
+[node name="herring_523" type="Marker3D" parent="Objects/herring" unique_id=1711573075]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 258.51703, 0, -204.40881)
+
+[node name="herring_524" type="Marker3D" parent="Objects/herring" unique_id=1305310266]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 257.51505, 0, -204.40881)
+
+[node name="herring_525" type="Marker3D" parent="Objects/herring" unique_id=1452125979]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256.51303, 0, -204.40881)
+
+[node name="herring_526" type="Marker3D" parent="Objects/herring" unique_id=267730255]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 255.51102, 0, -204.40881)
+
+[node name="herring_527" type="Marker3D" parent="Objects/herring" unique_id=320938846]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 254.50902, 0, -204.40881)
+
+[node name="herring_528" type="Marker3D" parent="Objects/herring" unique_id=1797272386]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 253.50702, 0, -204.40881)
+
+[node name="herring_529" type="Marker3D" parent="Objects/herring" unique_id=429171260]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 252.505, 0, -204.40881)
+
+[node name="herring_530" type="Marker3D" parent="Objects/herring" unique_id=1475896553]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 251.503, 0, -204.40881)
+
+[node name="herring_531" type="Marker3D" parent="Objects/herring" unique_id=1041478020]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -204.40881)
+
+[node name="herring_532" type="Marker3D" parent="Objects/herring" unique_id=1764779257]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -204.40881)
+
+[node name="herring_533" type="Marker3D" parent="Objects/herring" unique_id=653718185]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -204.40881)
+
+[node name="herring_534" type="Marker3D" parent="Objects/herring" unique_id=1432427112]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 247.495, 0, -204.40881)
+
+[node name="herring_535" type="Marker3D" parent="Objects/herring" unique_id=829186784]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 246.49298, 0, -204.40881)
+
+[node name="herring_536" type="Marker3D" parent="Objects/herring" unique_id=190995228]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 245.49098, 0, -204.40881)
+
+[node name="herring_537" type="Marker3D" parent="Objects/herring" unique_id=723731989]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -204.40881)
+
+[node name="herring_538" type="Marker3D" parent="Objects/herring" unique_id=557776959]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 243.48697, 0, -204.40881)
+
+[node name="herring_539" type="Marker3D" parent="Objects/herring" unique_id=824592940]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 242.48497, 0, -204.40881)
+
+[node name="herring_540" type="Marker3D" parent="Objects/herring" unique_id=1903561635]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 259.51904, 0, -203.40681)
+
+[node name="herring_541" type="Marker3D" parent="Objects/herring" unique_id=21885035]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 258.51703, 0, -203.40681)
+
+[node name="herring_542" type="Marker3D" parent="Objects/herring" unique_id=1990115057]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 257.51505, 0, -203.40681)
+
+[node name="herring_543" type="Marker3D" parent="Objects/herring" unique_id=1974105794]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256.51303, 0, -203.40681)
+
+[node name="herring_544" type="Marker3D" parent="Objects/herring" unique_id=1286352404]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 255.51102, 0, -203.40681)
+
+[node name="herring_545" type="Marker3D" parent="Objects/herring" unique_id=583782200]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 254.50902, 0, -203.40681)
+
+[node name="herring_546" type="Marker3D" parent="Objects/herring" unique_id=209757065]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 253.50702, 0, -203.40681)
+
+[node name="herring_547" type="Marker3D" parent="Objects/herring" unique_id=603105760]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 252.505, 0, -203.40681)
+
+[node name="herring_548" type="Marker3D" parent="Objects/herring" unique_id=1001711036]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 251.503, 0, -203.40681)
+
+[node name="herring_549" type="Marker3D" parent="Objects/herring" unique_id=9223914]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -203.40681)
+
+[node name="herring_550" type="Marker3D" parent="Objects/herring" unique_id=1702155511]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -203.40681)
+
+[node name="herring_551" type="Marker3D" parent="Objects/herring" unique_id=1014567141]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -203.40681)
+
+[node name="herring_552" type="Marker3D" parent="Objects/herring" unique_id=1386881000]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 247.495, 0, -203.40681)
+
+[node name="herring_553" type="Marker3D" parent="Objects/herring" unique_id=1235478875]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 246.49298, 0, -203.40681)
+
+[node name="herring_554" type="Marker3D" parent="Objects/herring" unique_id=1103722335]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 245.49098, 0, -203.40681)
+
+[node name="herring_555" type="Marker3D" parent="Objects/herring" unique_id=1357828993]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -203.40681)
+
+[node name="herring_556" type="Marker3D" parent="Objects/herring" unique_id=1441966918]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 243.48697, 0, -203.40681)
+
+[node name="herring_557" type="Marker3D" parent="Objects/herring" unique_id=369928505]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 242.48497, 0, -203.40681)
+
+[node name="herring_558" type="Marker3D" parent="Objects/herring" unique_id=1047843837]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 259.51904, 0, -202.40482)
+
+[node name="herring_559" type="Marker3D" parent="Objects/herring" unique_id=343949581]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 258.51703, 0, -202.40482)
+
+[node name="herring_560" type="Marker3D" parent="Objects/herring" unique_id=1319937905]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 257.51505, 0, -202.40482)
+
+[node name="herring_561" type="Marker3D" parent="Objects/herring" unique_id=787181194]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256.51303, 0, -202.40482)
+
+[node name="herring_562" type="Marker3D" parent="Objects/herring" unique_id=100456981]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 255.51102, 0, -202.40482)
+
+[node name="herring_563" type="Marker3D" parent="Objects/herring" unique_id=1007102443]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 254.50902, 0, -202.40482)
+
+[node name="herring_564" type="Marker3D" parent="Objects/herring" unique_id=939831585]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 253.50702, 0, -202.40482)
+
+[node name="herring_565" type="Marker3D" parent="Objects/herring" unique_id=1687117651]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 252.505, 0, -202.40482)
+
+[node name="herring_566" type="Marker3D" parent="Objects/herring" unique_id=691655598]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 251.503, 0, -202.40482)
+
+[node name="herring_567" type="Marker3D" parent="Objects/herring" unique_id=1022526190]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -202.40482)
+
+[node name="herring_568" type="Marker3D" parent="Objects/herring" unique_id=407121747]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -202.40482)
+
+[node name="herring_569" type="Marker3D" parent="Objects/herring" unique_id=43136483]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -202.40482)
+
+[node name="herring_570" type="Marker3D" parent="Objects/herring" unique_id=1721372260]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 247.495, 0, -202.40482)
+
+[node name="herring_571" type="Marker3D" parent="Objects/herring" unique_id=496815400]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 246.49298, 0, -202.40482)
+
+[node name="herring_572" type="Marker3D" parent="Objects/herring" unique_id=95791390]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 245.49098, 0, -202.40482)
+
+[node name="herring_573" type="Marker3D" parent="Objects/herring" unique_id=622905172]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -202.40482)
+
+[node name="herring_574" type="Marker3D" parent="Objects/herring" unique_id=296859348]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 243.48697, 0, -202.40482)
+
+[node name="herring_575" type="Marker3D" parent="Objects/herring" unique_id=1820867520]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 242.48497, 0, -202.40482)
+
+[node name="herring_576" type="Marker3D" parent="Objects/herring" unique_id=2107650648]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 259.51904, 0, -201.4028)
+
+[node name="herring_577" type="Marker3D" parent="Objects/herring" unique_id=390126790]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 258.51703, 0, -201.4028)
+
+[node name="herring_578" type="Marker3D" parent="Objects/herring" unique_id=505742170]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 257.51505, 0, -201.4028)
+
+[node name="herring_579" type="Marker3D" parent="Objects/herring" unique_id=656712677]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256.51303, 0, -201.4028)
+
+[node name="herring_580" type="Marker3D" parent="Objects/herring" unique_id=1456887967]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 255.51102, 0, -201.4028)
+
+[node name="herring_581" type="Marker3D" parent="Objects/herring" unique_id=186371311]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 254.50902, 0, -201.4028)
+
+[node name="herring_582" type="Marker3D" parent="Objects/herring" unique_id=1200288218]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 253.50702, 0, -201.4028)
+
+[node name="herring_583" type="Marker3D" parent="Objects/herring" unique_id=535001924]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 252.505, 0, -201.4028)
+
+[node name="herring_584" type="Marker3D" parent="Objects/herring" unique_id=1110698315]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 251.503, 0, -201.4028)
+
+[node name="herring_585" type="Marker3D" parent="Objects/herring" unique_id=500373102]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -201.4028)
+
+[node name="herring_586" type="Marker3D" parent="Objects/herring" unique_id=455611148]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -201.4028)
+
+[node name="herring_587" type="Marker3D" parent="Objects/herring" unique_id=417585974]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -201.4028)
+
+[node name="herring_588" type="Marker3D" parent="Objects/herring" unique_id=775624742]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 247.495, 0, -201.4028)
+
+[node name="herring_589" type="Marker3D" parent="Objects/herring" unique_id=699880994]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 246.49298, 0, -201.4028)
+
+[node name="herring_590" type="Marker3D" parent="Objects/herring" unique_id=57523487]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 245.49098, 0, -201.4028)
+
+[node name="herring_591" type="Marker3D" parent="Objects/herring" unique_id=1468730743]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -201.4028)
+
+[node name="herring_592" type="Marker3D" parent="Objects/herring" unique_id=1970636]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 243.48697, 0, -201.4028)
+
+[node name="herring_593" type="Marker3D" parent="Objects/herring" unique_id=823032502]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 242.48497, 0, -201.4028)
+
+[node name="herring_594" type="Marker3D" parent="Objects/herring" unique_id=133530452]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 259.51904, 0, -200.4008)
+
+[node name="herring_595" type="Marker3D" parent="Objects/herring" unique_id=1605280087]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 258.51703, 0, -200.4008)
+
+[node name="herring_596" type="Marker3D" parent="Objects/herring" unique_id=206792858]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 257.51505, 0, -200.4008)
+
+[node name="herring_597" type="Marker3D" parent="Objects/herring" unique_id=857660799]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256.51303, 0, -200.4008)
+
+[node name="herring_598" type="Marker3D" parent="Objects/herring" unique_id=973261109]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 255.51102, 0, -200.4008)
+
+[node name="herring_599" type="Marker3D" parent="Objects/herring" unique_id=1865888081]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 254.50902, 0, -200.4008)
+
+[node name="herring_600" type="Marker3D" parent="Objects/herring" unique_id=257297216]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 253.50702, 0, -200.4008)
+
+[node name="herring_601" type="Marker3D" parent="Objects/herring" unique_id=1321880539]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 252.505, 0, -200.4008)
+
+[node name="herring_602" type="Marker3D" parent="Objects/herring" unique_id=638750555]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 251.503, 0, -200.4008)
+
+[node name="herring_603" type="Marker3D" parent="Objects/herring" unique_id=912566395]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -200.4008)
+
+[node name="herring_604" type="Marker3D" parent="Objects/herring" unique_id=737335200]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -200.4008)
+
+[node name="herring_605" type="Marker3D" parent="Objects/herring" unique_id=1055664187]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -200.4008)
+
+[node name="herring_606" type="Marker3D" parent="Objects/herring" unique_id=689966018]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 247.495, 0, -200.4008)
+
+[node name="herring_607" type="Marker3D" parent="Objects/herring" unique_id=1243443617]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 246.49298, 0, -200.4008)
+
+[node name="herring_608" type="Marker3D" parent="Objects/herring" unique_id=751280031]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 245.49098, 0, -200.4008)
+
+[node name="herring_609" type="Marker3D" parent="Objects/herring" unique_id=552730692]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -200.4008)
+
+[node name="herring_610" type="Marker3D" parent="Objects/herring" unique_id=1205874657]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 243.48697, 0, -200.4008)
+
+[node name="herring_611" type="Marker3D" parent="Objects/herring" unique_id=441447438]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 242.48497, 0, -200.4008)
+
+[node name="herring_612" type="Marker3D" parent="Objects/herring" unique_id=226687569]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 259.51904, 0, -199.3988)
+
+[node name="herring_613" type="Marker3D" parent="Objects/herring" unique_id=1470274300]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 258.51703, 0, -199.3988)
+
+[node name="herring_614" type="Marker3D" parent="Objects/herring" unique_id=654608542]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 257.51505, 0, -199.3988)
+
+[node name="herring_615" type="Marker3D" parent="Objects/herring" unique_id=305032341]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256.51303, 0, -199.3988)
+
+[node name="herring_616" type="Marker3D" parent="Objects/herring" unique_id=1698388792]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 255.51102, 0, -199.3988)
+
+[node name="herring_617" type="Marker3D" parent="Objects/herring" unique_id=1289168036]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 254.50902, 0, -199.3988)
+
+[node name="herring_618" type="Marker3D" parent="Objects/herring" unique_id=716898137]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 253.50702, 0, -199.3988)
+
+[node name="herring_619" type="Marker3D" parent="Objects/herring" unique_id=723702624]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 252.505, 0, -199.3988)
+
+[node name="herring_620" type="Marker3D" parent="Objects/herring" unique_id=901090734]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 251.503, 0, -199.3988)
+
+[node name="herring_621" type="Marker3D" parent="Objects/herring" unique_id=1717689279]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -199.3988)
+
+[node name="herring_622" type="Marker3D" parent="Objects/herring" unique_id=311730896]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -199.3988)
+
+[node name="herring_623" type="Marker3D" parent="Objects/herring" unique_id=109446611]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -199.3988)
+
+[node name="herring_624" type="Marker3D" parent="Objects/herring" unique_id=1214711296]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 247.495, 0, -199.3988)
+
+[node name="herring_625" type="Marker3D" parent="Objects/herring" unique_id=347104964]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 246.49298, 0, -199.3988)
+
+[node name="herring_626" type="Marker3D" parent="Objects/herring" unique_id=1046236470]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 245.49098, 0, -199.3988)
+
+[node name="herring_627" type="Marker3D" parent="Objects/herring" unique_id=291773252]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -199.3988)
+
+[node name="herring_628" type="Marker3D" parent="Objects/herring" unique_id=150539661]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 243.48697, 0, -199.3988)
+
+[node name="herring_629" type="Marker3D" parent="Objects/herring" unique_id=1202091675]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 242.48497, 0, -199.3988)
+
+[node name="herring_630" type="Marker3D" parent="Objects/herring" unique_id=1357365532]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 258.51703, 0, -198.39679)
+
+[node name="herring_631" type="Marker3D" parent="Objects/herring" unique_id=2095944515]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 257.51505, 0, -198.39679)
+
+[node name="herring_632" type="Marker3D" parent="Objects/herring" unique_id=1939387375]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256.51303, 0, -198.39679)
+
+[node name="herring_633" type="Marker3D" parent="Objects/herring" unique_id=1816393014]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 255.51102, 0, -198.39679)
+
+[node name="herring_634" type="Marker3D" parent="Objects/herring" unique_id=716454842]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 254.50902, 0, -198.39679)
+
+[node name="herring_635" type="Marker3D" parent="Objects/herring" unique_id=1479976432]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 253.50702, 0, -198.39679)
+
+[node name="herring_636" type="Marker3D" parent="Objects/herring" unique_id=91450576]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 252.505, 0, -198.39679)
+
+[node name="herring_637" type="Marker3D" parent="Objects/herring" unique_id=1936257851]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 251.503, 0, -198.39679)
+
+[node name="herring_638" type="Marker3D" parent="Objects/herring" unique_id=276187649]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -198.39679)
+
+[node name="herring_639" type="Marker3D" parent="Objects/herring" unique_id=2079551884]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -198.39679)
+
+[node name="herring_640" type="Marker3D" parent="Objects/herring" unique_id=657705727]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -198.39679)
+
+[node name="herring_641" type="Marker3D" parent="Objects/herring" unique_id=470949608]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 247.495, 0, -198.39679)
+
+[node name="herring_642" type="Marker3D" parent="Objects/herring" unique_id=179927591]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 246.49298, 0, -198.39679)
+
+[node name="herring_643" type="Marker3D" parent="Objects/herring" unique_id=1007109280]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 245.49098, 0, -198.39679)
+
+[node name="herring_644" type="Marker3D" parent="Objects/herring" unique_id=916321923]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -198.39679)
+
+[node name="herring_645" type="Marker3D" parent="Objects/herring" unique_id=1600650559]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 243.48697, 0, -198.39679)
+
+[node name="herring_646" type="Marker3D" parent="Objects/herring" unique_id=365342123]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 258.51703, 0, -197.39479)
+
+[node name="herring_647" type="Marker3D" parent="Objects/herring" unique_id=1268044653]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 257.51505, 0, -197.39479)
+
+[node name="herring_648" type="Marker3D" parent="Objects/herring" unique_id=610194186]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256.51303, 0, -197.39479)
+
+[node name="herring_649" type="Marker3D" parent="Objects/herring" unique_id=1689855682]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 255.51102, 0, -197.39479)
+
+[node name="herring_650" type="Marker3D" parent="Objects/herring" unique_id=2071505398]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 254.50902, 0, -197.39479)
+
+[node name="herring_651" type="Marker3D" parent="Objects/herring" unique_id=559627341]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 253.50702, 0, -197.39479)
+
+[node name="herring_652" type="Marker3D" parent="Objects/herring" unique_id=1442920748]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 252.505, 0, -197.39479)
+
+[node name="herring_653" type="Marker3D" parent="Objects/herring" unique_id=5381945]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 251.503, 0, -197.39479)
+
+[node name="herring_654" type="Marker3D" parent="Objects/herring" unique_id=1399301098]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -197.39479)
+
+[node name="herring_655" type="Marker3D" parent="Objects/herring" unique_id=1818780958]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -197.39479)
+
+[node name="herring_656" type="Marker3D" parent="Objects/herring" unique_id=1520700412]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -197.39479)
+
+[node name="herring_657" type="Marker3D" parent="Objects/herring" unique_id=577648003]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 247.495, 0, -197.39479)
+
+[node name="herring_658" type="Marker3D" parent="Objects/herring" unique_id=1240011026]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 246.49298, 0, -197.39479)
+
+[node name="herring_659" type="Marker3D" parent="Objects/herring" unique_id=874486339]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 245.49098, 0, -197.39479)
+
+[node name="herring_660" type="Marker3D" parent="Objects/herring" unique_id=1867114871]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -197.39479)
+
+[node name="herring_661" type="Marker3D" parent="Objects/herring" unique_id=925519821]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 243.48697, 0, -197.39479)
+
+[node name="herring_662" type="Marker3D" parent="Objects/herring" unique_id=1185878010]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 257.51505, 0, -196.39279)
+
+[node name="herring_663" type="Marker3D" parent="Objects/herring" unique_id=321050343]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256.51303, 0, -196.39279)
+
+[node name="herring_664" type="Marker3D" parent="Objects/herring" unique_id=2019795978]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 255.51102, 0, -196.39279)
+
+[node name="herring_665" type="Marker3D" parent="Objects/herring" unique_id=1892944381]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 254.50902, 0, -196.39279)
+
+[node name="herring_666" type="Marker3D" parent="Objects/herring" unique_id=1972747589]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 253.50702, 0, -196.39279)
+
+[node name="herring_667" type="Marker3D" parent="Objects/herring" unique_id=1084817960]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 252.505, 0, -196.39279)
+
+[node name="herring_668" type="Marker3D" parent="Objects/herring" unique_id=1332109112]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 251.503, 0, -196.39279)
+
+[node name="herring_669" type="Marker3D" parent="Objects/herring" unique_id=1030888155]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -196.39279)
+
+[node name="herring_670" type="Marker3D" parent="Objects/herring" unique_id=2063197261]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -196.39279)
+
+[node name="herring_671" type="Marker3D" parent="Objects/herring" unique_id=1544830693]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -196.39279)
+
+[node name="herring_672" type="Marker3D" parent="Objects/herring" unique_id=183987414]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 247.495, 0, -196.39279)
+
+[node name="herring_673" type="Marker3D" parent="Objects/herring" unique_id=530082995]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 246.49298, 0, -196.39279)
+
+[node name="herring_674" type="Marker3D" parent="Objects/herring" unique_id=1623410133]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 245.49098, 0, -196.39279)
+
+[node name="herring_675" type="Marker3D" parent="Objects/herring" unique_id=675041711]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -196.39279)
+
+[node name="herring_676" type="Marker3D" parent="Objects/herring" unique_id=1224296308]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256.51303, 0, -195.39078)
+
+[node name="herring_677" type="Marker3D" parent="Objects/herring" unique_id=929209949]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 255.51102, 0, -195.39078)
+
+[node name="herring_678" type="Marker3D" parent="Objects/herring" unique_id=1918372692]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 254.50902, 0, -195.39078)
+
+[node name="herring_679" type="Marker3D" parent="Objects/herring" unique_id=1404321421]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 253.50702, 0, -195.39078)
+
+[node name="herring_680" type="Marker3D" parent="Objects/herring" unique_id=1319488705]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 252.505, 0, -195.39078)
+
+[node name="herring_681" type="Marker3D" parent="Objects/herring" unique_id=1969530556]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 251.503, 0, -195.39078)
+
+[node name="herring_682" type="Marker3D" parent="Objects/herring" unique_id=1153609170]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -195.39078)
+
+[node name="herring_683" type="Marker3D" parent="Objects/herring" unique_id=1480252638]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -195.39078)
+
+[node name="herring_684" type="Marker3D" parent="Objects/herring" unique_id=797767984]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -195.39078)
+
+[node name="herring_685" type="Marker3D" parent="Objects/herring" unique_id=2027235247]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 247.495, 0, -195.39078)
+
+[node name="herring_686" type="Marker3D" parent="Objects/herring" unique_id=411724429]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 246.49298, 0, -195.39078)
+
+[node name="herring_687" type="Marker3D" parent="Objects/herring" unique_id=54624955]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 245.49098, 0, -195.39078)
+
+[node name="herring_688" type="Marker3D" parent="Objects/herring" unique_id=375399052]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 255.51102, 0, -194.38878)
+
+[node name="herring_689" type="Marker3D" parent="Objects/herring" unique_id=343060637]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 254.50902, 0, -194.38878)
+
+[node name="herring_690" type="Marker3D" parent="Objects/herring" unique_id=442461766]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 253.50702, 0, -194.38878)
+
+[node name="herring_691" type="Marker3D" parent="Objects/herring" unique_id=298987076]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 252.505, 0, -194.38878)
+
+[node name="herring_692" type="Marker3D" parent="Objects/herring" unique_id=1445397200]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 251.503, 0, -194.38878)
+
+[node name="herring_693" type="Marker3D" parent="Objects/herring" unique_id=1902071180]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -194.38878)
+
+[node name="herring_694" type="Marker3D" parent="Objects/herring" unique_id=1937562585]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -194.38878)
+
+[node name="herring_695" type="Marker3D" parent="Objects/herring" unique_id=611916369]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -194.38878)
+
+[node name="herring_696" type="Marker3D" parent="Objects/herring" unique_id=838556273]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 247.495, 0, -194.38878)
+
+[node name="herring_697" type="Marker3D" parent="Objects/herring" unique_id=76469478]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 246.49298, 0, -194.38878)
+
+[node name="herring_698" type="Marker3D" parent="Objects/herring" unique_id=1730035027]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 253.50702, 0, -193.38678)
+
+[node name="herring_699" type="Marker3D" parent="Objects/herring" unique_id=163494906]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 252.505, 0, -193.38678)
+
+[node name="herring_700" type="Marker3D" parent="Objects/herring" unique_id=1679231013]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 251.503, 0, -193.38678)
+
+[node name="herring_701" type="Marker3D" parent="Objects/herring" unique_id=1922503957]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250.501, 0, -193.38678)
+
+[node name="herring_702" type="Marker3D" parent="Objects/herring" unique_id=1469602542]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 249.499, 0, -193.38678)
+
+[node name="herring_703" type="Marker3D" parent="Objects/herring" unique_id=1111732231]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 248.497, 0, -193.38678)
+
+[node name="herring_704" type="Marker3D" parent="Objects/herring" unique_id=1636069957]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 190.38077, 0, -181.36273)
+
+[node name="herring_705" type="Marker3D" parent="Objects/herring" unique_id=1916575947]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 190.38077, 0, -180.36072)
+
+[node name="herring_706" type="Marker3D" parent="Objects/herring" unique_id=89502914]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -21.042084)
+
+[node name="herring_707" type="Marker3D" parent="Objects/herring" unique_id=1802094076]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 243.48697, 0, -21.042084)
+
+[node name="herring_708" type="Marker3D" parent="Objects/herring" unique_id=1061454917]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -20.040081)
+
+[node name="herring_709" type="Marker3D" parent="Objects/herring" unique_id=375773054]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 243.48697, 0, -20.040081)
+
+[node name="herring_710" type="Marker3D" parent="Objects/herring" unique_id=567051573]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -19.038076)
+
+[node name="herring_711" type="Marker3D" parent="Objects/herring" unique_id=2034831627]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 243.48697, 0, -19.038076)
+
+[node name="herring_712" type="Marker3D" parent="Objects/herring" unique_id=1909552756]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -18.036072)
+
+[node name="herring_713" type="Marker3D" parent="Objects/herring" unique_id=1582530303]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 243.48697, 0, -18.036072)
+
+[node name="herring_714" type="Marker3D" parent="Objects/herring" unique_id=313624874]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -17.03407)
+
+[node name="herring_715" type="Marker3D" parent="Objects/herring" unique_id=749742140]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 243.48697, 0, -17.03407)
+
+[node name="herring_716" type="Marker3D" parent="Objects/herring" unique_id=156228562]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -16.032064)
+
+[node name="herring_717" type="Marker3D" parent="Objects/herring" unique_id=760381637]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 243.48697, 0, -16.032064)
+
+[node name="herring_718" type="Marker3D" parent="Objects/herring" unique_id=1081688835]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -15.03006)
+
+[node name="herring_719" type="Marker3D" parent="Objects/herring" unique_id=368271953]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 243.48697, 0, -15.03006)
+
+[node name="herring_720" type="Marker3D" parent="Objects/herring" unique_id=975910877]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -14.028056)
+
+[node name="herring_721" type="Marker3D" parent="Objects/herring" unique_id=1432472044]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 245.49098, 0, -13.026052)
+
+[node name="herring_722" type="Marker3D" parent="Objects/herring" unique_id=209119595]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -13.026052)
+
+[node name="herring_723" type="Marker3D" parent="Objects/herring" unique_id=734141742]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 245.49098, 0, -12.024048)
+
+[node name="herring_724" type="Marker3D" parent="Objects/herring" unique_id=462130307]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -12.024048)
+
+[node name="herring_725" type="Marker3D" parent="Objects/herring" unique_id=378344728]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 245.49098, 0, -11.022044)
+
+[node name="herring_726" type="Marker3D" parent="Objects/herring" unique_id=871506469]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -11.022044)
+
+[node name="herring_727" type="Marker3D" parent="Objects/herring" unique_id=1793803248]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 245.49098, 0, -10.0200405)
+
+[node name="herring_728" type="Marker3D" parent="Objects/herring" unique_id=449026749]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -10.0200405)
+
+[node name="herring_729" type="Marker3D" parent="Objects/herring" unique_id=2095415382]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 246.49298, 0, -9.018036)
+
+[node name="herring_730" type="Marker3D" parent="Objects/herring" unique_id=1534459928]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 245.49098, 0, -9.018036)
+
+[node name="herring_731" type="Marker3D" parent="Objects/herring" unique_id=938740945]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 246.49298, 0, -8.016032)
+
+[node name="herring_732" type="Marker3D" parent="Objects/herring" unique_id=2120650164]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 245.49098, 0, -8.016032)
+
+[node name="herring_733" type="Marker3D" parent="Objects/herring" unique_id=2062205855]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 245.49098, 0, -7.014028)
+
+[node name="herring_734" type="Marker3D" parent="Objects/herring" unique_id=1288034798]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -7.014028)
+
+[node name="herring_735" type="Marker3D" parent="Objects/herring" unique_id=1170590528]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 243.48697, 0, -7.014028)
+
+[node name="herring_736" type="Marker3D" parent="Objects/herring" unique_id=928224395]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 242.48497, 0, -7.014028)
+
+[node name="herring_737" type="Marker3D" parent="Objects/herring" unique_id=870278714]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 241.48297, 0, -7.014028)
+
+[node name="herring_738" type="Marker3D" parent="Objects/herring" unique_id=961187688]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 244.48898, 0, -6.012024)
+
+[node name="herring_739" type="Marker3D" parent="Objects/herring" unique_id=2145080086]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 243.48697, 0, -6.012024)
+
+[node name="herring_740" type="Marker3D" parent="Objects/herring" unique_id=2100071695]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 242.48497, 0, -6.012024)
+
+[node name="herring_741" type="Marker3D" parent="Objects/herring" unique_id=1041731712]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 241.48297, 0, -6.012024)
+
+[node name="tree" type="Node3D" parent="Objects" unique_id=1761540535]
+
+[node name="tree_0" type="Marker3D" parent="Objects/tree" unique_id=1832307307]
+transform = Transform3D(1.5004247, 0, 0, 0, 1.8973053, 0, 0, 0, 1.5004247, 281.56314, 0, -197.39479)
+
+[node name="tree_1" type="Marker3D" parent="Objects/tree" unique_id=1181889627]
+transform = Transform3D(2.00876, 0, 0, 0, 2.2946048, 0, 0, 0, 2.00876, 192.38477, 0, -185.37074)
+
+[node name="tree_2" type="Marker3D" parent="Objects/tree" unique_id=1977245912]
+transform = Transform3D(1.7441113, 0, 0, 0, 1.8202163, 0, 0, 0, 1.7441113, 191.38277, 0, -185.37074)
+
+[node name="tree_3" type="Marker3D" parent="Objects/tree" unique_id=625775617]
+transform = Transform3D(1.883178, 0, 0, 0, 2.0719512, 0, 0, 0, 1.883178, 192.38477, 0, -184.36874)
+
+[node name="tree_4" type="Marker3D" parent="Objects/tree" unique_id=338392054]
+transform = Transform3D(3.4070897, 0, 0, 0, 3.4762087, 0, 0, 0, 3.4070897, 191.38277, 0, -184.36874)
+
+[node name="tree_5" type="Marker3D" parent="Objects/tree" unique_id=1786795226]
+transform = Transform3D(2.351635, 0, 0, 0, 2.7649066, 0, 0, 0, 2.351635, 192.38477, 0, -183.36673)
+
+[node name="tree_6" type="Marker3D" parent="Objects/tree" unique_id=1986969072]
+transform = Transform3D(2.0784163, 0, 0, 0, 2.4682844, 0, 0, 0, 2.0784163, 191.38277, 0, -183.36673)
+
+[node name="tree_7" type="Marker3D" parent="Objects/tree" unique_id=1913553545]
+transform = Transform3D(2.0530257, 0, 0, 0, 2.8128667, 0, 0, 0, 2.0530257, 192.38477, 0, -182.36473)
+
+[node name="tree_8" type="Marker3D" parent="Objects/tree" unique_id=1083756572]
+transform = Transform3D(2.3248043, 0, 0, 0, 3.23244, 0, 0, 0, 2.3248043, 191.38277, 0, -182.36473)
+
+[node name="tree_9" type="Marker3D" parent="Objects/tree" unique_id=1468763898]
+transform = Transform3D(2.5187275, 0, 0, 0, 3.4782085, 0, 0, 0, 2.5187275, 192.38477, 0, -181.36273)
+
+[node name="tree_10" type="Marker3D" parent="Objects/tree" unique_id=223445397]
+transform = Transform3D(1.4522818, 0, 0, 0, 1.8878516, 0, 0, 0, 1.4522818, 191.38277, 0, -181.36273)
+
+[node name="tree_11" type="Marker3D" parent="Objects/tree" unique_id=139994044]
+transform = Transform3D(2.3929262, 0, 0, 0, 2.6313252, 0, 0, 0, 2.3929262, 192.38477, 0, -180.36072)
+
+[node name="tree_12" type="Marker3D" parent="Objects/tree" unique_id=379337193]
+transform = Transform3D(2.2791588, 0, 0, 0, 3.0557537, 0, 0, 0, 2.2791588, 191.38277, 0, -180.36072)

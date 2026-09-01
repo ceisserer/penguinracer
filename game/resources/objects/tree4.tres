@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="ObjectPrefab" format=3]
+
+[ext_resource type="Script" path="res://scripts/course/object_prefab.gd" id="1_p4xls"]
+
+[resource]
+script = ExtResource("1_p4xls")
+id = &"tree4"
+collidable = true

@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="CourseData" format=3]
+
+[ext_resource type="Image" path="res://courses/keep_country_tidy/heightmap.res" id="1_lxftt"]
+[ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_rwnoa"]
+[ext_resource type="Texture2D" path="res://courses/keep_country_tidy/preview.png" id="2_rwnoa"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_xbbkl"]
+[ext_resource type="Texture2D" path="res://courses/keep_country_tidy/splat_0.png" id="4_ynnt3"]
+[ext_resource type="Texture2D" path="res://courses/keep_country_tidy/splat_1.png" id="5_bvl5o"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_y6vpa"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="7_jyps0"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="8_vihks"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="9_w1vjo"]
+[ext_resource type="Resource" path="res://resources/terrain/rock04.tres" id="10_y7ye4"]
+[ext_resource type="Resource" path="res://resources/terrain/rock06.tres" id="11_qaweu"]
+[ext_resource type="Resource" path="res://resources/terrain/rock01.tres" id="12_7wvhe"]
+
+[resource]
+script = ExtResource("3_xbbkl")
+display_name = "Keep Your Country Tidy"
+author = "Monsterslayer"
+description = "A long way to the end of the world."
+preview = ExtResource("2_rwnoa")
+heightmap = ExtResource("1_lxftt")
+heightmap_size = Vector2i(159, 6999)
+world_size = Vector2(50, 3500)
+height_scale = 13.5
+base_angle = 27.0
+splat_maps = Array[Texture2D]([ExtResource("4_ynnt3"), ExtResource("5_bvl5o")])
+splat_size = Vector2i(159, 6999)
+terrain_layers = Array[ExtResource("6_y6vpa")]([ExtResource("7_jyps0"), ExtResource("8_vihks"), ExtResource("9_w1vjo"), ExtResource("10_y7ye4"), ExtResource("11_qaweu"), ExtResource("12_7wvhe")])
+start_position = Vector2(26, 3)
+finish_line_z = -3495.0
+play_bounds = PackedVector2Array(0, 1, 50, 1, 50, -3515, 0, -3515)
+play_size = Vector2(50, 3495)
+environment_preset = ExtResource("1_rwnoa")
+use_keyframe = false
+imported_from = "default/keep_country_tidy"
+import_version = 1

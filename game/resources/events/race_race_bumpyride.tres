@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="RaceEvent" format=3]
+
+[ext_resource type="Resource" path="res://courses/bumpy_ride/course.tres" id="1_1tdkf"]
+[ext_resource type="Script" path="res://scripts/course/race_event.gd" id="2_jwave"]
+
+[resource]
+script = ExtResource("2_jwave")
+id = &"race_bumpyride"
+course_dir = "bumpy_ride"
+course = ExtResource("1_1tdkf")
+herring = Vector3i(13, 16, 17)
+time = Vector3(35, 31, 28)

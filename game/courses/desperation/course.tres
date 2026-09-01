@@ -1,0 +1,36 @@
+[gd_resource type="Resource" script_class="CourseData" format=3]
+
+[ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_02yem"]
+[ext_resource type="Image" path="res://courses/desperation/heightmap.res" id="1_y8cbt"]
+[ext_resource type="Texture2D" path="res://courses/desperation/preview.png" id="2_02yem"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_mt1gh"]
+[ext_resource type="Texture2D" path="res://courses/desperation/splat_0.png" id="4_ddlk2"]
+[ext_resource type="Texture2D" path="res://courses/desperation/splat_1.png" id="5_1p5sk"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_vjud0"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="7_bbq0b"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="8_a3fxk"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="9_xmti3"]
+[ext_resource type="Resource" path="res://resources/terrain/rock06.tres" id="10_jpyc2"]
+[ext_resource type="Resource" path="res://resources/terrain/rock04.tres" id="11_aneb4"]
+
+[resource]
+script = ExtResource("3_mt1gh")
+display_name = "Desperation"
+author = "FUdel <clt@exmail.de>"
+preview = ExtResource("2_02yem")
+heightmap = ExtResource("1_y8cbt")
+heightmap_size = Vector2i(299, 4999)
+world_size = Vector2(150, 2500)
+height_scale = 14.0
+base_angle = 27.0
+splat_maps = Array[Texture2D]([ExtResource("4_ddlk2"), ExtResource("5_1p5sk")])
+splat_size = Vector2i(299, 4999)
+terrain_layers = Array[ExtResource("6_vjud0")]([ExtResource("7_bbq0b"), ExtResource("8_a3fxk"), ExtResource("9_xmti3"), ExtResource("10_jpyc2"), ExtResource("11_aneb4")])
+start_position = Vector2(30, 3.5)
+finish_line_z = -2500.0
+play_bounds = PackedVector2Array(0, 1, 150, 1, 150, -2520, 0, -2520)
+play_size = Vector2(150, 2500)
+environment_preset = ExtResource("1_02yem")
+use_keyframe = false
+imported_from = "extras/desperation"
+import_version = 1

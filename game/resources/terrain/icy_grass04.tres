@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="TerrainLayer" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/terrain/icy_grass04.png" id="1_mowy5"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="2_jup75"]
+
+[resource]
+script = ExtResource("2_jup75")
+id = &"icy_grass04"
+friction = 0.4
+compression_depth = 0.02
+emits_particles = false
+takes_trackmarks = false
+albedo = ExtResource("1_mowy5")
+is_deformable = false
+legacy_color = Color(0.11764706, 0.9411765, 0.11764706, 1)

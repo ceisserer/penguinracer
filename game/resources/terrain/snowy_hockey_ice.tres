@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="TerrainLayer" format=3]
+
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="1_xd8eu"]
+
+[resource]
+script = ExtResource("1_xd8eu")
+id = &"snowy_hockey_ice"
+friction = 0.2
+compression_depth = 0.03
+emits_particles = false
+takes_trackmarks = false
+is_deformable = false
+legacy_color = Color(0.23529412, 0.23529412, 0.7058824, 1)

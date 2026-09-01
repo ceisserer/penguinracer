@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="RaceEvent" format=3]
+
+[ext_resource type="Resource" path="res://courses/frozen_river/course.tres" id="1_766x4"]
+[ext_resource type="Script" path="res://scripts/course/race_event.gd" id="2_06iga"]
+
+[resource]
+script = ExtResource("2_06iga")
+id = &"race_frozenriver"
+course_dir = "frozen_river"
+course = ExtResource("1_766x4")
+light = &"evening"
+herring = Vector3i(40, 48, 52)
+time = Vector3(160, 150, 146)

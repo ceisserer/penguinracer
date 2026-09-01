@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="CourseData" format=3]
+
+[ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_34u2x"]
+[ext_resource type="Image" path="res://courses/laberinto/heightmap.res" id="1_x4t4p"]
+[ext_resource type="Texture2D" path="res://courses/laberinto/preview.png" id="2_34u2x"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_glwu0"]
+[ext_resource type="Texture2D" path="res://courses/laberinto/splat_0.png" id="4_h770j"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_vkky1"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="6_tr2nc"]
+
+[resource]
+script = ExtResource("3_glwu0")
+display_name = "Maze"
+author = "garions"
+description = "You have to learn the correct way to finished."
+preview = ExtResource("2_34u2x")
+heightmap = ExtResource("1_x4t4p")
+heightmap_size = Vector2i(159, 4999)
+world_size = Vector2(80, 2500)
+height_scale = 7.5
+splat_maps = Array[Texture2D]([ExtResource("4_h770j")])
+splat_size = Vector2i(159, 4999)
+terrain_layers = Array[ExtResource("5_vkky1")]([ExtResource("6_tr2nc")])
+start_position = Vector2(40, 1)
+finish_line_z = -2500.0
+play_bounds = PackedVector2Array(0, 1, 80, 1, 80, -2520, 0, -2520)
+play_size = Vector2(80, 2500)
+environment_preset = ExtResource("1_34u2x")
+use_keyframe = false
+imported_from = "extras/laberinto"
+import_version = 1

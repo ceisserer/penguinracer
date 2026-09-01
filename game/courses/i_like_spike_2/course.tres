@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="CourseData" format=3]
+
+[ext_resource type="Image" path="res://courses/i_like_spike_2/heightmap.res" id="1_6aelf"]
+[ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_u7eg0"]
+[ext_resource type="Texture2D" path="res://courses/i_like_spike_2/preview.png" id="2_u7eg0"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_asayv"]
+[ext_resource type="Texture2D" path="res://courses/i_like_spike_2/splat_0.png" id="4_yfj8u"]
+[ext_resource type="Texture2D" path="res://courses/i_like_spike_2/splat_1.png" id="5_5ryg8"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_yu77j"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="7_m2f7c"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="8_3soh4"]
+[ext_resource type="Resource" path="res://resources/terrain/rock04.tres" id="9_tlvt8"]
+[ext_resource type="Resource" path="res://resources/terrain/rock06.tres" id="10_awlbe"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="11_7m7uc"]
+[ext_resource type="Resource" path="res://resources/terrain/rock01.tres" id="12_4ya1u"]
+
+[resource]
+script = ExtResource("3_asayv")
+display_name = "I Like Spike"
+author = "Korora the Penguin"
+preview = ExtResource("2_u7eg0")
+heightmap = ExtResource("1_6aelf")
+heightmap_size = Vector2i(255, 1279)
+world_size = Vector2(128, 640)
+height_scale = 42.0
+base_angle = 30.0
+splat_maps = Array[Texture2D]([ExtResource("4_yfj8u"), ExtResource("5_5ryg8")])
+splat_size = Vector2i(255, 1279)
+terrain_layers = Array[ExtResource("6_yu77j")]([ExtResource("7_m2f7c"), ExtResource("8_3soh4"), ExtResource("9_tlvt8"), ExtResource("10_awlbe"), ExtResource("11_7m7uc"), ExtResource("12_4ya1u")])
+start_position = Vector2(64, 0)
+finish_line_z = -640.0
+play_bounds = PackedVector2Array(0, 1, 128, 1, 128, -660, 0, -660)
+play_size = Vector2(128, 640)
+environment_preset = ExtResource("1_u7eg0")
+use_keyframe = false
+imported_from = "extras/i_like_spike_2"
+import_version = 1

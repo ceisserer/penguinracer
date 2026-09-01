@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="CourseData" format=3]
+
+[ext_resource type="Image" path="res://courses/snow_run_2/heightmap.res" id="1_i1r34"]
+[ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_rnq40"]
+[ext_resource type="Texture2D" path="res://courses/snow_run_2/preview.png" id="2_rnq40"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_hek0p"]
+[ext_resource type="Texture2D" path="res://courses/snow_run_2/splat_0.png" id="4_34rly"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_8jxc4"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="6_dqxpd"]
+
+[resource]
+script = ExtResource("3_hek0p")
+display_name = "Snow Run 2"
+author = "Tom Kocourek"
+description = "Snow Boarding at it best! Put the brakes on for the fish or go all out and try to stay on course."
+preview = ExtResource("2_rnq40")
+heightmap = ExtResource("1_i1r34")
+heightmap_size = Vector2i(499, 3999)
+world_size = Vector2(250, 2000)
+height_scale = 10.0
+base_angle = 45.0
+splat_maps = Array[Texture2D]([ExtResource("4_34rly")])
+splat_size = Vector2i(499, 3999)
+terrain_layers = Array[ExtResource("5_8jxc4")]([ExtResource("6_dqxpd")])
+start_position = Vector2(125, 6)
+finish_line_z = -1990.0
+play_bounds = PackedVector2Array(5, 1, 245, 1, 245, -2010, 5, -2010)
+play_size = Vector2(240, 1990)
+environment_preset = ExtResource("1_rnq40")
+use_keyframe = false
+imported_from = "extras/snow_run_2"
+import_version = 1

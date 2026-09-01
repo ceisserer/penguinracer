@@ -1,0 +1,12 @@
+{
+  "name": "penguinracer-webtest",
+  "private": true,
+  "description": "Loads a Godot web export in a real browser and reports what it printed.",
+  "scripts": {
+    "serve": "node server.js ../../build/web 8060",
+    "test": "node run_web_test.js"
+  },
+  "dependencies": {
+    "puppeteer": "^24"
+  }
+}

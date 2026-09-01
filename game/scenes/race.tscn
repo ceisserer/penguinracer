@@ -1,0 +1,52 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://scripts/race/race_scene.gd" id="1_race"]
+[ext_resource type="Script" path="res://scripts/camera/chase_camera.gd" id="2_cam"]
+[ext_resource type="Script" path="res://scripts/render/snow_field_gpu.gd" id="3_snow"]
+[ext_resource type="Script" path="res://scripts/render/spray_emitter.gd" id="4_spray"]
+[ext_resource type="Script" path="res://scripts/shell/race_hud.gd" id="5_hud"]
+[ext_resource type="PackedScene" path="res://scenes/course_menu.tscn" id="6_menu"]
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_1"]
+radius = 0.22
+height = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Mat_1"]
+albedo_color = Color(0.1, 0.1, 0.12, 1)
+roughness = 0.7
+
+[node name="Race" type="Node3D"]
+script = ExtResource("1_race")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.86, -0.35, 0.37, 0, 0.72, 0.69, -0.51, -0.6, 0.62, 0, 30, 0)
+shadow_enabled = true
+directional_shadow_mode = 2
+directional_shadow_blend_splits = true
+directional_shadow_fade_start = 0.9
+directional_shadow_max_distance = 190.0
+
+[node name="ChaseCamera" type="Camera3D" parent="."]
+far = 400.0
+fov = 70.0
+script = ExtResource("2_cam")
+
+[node name="Player" type="Node3D" parent="."]
+
+[node name="Mesh" type="MeshInstance3D" parent="Player"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, 0)
+mesh = SubResource("CapsuleMesh_1")
+surface_material_override/0 = SubResource("Mat_1")
+
+[node name="SnowFieldGPU" type="Node" parent="."]
+script = ExtResource("3_snow")
+
+[node name="SprayEmitter" type="Node3D" parent="."]
+script = ExtResource("4_spray")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+script = ExtResource("5_hud")
+
+[node name="CourseMenu" parent="." instance=ExtResource("6_menu")]

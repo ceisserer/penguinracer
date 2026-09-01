@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="EnvironmentPreset" format=3]
+
+[ext_resource type="Script" path="res://scripts/course/environment_preset.gd" id="1_lko2o"]
+[ext_resource type="Texture2D" path="res://assets/env/etr_cloudy/front.png" id="2_jclnw"]
+[ext_resource type="Texture2D" path="res://assets/env/etr_cloudy/left.png" id="3_a2sp7"]
+[ext_resource type="Texture2D" path="res://assets/env/etr_cloudy/right.png" id="4_ssnkf"]
+
+[resource]
+script = ExtResource("1_lko2o")
+id = &"etr_cloudy"
+sun_direction = Vector3(0.57735026, 0.57735026, 0.57735026)
+sun_color = Color(0.45, 0.43, 0.47, 1)
+ambient_color = Color(0.59, 0.6, 0.64, 1)
+specular_color = Color(0.25, 0.25, 0.25, 1)
+fog_color = Color(0.58, 0.59, 0.65, 1)
+fog_start = 30.0
+fog_end = 80.0
+fog_height = 5.0
+particle_color = Color(0.92, 0.88, 1, 1)
+sky_front = ExtResource("2_jclnw")
+sky_left = ExtResource("3_a2sp7")
+sky_right = ExtResource("4_ssnkf")
+sky_zenith_color = Color(0.46589917, 0.48493564, 0.5447642, 1)
+sky_nadir_color = Color(0.4050316, 0.42265928, 0.48749244, 1)

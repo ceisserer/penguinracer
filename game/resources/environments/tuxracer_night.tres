@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="EnvironmentPreset" format=3]
+
+[ext_resource type="Script" path="res://scripts/course/environment_preset.gd" id="1_76nst"]
+[ext_resource type="Texture2D" path="res://assets/env/tuxracer_night/front.png" id="2_ifoij"]
+[ext_resource type="Texture2D" path="res://assets/env/tuxracer_night/left.png" id="3_n0066"]
+[ext_resource type="Texture2D" path="res://assets/env/tuxracer_night/right.png" id="4_oulwo"]
+
+[resource]
+script = ExtResource("1_76nst")
+id = &"tuxracer_night"
+sun_direction = Vector3(0.57735026, 0.57735026, 0.57735026)
+sun_color = Color(0.39, 0.51, 0.88, 1)
+ambient_color = Color(0.2, 0.29, 0.54, 1)
+specular_color = Color(0.4, 0.4, 0.4, 1)
+fog_color = Color(0, 0.09, 0.34, 1)
+particle_color = Color(0.39, 0.51, 0.88, 1)
+sky_front = ExtResource("2_ifoij")
+sky_left = ExtResource("3_n0066")
+sky_right = ExtResource("4_oulwo")
+sky_zenith_color = Color(0.008065259, 0.038281303, 0.12787244, 1)
+sky_nadir_color = Color(0.09207256, 0.20327002, 0.51563305, 1)

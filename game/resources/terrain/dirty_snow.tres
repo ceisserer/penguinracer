@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="TerrainLayer" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/terrain/snow01.png" id="1_eelok"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="2_rbxsj"]
+
+[resource]
+script = ExtResource("2_rbxsj")
+id = &"dirty_snow"
+friction = 0.4
+compression_depth = 0.07
+albedo = ExtResource("1_eelok")
+legacy_color = Color(0.9019608, 0.9019608, 1, 1)

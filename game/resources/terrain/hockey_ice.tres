@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="TerrainLayer" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/terrain/ice02.png" id="1_swghe"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="2_ok1kw"]
+
+[resource]
+script = ExtResource("2_ok1kw")
+id = &"hockey_ice"
+friction = 0.2
+compression_depth = 0.03
+emits_particles = false
+takes_trackmarks = false
+albedo = ExtResource("1_swghe")
+is_deformable = false
+legacy_color = Color(0.11764706, 0.11764706, 0.47058824, 1)

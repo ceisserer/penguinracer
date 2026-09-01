@@ -1,0 +1,12 @@
+# Godot editor cache / import artifacts — regenerated on open
+game/.godot/
+
+# Export output
+build/
+
+# Upstream archive: the extracted tree in etr-0.8.4/ is what the importer reads
+etr-0.8.4.tar.xz
+
+# Local capture / comparison artifacts
+*.log
+difference_snow.png

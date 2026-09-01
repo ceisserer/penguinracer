@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="CourseData" format=3]
+
+[ext_resource type="Resource" path="res://resources/environments/tuxracer_sunny.tres" id="1_hlgya"]
+[ext_resource type="Image" path="res://courses/frozen_river/heightmap.res" id="1_u0e28"]
+[ext_resource type="Texture2D" path="res://courses/frozen_river/preview.png" id="2_hlgya"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_kspa1"]
+[ext_resource type="Texture2D" path="res://courses/frozen_river/splat_0.png" id="4_76u85"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_lwbwl"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="6_w8dyi"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="7_w17ft"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="8_40m7p"]
+
+[resource]
+script = ExtResource("3_kspa1")
+display_name = "Frozen River"
+author = "Jasmin Patry"
+description = "Keep your speed down to collect herring. If you rush you will hit the finish before you know it."
+preview = ExtResource("2_hlgya")
+heightmap = ExtResource("1_u0e28")
+heightmap_size = Vector2i(199, 1599)
+world_size = Vector2(100, 800)
+height_scale = 18.0
+base_angle = 32.0
+splat_maps = Array[Texture2D]([ExtResource("4_76u85")])
+splat_size = Vector2i(199, 1599)
+terrain_layers = Array[ExtResource("5_lwbwl")]([ExtResource("6_w8dyi"), ExtResource("7_w17ft"), ExtResource("8_40m7p")])
+start_position = Vector2(50, 3.5)
+finish_line_z = -785.0
+play_bounds = PackedVector2Array(20, 1, 80, 1, 80, -805, 20, -805)
+play_size = Vector2(60, 785)
+environment_preset = ExtResource("1_hlgya")
+finish_brake = 25.0
+imported_from = "default/frozen_river"
+import_version = 1

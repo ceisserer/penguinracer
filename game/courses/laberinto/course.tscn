@@ -1,0 +1,2547 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/course/course_root.gd" id="1_8cowg"]
+[ext_resource type="Resource" path="res://courses/laberinto/course.tres" id="2_ldf7d"]
+[ext_resource type="Script" path="res://scripts/course/object_prefab.gd" id="3_f4yqo"]
+[ext_resource type="Shader" path="res://shaders/object_billboard.gdshader" id="4_k2fxv"]
+[ext_resource type="Texture2D" path="res://assets/objects/herring.png" id="5_nfc46"]
+[ext_resource type="Texture2D" path="res://assets/objects/flag.png" id="6_ufpis"]
+[ext_resource type="Texture2D" path="res://assets/objects/start.png" id="7_g8irn"]
+[ext_resource type="Texture2D" path="res://assets/objects/finish.png" id="8_xhjvq"]
+[ext_resource type="Texture2D" path="res://assets/objects/snowy_tree1.png" id="9_xrf25"]
+[ext_resource type="Texture2D" path="res://assets/objects/tree_barren2.png" id="10_168ul"]
+[ext_resource type="Texture2D" path="res://assets/objects/shrub.png" id="11_5iuqq"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_ceccp"]
+render_priority = 0
+shader = ExtResource("4_k2fxv")
+shader_parameter/albedo_texture = ExtResource("5_nfc46")
+shader_parameter/albedo_tint = null
+shader_parameter/alpha_scissor = 0.5
+shader_parameter/roughness_value = null
+shader_parameter/normal_roundness = null
+shader_parameter/normal_up_bias = null
+
+[sub_resource type="QuadMesh" id="QuadMesh_wym0m"]
+center_offset = Vector3(0, 0.5, 0)
+
+[sub_resource type="Resource" id="Resource_metol"]
+script = ExtResource("3_f4yqo")
+id = &"herring"
+mesh = SubResource("QuadMesh_wym0m")
+material = SubResource("ShaderMaterial_ceccp")
+collectable = true
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_1r5jp"]
+render_priority = 0
+shader = ExtResource("4_k2fxv")
+shader_parameter/albedo_texture = ExtResource("6_ufpis")
+shader_parameter/albedo_tint = null
+shader_parameter/alpha_scissor = 0.5
+shader_parameter/roughness_value = null
+shader_parameter/normal_roundness = null
+shader_parameter/normal_up_bias = null
+
+[sub_resource type="QuadMesh" id="QuadMesh_n2cbq"]
+center_offset = Vector3(0, 0.5, 0)
+
+[sub_resource type="Resource" id="Resource_exme5"]
+script = ExtResource("3_f4yqo")
+id = &"flag"
+mesh = SubResource("QuadMesh_n2cbq")
+material = SubResource("ShaderMaterial_1r5jp")
+decorative = true
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_kp70p"]
+render_priority = 0
+shader = ExtResource("4_k2fxv")
+shader_parameter/albedo_texture = ExtResource("7_g8irn")
+shader_parameter/albedo_tint = null
+shader_parameter/alpha_scissor = 0.5
+shader_parameter/roughness_value = null
+shader_parameter/normal_roundness = null
+shader_parameter/normal_up_bias = null
+
+[sub_resource type="QuadMesh" id="QuadMesh_1thkq"]
+center_offset = Vector3(0, 0.5, 0)
+
+[sub_resource type="Resource" id="Resource_hkl0p"]
+script = ExtResource("3_f4yqo")
+id = &"start"
+mesh = SubResource("QuadMesh_1thkq")
+material = SubResource("ShaderMaterial_kp70p")
+decorative = true
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_74i7d"]
+render_priority = 0
+shader = ExtResource("4_k2fxv")
+shader_parameter/albedo_texture = ExtResource("8_xhjvq")
+shader_parameter/albedo_tint = null
+shader_parameter/alpha_scissor = 0.5
+shader_parameter/roughness_value = null
+shader_parameter/normal_roundness = null
+shader_parameter/normal_up_bias = null
+
+[sub_resource type="QuadMesh" id="QuadMesh_maoaf"]
+center_offset = Vector3(0, 0.5, 0)
+
+[sub_resource type="Resource" id="Resource_jvb6v"]
+script = ExtResource("3_f4yqo")
+id = &"finish"
+mesh = SubResource("QuadMesh_maoaf")
+material = SubResource("ShaderMaterial_74i7d")
+decorative = true
+
+[sub_resource type="Resource" id="Resource_wo033"]
+script = ExtResource("3_f4yqo")
+id = &"float"
+decorative = true
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_fgdwc"]
+render_priority = 0
+shader = ExtResource("4_k2fxv")
+shader_parameter/albedo_texture = ExtResource("9_xrf25")
+shader_parameter/albedo_tint = null
+shader_parameter/alpha_scissor = 0.5
+shader_parameter/roughness_value = null
+shader_parameter/normal_roundness = null
+shader_parameter/normal_up_bias = null
+
+[sub_resource type="QuadMesh" id="QuadMesh_usjam"]
+center_offset = Vector3(0, 0.5, 0)
+
+[sub_resource type="Resource" id="Resource_nss7u"]
+script = ExtResource("3_f4yqo")
+id = &"tree"
+mesh = SubResource("QuadMesh_usjam")
+material = SubResource("ShaderMaterial_fgdwc")
+collidable = true
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_vqipt"]
+render_priority = 0
+shader = ExtResource("4_k2fxv")
+shader_parameter/albedo_texture = ExtResource("10_168ul")
+shader_parameter/albedo_tint = null
+shader_parameter/alpha_scissor = 0.5
+shader_parameter/roughness_value = null
+shader_parameter/normal_roundness = null
+shader_parameter/normal_up_bias = null
+
+[sub_resource type="QuadMesh" id="QuadMesh_w2kcw"]
+center_offset = Vector3(0, 0.5, 0)
+
+[sub_resource type="Resource" id="Resource_6cv1o"]
+script = ExtResource("3_f4yqo")
+id = &"tree_barren"
+mesh = SubResource("QuadMesh_w2kcw")
+material = SubResource("ShaderMaterial_vqipt")
+collidable = true
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_x1vcr"]
+render_priority = 0
+shader = ExtResource("4_k2fxv")
+shader_parameter/albedo_texture = ExtResource("11_5iuqq")
+shader_parameter/albedo_tint = null
+shader_parameter/alpha_scissor = 0.5
+shader_parameter/roughness_value = null
+shader_parameter/normal_roundness = null
+shader_parameter/normal_up_bias = null
+
+[sub_resource type="QuadMesh" id="QuadMesh_18ja8"]
+center_offset = Vector3(0, 0.5, 0)
+
+[sub_resource type="Resource" id="Resource_ijs2g"]
+script = ExtResource("3_f4yqo")
+id = &"shrub"
+mesh = SubResource("QuadMesh_18ja8")
+material = SubResource("ShaderMaterial_x1vcr")
+collidable = true
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_k1gr5"]
+render_priority = 0
+shader = ExtResource("4_k2fxv")
+shader_parameter/albedo_texture = ExtResource("10_168ul")
+shader_parameter/albedo_tint = null
+shader_parameter/alpha_scissor = 0.5
+shader_parameter/roughness_value = null
+shader_parameter/normal_roundness = null
+shader_parameter/normal_up_bias = null
+
+[sub_resource type="QuadMesh" id="QuadMesh_vr4y1"]
+center_offset = Vector3(0, 0.5, 0)
+
+[sub_resource type="Resource" id="Resource_rw78v"]
+script = ExtResource("3_f4yqo")
+id = &"tree_barren2"
+mesh = SubResource("QuadMesh_vr4y1")
+material = SubResource("ShaderMaterial_k1gr5")
+collidable = true
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_nbulg"]
+render_priority = 0
+shader = ExtResource("4_k2fxv")
+shader_parameter/albedo_texture = ExtResource("9_xrf25")
+shader_parameter/albedo_tint = null
+shader_parameter/alpha_scissor = 0.5
+shader_parameter/roughness_value = null
+shader_parameter/normal_roundness = null
+shader_parameter/normal_up_bias = null
+
+[sub_resource type="QuadMesh" id="QuadMesh_440gf"]
+center_offset = Vector3(0, 0.5, 0)
+
+[sub_resource type="Resource" id="Resource_u4q1e"]
+script = ExtResource("3_f4yqo")
+id = &"tree1"
+mesh = SubResource("QuadMesh_440gf")
+material = SubResource("ShaderMaterial_nbulg")
+collidable = true
+
+[sub_resource type="Resource" id="Resource_2mnuf"]
+script = ExtResource("3_f4yqo")
+id = &"tree2"
+collidable = true
+
+[sub_resource type="Resource" id="Resource_ykou3"]
+script = ExtResource("3_f4yqo")
+id = &"tree3"
+collidable = true
+
+[sub_resource type="Resource" id="Resource_1sv0t"]
+script = ExtResource("3_f4yqo")
+id = &"tree4"
+collidable = true
+
+[sub_resource type="Resource" id="Resource_6niai"]
+script = ExtResource("3_f4yqo")
+id = &"tree5"
+collidable = true
+
+[node name="laberinto" type="Node3D" unique_id=1125149338]
+script = ExtResource("1_8cowg")
+course_data = ExtResource("2_ldf7d")
+object_prefabs = Dictionary[String, ExtResource("3_f4yqo")]({
+"finish": SubResource("Resource_jvb6v"),
+"flag": SubResource("Resource_exme5"),
+"float": SubResource("Resource_wo033"),
+"herring": SubResource("Resource_metol"),
+"shrub": SubResource("Resource_ijs2g"),
+"start": SubResource("Resource_hkl0p"),
+"tree": SubResource("Resource_nss7u"),
+"tree1": SubResource("Resource_u4q1e"),
+"tree2": SubResource("Resource_2mnuf"),
+"tree3": SubResource("Resource_ykou3"),
+"tree4": SubResource("Resource_1sv0t"),
+"tree5": SubResource("Resource_6niai"),
+"tree_barren": SubResource("Resource_6cv1o"),
+"tree_barren2": SubResource("Resource_rw78v")
+})
+
+[node name="Objects" type="Node3D" parent="." unique_id=1273547912]
+
+[node name="start" type="Node3D" parent="Objects" unique_id=889993184]
+
+[node name="start_0" type="Marker3D" parent="Objects/start" unique_id=526139599]
+transform = Transform3D(9, 0, 0, 0, 6, 0, 0, 0, 9, 42.531647, 0, -2490.9963)
+
+[node name="tree" type="Node3D" parent="Objects" unique_id=104647431]
+
+[node name="tree_0" type="Marker3D" parent="Objects/tree" unique_id=1178181719]
+transform = Transform3D(1.5630697, 0, 0, 0, 1.9447296, 0, 0, 0, 1.5630697, 33.41772, 0, -2484.994)
+
+[node name="tree_1" type="Marker3D" parent="Objects/tree" unique_id=90243777]
+transform = Transform3D(2.4625845, 0, 0, 0, 3.427279, 0, 0, 0, 2.4625845, 50.63291, 0, -2475.9905)
+
+[node name="tree_2" type="Marker3D" parent="Objects/tree" unique_id=1116880960]
+transform = Transform3D(1.6302612, 0, 0, 0, 1.9163823, 0, 0, 0, 1.6302612, 33.41772, 0, -2462.985)
+
+[node name="tree_3" type="Marker3D" parent="Objects/tree" unique_id=381877991]
+transform = Transform3D(2.5714102, 0, 0, 0, 3.492595, 0, 0, 0, 2.5714102, 59.746834, 0, -2456.983)
+
+[node name="tree_4" type="Marker3D" parent="Objects/tree" unique_id=291007391]
+transform = Transform3D(2.8140166, 0, 0, 0, 3.406818, 0, 0, 0, 2.8140166, 42.531647, 0, -2449.98)
+
+[node name="tree_5" type="Marker3D" parent="Objects/tree" unique_id=1136103815]
+transform = Transform3D(2.8497057, 0, 0, 0, 3.3422587, 0, 0, 0, 2.8497057, 45.569622, 0, -2439.976)
+
+[node name="tree_6" type="Marker3D" parent="Objects/tree" unique_id=1080420566]
+transform = Transform3D(2.022157, 0, 0, 0, 2.7945814, 0, 0, 0, 2.022157, 63.79747, 0, -2438.9756)
+
+[node name="tree_7" type="Marker3D" parent="Objects/tree" unique_id=1997425922]
+transform = Transform3D(1.8967988, 0, 0, 0, 2.4602075, 0, 0, 0, 1.8967988, 59.746834, 0, -2430.9724)
+
+[node name="tree_8" type="Marker3D" parent="Objects/tree" unique_id=1972801613]
+transform = Transform3D(2.801511, 0, 0, 0, 3.26048, 0, 0, 0, 2.801511, 54.683544, 0, -2424.97)
+
+[node name="tree_9" type="Marker3D" parent="Objects/tree" unique_id=1145594757]
+transform = Transform3D(1.4096552, 0, 0, 0, 1.8467927, 0, 0, 0, 1.4096552, 32.405064, 0, -2422.9692)
+
+[node name="tree_10" type="Marker3D" parent="Objects/tree" unique_id=1312155034]
+transform = Transform3D(2.1812987, 0, 0, 0, 2.788055, 0, 0, 0, 2.1812987, 60.759495, 0, -2413.9656)
+
+[node name="tree_11" type="Marker3D" parent="Objects/tree" unique_id=1012163569]
+transform = Transform3D(1.4741935, 0, 0, 0, 1.8829056, 0, 0, 0, 1.4741935, 26.329113, 0, -2412.965)
+
+[node name="tree_12" type="Marker3D" parent="Objects/tree" unique_id=574200350]
+transform = Transform3D(2.2517517, 0, 0, 0, 2.9872952, 0, 0, 0, 2.2517517, 42.531647, 0, -2404.962)
+
+[node name="tree_13" type="Marker3D" parent="Objects/tree" unique_id=310602845]
+transform = Transform3D(2.189112, 0, 0, 0, 2.5425477, 0, 0, 0, 2.189112, 68.860756, 0, -2403.9617)
+
+[node name="tree_14" type="Marker3D" parent="Objects/tree" unique_id=2057394309]
+transform = Transform3D(2.4615827, 0, 0, 0, 2.7548876, 0, 0, 0, 2.4615827, 20.253164, 0, -2402.9612)
+
+[node name="tree_15" type="Marker3D" parent="Objects/tree" unique_id=2139644167]
+transform = Transform3D(1.9844105, 0, 0, 0, 2.7292364, 0, 0, 0, 1.9844105, 50.63291, 0, -2398.9595)
+
+[node name="tree_16" type="Marker3D" parent="Objects/tree" unique_id=1412814509]
+transform = Transform3D(2.4167473, 0, 0, 0, 3.0765173, 0, 0, 0, 2.4167473, 71.898735, 0, -2394.958)
+
+[node name="tree_17" type="Marker3D" parent="Objects/tree" unique_id=1643444161]
+transform = Transform3D(2.89599, 0, 0, 0, 2.9869733, 0, 0, 0, 2.89599, 15.189874, 0, -2393.9575)
+
+[node name="tree_18" type="Marker3D" parent="Objects/tree" unique_id=1146707338]
+transform = Transform3D(2.2273703, 0, 0, 0, 2.837881, 0, 0, 0, 2.2273703, 54.683544, 0, -2392.9573)
+
+[node name="tree_19" type="Marker3D" parent="Objects/tree" unique_id=409982331]
+transform = Transform3D(2.5013957, 0, 0, 0, 3.1655028, 0, 0, 0, 2.5013957, 72.91139, 0, -2385.9543)
+
+[node name="tree_20" type="Marker3D" parent="Objects/tree" unique_id=819064737]
+transform = Transform3D(2.3801122, 0, 0, 0, 2.8794637, 0, 0, 0, 2.3801122, 48.607594, 0, -2383.9536)
+
+[node name="tree_21" type="Marker3D" parent="Objects/tree" unique_id=80963774]
+transform = Transform3D(1.6475245, 0, 0, 0, 1.8868576, 0, 0, 0, 1.6475245, 28.354431, 0, -2383.9536)
+
+[node name="tree_22" type="Marker3D" parent="Objects/tree" unique_id=2095744806]
+transform = Transform3D(1.6204866, 0, 0, 0, 1.7850047, 0, 0, 0, 1.6204866, 10.126582, 0, -2381.953)
+
+[node name="tree_23" type="Marker3D" parent="Objects/tree" unique_id=1003159776]
+transform = Transform3D(1.7156986, 0, 0, 0, 2.044072, 0, 0, 0, 1.7156986, 62.78481, 0, -2378.9517)
+
+[node name="tree_24" type="Marker3D" parent="Objects/tree" unique_id=1487525887]
+transform = Transform3D(2.9209595, 0, 0, 0, 3.136872, 0, 0, 0, 2.9209595, 23.29114, 0, -2370.9485)
+
+[node name="tree_25" type="Marker3D" parent="Objects/tree" unique_id=27020068]
+transform = Transform3D(2.1158953, 0, 0, 0, 2.403517, 0, 0, 0, 2.1158953, 6.075949, 0, -2370.9485)
+
+[node name="tree_26" type="Marker3D" parent="Objects/tree" unique_id=746872786]
+transform = Transform3D(1.7619267, 0, 0, 0, 1.8611256, 0, 0, 0, 1.7619267, 13.1645565, 0, -2357.943)
+
+[node name="tree_27" type="Marker3D" parent="Objects/tree" unique_id=1428079560]
+transform = Transform3D(1.8213747, 0, 0, 0, 2.5416706, 0, 0, 0, 1.8213747, 43.544304, 0, -2356.9429)
+
+[node name="tree_28" type="Marker3D" parent="Objects/tree" unique_id=524224477]
+transform = Transform3D(1.8969135, 0, 0, 0, 2.065641, 0, 0, 0, 1.8969135, 53.670887, 0, -2353.9417)
+
+[node name="tree_29" type="Marker3D" parent="Objects/tree" unique_id=202143093]
+transform = Transform3D(2.671338, 0, 0, 0, 3.2913191, 0, 0, 0, 2.671338, 72.91139, 0, -2349.94)
+
+[node name="tree_30" type="Marker3D" parent="Objects/tree" unique_id=1226361532]
+transform = Transform3D(2.3177056, 0, 0, 0, 2.3713813, 0, 0, 0, 2.3177056, 48.607594, 0, -2315.9263)
+
+[node name="tree_31" type="Marker3D" parent="Objects/tree" unique_id=362427214]
+transform = Transform3D(2.4724436, 0, 0, 0, 3.2510748, 0, 0, 0, 2.4724436, 69.87342, 0, -2301.9207)
+
+[node name="tree_32" type="Marker3D" parent="Objects/tree" unique_id=564948781]
+transform = Transform3D(2.2762504, 0, 0, 0, 3.0918126, 0, 0, 0, 2.2762504, 53.670887, 0, -2283.9136)
+
+[node name="tree_33" type="Marker3D" parent="Objects/tree" unique_id=1382359357]
+transform = Transform3D(2.4675987, 0, 0, 0, 3.4353976, 0, 0, 0, 2.4675987, 45.569622, 0, -2276.9106)
+
+[node name="tree_34" type="Marker3D" parent="Objects/tree" unique_id=753236899]
+transform = Transform3D(1.5234243, 0, 0, 0, 1.981786, 0, 0, 0, 1.5234243, 68.860756, 0, -2269.908)
+
+[node name="tree_35" type="Marker3D" parent="Objects/tree" unique_id=1684638509]
+transform = Transform3D(2.122376, 0, 0, 0, 2.2028193, 0, 0, 0, 2.122376, 61.772152, 0, -2244.898)
+
+[node name="tree_36" type="Marker3D" parent="Objects/tree" unique_id=831683205]
+transform = Transform3D(2.4962125, 0, 0, 0, 3.423254, 0, 0, 0, 2.4962125, 42.531647, 0, -2207.883)
+
+[node name="tree_37" type="Marker3D" parent="Objects/tree" unique_id=1722023512]
+transform = Transform3D(2.5161104, 0, 0, 0, 3.1109848, 0, 0, 0, 2.5161104, 57.72152, 0, -2202.881)
+
+[node name="tree_38" type="Marker3D" parent="Objects/tree" unique_id=1181821540]
+transform = Transform3D(2.4058378, 0, 0, 0, 2.4683094, 0, 0, 0, 2.4058378, 42.531647, 0, -2187.8752)
+
+[node name="tree_39" type="Marker3D" parent="Objects/tree" unique_id=1610911480]
+transform = Transform3D(1.9305054, 0, 0, 0, 2.2760527, 0, 0, 0, 1.9305054, 56.708862, 0, -2171.8687)
+
+[node name="tree_40" type="Marker3D" parent="Objects/tree" unique_id=794552954]
+transform = Transform3D(2.3437972, 0, 0, 0, 2.5234706, 0, 0, 0, 2.3437972, 28.354431, 0, -2166.8667)
+
+[node name="tree_41" type="Marker3D" parent="Objects/tree" unique_id=215764052]
+transform = Transform3D(2.6581044, 0, 0, 0, 2.9083185, 0, 0, 0, 2.6581044, 46.58228, 0, -2158.8635)
+
+[node name="tree_42" type="Marker3D" parent="Objects/tree" unique_id=271405506]
+transform = Transform3D(2.3315415, 0, 0, 0, 2.4897728, 0, 0, 0, 2.3315415, 11.13924, 0, -2117.8472)
+
+[node name="tree_43" type="Marker3D" parent="Objects/tree" unique_id=1790368396]
+transform = Transform3D(3.3237517, 0, 0, 0, 3.4045348, 0, 0, 0, 3.3237517, 65.822784, 0, -2116.8467)
+
+[node name="tree_44" type="Marker3D" parent="Objects/tree" unique_id=1368630821]
+transform = Transform3D(1.6595873, 0, 0, 0, 2.1447942, 0, 0, 0, 1.6595873, 35.44304, 0, -2110.8442)
+
+[node name="tree_45" type="Marker3D" parent="Objects/tree" unique_id=1690224721]
+transform = Transform3D(1.9840976, 0, 0, 0, 2.3110518, 0, 0, 0, 1.9840976, 31.392405, 0, -2109.844)
+
+[node name="tree_46" type="Marker3D" parent="Objects/tree" unique_id=777875994]
+transform = Transform3D(2.3637319, 0, 0, 0, 3.1345673, 0, 0, 0, 2.3637319, 23.29114, 0, -2109.844)
+
+[node name="tree_47" type="Marker3D" parent="Objects/tree" unique_id=630339083]
+transform = Transform3D(2.1197383, 0, 0, 0, 2.7184398, 0, 0, 0, 2.1197383, 6.075949, 0, -2108.8435)
+
+[node name="tree_48" type="Marker3D" parent="Objects/tree" unique_id=1378163739]
+transform = Transform3D(2.4204109, 0, 0, 0, 3.025763, 0, 0, 0, 2.4204109, 52.658226, 0, -2107.843)
+
+[node name="tree_49" type="Marker3D" parent="Objects/tree" unique_id=1143220649]
+transform = Transform3D(2.505898, 0, 0, 0, 2.9050715, 0, 0, 0, 2.505898, 44.55696, 0, -2107.843)
+
+[node name="tree_50" type="Marker3D" parent="Objects/tree" unique_id=648465401]
+transform = Transform3D(1.699834, 0, 0, 0, 2.0277455, 0, 0, 0, 1.699834, 43.544304, 0, -2107.843)
+
+[node name="tree_51" type="Marker3D" parent="Objects/tree" unique_id=1927311717]
+transform = Transform3D(2.9990602, 0, 0, 0, 3.3137631, 0, 0, 0, 2.9990602, 49.620255, 0, -2103.8416)
+
+[node name="tree_52" type="Marker3D" parent="Objects/tree" unique_id=1442351201]
+transform = Transform3D(1.8932927, 0, 0, 0, 2.3464036, 0, 0, 0, 1.8932927, 35.44304, 0, -2103.8416)
+
+[node name="tree_53" type="Marker3D" parent="Objects/tree" unique_id=1817438764]
+transform = Transform3D(2.3675747, 0, 0, 0, 2.9755445, 0, 0, 0, 2.3675747, 65.822784, 0, -2102.841)
+
+[node name="tree_54" type="Marker3D" parent="Objects/tree" unique_id=1526694526]
+transform = Transform3D(2.1467247, 0, 0, 0, 2.964671, 0, 0, 0, 2.1467247, 20.253164, 0, -2102.841)
+
+[node name="tree_55" type="Marker3D" parent="Objects/tree" unique_id=482591741]
+transform = Transform3D(2.1234405, 0, 0, 0, 2.7550588, 0, 0, 0, 2.1234405, 44.55696, 0, -2069.828)
+
+[node name="tree_56" type="Marker3D" parent="Objects/tree" unique_id=404337109]
+transform = Transform3D(2.006532, 0, 0, 0, 2.7580986, 0, 0, 0, 2.006532, 62.78481, 0, -2065.8264)
+
+[node name="tree_57" type="Marker3D" parent="Objects/tree" unique_id=1073062158]
+transform = Transform3D(2.0616264, 0, 0, 0, 2.1641698, 0, 0, 0, 2.0616264, 15.189874, 0, -2052.821)
+
+[node name="tree_58" type="Marker3D" parent="Objects/tree" unique_id=1741350939]
+transform = Transform3D(2.3826835, 0, 0, 0, 2.4528072, 0, 0, 0, 2.3826835, 30.379747, 0, -2040.8163)
+
+[node name="tree_59" type="Marker3D" parent="Objects/tree" unique_id=1564342825]
+transform = Transform3D(1.8949032, 0, 0, 0, 2.4149296, 0, 0, 0, 1.8949032, 38.481014, 0, -2027.8112)
+
+[node name="tree_60" type="Marker3D" parent="Objects/tree" unique_id=510729679]
+transform = Transform3D(1.4994287, 0, 0, 0, 1.8547138, 0, 0, 0, 1.4994287, 40.50633, 0, -2022.8091)
+
+[node name="tree_61" type="Marker3D" parent="Objects/tree" unique_id=1021922059]
+transform = Transform3D(2.570647, 0, 0, 0, 2.8132153, 0, 0, 0, 2.570647, 21.265823, 0, -2016.8068)
+
+[node name="tree_62" type="Marker3D" parent="Objects/tree" unique_id=1012095947]
+transform = Transform3D(1.6542166, 0, 0, 0, 2.0728247, 0, 0, 0, 1.6542166, 66.83544, 0, -2008.8035)
+
+[node name="tree_63" type="Marker3D" parent="Objects/tree" unique_id=1426217332]
+transform = Transform3D(2.191977, 0, 0, 0, 2.6123934, 0, 0, 0, 2.191977, 32.405064, 0, -2007.8031)
+
+[node name="tree_64" type="Marker3D" parent="Objects/tree" unique_id=1434435009]
+transform = Transform3D(2.3818145, 0, 0, 0, 2.7210908, 0, 0, 0, 2.3818145, 40.50633, 0, -2005.8024)
+
+[node name="tree_65" type="Marker3D" parent="Objects/tree" unique_id=275053855]
+transform = Transform3D(2.4531832, 0, 0, 0, 2.7146604, 0, 0, 0, 2.4531832, 58.734177, 0, -1999.7999)
+
+[node name="tree_66" type="Marker3D" parent="Objects/tree" unique_id=18912615]
+transform = Transform3D(2.7130659, 0, 0, 0, 3.163885, 0, 0, 0, 2.7130659, 44.55696, 0, -1995.7983)
+
+[node name="tree_67" type="Marker3D" parent="Objects/tree" unique_id=114457220]
+transform = Transform3D(2.6797955, 0, 0, 0, 3.1549735, 0, 0, 0, 2.6797955, 29.367088, 0, -1994.798)
+
+[node name="tree_68" type="Marker3D" parent="Objects/tree" unique_id=1059429716]
+transform = Transform3D(1.7914349, 0, 0, 0, 1.9787517, 0, 0, 0, 1.7914349, 14.177216, 0, -1993.7975)
+
+[node name="tree_69" type="Marker3D" parent="Objects/tree" unique_id=1729456407]
+transform = Transform3D(2.259197, 0, 0, 0, 2.285036, 0, 0, 0, 2.259197, 50.63291, 0, -1986.7947)
+
+[node name="tree_70" type="Marker3D" parent="Objects/tree" unique_id=1019767628]
+transform = Transform3D(2.6588826, 0, 0, 0, 2.6959245, 0, 0, 0, 2.6588826, 67.8481, 0, -1976.7908)
+
+[node name="tree_71" type="Marker3D" parent="Objects/tree" unique_id=1816682086]
+transform = Transform3D(1.7350802, 0, 0, 0, 2.418969, 0, 0, 0, 1.7350802, 63.79747, 0, -1956.7827)
+
+[node name="tree_72" type="Marker3D" parent="Objects/tree" unique_id=1993145522]
+transform = Transform3D(1.9734535, 0, 0, 0, 2.0231593, 0, 0, 0, 1.9734535, 47.594936, 0, -1955.7823)
+
+[node name="tree_73" type="Marker3D" parent="Objects/tree" unique_id=2126453318]
+transform = Transform3D(1.7652335, 0, 0, 0, 2.2191906, 0, 0, 0, 1.7652335, 57.72152, 0, -1943.7775)
+
+[node name="tree_74" type="Marker3D" parent="Objects/tree" unique_id=2049663530]
+transform = Transform3D(2.0276656, 0, 0, 0, 2.055789, 0, 0, 0, 2.0276656, 44.55696, 0, -1929.7719)
+
+[node name="tree_75" type="Marker3D" parent="Objects/tree" unique_id=1286411309]
+transform = Transform3D(1.474668, 0, 0, 0, 1.8086514, 0, 0, 0, 1.474668, 15.189874, 0, -1917.7671)
+
+[node name="tree_76" type="Marker3D" parent="Objects/tree" unique_id=1815308287]
+transform = Transform3D(2.6064363, 0, 0, 0, 2.902978, 0, 0, 0, 2.6064363, 29.367088, 0, -1910.7643)
+
+[node name="tree_77" type="Marker3D" parent="Objects/tree" unique_id=1035819347]
+transform = Transform3D(1.7543274, 0, 0, 0, 2.1634433, 0, 0, 0, 1.7543274, 19.240507, 0, -1905.7623)
+
+[node name="tree_78" type="Marker3D" parent="Objects/tree" unique_id=953078029]
+transform = Transform3D(2.753697, 0, 0, 0, 3.164051, 0, 0, 0, 2.753697, 72.91139, 0, -1900.7603)
+
+[node name="tree_79" type="Marker3D" parent="Objects/tree" unique_id=1047591676]
+transform = Transform3D(1.7534122, 0, 0, 0, 2.4460685, 0, 0, 0, 1.7534122, 58.734177, 0, -1899.7599)
+
+[node name="tree_80" type="Marker3D" parent="Objects/tree" unique_id=1612262434]
+transform = Transform3D(3.0885985, 0, 0, 0, 3.109394, 0, 0, 0, 3.0885985, 23.29114, 0, -1878.7515)
+
+[node name="tree_81" type="Marker3D" parent="Objects/tree" unique_id=60565956]
+transform = Transform3D(2.2550426, 0, 0, 0, 2.8810048, 0, 0, 0, 2.2550426, 47.594936, 0, -1870.7483)
+
+[node name="tree_82" type="Marker3D" parent="Objects/tree" unique_id=615554521]
+transform = Transform3D(1.8645482, 0, 0, 0, 1.9724796, 0, 0, 0, 1.8645482, 40.50633, 0, -1856.7427)
+
+[node name="tree_83" type="Marker3D" parent="Objects/tree" unique_id=148253687]
+transform = Transform3D(3.1150737, 0, 0, 0, 3.3836868, 0, 0, 0, 3.1150737, 70.88608, 0, -1854.742)
+
+[node name="tree_84" type="Marker3D" parent="Objects/tree" unique_id=1480882418]
+transform = Transform3D(2.8939605, 0, 0, 0, 3.4247704, 0, 0, 0, 2.8939605, 28.354431, 0, -1852.7411)
+
+[node name="tree_85" type="Marker3D" parent="Objects/tree" unique_id=430919785]
+transform = Transform3D(2.5257003, 0, 0, 0, 2.5492756, 0, 0, 0, 2.5257003, 64.81013, 0, -1841.7367)
+
+[node name="tree_86" type="Marker3D" parent="Objects/tree" unique_id=1352231287]
+transform = Transform3D(1.6848502, 0, 0, 0, 2.2781706, 0, 0, 0, 1.6848502, 64.81013, 0, -1840.7363)
+
+[node name="tree_87" type="Marker3D" parent="Objects/tree" unique_id=495775523]
+transform = Transform3D(1.5993736, 0, 0, 0, 1.7785788, 0, 0, 0, 1.5993736, 51.64557, 0, -1819.7279)
+
+[node name="tree_88" type="Marker3D" parent="Objects/tree" unique_id=1500865608]
+transform = Transform3D(2.9032073, 0, 0, 0, 2.9941955, 0, 0, 0, 2.9032073, 66.83544, 0, -1797.7191)
+
+[node name="tree_89" type="Marker3D" parent="Objects/tree" unique_id=726992433]
+transform = Transform3D(1.7061112, 0, 0, 0, 2.0345836, 0, 0, 0, 1.7061112, 32.405064, 0, -1793.7175)
+
+[node name="tree_90" type="Marker3D" parent="Objects/tree" unique_id=1098627095]
+transform = Transform3D(2.6167817, 0, 0, 0, 3.2323208, 0, 0, 0, 2.6167817, 49.620255, 0, -1784.7139)
+
+[node name="tree_91" type="Marker3D" parent="Objects/tree" unique_id=1484789888]
+transform = Transform3D(2.0739822, 0, 0, 0, 2.1086893, 0, 0, 0, 2.0739822, 60.759495, 0, -1772.7091)
+
+[node name="tree_92" type="Marker3D" parent="Objects/tree" unique_id=310403993]
+transform = Transform3D(2.1726844, 0, 0, 0, 2.227887, 0, 0, 0, 2.1726844, 32.405064, 0, -1772.7091)
+
+[node name="tree_93" type="Marker3D" parent="Objects/tree" unique_id=243141589]
+transform = Transform3D(2.4637053, 0, 0, 0, 2.7150211, 0, 0, 0, 2.4637053, 28.354431, 0, -1760.7042)
+
+[node name="tree_94" type="Marker3D" parent="Objects/tree" unique_id=750638761]
+transform = Transform3D(2.190599, 0, 0, 0, 2.3560517, 0, 0, 0, 2.190599, 53.670887, 0, -1758.7035)
+
+[node name="tree_95" type="Marker3D" parent="Objects/tree" unique_id=1656072681]
+transform = Transform3D(2.2154546, 0, 0, 0, 3.0518556, 0, 0, 0, 2.2154546, 21.265823, 0, -1752.701)
+
+[node name="tree_96" type="Marker3D" parent="Objects/tree" unique_id=738126420]
+transform = Transform3D(2.216943, 0, 0, 0, 2.328497, 0, 0, 0, 2.216943, 42.531647, 0, -1751.7007)
+
+[node name="tree_97" type="Marker3D" parent="Objects/tree" unique_id=1378646926]
+transform = Transform3D(2.1365592, 0, 0, 0, 2.3620083, 0, 0, 0, 2.1365592, 45.569622, 0, -1746.6987)
+
+[node name="tree_98" type="Marker3D" parent="Objects/tree" unique_id=1345093072]
+transform = Transform3D(1.3048811, 0, 0, 0, 1.8226318, 0, 0, 0, 1.3048811, 31.392405, 0, -1741.6967)
+
+[node name="tree_99" type="Marker3D" parent="Objects/tree" unique_id=62419308]
+transform = Transform3D(1.4913607, 0, 0, 0, 1.8711038, 0, 0, 0, 1.4913607, 51.64557, 0, -1735.6943)
+
+[node name="tree_100" type="Marker3D" parent="Objects/tree" unique_id=858077449]
+transform = Transform3D(2.9222145, 0, 0, 0, 3.1696863, 0, 0, 0, 2.9222145, 65.822784, 0, -1733.6935)
+
+[node name="tree_101" type="Marker3D" parent="Objects/tree" unique_id=78974494]
+transform = Transform3D(1.883957, 0, 0, 0, 2.4903011, 0, 0, 0, 1.883957, 60.759495, 0, -1716.6866)
+
+[node name="tree_102" type="Marker3D" parent="Objects/tree" unique_id=1448856406]
+transform = Transform3D(1.7330395, 0, 0, 0, 2.2399676, 0, 0, 0, 1.7330395, 46.58228, 0, -1714.6859)
+
+[node name="tree_103" type="Marker3D" parent="Objects/tree" unique_id=1381722075]
+transform = Transform3D(2.6822994, 0, 0, 0, 2.8235972, 0, 0, 0, 2.6822994, 45.569622, 0, -1714.6859)
+
+[node name="tree_104" type="Marker3D" parent="Objects/tree" unique_id=1853657342]
+transform = Transform3D(3.198589, 0, 0, 0, 3.4086938, 0, 0, 0, 3.198589, 42.531647, 0, -1697.6791)
+
+[node name="tree_105" type="Marker3D" parent="Objects/tree" unique_id=777924415]
+transform = Transform3D(2.8286633, 0, 0, 0, 3.4675255, 0, 0, 0, 2.8286633, 54.683544, 0, -1686.6747)
+
+[node name="tree_106" type="Marker3D" parent="Objects/tree" unique_id=109435263]
+transform = Transform3D(1.573188, 0, 0, 0, 1.946883, 0, 0, 0, 1.573188, 17.215189, 0, -1680.6722)
+
+[node name="tree_107" type="Marker3D" parent="Objects/tree" unique_id=1508108664]
+transform = Transform3D(2.6756334, 0, 0, 0, 3.4612713, 0, 0, 0, 2.6756334, 45.569622, 0, -1678.6715)
+
+[node name="tree_108" type="Marker3D" parent="Objects/tree" unique_id=206413166]
+transform = Transform3D(3.2861032, 0, 0, 0, 3.4522297, 0, 0, 0, 3.2861032, 48.607594, 0, -1656.6627)
+
+[node name="tree_109" type="Marker3D" parent="Objects/tree" unique_id=203334052]
+transform = Transform3D(2.9930844, 0, 0, 0, 3.2238426, 0, 0, 0, 2.9930844, 12.151898, 0, -1650.6603)
+
+[node name="tree_110" type="Marker3D" parent="Objects/tree" unique_id=1270315203]
+transform = Transform3D(2.5557115, 0, 0, 0, 3.0081265, 0, 0, 0, 2.5557115, 37.468353, 0, -1642.6571)
+
+[node name="tree_111" type="Marker3D" parent="Objects/tree" unique_id=944476427]
+transform = Transform3D(1.6971748, 0, 0, 0, 2.1299417, 0, 0, 0, 1.6971748, 60.759495, 0, -1640.6563)
+
+[node name="tree_112" type="Marker3D" parent="Objects/tree" unique_id=1882274121]
+transform = Transform3D(2.088543, 0, 0, 0, 2.7193003, 0, 0, 0, 2.088543, 22.27848, 0, -1638.6555)
+
+[node name="tree_113" type="Marker3D" parent="Objects/tree" unique_id=940540297]
+transform = Transform3D(2.6396976, 0, 0, 0, 2.8165822, 0, 0, 0, 2.6396976, 50.63291, 0, -1631.6527)
+
+[node name="tree_114" type="Marker3D" parent="Objects/tree" unique_id=1615852498]
+transform = Transform3D(2.661132, 0, 0, 0, 3.1389742, 0, 0, 0, 2.661132, 37.468353, 0, -1628.6515)
+
+[node name="tree_115" type="Marker3D" parent="Objects/tree" unique_id=14422860]
+transform = Transform3D(1.8231424, 0, 0, 0, 2.4784048, 0, 0, 0, 1.8231424, 19.240507, 0, -1628.6515)
+
+[node name="tree_116" type="Marker3D" parent="Objects/tree" unique_id=511486659]
+transform = Transform3D(1.7181487, 0, 0, 0, 2.395553, 0, 0, 0, 1.7181487, 26.329113, 0, -1624.6499)
+
+[node name="tree_117" type="Marker3D" parent="Objects/tree" unique_id=1788309473]
+transform = Transform3D(1.6194263, 0, 0, 0, 2.2481508, 0, 0, 0, 1.6194263, 12.151898, 0, -1617.6471)
+
+[node name="tree_118" type="Marker3D" parent="Objects/tree" unique_id=1614677992]
+transform = Transform3D(1.9093939, 0, 0, 0, 2.6695116, 0, 0, 0, 1.9093939, 33.41772, 0, -1614.6459)
+
+[node name="tree_119" type="Marker3D" parent="Objects/tree" unique_id=2030308696]
+transform = Transform3D(2.842162, 0, 0, 0, 3.4085436, 0, 0, 0, 2.842162, 77.974686, 0, -1598.6394)
+
+[node name="tree_120" type="Marker3D" parent="Objects/tree" unique_id=1173050142]
+transform = Transform3D(2.3125207, 0, 0, 0, 3.16095, 0, 0, 0, 2.3125207, 53.670887, 0, -1590.6362)
+
+[node name="tree_121" type="Marker3D" parent="Objects/tree" unique_id=1404666813]
+transform = Transform3D(2.718105, 0, 0, 0, 3.0325751, 0, 0, 0, 2.718105, 36.455696, 0, -1590.6362)
+
+[node name="tree_122" type="Marker3D" parent="Objects/tree" unique_id=1147224688]
+transform = Transform3D(2.0399096, 0, 0, 0, 2.2839277, 0, 0, 0, 2.0399096, 18.227848, 0, -1590.6362)
+
+[node name="tree_123" type="Marker3D" parent="Objects/tree" unique_id=1343188318]
+transform = Transform3D(1.9944694, 0, 0, 0, 2.5110424, 0, 0, 0, 1.9944694, 68.860756, 0, -1588.6355)
+
+[node name="tree_124" type="Marker3D" parent="Objects/tree" unique_id=92906567]
+transform = Transform3D(2.271909, 0, 0, 0, 3.114253, 0, 0, 0, 2.271909, 36.455696, 0, -1551.6206)
+
+[node name="tree_125" type="Marker3D" parent="Objects/tree" unique_id=2142512226]
+transform = Transform3D(1.9855051, 0, 0, 0, 2.278073, 0, 0, 0, 1.9855051, 49.620255, 0, -1538.6155)
+
+[node name="tree_126" type="Marker3D" parent="Objects/tree" unique_id=181022863]
+transform = Transform3D(1.6550232, 0, 0, 0, 1.8335339, 0, 0, 0, 1.6550232, 58.734177, 0, -1523.6095)
+
+[node name="tree_127" type="Marker3D" parent="Objects/tree" unique_id=395424725]
+transform = Transform3D(3.1435573, 0, 0, 0, 3.32019, 0, 0, 0, 3.1435573, 34.430378, 0, -1507.603)
+
+[node name="tree_128" type="Marker3D" parent="Objects/tree" unique_id=647586561]
+transform = Transform3D(1.7108176, 0, 0, 0, 2.1737592, 0, 0, 0, 1.7108176, 47.594936, 0, -1504.6018)
+
+[node name="tree_129" type="Marker3D" parent="Objects/tree" unique_id=1026071366]
+transform = Transform3D(3.070375, 0, 0, 0, 3.1410816, 0, 0, 0, 3.070375, 60.759495, 0, -1498.5995)
+
+[node name="tree_130" type="Marker3D" parent="Objects/tree" unique_id=958017259]
+transform = Transform3D(1.8712689, 0, 0, 0, 2.3388712, 0, 0, 0, 1.8712689, 21.265823, 0, -1488.5955)
+
+[node name="tree_131" type="Marker3D" parent="Objects/tree" unique_id=524070195]
+transform = Transform3D(2.36012, 0, 0, 0, 2.8824697, 0, 0, 0, 2.36012, 9.113924, 0, -1481.5927)
+
+[node name="tree_132" type="Marker3D" parent="Objects/tree" unique_id=99687164]
+transform = Transform3D(3.0967276, 0, 0, 0, 3.2682958, 0, 0, 0, 3.0967276, 25.316456, 0, -1480.5923)
+
+[node name="tree_133" type="Marker3D" parent="Objects/tree" unique_id=789894527]
+transform = Transform3D(1.902847, 0, 0, 0, 1.9412503, 0, 0, 0, 1.902847, 31.392405, 0, -1475.5902)
+
+[node name="tree_134" type="Marker3D" parent="Objects/tree" unique_id=47118942]
+transform = Transform3D(1.810881, 0, 0, 0, 2.4772856, 0, 0, 0, 1.810881, 31.392405, 0, -1463.5854)
+
+[node name="tree_135" type="Marker3D" parent="Objects/tree" unique_id=950742860]
+transform = Transform3D(2.2404537, 0, 0, 0, 2.372728, 0, 0, 0, 2.2404537, 9.113924, 0, -1463.5854)
+
+[node name="tree_136" type="Marker3D" parent="Objects/tree" unique_id=1940336123]
+transform = Transform3D(2.2858791, 0, 0, 0, 3.0319495, 0, 0, 0, 2.2858791, 14.177216, 0, -1458.5834)
+
+[node name="tree_137" type="Marker3D" parent="Objects/tree" unique_id=79463764]
+transform = Transform3D(2.5328212, 0, 0, 0, 3.3184028, 0, 0, 0, 2.5328212, 36.455696, 0, -1455.5823)
+
+[node name="tree_138" type="Marker3D" parent="Objects/tree" unique_id=1545201354]
+transform = Transform3D(1.8194866, 0, 0, 0, 1.8726392, 0, 0, 0, 1.8194866, 43.544304, 0, -1446.5786)
+
+[node name="tree_139" type="Marker3D" parent="Objects/tree" unique_id=1026675298]
+transform = Transform3D(2.3184743, 0, 0, 0, 3.023821, 0, 0, 0, 2.3184743, 27.341772, 0, -1439.5758)
+
+[node name="tree_140" type="Marker3D" parent="Objects/tree" unique_id=1967915634]
+transform = Transform3D(1.8324391, 0, 0, 0, 2.3857756, 0, 0, 0, 1.8324391, 54.683544, 0, -1431.5726)
+
+[node name="tree_141" type="Marker3D" parent="Objects/tree" unique_id=758142625]
+transform = Transform3D(2.353858, 0, 0, 0, 2.937664, 0, 0, 0, 2.353858, 44.55696, 0, -1419.5679)
+
+[node name="tree_142" type="Marker3D" parent="Objects/tree" unique_id=274132140]
+transform = Transform3D(2.4214704, 0, 0, 0, 2.9166064, 0, 0, 0, 2.4214704, 64.81013, 0, -1418.5674)
+
+[node name="tree_143" type="Marker3D" parent="Objects/tree" unique_id=1401880058]
+transform = Transform3D(1.6257892, 0, 0, 0, 2.2573657, 0, 0, 0, 1.6257892, 47.594936, 0, -1415.5663)
+
+[node name="tree_144" type="Marker3D" parent="Objects/tree" unique_id=595795550]
+transform = Transform3D(2.4325619, 0, 0, 0, 2.530892, 0, 0, 0, 2.4325619, 60.759495, 0, -1401.5607)
+
+[node name="tree_145" type="Marker3D" parent="Objects/tree" unique_id=1213270771]
+transform = Transform3D(2.1375737, 0, 0, 0, 2.5362453, 0, 0, 0, 2.1375737, 28.354431, 0, -1394.5579)
+
+[node name="tree_146" type="Marker3D" parent="Objects/tree" unique_id=146089899]
+transform = Transform3D(3.224252, 0, 0, 0, 3.485424, 0, 0, 0, 3.224252, 66.83544, 0, -1393.5574)
+
+[node name="tree_147" type="Marker3D" parent="Objects/tree" unique_id=202449697]
+transform = Transform3D(2.8074272, 0, 0, 0, 3.0248256, 0, 0, 0, 2.8074272, 65.822784, 0, -1393.5574)
+
+[node name="tree_148" type="Marker3D" parent="Objects/tree" unique_id=1214436581]
+transform = Transform3D(3.2602735, 0, 0, 0, 3.3539348, 0, 0, 0, 3.2602735, 41.518986, 0, -1377.551)
+
+[node name="tree_149" type="Marker3D" parent="Objects/tree" unique_id=664618173]
+transform = Transform3D(2.1303675, 0, 0, 0, 2.8578641, 0, 0, 0, 2.1303675, 41.518986, 0, -1359.5438)
+
+[node name="tree_150" type="Marker3D" parent="Objects/tree" unique_id=376860433]
+transform = Transform3D(2.1782084, 0, 0, 0, 2.683681, 0, 0, 0, 2.1782084, 65.822784, 0, -1351.5406)
+
+[node name="tree_151" type="Marker3D" parent="Objects/tree" unique_id=1362209541]
+transform = Transform3D(2.8485463, 0, 0, 0, 3.518593, 0, 0, 0, 2.8485463, 33.41772, 0, -1333.5334)
+
+[node name="tree_152" type="Marker3D" parent="Objects/tree" unique_id=2013998102]
+transform = Transform3D(2.0537868, 0, 0, 0, 2.0989976, 0, 0, 0, 2.0537868, 39.49367, 0, -1312.525)
+
+[node name="tree_153" type="Marker3D" parent="Objects/tree" unique_id=316360494]
+transform = Transform3D(2.5230317, 0, 0, 0, 3.127153, 0, 0, 0, 2.5230317, 39.49367, 0, -1311.5247)
+
+[node name="tree_154" type="Marker3D" parent="Objects/tree" unique_id=1275899202]
+transform = Transform3D(1.8945686, 0, 0, 0, 2.5097427, 0, 0, 0, 1.8945686, 59.746834, 0, -1306.5226)
+
+[node name="tree_155" type="Marker3D" parent="Objects/tree" unique_id=1985868583]
+transform = Transform3D(2.7088518, 0, 0, 0, 3.1083298, 0, 0, 0, 2.7088518, 27.341772, 0, -1292.517)
+
+[node name="tree_156" type="Marker3D" parent="Objects/tree" unique_id=1129109763]
+transform = Transform3D(1.8644978, 0, 0, 0, 1.9077704, 0, 0, 0, 1.8644978, 46.58228, 0, -1286.5146)
+
+[node name="tree_157" type="Marker3D" parent="Objects/tree" unique_id=892874498]
+transform = Transform3D(2.5714984, 0, 0, 0, 2.6135838, 0, 0, 0, 2.5714984, 66.83544, 0, -1278.5114)
+
+[node name="tree_158" type="Marker3D" parent="Objects/tree" unique_id=645525198]
+transform = Transform3D(3.3203638, 0, 0, 0, 3.521143, 0, 0, 0, 3.3203638, 39.49367, 0, -1263.5054)
+
+[node name="tree_159" type="Marker3D" parent="Objects/tree" unique_id=1342081060]
+transform = Transform3D(2.8641167, 0, 0, 0, 3.1581383, 0, 0, 0, 2.8641167, 60.759495, 0, -1261.5046)
+
+[node name="tree_160" type="Marker3D" parent="Objects/tree" unique_id=252769762]
+transform = Transform3D(1.758375, 0, 0, 0, 2.2172966, 0, 0, 0, 1.758375, 26.329113, 0, -1253.5013)
+
+[node name="tree_161" type="Marker3D" parent="Objects/tree" unique_id=1306214727]
+transform = Transform3D(3.0179129, 0, 0, 0, 3.2769284, 0, 0, 0, 3.0179129, 44.55696, 0, -1247.499)
+
+[node name="tree_162" type="Marker3D" parent="Objects/tree" unique_id=1517415875]
+transform = Transform3D(3.357932, 0, 0, 0, 3.479587, 0, 0, 0, 3.357932, 12.151898, 0, -1243.4974)
+
+[node name="tree_163" type="Marker3D" parent="Objects/tree" unique_id=1894814030]
+transform = Transform3D(2.39181, 0, 0, 0, 3.0519266, 0, 0, 0, 2.39181, 58.734177, 0, -1242.497)
+
+[node name="tree_164" type="Marker3D" parent="Objects/tree" unique_id=1685493993]
+transform = Transform3D(3.1738336, 0, 0, 0, 3.4691997, 0, 0, 0, 3.1738336, 58.734177, 0, -1241.4966)
+
+[node name="tree_165" type="Marker3D" parent="Objects/tree" unique_id=1984060184]
+transform = Transform3D(1.9352435, 0, 0, 0, 2.1377637, 0, 0, 0, 1.9352435, 26.329113, 0, -1234.4938)
+
+[node name="tree_166" type="Marker3D" parent="Objects/tree" unique_id=1901228945]
+transform = Transform3D(1.858897, 0, 0, 0, 2.5160663, 0, 0, 0, 1.858897, 60.759495, 0, -1228.4915)
+
+[node name="tree_167" type="Marker3D" parent="Objects/tree" unique_id=1008285270]
+transform = Transform3D(2.4310207, 0, 0, 0, 2.4910634, 0, 0, 0, 2.4310207, 42.531647, 0, -1228.4915)
+
+[node name="tree_168" type="Marker3D" parent="Objects/tree" unique_id=413012457]
+transform = Transform3D(2.250032, 0, 0, 0, 2.2987576, 0, 0, 0, 2.250032, 25.316456, 0, -1226.4906)
+
+[node name="tree_169" type="Marker3D" parent="Objects/tree" unique_id=102555703]
+transform = Transform3D(1.9972223, 0, 0, 0, 2.009248, 0, 0, 0, 1.9972223, 3.0379746, 0, -1220.4882)
+
+[node name="tree_170" type="Marker3D" parent="Objects/tree" unique_id=1779013567]
+transform = Transform3D(1.8939632, 0, 0, 0, 2.4747772, 0, 0, 0, 1.8939632, 26.329113, 0, -1215.4862)
+
+[node name="tree_171" type="Marker3D" parent="Objects/tree" unique_id=759950029]
+transform = Transform3D(2.452206, 0, 0, 0, 2.543085, 0, 0, 0, 2.452206, 50.63291, 0, -1214.4858)
+
+[node name="tree_172" type="Marker3D" parent="Objects/tree" unique_id=1623518744]
+transform = Transform3D(2.0071847, 0, 0, 0, 2.2087667, 0, 0, 0, 2.0071847, 42.531647, 0, -1212.485)
+
+[node name="tree_173" type="Marker3D" parent="Objects/tree" unique_id=517223195]
+transform = Transform3D(2.6140206, 0, 0, 0, 2.7627099, 0, 0, 0, 2.6140206, 8.101266, 0, -1211.4846)
+
+[node name="tree_174" type="Marker3D" parent="Objects/tree" unique_id=310882182]
+transform = Transform3D(2.6024933, 0, 0, 0, 2.6972876, 0, 0, 0, 2.6024933, 8.101266, 0, -1210.4843)
+
+[node name="tree_175" type="Marker3D" parent="Objects/tree" unique_id=1448687491]
+transform = Transform3D(1.9215791, 0, 0, 0, 2.2479916, 0, 0, 0, 1.9215791, 60.759495, 0, -1204.4818)
+
+[node name="tree_176" type="Marker3D" parent="Objects/tree" unique_id=1602370533]
+transform = Transform3D(2.2570395, 0, 0, 0, 2.4674668, 0, 0, 0, 2.2570395, 28.354431, 0, -1204.4818)
+
+[node name="tree_177" type="Marker3D" parent="Objects/tree" unique_id=2065024039]
+transform = Transform3D(1.6211486, 0, 0, 0, 2.063276, 0, 0, 0, 1.6211486, 47.594936, 0, -1195.4781)
+
+[node name="tree_178" type="Marker3D" parent="Objects/tree" unique_id=248623947]
+transform = Transform3D(2.248365, 0, 0, 0, 2.331164, 0, 0, 0, 2.248365, 47.594936, 0, -1181.4725)
+
+[node name="tree_179" type="Marker3D" parent="Objects/tree" unique_id=193030363]
+transform = Transform3D(2.6864035, 0, 0, 0, 3.252934, 0, 0, 0, 2.6864035, 26.329113, 0, -1174.4698)
+
+[node name="tree_180" type="Marker3D" parent="Objects/tree" unique_id=1391236270]
+transform = Transform3D(1.8110244, 0, 0, 0, 2.4807613, 0, 0, 0, 1.8110244, 36.455696, 0, -1160.4642)
+
+[node name="tree_181" type="Marker3D" parent="Objects/tree" unique_id=267566757]
+transform = Transform3D(2.6405811, 0, 0, 0, 2.8141758, 0, 0, 0, 2.6405811, 58.734177, 0, -1157.463)
+
+[node name="tree_182" type="Marker3D" parent="Objects/tree" unique_id=462572811]
+transform = Transform3D(3.2167282, 0, 0, 0, 3.5160317, 0, 0, 0, 3.2167282, 41.518986, 0, -1153.4614)
+
+[node name="tree_183" type="Marker3D" parent="Objects/tree" unique_id=1275495327]
+transform = Transform3D(2.021984, 0, 0, 0, 2.4820013, 0, 0, 0, 2.021984, 32.405064, 0, -1151.4606)
+
+[node name="tree_184" type="Marker3D" parent="Objects/tree" unique_id=224677134]
+transform = Transform3D(1.6269822, 0, 0, 0, 2.001831, 0, 0, 0, 1.6269822, 20.253164, 0, -1141.4565)
+
+[node name="tree_185" type="Marker3D" parent="Objects/tree" unique_id=494062618]
+transform = Transform3D(1.8290921, 0, 0, 0, 2.4908488, 0, 0, 0, 1.8290921, 56.708862, 0, -1138.4553)
+
+[node name="tree_186" type="Marker3D" parent="Objects/tree" unique_id=811849673]
+transform = Transform3D(1.9349773, 0, 0, 0, 2.2884624, 0, 0, 0, 1.9349773, 72.91139, 0, -1137.455)
+
+[node name="tree_187" type="Marker3D" parent="Objects/tree" unique_id=235112750]
+transform = Transform3D(2.539086, 0, 0, 0, 3.3520422, 0, 0, 0, 2.539086, 43.544304, 0, -1128.4514)
+
+[node name="tree_188" type="Marker3D" parent="Objects/tree" unique_id=1632628409]
+transform = Transform3D(1.8463433, 0, 0, 0, 1.8889966, 0, 0, 0, 1.8463433, 28.354431, 0, -1122.449)
+
+[node name="tree_189" type="Marker3D" parent="Objects/tree" unique_id=1306229975]
+transform = Transform3D(2.3311756, 0, 0, 0, 3.0777025, 0, 0, 0, 2.3311756, 69.87342, 0, -1118.4474)
+
+[node name="tree_190" type="Marker3D" parent="Objects/tree" unique_id=1069654433]
+transform = Transform3D(2.4190803, 0, 0, 0, 3.0611827, 0, 0, 0, 2.4190803, 61.772152, 0, -1108.4434)
+
+[node name="tree_191" type="Marker3D" parent="Objects/tree" unique_id=1890016015]
+transform = Transform3D(1.8301924, 0, 0, 0, 2.3332253, 0, 0, 0, 1.8301924, 52.658226, 0, -1096.4386)
+
+[node name="tree_192" type="Marker3D" parent="Objects/tree" unique_id=529221786]
+transform = Transform3D(1.4778916, 0, 0, 0, 1.9508785, 0, 0, 0, 1.4778916, 41.518986, 0, -1079.4318)
+
+[node name="tree_193" type="Marker3D" parent="Objects/tree" unique_id=1316234126]
+transform = Transform3D(1.9791684, 0, 0, 0, 2.103188, 0, 0, 0, 1.9791684, 41.518986, 0, -1078.4314)
+
+[node name="tree_194" type="Marker3D" parent="Objects/tree" unique_id=422981388]
+transform = Transform3D(2.3153834, 0, 0, 0, 3.1076477, 0, 0, 0, 2.3153834, 33.41772, 0, -1074.4298)
+
+[node name="tree_195" type="Marker3D" parent="Objects/tree" unique_id=1028763845]
+transform = Transform3D(2.2652962, 0, 0, 0, 2.4261937, 0, 0, 0, 2.2652962, 29.367088, 0, -1062.4249)
+
+[node name="tree_196" type="Marker3D" parent="Objects/tree" unique_id=663070702]
+transform = Transform3D(1.9486282, 0, 0, 0, 2.055018, 0, 0, 0, 1.9486282, 55.6962, 0, -1059.4238)
+
+[node name="tree_197" type="Marker3D" parent="Objects/tree" unique_id=943393008]
+transform = Transform3D(1.9984109, 0, 0, 0, 2.0409708, 0, 0, 0, 1.9984109, 66.83544, 0, -1056.4226)
+
+[node name="tree_198" type="Marker3D" parent="Objects/tree" unique_id=1542853781]
+transform = Transform3D(1.7776722, 0, 0, 0, 2.452708, 0, 0, 0, 1.7776722, 53.670887, 0, -1045.4182)
+
+[node name="tree_199" type="Marker3D" parent="Objects/tree" unique_id=967605921]
+transform = Transform3D(2.7836027, 0, 0, 0, 2.923083, 0, 0, 0, 2.7836027, 30.379747, 0, -1035.4142)
+
+[node name="tree_200" type="Marker3D" parent="Objects/tree" unique_id=1230774086]
+transform = Transform3D(2.6314428, 0, 0, 0, 2.6488173, 0, 0, 0, 2.6314428, 46.58228, 0, -1026.4105)
+
+[node name="tree_201" type="Marker3D" parent="Objects/tree" unique_id=523478487]
+transform = Transform3D(1.6148822, 0, 0, 0, 1.8148026, 0, 0, 0, 1.6148822, 18.227848, 0, -1026.4105)
+
+[node name="tree_202" type="Marker3D" parent="Objects/tree" unique_id=1762036849]
+transform = Transform3D(2.0576777, 0, 0, 0, 2.2191026, 0, 0, 0, 2.0576777, 29.367088, 0, -1015.4062)
+
+[node name="tree_203" type="Marker3D" parent="Objects/tree" unique_id=1526857724]
+transform = Transform3D(2.353287, 0, 0, 0, 3.2210736, 0, 0, 0, 2.353287, 36.455696, 0, -1009.40375)
+
+[node name="tree_204" type="Marker3D" parent="Objects/tree" unique_id=213386867]
+transform = Transform3D(3.2975981, 0, 0, 0, 3.3065858, 0, 0, 0, 3.2975981, 43.544304, 0, -976.39056)
+
+[node name="tree_205" type="Marker3D" parent="Objects/tree" unique_id=1154471477]
+transform = Transform3D(1.6400445, 0, 0, 0, 2.1771748, 0, 0, 0, 1.6400445, 67.8481, 0, -962.38495)
+
+[node name="tree_206" type="Marker3D" parent="Objects/tree" unique_id=559967837]
+transform = Transform3D(2.7899528, 0, 0, 0, 3.2988024, 0, 0, 0, 2.7899528, 66.83544, 0, -951.38055)
+
+[node name="tree_207" type="Marker3D" parent="Objects/tree" unique_id=524909821]
+transform = Transform3D(2.2591455, 0, 0, 0, 2.7457047, 0, 0, 0, 2.2591455, 37.468353, 0, -951.38055)
+
+[node name="tree_208" type="Marker3D" parent="Objects/tree" unique_id=531445330]
+transform = Transform3D(1.762919, 0, 0, 0, 2.0525436, 0, 0, 0, 1.762919, 27.341772, 0, -951.38055)
+
+[node name="tree_209" type="Marker3D" parent="Objects/tree" unique_id=1475483723]
+transform = Transform3D(2.1683035, 0, 0, 0, 2.9532957, 0, 0, 0, 2.1683035, 44.55696, 0, -941.3765)
+
+[node name="tree_210" type="Marker3D" parent="Objects/tree" unique_id=1075168481]
+transform = Transform3D(2.0746562, 0, 0, 0, 2.8558545, 0, 0, 0, 2.0746562, 61.772152, 0, -938.37537)
+
+[node name="tree_211" type="Marker3D" parent="Objects/tree" unique_id=443570547]
+transform = Transform3D(2.480884, 0, 0, 0, 2.9028149, 0, 0, 0, 2.480884, 55.6962, 0, -920.36816)
+
+[node name="tree_212" type="Marker3D" parent="Objects/tree" unique_id=1794098781]
+transform = Transform3D(2.1469793, 0, 0, 0, 2.8828826, 0, 0, 0, 2.1469793, 38.481014, 0, -920.36816)
+
+[node name="tree_213" type="Marker3D" parent="Objects/tree" unique_id=1346698640]
+transform = Transform3D(2.3824742, 0, 0, 0, 2.916913, 0, 0, 0, 2.3824742, 50.63291, 0, -908.36334)
+
+[node name="tree_214" type="Marker3D" parent="Objects/tree" unique_id=1608259068]
+transform = Transform3D(2.6197455, 0, 0, 0, 3.2726307, 0, 0, 0, 2.6197455, 29.367088, 0, -900.36017)
+
+[node name="tree_215" type="Marker3D" parent="Objects/tree" unique_id=1597638914]
+transform = Transform3D(2.3808513, 0, 0, 0, 3.2249167, 0, 0, 0, 2.3808513, 45.569622, 0, -898.3593)
+
+[node name="tree_216" type="Marker3D" parent="Objects/tree" unique_id=335906433]
+transform = Transform3D(2.8362563, 0, 0, 0, 2.943509, 0, 0, 0, 2.8362563, 22.27848, 0, -883.35333)
+
+[node name="tree_217" type="Marker3D" parent="Objects/tree" unique_id=218730565]
+transform = Transform3D(2.5109072, 0, 0, 0, 3.0197563, 0, 0, 0, 2.5109072, 34.430378, 0, -873.34937)
+
+[node name="tree_218" type="Marker3D" parent="Objects/tree" unique_id=906355306]
+transform = Transform3D(2.0590124, 0, 0, 0, 2.779513, 0, 0, 0, 2.0590124, 16.202532, 0, -867.3469)
+
+[node name="tree_219" type="Marker3D" parent="Objects/tree" unique_id=1162421939]
+transform = Transform3D(3.205754, 0, 0, 0, 3.2433558, 0, 0, 0, 3.205754, 42.531647, 0, -865.3461)
+
+[node name="tree_220" type="Marker3D" parent="Objects/tree" unique_id=926575258]
+transform = Transform3D(2.1214628, 0, 0, 0, 2.5973444, 0, 0, 0, 2.1214628, 30.379747, 0, -859.34375)
+
+[node name="tree_221" type="Marker3D" parent="Objects/tree" unique_id=1423199675]
+transform = Transform3D(2.3450038, 0, 0, 0, 2.7197351, 0, 0, 0, 2.3450038, 43.544304, 0, -855.34216)
+
+[node name="tree_222" type="Marker3D" parent="Objects/tree" unique_id=1014330282]
+transform = Transform3D(3.1715631, 0, 0, 0, 3.4107718, 0, 0, 0, 3.1715631, 10.126582, 0, -850.34015)
+
+[node name="tree_223" type="Marker3D" parent="Objects/tree" unique_id=619254346]
+transform = Transform3D(2.3680038, 0, 0, 0, 3.295381, 0, 0, 0, 2.3680038, 25.316456, 0, -845.33813)
+
+[node name="tree_224" type="Marker3D" parent="Objects/tree" unique_id=1247913246]
+transform = Transform3D(2.367924, 0, 0, 0, 2.903676, 0, 0, 0, 2.367924, 39.49367, 0, -843.33734)
+
+[node name="tree_225" type="Marker3D" parent="Objects/tree" unique_id=1083740077]
+transform = Transform3D(2.9440427, 0, 0, 0, 3.0341592, 0, 0, 0, 2.9440427, 19.240507, 0, -831.3325)
+
+[node name="tree_226" type="Marker3D" parent="Objects/tree" unique_id=702638698]
+transform = Transform3D(1.7030331, 0, 0, 0, 1.7979488, 0, 0, 0, 1.7030331, 7.088608, 0, -831.3325)
+
+[node name="tree_227" type="Marker3D" parent="Objects/tree" unique_id=1642620005]
+transform = Transform3D(2.647292, 0, 0, 0, 3.2039442, 0, 0, 0, 2.647292, 45.569622, 0, -821.32855)
+
+[node name="tree_228" type="Marker3D" parent="Objects/tree" unique_id=914925810]
+transform = Transform3D(1.45114, 0, 0, 0, 1.8109046, 0, 0, 0, 1.45114, 51.64557, 0, -810.32416)
+
+[node name="tree_229" type="Marker3D" parent="Objects/tree" unique_id=805522181]
+transform = Transform3D(2.1769102, 0, 0, 0, 2.1855543, 0, 0, 0, 2.1769102, 23.29114, 0, -804.3217)
+
+[node name="tree_230" type="Marker3D" parent="Objects/tree" unique_id=591003143]
+transform = Transform3D(2.281906, 0, 0, 0, 2.7606864, 0, 0, 0, 2.281906, 69.87342, 0, -803.32135)
+
+[node name="tree_231" type="Marker3D" parent="Objects/tree" unique_id=1380274702]
+transform = Transform3D(1.8505353, 0, 0, 0, 2.549685, 0, 0, 0, 1.8505353, 36.455696, 0, -801.32056)
+
+[node name="tree_232" type="Marker3D" parent="Objects/tree" unique_id=682219673]
+transform = Transform3D(2.600631, 0, 0, 0, 3.1302829, 0, 0, 0, 2.600631, 47.594936, 0, -790.3161)
+
+[node name="tree_233" type="Marker3D" parent="Objects/tree" unique_id=427378801]
+transform = Transform3D(1.7214427, 0, 0, 0, 1.7857832, 0, 0, 0, 1.7214427, 58.734177, 0, -770.3081)
+
+[node name="tree_234" type="Marker3D" parent="Objects/tree" unique_id=454558280]
+transform = Transform3D(3.3435497, 0, 0, 0, 3.433453, 0, 0, 0, 3.3435497, 33.41772, 0, -762.30493)
+
+[node name="tree_235" type="Marker3D" parent="Objects/tree" unique_id=886258883]
+transform = Transform3D(2.4499893, 0, 0, 0, 3.0305705, 0, 0, 0, 2.4499893, 47.594936, 0, -755.3021)
+
+[node name="tree_236" type="Marker3D" parent="Objects/tree" unique_id=940859631]
+transform = Transform3D(1.7593911, 0, 0, 0, 2.11018, 0, 0, 0, 1.7593911, 24.303797, 0, -749.29974)
+
+[node name="tree_237" type="Marker3D" parent="Objects/tree" unique_id=302641240]
+transform = Transform3D(2.760632, 0, 0, 0, 2.9980109, 0, 0, 0, 2.760632, 37.468353, 0, -742.29694)
+
+[node name="tree_238" type="Marker3D" parent="Objects/tree" unique_id=785144126]
+transform = Transform3D(2.6199734, 0, 0, 0, 2.9120264, 0, 0, 0, 2.6199734, 14.177216, 0, -735.2941)
+
+[node name="tree_239" type="Marker3D" parent="Objects/tree" unique_id=1432671471]
+transform = Transform3D(2.8284621, 0, 0, 0, 3.261684, 0, 0, 0, 2.8284621, 38.481014, 0, -706.28253)
+
+[node name="tree_240" type="Marker3D" parent="Objects/tree" unique_id=401082610]
+transform = Transform3D(2.3408177, 0, 0, 0, 2.546814, 0, 0, 0, 2.3408177, 57.72152, 0, -687.2749)
+
+[node name="tree_241" type="Marker3D" parent="Objects/tree" unique_id=1299664223]
+transform = Transform3D(2.5164275, 0, 0, 0, 2.5167623, 0, 0, 0, 2.5164275, 45.569622, 0, -673.2693)
+
+[node name="tree_242" type="Marker3D" parent="Objects/tree" unique_id=1177645126]
+transform = Transform3D(2.1329274, 0, 0, 0, 2.2239683, 0, 0, 0, 2.1329274, 23.29114, 0, -671.2685)
+
+[node name="tree_243" type="Marker3D" parent="Objects/tree" unique_id=1400772077]
+transform = Transform3D(2.6684587, 0, 0, 0, 2.8690903, 0, 0, 0, 2.6684587, 4.050633, 0, -644.2577)
+
+[node name="tree_244" type="Marker3D" parent="Objects/tree" unique_id=95897633]
+transform = Transform3D(1.544907, 0, 0, 0, 2.0384626, 0, 0, 0, 1.544907, 78.98734, 0, -642.2569)
+
+[node name="tree_245" type="Marker3D" parent="Objects/tree" unique_id=1996799903]
+transform = Transform3D(2.9800248, 0, 0, 0, 3.2929792, 0, 0, 0, 2.9800248, 23.29114, 0, -642.2569)
+
+[node name="tree_246" type="Marker3D" parent="Objects/tree" unique_id=1398971024]
+transform = Transform3D(1.9614816, 0, 0, 0, 2.6300077, 0, 0, 0, 1.9614816, 59.746834, 0, -636.2545)
+
+[node name="tree_247" type="Marker3D" parent="Objects/tree" unique_id=483456996]
+transform = Transform3D(2.6651378, 0, 0, 0, 2.8314614, 0, 0, 0, 2.6651378, 53.670887, 0, -636.2545)
+
+[node name="tree_248" type="Marker3D" parent="Objects/tree" unique_id=923010672]
+transform = Transform3D(2.3004084, 0, 0, 0, 2.4552445, 0, 0, 0, 2.3004084, 34.430378, 0, -636.2545)
+
+[node name="tree_249" type="Marker3D" parent="Objects/tree" unique_id=866639310]
+transform = Transform3D(1.7578429, 0, 0, 0, 2.1495297, 0, 0, 0, 1.7578429, 9.113924, 0, -636.2545)
+
+[node name="tree_250" type="Marker3D" parent="Objects/tree" unique_id=1629995552]
+transform = Transform3D(1.7531259, 0, 0, 0, 1.9847051, 0, 0, 0, 1.7531259, 67.8481, 0, -607.2429)
+
+[node name="tree_251" type="Marker3D" parent="Objects/tree" unique_id=1849091858]
+transform = Transform3D(1.6981288, 0, 0, 0, 1.8880982, 0, 0, 0, 1.6981288, 46.58228, 0, -601.2405)
+
+[node name="tree_252" type="Marker3D" parent="Objects/tree" unique_id=516270655]
+transform = Transform3D(1.6090271, 0, 0, 0, 2.0295706, 0, 0, 0, 1.6090271, 58.734177, 0, -586.2345)
+
+[node name="tree_253" type="Marker3D" parent="Objects/tree" unique_id=1519960541]
+transform = Transform3D(1.8456032, 0, 0, 0, 2.2015793, 0, 0, 0, 1.8456032, 38.481014, 0, -584.2337)
+
+[node name="tree_254" type="Marker3D" parent="Objects/tree" unique_id=1729606784]
+transform = Transform3D(2.3927565, 0, 0, 0, 3.0278387, 0, 0, 0, 2.3927565, 64.81013, 0, -578.23126)
+
+[node name="tree_255" type="Marker3D" parent="Objects/tree" unique_id=683798168]
+transform = Transform3D(1.7359325, 0, 0, 0, 2.041012, 0, 0, 0, 1.7359325, 57.72152, 0, -573.2293)
+
+[node name="tree_256" type="Marker3D" parent="Objects/tree" unique_id=2064247282]
+transform = Transform3D(1.9638989, 0, 0, 0, 1.9691327, 0, 0, 0, 1.9638989, 61.772152, 0, -565.2261)
+
+[node name="tree_257" type="Marker3D" parent="Objects/tree" unique_id=1219434197]
+transform = Transform3D(2.468495, 0, 0, 0, 3.0334911, 0, 0, 0, 2.468495, 38.481014, 0, -559.2237)
+
+[node name="tree_258" type="Marker3D" parent="Objects/tree" unique_id=342798875]
+transform = Transform3D(1.8234605, 0, 0, 0, 1.8642191, 0, 0, 0, 1.8234605, 48.607594, 0, -553.2213)
+
+[node name="tree_259" type="Marker3D" parent="Objects/tree" unique_id=712116771]
+transform = Transform3D(1.5426348, 0, 0, 0, 1.9150822, 0, 0, 0, 1.5426348, 73.92405, 0, -550.2201)
+
+[node name="tree_260" type="Marker3D" parent="Objects/tree" unique_id=341664555]
+transform = Transform3D(2.0821767, 0, 0, 0, 2.6801772, 0, 0, 0, 2.0821767, 58.734177, 0, -537.2149)
+
+[node name="tree_261" type="Marker3D" parent="Objects/tree" unique_id=577319437]
+transform = Transform3D(1.645946, 0, 0, 0, 1.997226, 0, 0, 0, 1.645946, 41.518986, 0, -526.2105)
+
+[node name="tree_262" type="Marker3D" parent="Objects/tree" unique_id=1479538148]
+transform = Transform3D(2.6512961, 0, 0, 0, 2.9362419, 0, 0, 0, 2.6512961, 73.92405, 0, -505.2021)
+
+[node name="tree_263" type="Marker3D" parent="Objects/tree" unique_id=1488217100]
+transform = Transform3D(2.3631897, 0, 0, 0, 2.402493, 0, 0, 0, 2.3631897, 73.92405, 0, -504.2017)
+
+[node name="tree_264" type="Marker3D" parent="Objects/tree" unique_id=1748413894]
+transform = Transform3D(2.75135, 0, 0, 0, 2.9146838, 0, 0, 0, 2.75135, 45.569622, 0, -498.19928)
+
+[node name="tree_265" type="Marker3D" parent="Objects/tree" unique_id=708383113]
+transform = Transform3D(2.8713026, 0, 0, 0, 3.0782866, 0, 0, 0, 2.8713026, 52.658226, 0, -485.1941)
+
+[node name="tree_266" type="Marker3D" parent="Objects/tree" unique_id=714783251]
+transform = Transform3D(1.7058004, 0, 0, 0, 1.9724565, 0, 0, 0, 1.7058004, 54.683544, 0, -479.19168)
+
+[node name="tree_267" type="Marker3D" parent="Objects/tree" unique_id=154100210]
+transform = Transform3D(2.3443878, 0, 0, 0, 2.9841375, 0, 0, 0, 2.3443878, 48.607594, 0, -475.19006)
+
+[node name="tree_268" type="Marker3D" parent="Objects/tree" unique_id=95573013]
+transform = Transform3D(2.527297, 0, 0, 0, 3.318615, 0, 0, 0, 2.527297, 62.78481, 0, -453.18127)
+
+[node name="tree_269" type="Marker3D" parent="Objects/tree" unique_id=14205436]
+transform = Transform3D(1.5199732, 0, 0, 0, 1.7901284, 0, 0, 0, 1.5199732, 12.151898, 0, -451.18048)
+
+[node name="tree_270" type="Marker3D" parent="Objects/tree" unique_id=215876119]
+transform = Transform3D(1.3757591, 0, 0, 0, 1.776978, 0, 0, 0, 1.3757591, 63.79747, 0, -444.17767)
+
+[node name="tree_271" type="Marker3D" parent="Objects/tree" unique_id=460576007]
+transform = Transform3D(2.663434, 0, 0, 0, 3.5154743, 0, 0, 0, 2.663434, 27.341772, 0, -436.17447)
+
+[node name="tree_272" type="Marker3D" parent="Objects/tree" unique_id=1158384101]
+transform = Transform3D(1.7736355, 0, 0, 0, 2.2083147, 0, 0, 0, 1.7736355, 47.594936, 0, -410.16406)
+
+[node name="tree_273" type="Marker3D" parent="Objects/tree" unique_id=777310474]
+transform = Transform3D(2.6054623, 0, 0, 0, 2.813426, 0, 0, 0, 2.6054623, 50.63291, 0, -406.16248)
+
+[node name="tree_274" type="Marker3D" parent="Objects/tree" unique_id=1373222626]
+transform = Transform3D(1.8074424, 0, 0, 0, 2.1472938, 0, 0, 0, 1.8074424, 57.72152, 0, -402.16086)
+
+[node name="tree_275" type="Marker3D" parent="Objects/tree" unique_id=1695345105]
+transform = Transform3D(2.6885738, 0, 0, 0, 3.2179203, 0, 0, 0, 2.6885738, 36.455696, 0, -397.15887)
+
+[node name="tree_276" type="Marker3D" parent="Objects/tree" unique_id=1384880628]
+transform = Transform3D(2.3795655, 0, 0, 0, 3.0510674, 0, 0, 0, 2.3795655, 73.92405, 0, -387.15488)
+
+[node name="tree_277" type="Marker3D" parent="Objects/tree" unique_id=1835639814]
+transform = Transform3D(2.6355882, 0, 0, 0, 3.330151, 0, 0, 0, 2.6355882, 47.594936, 0, -387.15488)
+
+[node name="tree_278" type="Marker3D" parent="Objects/tree" unique_id=376471511]
+transform = Transform3D(3.1326268, 0, 0, 0, 3.274838, 0, 0, 0, 3.1326268, 33.41772, 0, -381.15247)
+
+[node name="tree_279" type="Marker3D" parent="Objects/tree" unique_id=843448624]
+transform = Transform3D(1.5458902, 0, 0, 0, 2.1384432, 0, 0, 0, 1.5458902, 62.78481, 0, -380.15207)
+
+[node name="tree_280" type="Marker3D" parent="Objects/tree" unique_id=1869239756]
+transform = Transform3D(1.2984542, 0, 0, 0, 1.77778, 0, 0, 0, 1.2984542, 60.759495, 0, -376.15045)
+
+[node name="tree_281" type="Marker3D" parent="Objects/tree" unique_id=191015876]
+transform = Transform3D(2.9311485, 0, 0, 0, 3.3281083, 0, 0, 0, 2.9311485, 58.734177, 0, -371.14847)
+
+[node name="tree_282" type="Marker3D" parent="Objects/tree" unique_id=2036387475]
+transform = Transform3D(2.3687797, 0, 0, 0, 2.7860231, 0, 0, 0, 2.3687797, 63.79747, 0, -365.14606)
+
+[node name="tree_283" type="Marker3D" parent="Objects/tree" unique_id=751704239]
+transform = Transform3D(2.7712808, 0, 0, 0, 3.1570587, 0, 0, 0, 2.7712808, 62.78481, 0, -362.14487)
+
+[node name="tree_284" type="Marker3D" parent="Objects/tree" unique_id=471556861]
+transform = Transform3D(3.1202526, 0, 0, 0, 3.305818, 0, 0, 0, 3.1202526, 73.92405, 0, -359.14365)
+
+[node name="tree_285" type="Marker3D" parent="Objects/tree" unique_id=65533150]
+transform = Transform3D(2.5114932, 0, 0, 0, 2.8756533, 0, 0, 0, 2.5114932, 56.708862, 0, -341.13644)
+
+[node name="tree_286" type="Marker3D" parent="Objects/tree" unique_id=563716233]
+transform = Transform3D(2.5994036, 0, 0, 0, 2.8273923, 0, 0, 0, 2.5994036, 69.87342, 0, -338.13525)
+
+[node name="tree_287" type="Marker3D" parent="Objects/tree" unique_id=280766621]
+transform = Transform3D(1.5683036, 0, 0, 0, 2.0145643, 0, 0, 0, 1.5683036, 66.83544, 0, -330.13205)
+
+[node name="tree_288" type="Marker3D" parent="Objects/tree" unique_id=2118198971]
+transform = Transform3D(1.7099645, 0, 0, 0, 1.923072, 0, 0, 0, 1.7099645, 63.79747, 0, -321.12845)
+
+[node name="tree_289" type="Marker3D" parent="Objects/tree" unique_id=465526382]
+transform = Transform3D(3.2523513, 0, 0, 0, 3.4442883, 0, 0, 0, 3.2523513, 46.58228, 0, -319.12766)
+
+[node name="tree_290" type="Marker3D" parent="Objects/tree" unique_id=1814322926]
+transform = Transform3D(2.774885, 0, 0, 0, 3.2086058, 0, 0, 0, 2.774885, 57.72152, 0, -312.12485)
+
+[node name="tree_291" type="Marker3D" parent="Objects/tree" unique_id=2097063318]
+transform = Transform3D(2.414591, 0, 0, 0, 3.12153, 0, 0, 0, 2.414591, 56.708862, 0, -312.12485)
+
+[node name="tree_292" type="Marker3D" parent="Objects/tree" unique_id=166228313]
+transform = Transform3D(1.4769244, 0, 0, 0, 1.913521, 0, 0, 0, 1.4769244, 37.468353, 0, -308.12326)
+
+[node name="tree_293" type="Marker3D" parent="Objects/tree" unique_id=258024341]
+transform = Transform3D(2.043419, 0, 0, 0, 2.5142336, 0, 0, 0, 2.043419, 50.63291, 0, -297.11884)
+
+[node name="tree_294" type="Marker3D" parent="Objects/tree" unique_id=1462276290]
+transform = Transform3D(1.8151515, 0, 0, 0, 1.8763843, 0, 0, 0, 1.8151515, 45.569622, 0, -286.11444)
+
+[node name="tree_295" type="Marker3D" parent="Objects/tree" unique_id=332993721]
+transform = Transform3D(2.631073, 0, 0, 0, 3.1419833, 0, 0, 0, 2.631073, 31.392405, 0, -284.11365)
+
+[node name="tree_296" type="Marker3D" parent="Objects/tree" unique_id=1726987802]
+transform = Transform3D(2.7753353, 0, 0, 0, 3.1550913, 0, 0, 0, 2.7753353, 29.367088, 0, -275.11005)
+
+[node name="tree_297" type="Marker3D" parent="Objects/tree" unique_id=779333225]
+transform = Transform3D(1.4715382, 0, 0, 0, 1.9371644, 0, 0, 0, 1.4715382, 46.58228, 0, -273.10925)
+
+[node name="tree_298" type="Marker3D" parent="Objects/tree" unique_id=1502595759]
+transform = Transform3D(2.0478983, 0, 0, 0, 2.1488042, 0, 0, 0, 2.0478983, 18.227848, 0, -264.10565)
+
+[node name="tree_299" type="Marker3D" parent="Objects/tree" unique_id=2102773377]
+transform = Transform3D(1.4837505, 0, 0, 0, 1.9738, 0, 0, 0, 1.4837505, 55.6962, 0, -257.10284)
+
+[node name="tree_300" type="Marker3D" parent="Objects/tree" unique_id=291977472]
+transform = Transform3D(1.7160674, 0, 0, 0, 2.3935409, 0, 0, 0, 1.7160674, 55.6962, 0, -256.10245)
+
+[node name="tree_301" type="Marker3D" parent="Objects/tree" unique_id=1960490013]
+transform = Transform3D(2.2361798, 0, 0, 0, 2.6203356, 0, 0, 0, 2.2361798, 36.455696, 0, -256.10245)
+
+[node name="tree_302" type="Marker3D" parent="Objects/tree" unique_id=499866668]
+transform = Transform3D(3.0614605, 0, 0, 0, 3.349483, 0, 0, 0, 3.0614605, 64.81013, 0, -250.10004)
+
+[node name="tree_303" type="Marker3D" parent="Objects/tree" unique_id=1103179172]
+transform = Transform3D(3.4095721, 0, 0, 0, 3.5017157, 0, 0, 0, 3.4095721, 30.379747, 0, -250.10004)
+
+[node name="tree_304" type="Marker3D" parent="Objects/tree" unique_id=1820062871]
+transform = Transform3D(3.0596855, 0, 0, 0, 3.0695624, 0, 0, 0, 3.0596855, 31.392405, 0, -245.09804)
+
+[node name="tree_305" type="Marker3D" parent="Objects/tree" unique_id=81174566]
+transform = Transform3D(1.5982312, 0, 0, 0, 2.2138007, 0, 0, 0, 1.5982312, 70.88608, 0, -242.09683)
+
+[node name="tree_306" type="Marker3D" parent="Objects/tree" unique_id=505144413]
+transform = Transform3D(3.0682516, 0, 0, 0, 3.423524, 0, 0, 0, 3.0682516, 46.58228, 0, -242.09683)
+
+[node name="tree_307" type="Marker3D" parent="Objects/tree" unique_id=2119499945]
+transform = Transform3D(1.7951792, 0, 0, 0, 2.0545597, 0, 0, 0, 1.7951792, 42.531647, 0, -236.09444)
+
+[node name="tree_308" type="Marker3D" parent="Objects/tree" unique_id=1950711315]
+transform = Transform3D(2.0908728, 0, 0, 0, 2.7003512, 0, 0, 0, 2.0908728, 72.91139, 0, -233.09323)
+
+[node name="tree_309" type="Marker3D" parent="Objects/tree" unique_id=1096509010]
+transform = Transform3D(1.8392017, 0, 0, 0, 2.2653337, 0, 0, 0, 1.8392017, 25.316456, 0, -231.09244)
+
+[node name="tree_310" type="Marker3D" parent="Objects/tree" unique_id=310121926]
+transform = Transform3D(1.9161966, 0, 0, 0, 2.1647103, 0, 0, 0, 1.9161966, 39.49367, 0, -229.09163)
+
+[node name="tree_311" type="Marker3D" parent="Objects/tree" unique_id=941920472]
+transform = Transform3D(1.3581173, 0, 0, 0, 1.7855885, 0, 0, 0, 1.3581173, 58.734177, 0, -225.09004)
+
+[node name="tree_312" type="Marker3D" parent="Objects/tree" unique_id=670342891]
+transform = Transform3D(2.0705276, 0, 0, 0, 2.8064766, 0, 0, 0, 2.0705276, 32.405064, 0, -225.09004)
+
+[node name="tree_313" type="Marker3D" parent="Objects/tree" unique_id=1949618999]
+transform = Transform3D(2.7342172, 0, 0, 0, 2.971291, 0, 0, 0, 2.7342172, 66.83544, 0, -223.08923)
+
+[node name="tree_314" type="Marker3D" parent="Objects/tree" unique_id=1317062592]
+transform = Transform3D(1.9528989, 0, 0, 0, 2.4242435, 0, 0, 0, 1.9528989, 54.683544, 0, -221.08844)
+
+[node name="tree_315" type="Marker3D" parent="Objects/tree" unique_id=1850964297]
+transform = Transform3D(1.7266972, 0, 0, 0, 2.2550776, 0, 0, 0, 1.7266972, 54.683544, 0, -214.08563)
+
+[node name="tree_316" type="Marker3D" parent="Objects/tree" unique_id=760501082]
+transform = Transform3D(2.046597, 0, 0, 0, 2.2670474, 0, 0, 0, 2.046597, 53.670887, 0, -209.08363)
+
+[node name="tree_317" type="Marker3D" parent="Objects/tree" unique_id=554262572]
+transform = Transform3D(1.8148289, 0, 0, 0, 2.050262, 0, 0, 0, 1.8148289, 50.63291, 0, -202.08083)
+
+[node name="tree_318" type="Marker3D" parent="Objects/tree" unique_id=1115408205]
+transform = Transform3D(1.7669665, 0, 0, 0, 2.4624867, 0, 0, 0, 1.7669665, 45.569622, 0, -195.07803)
+
+[node name="tree_319" type="Marker3D" parent="Objects/tree" unique_id=1050265721]
+transform = Transform3D(2.0808241, 0, 0, 0, 2.1840112, 0, 0, 0, 2.0808241, 42.531647, 0, -189.07564)
+
+[node name="tree_320" type="Marker3D" parent="Objects/tree" unique_id=1684875534]
+transform = Transform3D(2.210909, 0, 0, 0, 2.6533284, 0, 0, 0, 2.210909, 47.594936, 0, -184.07362)
+
+[node name="tree_321" type="Marker3D" parent="Objects/tree" unique_id=835291619]
+transform = Transform3D(1.8384693, 0, 0, 0, 2.1018126, 0, 0, 0, 1.8384693, 32.405064, 0, -181.07243)
+
+[node name="tree_322" type="Marker3D" parent="Objects/tree" unique_id=1761423360]
+transform = Transform3D(2.8526995, 0, 0, 0, 3.0191612, 0, 0, 0, 2.8526995, 31.392405, 0, -181.07243)
+
+[node name="tree_323" type="Marker3D" parent="Objects/tree" unique_id=598419199]
+transform = Transform3D(2.555225, 0, 0, 0, 2.6031616, 0, 0, 0, 2.555225, 63.79747, 0, -179.07162)
+
+[node name="tree_324" type="Marker3D" parent="Objects/tree" unique_id=340491959]
+transform = Transform3D(2.0416265, 0, 0, 0, 2.6594472, 0, 0, 0, 2.0416265, 70.88608, 0, -170.06802)
+
+[node name="tree_325" type="Marker3D" parent="Objects/tree" unique_id=1267940463]
+transform = Transform3D(2.9880097, 0, 0, 0, 3.181574, 0, 0, 0, 2.9880097, 40.50633, 0, -170.06802)
+
+[node name="tree_326" type="Marker3D" parent="Objects/tree" unique_id=210179245]
+transform = Transform3D(1.8691332, 0, 0, 0, 2.1646287, 0, 0, 0, 1.8691332, 56.708862, 0, -166.06642)
+
+[node name="tree_327" type="Marker3D" parent="Objects/tree" unique_id=1007147407]
+transform = Transform3D(1.5243318, 0, 0, 0, 1.9511794, 0, 0, 0, 1.5243318, 41.518986, 0, -161.06442)
+
+[node name="tree_328" type="Marker3D" parent="Objects/tree" unique_id=2144348193]
+transform = Transform3D(2.6148403, 0, 0, 0, 2.7680757, 0, 0, 0, 2.6148403, 40.50633, 0, -161.06442)
+
+[node name="tree_329" type="Marker3D" parent="Objects/tree" unique_id=714546615]
+transform = Transform3D(2.3102398, 0, 0, 0, 2.7211215, 0, 0, 0, 2.3102398, 41.518986, 0, -153.06122)
+
+[node name="tree_330" type="Marker3D" parent="Objects/tree" unique_id=1847303959]
+transform = Transform3D(3.1136272, 0, 0, 0, 3.4751048, 0, 0, 0, 3.1136272, 76.96203, 0, -110.044014)
+
+[node name="tree_331" type="Marker3D" parent="Objects/tree" unique_id=445498101]
+transform = Transform3D(1.9882689, 0, 0, 0, 2.0133953, 0, 0, 0, 1.9882689, 5.063291, 0, -101.04041)
+
+[node name="tree_332" type="Marker3D" parent="Objects/tree" unique_id=1941745385]
+transform = Transform3D(1.7128348, 0, 0, 0, 1.8059701, 0, 0, 0, 1.7128348, 11.13924, 0, -88.03522)
+
+[node name="tree_333" type="Marker3D" parent="Objects/tree" unique_id=1520065294]
+transform = Transform3D(2.616063, 0, 0, 0, 3.0696106, 0, 0, 0, 2.616063, 71.898735, 0, -87.03481)
+
+[node name="tree_334" type="Marker3D" parent="Objects/tree" unique_id=991042484]
+transform = Transform3D(2.8541687, 0, 0, 0, 2.9815383, 0, 0, 0, 2.8541687, 26.329113, 0, -87.03481)
+
+[node name="tree_335" type="Marker3D" parent="Objects/tree" unique_id=72661662]
+transform = Transform3D(1.9860965, 0, 0, 0, 2.6320972, 0, 0, 0, 1.9860965, 63.79747, 0, -85.03401)
+
+[node name="tree_336" type="Marker3D" parent="Objects/tree" unique_id=820308112]
+transform = Transform3D(2.0301006, 0, 0, 0, 2.3748236, 0, 0, 0, 2.0301006, 48.607594, 0, -85.03401)
+
+[node name="tree_337" type="Marker3D" parent="Objects/tree" unique_id=1914262526]
+transform = Transform3D(3.1184092, 0, 0, 0, 3.359933, 0, 0, 0, 3.1184092, 35.44304, 0, -85.03401)
+
+[node name="tree_338" type="Marker3D" parent="Objects/tree" unique_id=1330859172]
+transform = Transform3D(1.7729284, 0, 0, 0, 1.9235529, 0, 0, 0, 1.7729284, 18.227848, 0, -40.016006)
+
+[node name="tree_339" type="Marker3D" parent="Objects/tree" unique_id=42334007]
+transform = Transform3D(2.7661264, 0, 0, 0, 3.3775153, 0, 0, 0, 2.7661264, 15.189874, 0, -39.015606)
+
+[node name="tree_340" type="Marker3D" parent="Objects/tree" unique_id=856790771]
+transform = Transform3D(1.9805548, 0, 0, 0, 2.1200783, 0, 0, 0, 1.9805548, 72.91139, 0, -22.008804)
+
+[node name="tree_341" type="Marker3D" parent="Objects/tree" unique_id=1848665507]
+transform = Transform3D(2.7163644, 0, 0, 0, 2.7910876, 0, 0, 0, 2.7163644, 62.78481, 0, -22.008804)
+
+[node name="tree_342" type="Marker3D" parent="Objects/tree" unique_id=129675416]
+transform = Transform3D(2.3588314, 0, 0, 0, 2.7128854, 0, 0, 0, 2.3588314, 53.670887, 0, -21.008404)
+
+[node name="tree_343" type="Marker3D" parent="Objects/tree" unique_id=1678411633]
+transform = Transform3D(2.9258163, 0, 0, 0, 2.9538984, 0, 0, 0, 2.9258163, 32.405064, 0, -18.007202)
+
+[node name="tree_344" type="Marker3D" parent="Objects/tree" unique_id=695351796]
+transform = Transform3D(2.1324859, 0, 0, 0, 2.540539, 0, 0, 0, 2.1324859, 12.151898, 0, -17.006804)
+
+[node name="tree_345" type="Marker3D" parent="Objects/tree" unique_id=234288272]
+transform = Transform3D(2.2930493, 0, 0, 0, 2.7966871, 0, 0, 0, 2.2930493, 22.27848, 0, -15.006002)
+
+[node name="shrub" type="Node3D" parent="Objects" unique_id=1290741649]
+
+[node name="shrub_0" type="Marker3D" parent="Objects/shrub" unique_id=448010772]
+transform = Transform3D(1.2833409, 0, 0, 0, 1.3336335, 0, 0, 0, 1.2833409, 32.405064, 0, -2479.992)
+
+[node name="shrub_1" type="Marker3D" parent="Objects/shrub" unique_id=1990458157]
+transform = Transform3D(1.3995664, 0, 0, 0, 1.4136021, 0, 0, 0, 1.3995664, 47.594936, 0, -2470.9883)
+
+[node name="shrub_2" type="Marker3D" parent="Objects/shrub" unique_id=93583935]
+transform = Transform3D(1.1284724, 0, 0, 0, 1.250284, 0, 0, 0, 1.1284724, 32.405064, 0, -2470.9883)
+
+[node name="shrub_3" type="Marker3D" parent="Objects/shrub" unique_id=760905178]
+transform = Transform3D(1.3930765, 0, 0, 0, 1.434973, 0, 0, 0, 1.3930765, 52.658226, 0, -2464.986)
+
+[node name="shrub_4" type="Marker3D" parent="Objects/shrub" unique_id=1742492529]
+transform = Transform3D(1.0269883, 0, 0, 0, 1.2375324, 0, 0, 0, 1.0269883, 36.455696, 0, -2454.982)
+
+[node name="shrub_5" type="Marker3D" parent="Objects/shrub" unique_id=1707929589]
+transform = Transform3D(1.2492957, 0, 0, 0, 1.3792176, 0, 0, 0, 1.2492957, 61.772152, 0, -2450.9805)
+
+[node name="shrub_6" type="Marker3D" parent="Objects/shrub" unique_id=2034356560]
+transform = Transform3D(0.81861466, 0, 0, 0, 1.1397893, 0, 0, 0, 0.81861466, 43.544304, 0, -2442.9773)
+
+[node name="shrub_7" type="Marker3D" parent="Objects/shrub" unique_id=742776813]
+transform = Transform3D(1.1414907, 0, 0, 0, 1.1550119, 0, 0, 0, 1.1414907, 37.468353, 0, -2434.9739)
+
+[node name="shrub_8" type="Marker3D" parent="Objects/shrub" unique_id=1959237925]
+transform = Transform3D(0.9796952, 0, 0, 0, 1.1390176, 0, 0, 0, 0.9796952, 34.430378, 0, -2428.9717)
+
+[node name="shrub_9" type="Marker3D" parent="Objects/shrub" unique_id=314996166]
+transform = Transform3D(1.35413, 0, 0, 0, 1.5443602, 0, 0, 0, 1.35413, 54.683544, 0, -2419.968)
+
+[node name="shrub_10" type="Marker3D" parent="Objects/shrub" unique_id=747490458]
+transform = Transform3D(1.2527683, 0, 0, 0, 1.5196967, 0, 0, 0, 1.2527683, 28.354431, 0, -2417.9673)
+
+[node name="shrub_11" type="Marker3D" parent="Objects/shrub" unique_id=616652270]
+transform = Transform3D(1.190047, 0, 0, 0, 1.4347072, 0, 0, 0, 1.190047, 44.55696, 0, -2401.9607)
+
+[node name="shrub_12" type="Marker3D" parent="Objects/shrub" unique_id=589989468]
+transform = Transform3D(1.286691, 0, 0, 0, 1.3446147, 0, 0, 0, 1.286691, 51.64557, 0, -2390.9563)
+
+[node name="shrub_13" type="Marker3D" parent="Objects/shrub" unique_id=1923122522]
+transform = Transform3D(0.80398655, 0, 0, 0, 1.0532961, 0, 0, 0, 0.80398655, 29.367088, 0, -2377.9512)
+
+[node name="shrub_14" type="Marker3D" parent="Objects/shrub" unique_id=376519434]
+transform = Transform3D(1.234962, 0, 0, 0, 1.6670971, 0, 0, 0, 1.234962, 7.088608, 0, -2359.944)
+
+[node name="shrub_15" type="Marker3D" parent="Objects/shrub" unique_id=713899112]
+transform = Transform3D(1.1802322, 0, 0, 0, 1.4955921, 0, 0, 0, 1.1802322, 20.253164, 0, -2358.9436)
+
+[node name="shrub_16" type="Marker3D" parent="Objects/shrub" unique_id=356216163]
+transform = Transform3D(0.93351084, 0, 0, 0, 0.9829997, 0, 0, 0, 0.93351084, 28.354431, 0, -2333.9336)
+
+[node name="shrub_17" type="Marker3D" parent="Objects/shrub" unique_id=1609103342]
+transform = Transform3D(1.5162497, 0, 0, 0, 1.5306275, 0, 0, 0, 1.5162497, 33.41772, 0, -2328.9316)
+
+[node name="shrub_18" type="Marker3D" parent="Objects/shrub" unique_id=1594401647]
+transform = Transform3D(1.067688, 0, 0, 0, 1.3232889, 0, 0, 0, 1.067688, 27.341772, 0, -2314.926)
+
+[node name="shrub_19" type="Marker3D" parent="Objects/shrub" unique_id=244914984]
+transform = Transform3D(1.2640694, 0, 0, 0, 1.3687828, 0, 0, 0, 1.2640694, 74.93671, 0, -2313.9255)
+
+[node name="shrub_20" type="Marker3D" parent="Objects/shrub" unique_id=218538401]
+transform = Transform3D(1.4335146, 0, 0, 0, 1.4911308, 0, 0, 0, 1.4335146, 31.392405, 0, -2296.9187)
+
+[node name="shrub_21" type="Marker3D" parent="Objects/shrub" unique_id=1237630332]
+transform = Transform3D(0.7547577, 0, 0, 0, 0.8574749, 0, 0, 0, 0.7547577, 68.860756, 0, -2289.916)
+
+[node name="shrub_22" type="Marker3D" parent="Objects/shrub" unique_id=299551194]
+transform = Transform3D(0.77361774, 0, 0, 0, 1.0826608, 0, 0, 0, 0.77361774, 35.44304, 0, -2288.9155)
+
+[node name="shrub_23" type="Marker3D" parent="Objects/shrub" unique_id=553266400]
+transform = Transform3D(0.8102981, 0, 0, 0, 1.0733752, 0, 0, 0, 0.8102981, 27.341772, 0, -2277.9111)
+
+[node name="shrub_24" type="Marker3D" parent="Objects/shrub" unique_id=112583922]
+transform = Transform3D(1.2916025, 0, 0, 0, 1.409035, 0, 0, 0, 1.2916025, 52.658226, 0, -2272.9092)
+
+[node name="shrub_25" type="Marker3D" parent="Objects/shrub" unique_id=3012382]
+transform = Transform3D(1.0319734, 0, 0, 0, 1.2572918, 0, 0, 0, 1.0319734, 68.860756, 0, -2263.9055)
+
+[node name="shrub_26" type="Marker3D" parent="Objects/shrub" unique_id=578153525]
+transform = Transform3D(1.1942607, 0, 0, 0, 1.2391251, 0, 0, 0, 1.1942607, 51.64557, 0, -2257.903)
+
+[node name="shrub_27" type="Marker3D" parent="Objects/shrub" unique_id=426712436]
+transform = Transform3D(0.884906, 0, 0, 0, 1.067291, 0, 0, 0, 0.884906, 72.91139, 0, -2248.8997)
+
+[node name="shrub_28" type="Marker3D" parent="Objects/shrub" unique_id=423992655]
+transform = Transform3D(1.1157317, 0, 0, 0, 1.4903382, 0, 0, 0, 1.1157317, 28.354431, 0, -2247.8992)
+
+[node name="shrub_29" type="Marker3D" parent="Objects/shrub" unique_id=875134184]
+transform = Transform3D(1.079229, 0, 0, 0, 1.1907648, 0, 0, 0, 1.079229, 48.607594, 0, -2240.8962)
+
+[node name="shrub_30" type="Marker3D" parent="Objects/shrub" unique_id=1084549186]
+transform = Transform3D(0.87216896, 0, 0, 0, 1.174077, 0, 0, 0, 0.87216896, 70.88608, 0, -2227.891)
+
+[node name="shrub_31" type="Marker3D" parent="Objects/shrub" unique_id=1595062475]
+transform = Transform3D(1.0011635, 0, 0, 0, 1.1463637, 0, 0, 0, 1.0011635, 66.83544, 0, -2219.888)
+
+[node name="shrub_32" type="Marker3D" parent="Objects/shrub" unique_id=1945241803]
+transform = Transform3D(1.018098, 0, 0, 0, 1.1204298, 0, 0, 0, 1.018098, 58.734177, 0, -2196.8787)
+
+[node name="shrub_33" type="Marker3D" parent="Objects/shrub" unique_id=150279808]
+transform = Transform3D(1.5351316, 0, 0, 0, 1.5579927, 0, 0, 0, 1.5351316, 58.734177, 0, -2186.8748)
+
+[node name="shrub_34" type="Marker3D" parent="Objects/shrub" unique_id=1137459760]
+transform = Transform3D(1.3382925, 0, 0, 0, 1.4484746, 0, 0, 0, 1.3382925, 58.734177, 0, -2177.871)
+
+[node name="shrub_35" type="Marker3D" parent="Objects/shrub" unique_id=1186567914]
+transform = Transform3D(0.93852234, 0, 0, 0, 0.98983777, 0, 0, 0, 0.93852234, 60.759495, 0, -2163.8655)
+
+[node name="shrub_36" type="Marker3D" parent="Objects/shrub" unique_id=681044488]
+transform = Transform3D(0.8751911, 0, 0, 0, 1.0247191, 0, 0, 0, 0.8751911, 34.430378, 0, -2143.8574)
+
+[node name="shrub_37" type="Marker3D" parent="Objects/shrub" unique_id=1346079]
+transform = Transform3D(0.7466261, 0, 0, 0, 1.0332655, 0, 0, 0, 0.7466261, 45.569622, 0, -2135.8542)
+
+[node name="shrub_38" type="Marker3D" parent="Objects/shrub" unique_id=829622058]
+transform = Transform3D(1.32902, 0, 0, 0, 1.6555729, 0, 0, 0, 1.32902, 45.569622, 0, -2134.854)
+
+[node name="shrub_39" type="Marker3D" parent="Objects/shrub" unique_id=1736603777]
+transform = Transform3D(1.38205, 0, 0, 0, 1.4138815, 0, 0, 0, 1.38205, 60.759495, 0, -2131.8528)
+
+[node name="shrub_40" type="Marker3D" parent="Objects/shrub" unique_id=328247376]
+transform = Transform3D(1.3320704, 0, 0, 0, 1.3431923, 0, 0, 0, 1.3320704, 16.202532, 0, -2131.8528)
+
+[node name="shrub_41" type="Marker3D" parent="Objects/shrub" unique_id=1636594600]
+transform = Transform3D(1.0160925, 0, 0, 0, 1.1313152, 0, 0, 0, 1.0160925, 37.468353, 0, -2032.8131)
+
+[node name="shrub_42" type="Marker3D" parent="Objects/shrub" unique_id=1318361191]
+transform = Transform3D(0.92032266, 0, 0, 0, 1.2294527, 0, 0, 0, 0.92032266, 49.620255, 0, -2009.804)
+
+[node name="shrub_43" type="Marker3D" parent="Objects/shrub" unique_id=740861665]
+transform = Transform3D(1.4413257, 0, 0, 0, 1.483239, 0, 0, 0, 1.4413257, 42.531647, 0, -1813.7255)
+
+[node name="shrub_44" type="Marker3D" parent="Objects/shrub" unique_id=474222187]
+transform = Transform3D(0.7297364, 0, 0, 0, 0.9831716, 0, 0, 0, 0.7297364, 39.49367, 0, -1780.7123)
+
+[node name="shrub_45" type="Marker3D" parent="Objects/shrub" unique_id=1373328611]
+transform = Transform3D(0.93353355, 0, 0, 0, 1.1240667, 0, 0, 0, 0.93353355, 72.91139, 0, -1668.6675)
+
+[node name="shrub_46" type="Marker3D" parent="Objects/shrub" unique_id=1233219657]
+transform = Transform3D(0.95183814, 0, 0, 0, 0.9596953, 0, 0, 0, 0.95183814, 47.594936, 0, -1663.6654)
+
+[node name="shrub_47" type="Marker3D" parent="Objects/shrub" unique_id=1347835286]
+transform = Transform3D(1.1587484, 0, 0, 0, 1.1601396, 0, 0, 0, 1.1587484, 36.455696, 0, -1658.6635)
+
+[node name="shrub_48" type="Marker3D" parent="Objects/shrub" unique_id=1788365504]
+transform = Transform3D(1.4403648, 0, 0, 0, 1.6367767, 0, 0, 0, 1.4403648, 15.189874, 0, -1637.655)
+
+[node name="shrub_49" type="Marker3D" parent="Objects/shrub" unique_id=141742601]
+transform = Transform3D(1.1696236, 0, 0, 0, 1.2135968, 0, 0, 0, 1.1696236, 40.50633, 0, -1632.6531)
+
+[node name="shrub_50" type="Marker3D" parent="Objects/shrub" unique_id=654740646]
+transform = Transform3D(0.8088499, 0, 0, 0, 0.98042387, 0, 0, 0, 0.8088499, 22.27848, 0, -1602.6411)
+
+[node name="shrub_51" type="Marker3D" parent="Objects/shrub" unique_id=1062067402]
+transform = Transform3D(1.2006068, 0, 0, 0, 1.2278835, 0, 0, 0, 1.2006068, 53.670887, 0, -1601.6406)
+
+[node name="shrub_52" type="Marker3D" parent="Objects/shrub" unique_id=364258394]
+transform = Transform3D(0.8430281, 0, 0, 0, 1.091831, 0, 0, 0, 0.8430281, 25.316456, 0, -1476.5906)
+
+[node name="shrub_53" type="Marker3D" parent="Objects/shrub" unique_id=1948104031]
+transform = Transform3D(0.8389042, 0, 0, 0, 1.0222948, 0, 0, 0, 0.8389042, 25.316456, 0, -1475.5902)
+
+[node name="shrub_54" type="Marker3D" parent="Objects/shrub" unique_id=44728967]
+transform = Transform3D(1.2384386, 0, 0, 0, 1.6818559, 0, 0, 0, 1.2384386, 25.316456, 0, -1470.5883)
+
+[node name="shrub_55" type="Marker3D" parent="Objects/shrub" unique_id=166536606]
+transform = Transform3D(0.8575613, 0, 0, 0, 1.0031004, 0, 0, 0, 0.8575613, 31.392405, 0, -1462.5851)
+
+[node name="shrub_56" type="Marker3D" parent="Objects/shrub" unique_id=172331900]
+transform = Transform3D(1.1632096, 0, 0, 0, 1.2437376, 0, 0, 0, 1.1632096, 14.177216, 0, -1451.5807)
+
+[node name="shrub_57" type="Marker3D" parent="Objects/shrub" unique_id=1117438976]
+transform = Transform3D(0.91823393, 0, 0, 0, 0.937398, 0, 0, 0, 0.91823393, 40.50633, 0, -1449.5798)
+
+[node name="shrub_58" type="Marker3D" parent="Objects/shrub" unique_id=2104312321]
+transform = Transform3D(0.95811754, 0, 0, 0, 1.27466, 0, 0, 0, 0.95811754, 27.341772, 0, -1449.5798)
+
+[node name="shrub_59" type="Marker3D" parent="Objects/shrub" unique_id=1593017730]
+transform = Transform3D(0.97882974, 0, 0, 0, 1.2370564, 0, 0, 0, 0.97882974, 44.55696, 0, -1439.5758)
+
+[node name="shrub_60" type="Marker3D" parent="Objects/shrub" unique_id=179651688]
+transform = Transform3D(1.2563432, 0, 0, 0, 1.5996978, 0, 0, 0, 1.2563432, 49.620255, 0, -1436.5746)
+
+[node name="shrub_61" type="Marker3D" parent="Objects/shrub" unique_id=1562679061]
+transform = Transform3D(1.1549795, 0, 0, 0, 1.5313287, 0, 0, 0, 1.1549795, 14.177216, 0, -1436.5746)
+
+[node name="shrub_62" type="Marker3D" parent="Objects/shrub" unique_id=1003377147]
+transform = Transform3D(0.70533466, 0, 0, 0, 0.9102107, 0, 0, 0, 0.70533466, 57.72152, 0, -1428.5714)
+
+[node name="shrub_63" type="Marker3D" parent="Objects/shrub" unique_id=211356146]
+transform = Transform3D(1.1844273, 0, 0, 0, 1.2426032, 0, 0, 0, 1.1844273, 14.177216, 0, -1428.5714)
+
+[node name="shrub_64" type="Marker3D" parent="Objects/shrub" unique_id=439133361]
+transform = Transform3D(1.2752168, 0, 0, 0, 1.6844339, 0, 0, 0, 1.2752168, 61.772152, 0, -1422.569)
+
+[node name="shrub_65" type="Marker3D" parent="Objects/shrub" unique_id=1044108351]
+transform = Transform3D(1.1624736, 0, 0, 0, 1.5380154, 0, 0, 0, 1.1624736, 22.27848, 0, -1418.5674)
+
+[node name="shrub_66" type="Marker3D" parent="Objects/shrub" unique_id=492807939]
+transform = Transform3D(0.8349445, 0, 0, 0, 1.0595057, 0, 0, 0, 0.8349445, 17.215189, 0, -1418.5674)
+
+[node name="shrub_67" type="Marker3D" parent="Objects/shrub" unique_id=270019590]
+transform = Transform3D(0.9754641, 0, 0, 0, 1.1923937, 0, 0, 0, 0.9754641, 67.8481, 0, -1416.5667)
+
+[node name="shrub_68" type="Marker3D" parent="Objects/shrub" unique_id=418859153]
+transform = Transform3D(1.4305559, 0, 0, 0, 1.5404154, 0, 0, 0, 1.4305559, 73.92405, 0, -1412.5651)
+
+[node name="shrub_69" type="Marker3D" parent="Objects/shrub" unique_id=698691857]
+transform = Transform3D(1.2722987, 0, 0, 0, 1.304769, 0, 0, 0, 1.2722987, 73.92405, 0, -1411.5646)
+
+[node name="shrub_70" type="Marker3D" parent="Objects/shrub" unique_id=1157639336]
+transform = Transform3D(1.2346087, 0, 0, 0, 1.3682088, 0, 0, 0, 1.2346087, 46.58228, 0, -1408.5635)
+
+[node name="shrub_71" type="Marker3D" parent="Objects/shrub" unique_id=1882508913]
+transform = Transform3D(0.79313165, 0, 0, 0, 0.91197205, 0, 0, 0, 0.79313165, 46.58228, 0, -1402.561)
+
+[node name="shrub_72" type="Marker3D" parent="Objects/shrub" unique_id=2078856754]
+transform = Transform3D(1.3104031, 0, 0, 0, 1.3638864, 0, 0, 0, 1.3104031, 37.468353, 0, -1398.5594)
+
+[node name="shrub_73" type="Marker3D" parent="Objects/shrub" unique_id=781430891]
+transform = Transform3D(1.3536977, 0, 0, 0, 1.6044624, 0, 0, 0, 1.3536977, 62.78481, 0, -1392.557)
+
+[node name="shrub_74" type="Marker3D" parent="Objects/shrub" unique_id=1950409712]
+transform = Transform3D(1.4770131, 0, 0, 0, 1.51453, 0, 0, 0, 1.4770131, 53.670887, 0, -1386.5546)
+
+[node name="shrub_75" type="Marker3D" parent="Objects/shrub" unique_id=1007147657]
+transform = Transform3D(0.8548924, 0, 0, 0, 1.116604, 0, 0, 0, 0.8548924, 66.83544, 0, -1383.5535)
+
+[node name="shrub_76" type="Marker3D" parent="Objects/shrub" unique_id=1343164486]
+transform = Transform3D(1.2041099, 0, 0, 0, 1.2557472, 0, 0, 0, 1.2041099, 46.58228, 0, -1382.553)
+
+[node name="shrub_77" type="Marker3D" parent="Objects/shrub" unique_id=1269827929]
+transform = Transform3D(1.3542247, 0, 0, 0, 1.6009054, 0, 0, 0, 1.3542247, 39.49367, 0, -1376.5507)
+
+[node name="shrub_78" type="Marker3D" parent="Objects/shrub" unique_id=831655615]
+transform = Transform3D(1.0857716, 0, 0, 0, 1.4937774, 0, 0, 0, 1.0857716, 59.746834, 0, -1373.5494)
+
+[node name="shrub_79" type="Marker3D" parent="Objects/shrub" unique_id=746453183]
+transform = Transform3D(0.80622804, 0, 0, 0, 0.91331357, 0, 0, 0, 0.80622804, 33.41772, 0, -1368.5474)
+
+[node name="shrub_80" type="Marker3D" parent="Objects/shrub" unique_id=751071670]
+transform = Transform3D(1.0719572, 0, 0, 0, 1.0966305, 0, 0, 0, 1.0719572, 76.96203, 0, -1366.5466)
+
+[node name="shrub_81" type="Marker3D" parent="Objects/shrub" unique_id=1398134664]
+transform = Transform3D(1.3085992, 0, 0, 0, 1.6624424, 0, 0, 0, 1.3085992, 69.87342, 0, -1358.5435)
+
+[node name="shrub_82" type="Marker3D" parent="Objects/shrub" unique_id=991094028]
+transform = Transform3D(1.0510888, 0, 0, 0, 1.0897394, 0, 0, 0, 1.0510888, 60.759495, 0, -1348.5394)
+
+[node name="shrub_83" type="Marker3D" parent="Objects/shrub" unique_id=1355047338]
+transform = Transform3D(1.2182177, 0, 0, 0, 1.3587632, 0, 0, 0, 1.2182177, 53.670887, 0, -1343.5375)
+
+[node name="shrub_84" type="Marker3D" parent="Objects/shrub" unique_id=922891629]
+transform = Transform3D(1.2061766, 0, 0, 0, 1.6126957, 0, 0, 0, 1.2061766, 59.746834, 0, -1298.5194)
+
+[node name="shrub_85" type="Marker3D" parent="Objects/shrub" unique_id=1817508198]
+transform = Transform3D(1.1037892, 0, 0, 0, 1.3456072, 0, 0, 0, 1.1037892, 47.594936, 0, -1291.5166)
+
+[node name="shrub_86" type="Marker3D" parent="Objects/shrub" unique_id=1339064502]
+transform = Transform3D(1.0141346, 0, 0, 0, 1.0471393, 0, 0, 0, 1.0141346, 63.79747, 0, -1287.515)
+
+[node name="shrub_87" type="Marker3D" parent="Objects/shrub" unique_id=725670390]
+transform = Transform3D(0.76754266, 0, 0, 0, 0.9737042, 0, 0, 0, 0.76754266, 42.531647, 0, -1287.515)
+
+[node name="shrub_88" type="Marker3D" parent="Objects/shrub" unique_id=906850575]
+transform = Transform3D(1.3483388, 0, 0, 0, 1.4024587, 0, 0, 0, 1.3483388, 49.620255, 0, -1282.5131)
+
+[node name="shrub_89" type="Marker3D" parent="Objects/shrub" unique_id=275815897]
+transform = Transform3D(1.3969649, 0, 0, 0, 1.4869927, 0, 0, 0, 1.3969649, 46.58228, 0, -1274.5098)
+
+[node name="shrub_90" type="Marker3D" parent="Objects/shrub" unique_id=1419288902]
+transform = Transform3D(1.3833143, 0, 0, 0, 1.3961232, 0, 0, 0, 1.3833143, 64.81013, 0, -1270.5082)
+
+[node name="shrub_91" type="Marker3D" parent="Objects/shrub" unique_id=268746398]
+transform = Transform3D(0.9558937, 0, 0, 0, 1.209114, 0, 0, 0, 0.9558937, 35.44304, 0, -1260.5042)
+
+[node name="shrub_92" type="Marker3D" parent="Objects/shrub" unique_id=1623384799]
+transform = Transform3D(1.3189034, 0, 0, 0, 1.3510671, 0, 0, 0, 1.3189034, 58.734177, 0, -1255.5022)
+
+[node name="shrub_93" type="Marker3D" parent="Objects/shrub" unique_id=361652726]
+transform = Transform3D(1.2302182, 0, 0, 0, 1.3692162, 0, 0, 0, 1.2302182, 19.240507, 0, -1248.4994)
+
+[node name="shrub_94" type="Marker3D" parent="Objects/shrub" unique_id=2037209526]
+transform = Transform3D(1.1951131, 0, 0, 0, 1.2145607, 0, 0, 0, 1.1951131, 39.49367, 0, -1241.4966)
+
+[node name="shrub_95" type="Marker3D" parent="Objects/shrub" unique_id=995649054]
+transform = Transform3D(1.0732917, 0, 0, 0, 1.3756111, 0, 0, 0, 1.0732917, 58.734177, 0, -1235.4941)
+
+[node name="shrub_96" type="Marker3D" parent="Objects/shrub" unique_id=512834957]
+transform = Transform3D(1.2742858, 0, 0, 0, 1.4659806, 0, 0, 0, 1.2742858, 7.088608, 0, -1234.4938)
+
+[node name="shrub_97" type="Marker3D" parent="Objects/shrub" unique_id=1658395551]
+transform = Transform3D(0.9182627, 0, 0, 0, 1.268077, 0, 0, 0, 0.9182627, 19.240507, 0, -1224.4897)
+
+[node name="shrub_98" type="Marker3D" parent="Objects/shrub" unique_id=1911752149]
+transform = Transform3D(1.2273369, 0, 0, 0, 1.6582613, 0, 0, 0, 1.2273369, 38.481014, 0, -1222.489)
+
+[node name="shrub_99" type="Marker3D" parent="Objects/shrub" unique_id=1138736462]
+transform = Transform3D(1.413225, 0, 0, 0, 1.4911801, 0, 0, 0, 1.413225, 44.55696, 0, -1221.4886)
+
+[node name="shrub_100" type="Marker3D" parent="Objects/shrub" unique_id=177047222]
+transform = Transform3D(1.0780243, 0, 0, 0, 1.2036067, 0, 0, 0, 1.0780243, 62.78481, 0, -1219.4878)
+
+[node name="shrub_101" type="Marker3D" parent="Objects/shrub" unique_id=21957271]
+transform = Transform3D(0.7881273, 0, 0, 0, 1.0923082, 0, 0, 0, 0.7881273, 42.531647, 0, -1207.483)
+
+[node name="shrub_102" type="Marker3D" parent="Objects/shrub" unique_id=161991366]
+transform = Transform3D(1.1182992, 0, 0, 0, 1.3961856, 0, 0, 0, 1.1182992, 53.670887, 0, -1204.4818)
+
+[node name="shrub_103" type="Marker3D" parent="Objects/shrub" unique_id=515859263]
+transform = Transform3D(0.989583, 0, 0, 0, 1.1249374, 0, 0, 0, 0.989583, 46.58228, 0, -1190.4762)
+
+[node name="shrub_104" type="Marker3D" parent="Objects/shrub" unique_id=323732656]
+transform = Transform3D(1.1664511, 0, 0, 0, 1.2825251, 0, 0, 0, 1.1664511, 48.607594, 0, -1172.469)
+
+[node name="shrub_105" type="Marker3D" parent="Objects/shrub" unique_id=1738704444]
+transform = Transform3D(1.2417207, 0, 0, 0, 1.2991261, 0, 0, 0, 1.2417207, 53.670887, 0, -1165.4662)
+
+[node name="shrub_106" type="Marker3D" parent="Objects/shrub" unique_id=1176117545]
+transform = Transform3D(1.5359993, 0, 0, 0, 1.5710046, 0, 0, 0, 1.5359993, 64.81013, 0, -1152.4609)
+
+[node name="shrub_107" type="Marker3D" parent="Objects/shrub" unique_id=1882626997]
+transform = Transform3D(1.0652112, 0, 0, 0, 1.3695047, 0, 0, 0, 1.0652112, 69.87342, 0, -1146.4586)
+
+[node name="shrub_108" type="Marker3D" parent="Objects/shrub" unique_id=1592575551]
+transform = Transform3D(0.99730873, 0, 0, 0, 1.0151299, 0, 0, 0, 0.99730873, 76.96203, 0, -1093.4374)
+
+[node name="shrub_109" type="Marker3D" parent="Objects/shrub" unique_id=86898843]
+transform = Transform3D(1.190644, 0, 0, 0, 1.5624679, 0, 0, 0, 1.190644, 64.81013, 0, -1082.433)
+
+[node name="shrub_110" type="Marker3D" parent="Objects/shrub" unique_id=520712279]
+transform = Transform3D(0.72798586, 0, 0, 0, 0.9086472, 0, 0, 0, 0.72798586, 35.44304, 0, -1055.4221)
+
+[node name="shrub_111" type="Marker3D" parent="Objects/shrub" unique_id=1111367655]
+transform = Transform3D(0.69637865, 0, 0, 0, 0.93234825, 0, 0, 0, 0.69637865, 35.44304, 0, -1042.417)
+
+[node name="shrub_112" type="Marker3D" parent="Objects/shrub" unique_id=340872641]
+transform = Transform3D(1.2377626, 0, 0, 0, 1.3325648, 0, 0, 0, 1.2377626, 38.481014, 0, -694.2777)
+
+[node name="shrub_113" type="Marker3D" parent="Objects/shrub" unique_id=276798894]
+transform = Transform3D(1.0737473, 0, 0, 0, 1.4184014, 0, 0, 0, 1.0737473, 38.481014, 0, -693.2773)
+
+[node name="shrub_114" type="Marker3D" parent="Objects/shrub" unique_id=2388163]
+transform = Transform3D(1.1230024, 0, 0, 0, 1.3438613, 0, 0, 0, 1.1230024, 29.367088, 0, -686.27454)
+
+[node name="shrub_115" type="Marker3D" parent="Objects/shrub" unique_id=1157471845]
+transform = Transform3D(1.0520667, 0, 0, 0, 1.4506025, 0, 0, 0, 1.0520667, 50.63291, 0, -681.2725)
+
+[node name="shrub_116" type="Marker3D" parent="Objects/shrub" unique_id=1236425943]
+transform = Transform3D(1.0443186, 0, 0, 0, 1.3482187, 0, 0, 0, 1.0443186, 71.898735, 0, -343.13727)
+
+[node name="shrub_117" type="Marker3D" parent="Objects/shrub" unique_id=205145817]
+transform = Transform3D(0.7635083, 0, 0, 0, 1.0643322, 0, 0, 0, 0.7635083, 71.898735, 0, -342.13684)
+
+[node name="shrub_118" type="Marker3D" parent="Objects/shrub" unique_id=367768527]
+transform = Transform3D(0.90216976, 0, 0, 0, 1.1171637, 0, 0, 0, 0.90216976, 62.78481, 0, -319.12766)
+
+[node name="shrub_119" type="Marker3D" parent="Objects/shrub" unique_id=202259811]
+transform = Transform3D(0.762642, 0, 0, 0, 0.8940285, 0, 0, 0, 0.762642, 53.670887, 0, -303.12125)
+
+[node name="shrub_120" type="Marker3D" parent="Objects/shrub" unique_id=558200426]
+transform = Transform3D(1.3393569, 0, 0, 0, 1.5934081, 0, 0, 0, 1.3393569, 48.607594, 0, -292.11685)
+
+[node name="shrub_121" type="Marker3D" parent="Objects/shrub" unique_id=1329011165]
+transform = Transform3D(0.7548123, 0, 0, 0, 0.9126216, 0, 0, 0, 0.7548123, 44.55696, 0, -280.11203)
+
+[node name="shrub_122" type="Marker3D" parent="Objects/shrub" unique_id=1825087453]
+transform = Transform3D(0.97196555, 0, 0, 0, 1.2190728, 0, 0, 0, 0.97196555, 50.63291, 0, -266.10645)
+
+[node name="shrub_123" type="Marker3D" parent="Objects/shrub" unique_id=1461349936]
+transform = Transform3D(1.1671157, 0, 0, 0, 1.1962867, 0, 0, 0, 1.1671157, 59.746834, 0, -253.10124)
+
+[node name="shrub_124" type="Marker3D" parent="Objects/shrub" unique_id=2002144563]
+transform = Transform3D(0.77779675, 0, 0, 0, 0.87776285, 0, 0, 0, 0.77779675, 50.63291, 0, -127.05082)
+
+[node name="shrub_125" type="Marker3D" parent="Objects/shrub" unique_id=1920916561]
+transform = Transform3D(1.2479371, 0, 0, 0, 1.6569822, 0, 0, 0, 1.2479371, 49.620255, 0, -127.05082)
+
+[node name="shrub_126" type="Marker3D" parent="Objects/shrub" unique_id=1752317664]
+transform = Transform3D(1.1359929, 0, 0, 0, 1.4663999, 0, 0, 0, 1.1359929, 31.392405, 0, -121.048416)
+
+[node name="shrub_127" type="Marker3D" parent="Objects/shrub" unique_id=2118339291]
+transform = Transform3D(0.99856997, 0, 0, 0, 1.2566643, 0, 0, 0, 0.99856997, 59.746834, 0, -108.04322)
+
+[node name="shrub_128" type="Marker3D" parent="Objects/shrub" unique_id=614776980]
+transform = Transform3D(0.6332987, 0, 0, 0, 0.856471, 0, 0, 0, 0.6332987, 59.746834, 0, -107.042816)
+
+[node name="shrub_129" type="Marker3D" parent="Objects/shrub" unique_id=1250370665]
+transform = Transform3D(0.7402745, 0, 0, 0, 0.8927281, 0, 0, 0, 0.7402745, 39.49367, 0, -105.042015)
+
+[node name="shrub_130" type="Marker3D" parent="Objects/shrub" unique_id=1563268513]
+transform = Transform3D(0.8203498, 0, 0, 0, 1.1041505, 0, 0, 0, 0.8203498, 52.658226, 0, -98.039215)
+
+[node name="herring" type="Node3D" parent="Objects" unique_id=877810886]
+
+[node name="herring_0" type="Marker3D" parent="Objects/herring" unique_id=1442008185]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 39.49367, 0, -2478.9917)
+
+[node name="herring_1" type="Marker3D" parent="Objects/herring" unique_id=1496614297]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 42.531647, 0, -2470.9883)
+
+[node name="herring_2" type="Marker3D" parent="Objects/herring" unique_id=907732696]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 43.544304, 0, -2463.9856)
+
+[node name="herring_3" type="Marker3D" parent="Objects/herring" unique_id=686869324]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 51.64557, 0, -2454.982)
+
+[node name="herring_4" type="Marker3D" parent="Objects/herring" unique_id=1688905156]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 53.670887, 0, -2448.9795)
+
+[node name="herring_5" type="Marker3D" parent="Objects/herring" unique_id=1917342424]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 43.544304, 0, -2422.9692)
+
+[node name="herring_6" type="Marker3D" parent="Objects/herring" unique_id=52524709]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 42.531647, 0, -2422.9692)
+
+[node name="herring_7" type="Marker3D" parent="Objects/herring" unique_id=318498087]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28.354431, 0, -2402.9612)
+
+[node name="herring_8" type="Marker3D" parent="Objects/herring" unique_id=582224101]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 27.341772, 0, -2402.9612)
+
+[node name="herring_9" type="Marker3D" parent="Objects/herring" unique_id=1978290223]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 27.341772, 0, -2401.9607)
+
+[node name="herring_10" type="Marker3D" parent="Objects/herring" unique_id=1998475013]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 27.341772, 0, -2400.9604)
+
+[node name="herring_11" type="Marker3D" parent="Objects/herring" unique_id=1968676614]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32.405064, 0, -2394.958)
+
+[node name="herring_12" type="Marker3D" parent="Objects/herring" unique_id=1260268394]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 63.79747, 0, -2390.9563)
+
+[node name="herring_13" type="Marker3D" parent="Objects/herring" unique_id=1658893999]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 36.455696, 0, -2385.9543)
+
+[node name="herring_14" type="Marker3D" parent="Objects/herring" unique_id=90052258]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 36.455696, 0, -2384.954)
+
+[node name="herring_15" type="Marker3D" parent="Objects/herring" unique_id=890646198]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 36.455696, 0, -2383.9536)
+
+[node name="herring_16" type="Marker3D" parent="Objects/herring" unique_id=1232823073]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 64.81013, 0, -2382.9531)
+
+[node name="herring_17" type="Marker3D" parent="Objects/herring" unique_id=246068408]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 64.81013, 0, -2381.953)
+
+[node name="herring_18" type="Marker3D" parent="Objects/herring" unique_id=411347717]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 39.49367, 0, -2381.953)
+
+[node name="herring_19" type="Marker3D" parent="Objects/herring" unique_id=296180476]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 39.49367, 0, -2373.9495)
+
+[node name="herring_20" type="Marker3D" parent="Objects/herring" unique_id=773240285]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 69.87342, 0, -2372.9492)
+
+[node name="herring_21" type="Marker3D" parent="Objects/herring" unique_id=1224716066]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 36.455696, 0, -2372.9492)
+
+[node name="herring_22" type="Marker3D" parent="Objects/herring" unique_id=1709826193]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35.44304, 0, -2372.9492)
+
+[node name="herring_23" type="Marker3D" parent="Objects/herring" unique_id=750826480]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 66.83544, 0, -2358.9436)
+
+[node name="herring_24" type="Marker3D" parent="Objects/herring" unique_id=688944005]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 65.822784, 0, -2358.9436)
+
+[node name="herring_25" type="Marker3D" parent="Objects/herring" unique_id=1225713263]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 64.81013, 0, -2358.9436)
+
+[node name="herring_26" type="Marker3D" parent="Objects/herring" unique_id=1650553394]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 64.81013, 0, -2357.943)
+
+[node name="herring_27" type="Marker3D" parent="Objects/herring" unique_id=393798855]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 63.79747, 0, -2357.943)
+
+[node name="herring_28" type="Marker3D" parent="Objects/herring" unique_id=208295427]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 58.734177, 0, -2346.9387)
+
+[node name="herring_29" type="Marker3D" parent="Objects/herring" unique_id=1712423668]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 57.72152, 0, -2346.9387)
+
+[node name="herring_30" type="Marker3D" parent="Objects/herring" unique_id=990578860]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 72.91139, 0, -2328.9316)
+
+[node name="herring_31" type="Marker3D" parent="Objects/herring" unique_id=830068366]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 71.898735, 0, -2328.9316)
+
+[node name="herring_32" type="Marker3D" parent="Objects/herring" unique_id=838507243]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60.759495, 0, -2327.9312)
+
+[node name="herring_33" type="Marker3D" parent="Objects/herring" unique_id=352637796]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 65.822784, 0, -2321.9287)
+
+[node name="herring_34" type="Marker3D" parent="Objects/herring" unique_id=222509823]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 65.822784, 0, -2320.9285)
+
+[node name="herring_35" type="Marker3D" parent="Objects/herring" unique_id=1465231330]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 63.79747, 0, -2309.924)
+
+[node name="herring_36" type="Marker3D" parent="Objects/herring" unique_id=1436250743]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60.759495, 0, -2303.9216)
+
+[node name="herring_37" type="Marker3D" parent="Objects/herring" unique_id=183057595]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 61.772152, 0, -2289.916)
+
+[node name="herring_38" type="Marker3D" parent="Objects/herring" unique_id=1101814366]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60.759495, 0, -2286.9148)
+
+[node name="herring_39" type="Marker3D" parent="Objects/herring" unique_id=1434353138]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60.759495, 0, -2273.9097)
+
+[node name="herring_40" type="Marker3D" parent="Objects/herring" unique_id=1241511587]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60.759495, 0, -2271.9087)
+
+[node name="herring_41" type="Marker3D" parent="Objects/herring" unique_id=646872695]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 56.708862, 0, -2256.9028)
+
+[node name="herring_42" type="Marker3D" parent="Objects/herring" unique_id=520968052]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 56.708862, 0, -2255.9023)
+
+[node name="herring_43" type="Marker3D" parent="Objects/herring" unique_id=1226933171]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55.6962, 0, -2239.896)
+
+[node name="herring_44" type="Marker3D" parent="Objects/herring" unique_id=431698531]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 52.658226, 0, -2229.8918)
+
+[node name="herring_45" type="Marker3D" parent="Objects/herring" unique_id=1144257055]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 52.658226, 0, -2228.8916)
+
+[node name="herring_46" type="Marker3D" parent="Objects/herring" unique_id=44185950]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 49.620255, 0, -2212.8853)
+
+[node name="herring_47" type="Marker3D" parent="Objects/herring" unique_id=1220335202]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 48.607594, 0, -2212.8853)
+
+[node name="herring_48" type="Marker3D" parent="Objects/herring" unique_id=1075810191]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 48.607594, 0, -2211.8848)
+
+[node name="herring_49" type="Marker3D" parent="Objects/herring" unique_id=2091396885]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 48.607594, 0, -2199.88)
+
+[node name="herring_50" type="Marker3D" parent="Objects/herring" unique_id=1616468516]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 48.607594, 0, -2198.8796)
+
+[node name="herring_51" type="Marker3D" parent="Objects/herring" unique_id=1829073102]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 48.607594, 0, -2197.8792)
+
+[node name="herring_52" type="Marker3D" parent="Objects/herring" unique_id=1496036382]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 48.607594, 0, -2189.876)
+
+[node name="herring_53" type="Marker3D" parent="Objects/herring" unique_id=703609080]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 38.481014, 0, -2152.861)
+
+[node name="herring_54" type="Marker3D" parent="Objects/herring" unique_id=1956579919]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 61.772152, 0, -2149.8599)
+
+[node name="herring_55" type="Marker3D" parent="Objects/herring" unique_id=704138717]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32.405064, 0, -2143.8574)
+
+[node name="herring_56" type="Marker3D" parent="Objects/herring" unique_id=1199840900]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 68.860756, 0, -2139.856)
+
+[node name="herring_57" type="Marker3D" parent="Objects/herring" unique_id=538863010]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 66.83544, 0, -2139.856)
+
+[node name="herring_58" type="Marker3D" parent="Objects/herring" unique_id=1293421591]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 51.64557, 0, -2139.856)
+
+[node name="herring_59" type="Marker3D" parent="Objects/herring" unique_id=1219583436]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 48.607594, 0, -2139.856)
+
+[node name="herring_60" type="Marker3D" parent="Objects/herring" unique_id=1649863281]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 47.594936, 0, -2139.856)
+
+[node name="herring_61" type="Marker3D" parent="Objects/herring" unique_id=982153721]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 19.240507, 0, -2139.856)
+
+[node name="herring_62" type="Marker3D" parent="Objects/herring" unique_id=575282209]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35.44304, 0, -2131.8528)
+
+[node name="herring_63" type="Marker3D" parent="Objects/herring" unique_id=560179089]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 31.392405, 0, -2131.8528)
+
+[node name="herring_64" type="Marker3D" parent="Objects/herring" unique_id=933467284]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16.202532, 0, -2128.8516)
+
+[node name="herring_65" type="Marker3D" parent="Objects/herring" unique_id=776774961]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 52.658226, 0, -2126.8508)
+
+[node name="herring_66" type="Marker3D" parent="Objects/herring" unique_id=1742243698]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 48.607594, 0, -2119.848)
+
+[node name="herring_67" type="Marker3D" parent="Objects/herring" unique_id=2027838365]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55.6962, 0, -2118.8477)
+
+[node name="herring_68" type="Marker3D" parent="Objects/herring" unique_id=2096016315]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 29.367088, 0, -2118.8477)
+
+[node name="herring_69" type="Marker3D" parent="Objects/herring" unique_id=1073769089]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55.6962, 0, -2117.8472)
+
+[node name="herring_70" type="Marker3D" parent="Objects/herring" unique_id=1227613349]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28.354431, 0, -2117.8472)
+
+[node name="herring_71" type="Marker3D" parent="Objects/herring" unique_id=899558679]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55.6962, 0, -2116.8467)
+
+[node name="herring_72" type="Marker3D" parent="Objects/herring" unique_id=1896059752]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28.354431, 0, -2116.8467)
+
+[node name="herring_73" type="Marker3D" parent="Objects/herring" unique_id=914077746]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55.6962, 0, -2115.8464)
+
+[node name="herring_74" type="Marker3D" parent="Objects/herring" unique_id=853412720]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28.354431, 0, -2115.8464)
+
+[node name="herring_75" type="Marker3D" parent="Objects/herring" unique_id=556018336]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28.354431, 0, -2114.846)
+
+[node name="herring_76" type="Marker3D" parent="Objects/herring" unique_id=2013089029]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 27.341772, 0, -2114.846)
+
+[node name="herring_77" type="Marker3D" parent="Objects/herring" unique_id=1777446355]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 27.341772, 0, -2113.8455)
+
+[node name="herring_78" type="Marker3D" parent="Objects/herring" unique_id=1517585788]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26.329113, 0, -2113.8455)
+
+[node name="herring_79" type="Marker3D" parent="Objects/herring" unique_id=259270556]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 27.341772, 0, -2112.8452)
+
+[node name="herring_80" type="Marker3D" parent="Objects/herring" unique_id=1271713188]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 57.72152, 0, -2110.8442)
+
+[node name="herring_81" type="Marker3D" parent="Objects/herring" unique_id=1399243813]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 57.72152, 0, -2109.844)
+
+[node name="herring_82" type="Marker3D" parent="Objects/herring" unique_id=416122449]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 57.72152, 0, -2108.8435)
+
+[node name="herring_83" type="Marker3D" parent="Objects/herring" unique_id=144567670]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 57.72152, 0, -2107.843)
+
+[node name="herring_84" type="Marker3D" parent="Objects/herring" unique_id=1101817770]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 27.341772, 0, -2107.843)
+
+[node name="herring_85" type="Marker3D" parent="Objects/herring" unique_id=738396135]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 27.341772, 0, -2106.8428)
+
+[node name="herring_86" type="Marker3D" parent="Objects/herring" unique_id=2022691994]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 58.734177, 0, -2100.8403)
+
+[node name="herring_87" type="Marker3D" parent="Objects/herring" unique_id=545710712]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 27.341772, 0, -2098.8396)
+
+[node name="herring_88" type="Marker3D" parent="Objects/herring" unique_id=407249835]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 27.341772, 0, -2097.839)
+
+[node name="herring_89" type="Marker3D" parent="Objects/herring" unique_id=741853552]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 27.341772, 0, -2088.8354)
+
+[node name="herring_90" type="Marker3D" parent="Objects/herring" unique_id=1917640223]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 43.544304, 0, -1934.7739)
+
+[node name="herring_91" type="Marker3D" parent="Objects/herring" unique_id=907284465]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 51.64557, 0, -1931.7727)
+
+[node name="herring_92" type="Marker3D" parent="Objects/herring" unique_id=41930178]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35.44304, 0, -1931.7727)
+
+[node name="herring_93" type="Marker3D" parent="Objects/herring" unique_id=2129301420]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 34.430378, 0, -1931.7727)
+
+[node name="herring_94" type="Marker3D" parent="Objects/herring" unique_id=1242869957]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 34.430378, 0, -1930.7723)
+
+[node name="herring_95" type="Marker3D" parent="Objects/herring" unique_id=1915082276]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 29.367088, 0, -1924.7699)
+
+[node name="herring_96" type="Marker3D" parent="Objects/herring" unique_id=555344465]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 29.367088, 0, -1923.7695)
+
+[node name="herring_97" type="Marker3D" parent="Objects/herring" unique_id=1473728763]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28.354431, 0, -1923.7695)
+
+[node name="herring_98" type="Marker3D" parent="Objects/herring" unique_id=521905357]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 53.670887, 0, -1919.768)
+
+[node name="herring_99" type="Marker3D" parent="Objects/herring" unique_id=56412402]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 53.670887, 0, -1918.7675)
+
+[node name="herring_100" type="Marker3D" parent="Objects/herring" unique_id=876559334]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 53.670887, 0, -1917.7671)
+
+[node name="herring_101" type="Marker3D" parent="Objects/herring" unique_id=1184696238]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 23.29114, 0, -1913.7655)
+
+[node name="herring_102" type="Marker3D" parent="Objects/herring" unique_id=2119321744]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 53.670887, 0, -1910.7643)
+
+[node name="herring_103" type="Marker3D" parent="Objects/herring" unique_id=280824561]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 53.670887, 0, -1909.7639)
+
+[node name="herring_104" type="Marker3D" parent="Objects/herring" unique_id=1994071091]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 53.670887, 0, -1908.7635)
+
+[node name="herring_105" type="Marker3D" parent="Objects/herring" unique_id=2139011735]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 53.670887, 0, -1901.7607)
+
+[node name="herring_106" type="Marker3D" parent="Objects/herring" unique_id=1630304371]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 52.658226, 0, -1901.7607)
+
+[node name="herring_107" type="Marker3D" parent="Objects/herring" unique_id=597593910]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 52.658226, 0, -1900.7603)
+
+[node name="herring_108" type="Marker3D" parent="Objects/herring" unique_id=1977984222]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 46.58228, 0, -1888.7555)
+
+[node name="herring_109" type="Marker3D" parent="Objects/herring" unique_id=349820047]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 46.58228, 0, -1887.7551)
+
+[node name="herring_110" type="Marker3D" parent="Objects/herring" unique_id=883249777]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45.569622, 0, -1887.7551)
+
+[node name="herring_111" type="Marker3D" parent="Objects/herring" unique_id=556979235]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45.569622, 0, -1886.7548)
+
+[node name="herring_112" type="Marker3D" parent="Objects/herring" unique_id=572781469]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45.569622, 0, -1885.7543)
+
+[node name="herring_113" type="Marker3D" parent="Objects/herring" unique_id=986898645]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45.569622, 0, -1884.7539)
+
+[node name="herring_114" type="Marker3D" parent="Objects/herring" unique_id=618332485]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 58.734177, 0, -1654.6619)
+
+[node name="herring_115" type="Marker3D" parent="Objects/herring" unique_id=9382910]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28.354431, 0, -1653.6615)
+
+[node name="herring_116" type="Marker3D" parent="Objects/herring" unique_id=1869614383]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60.759495, 0, -1631.6527)
+
+[node name="herring_117" type="Marker3D" parent="Objects/herring" unique_id=250436921]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 29.367088, 0, -1628.6515)
+
+[node name="herring_118" type="Marker3D" parent="Objects/herring" unique_id=281772657]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28.354431, 0, -1628.6515)
+
+[node name="herring_119" type="Marker3D" parent="Objects/herring" unique_id=1456301420]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 65.822784, 0, -1625.6503)
+
+[node name="herring_120" type="Marker3D" parent="Objects/herring" unique_id=1721936434]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 43.544304, 0, -1625.6503)
+
+[node name="herring_121" type="Marker3D" parent="Objects/herring" unique_id=1210622452]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60.759495, 0, -1617.6471)
+
+[node name="herring_122" type="Marker3D" parent="Objects/herring" unique_id=1482627460]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60.759495, 0, -1616.6466)
+
+[node name="herring_123" type="Marker3D" parent="Objects/herring" unique_id=829833028]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60.759495, 0, -1615.6462)
+
+[node name="herring_124" type="Marker3D" parent="Objects/herring" unique_id=1675112648]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 78.98734, 0, -1614.6459)
+
+[node name="herring_125" type="Marker3D" parent="Objects/herring" unique_id=1463977200]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60.759495, 0, -1614.6459)
+
+[node name="herring_126" type="Marker3D" parent="Objects/herring" unique_id=1638846576]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60.759495, 0, -1613.6455)
+
+[node name="herring_127" type="Marker3D" parent="Objects/herring" unique_id=797507398]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60.759495, 0, -1612.645)
+
+[node name="herring_128" type="Marker3D" parent="Objects/herring" unique_id=1833586966]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60.759495, 0, -1611.6447)
+
+[node name="herring_129" type="Marker3D" parent="Objects/herring" unique_id=2047275488]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25.316456, 0, -1611.6447)
+
+[node name="herring_130" type="Marker3D" parent="Objects/herring" unique_id=892670975]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60.759495, 0, -1610.6443)
+
+[node name="herring_131" type="Marker3D" parent="Objects/herring" unique_id=1398133582]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 44.55696, 0, -1609.6438)
+
+[node name="herring_132" type="Marker3D" parent="Objects/herring" unique_id=1175925906]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 43.544304, 0, -1609.6438)
+
+[node name="herring_133" type="Marker3D" parent="Objects/herring" unique_id=1485116181]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 44.55696, 0, -1591.6366)
+
+[node name="herring_134" type="Marker3D" parent="Objects/herring" unique_id=813136604]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45.569622, 0, -1580.6322)
+
+[node name="herring_135" type="Marker3D" parent="Objects/herring" unique_id=1444500310]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 46.58228, 0, -1570.6283)
+
+[node name="herring_136" type="Marker3D" parent="Objects/herring" unique_id=905025053]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 46.58228, 0, -1559.6239)
+
+[node name="herring_137" type="Marker3D" parent="Objects/herring" unique_id=542188071]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60.759495, 0, -1362.545)
+
+[node name="herring_138" type="Marker3D" parent="Objects/herring" unique_id=502825846]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 54.683544, 0, -1354.5419)
+
+[node name="herring_139" type="Marker3D" parent="Objects/herring" unique_id=73230746]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 44.55696, 0, -1349.5398)
+
+[node name="herring_140" type="Marker3D" parent="Objects/herring" unique_id=1320012331]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 44.55696, 0, -1341.5366)
+
+[node name="herring_141" type="Marker3D" parent="Objects/herring" unique_id=118342162]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 44.55696, 0, -1340.5363)
+
+[node name="herring_142" type="Marker3D" parent="Objects/herring" unique_id=1319192007]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 44.55696, 0, -1331.5326)
+
+[node name="herring_143" type="Marker3D" parent="Objects/herring" unique_id=924217851]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 44.55696, 0, -1330.5322)
+
+[node name="herring_144" type="Marker3D" parent="Objects/herring" unique_id=1200397698]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 44.55696, 0, -1329.5319)
+
+[node name="herring_145" type="Marker3D" parent="Objects/herring" unique_id=1222292346]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 44.55696, 0, -1321.5286)
+
+[node name="herring_146" type="Marker3D" parent="Objects/herring" unique_id=1427938156]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 44.55696, 0, -1320.5282)
+
+[node name="herring_147" type="Marker3D" parent="Objects/herring" unique_id=2104094229]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 46.58228, 0, -1312.525)
+
+[node name="herring_148" type="Marker3D" parent="Objects/herring" unique_id=989495177]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 46.58228, 0, -1311.5247)
+
+[node name="herring_149" type="Marker3D" parent="Objects/herring" unique_id=1768278453]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 46.58228, 0, -1310.5242)
+
+[node name="herring_150" type="Marker3D" parent="Objects/herring" unique_id=1192892653]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 46.58228, 0, -1305.5222)
+
+[node name="herring_151" type="Marker3D" parent="Objects/herring" unique_id=2115829535]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 46.58228, 0, -1304.5219)
+
+[node name="herring_152" type="Marker3D" parent="Objects/herring" unique_id=1434780704]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45.569622, 0, -1304.5219)
+
+[node name="herring_153" type="Marker3D" parent="Objects/herring" unique_id=685635008]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45.569622, 0, -1303.5214)
+
+[node name="herring_154" type="Marker3D" parent="Objects/herring" unique_id=1709755415]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40.50633, 0, -1297.519)
+
+[node name="herring_155" type="Marker3D" parent="Objects/herring" unique_id=1495868995]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 39.49367, 0, -1297.519)
+
+[node name="herring_156" type="Marker3D" parent="Objects/herring" unique_id=1720419778]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 39.49367, 0, -1296.5186)
+
+[node name="herring_157" type="Marker3D" parent="Objects/herring" unique_id=1210451415]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 38.481014, 0, -1296.5186)
+
+[node name="herring_158" type="Marker3D" parent="Objects/herring" unique_id=775712946]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32.405064, 0, -1290.5162)
+
+[node name="herring_159" type="Marker3D" parent="Objects/herring" unique_id=222283112]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 31.392405, 0, -1290.5162)
+
+[node name="herring_160" type="Marker3D" parent="Objects/herring" unique_id=27698021]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 47.594936, 0, -1265.5062)
+
+[node name="herring_161" type="Marker3D" parent="Objects/herring" unique_id=624237951]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 41.518986, 0, -1257.503)
+
+[node name="herring_162" type="Marker3D" parent="Objects/herring" unique_id=1367572758]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40.50633, 0, -1257.503)
+
+[node name="herring_163" type="Marker3D" parent="Objects/herring" unique_id=589111000]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35.44304, 0, -1253.5013)
+
+[node name="herring_164" type="Marker3D" parent="Objects/herring" unique_id=475223534]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 29.367088, 0, -1246.4987)
+
+[node name="herring_165" type="Marker3D" parent="Objects/herring" unique_id=843961252]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28.354431, 0, -1246.4987)
+
+[node name="herring_166" type="Marker3D" parent="Objects/herring" unique_id=919558767]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 23.29114, 0, -1241.4966)
+
+[node name="herring_167" type="Marker3D" parent="Objects/herring" unique_id=1067867015]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 23.29114, 0, -1240.4962)
+
+[node name="herring_168" type="Marker3D" parent="Objects/herring" unique_id=554535552]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 36.455696, 0, -1175.4702)
+
+[node name="herring_169" type="Marker3D" parent="Objects/herring" unique_id=1616728165]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 44.55696, 0, -1169.4678)
+
+[node name="herring_170" type="Marker3D" parent="Objects/herring" unique_id=827565131]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 29.367088, 0, -1166.4666)
+
+[node name="herring_171" type="Marker3D" parent="Objects/herring" unique_id=1544543703]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45.569622, 0, -1165.4662)
+
+[node name="herring_172" type="Marker3D" parent="Objects/herring" unique_id=1824456929]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 47.594936, 0, -1161.4646)
+
+[node name="herring_173" type="Marker3D" parent="Objects/herring" unique_id=367079281]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 52.658226, 0, -1155.4622)
+
+[node name="herring_174" type="Marker3D" parent="Objects/herring" unique_id=1557971873]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24.303797, 0, -1151.4606)
+
+[node name="herring_175" type="Marker3D" parent="Objects/herring" unique_id=1148728177]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 23.29114, 0, -1151.4606)
+
+[node name="herring_176" type="Marker3D" parent="Objects/herring" unique_id=1869881569]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18.227848, 0, -1142.457)
+
+[node name="herring_177" type="Marker3D" parent="Objects/herring" unique_id=1468844607]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13.1645565, 0, -1136.4546)
+
+[node name="herring_178" type="Marker3D" parent="Objects/herring" unique_id=1405710613]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.151898, 0, -1136.4546)
+
+[node name="herring_179" type="Marker3D" parent="Objects/herring" unique_id=155963201]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26.329113, 0, -1133.4534)
+
+[node name="herring_180" type="Marker3D" parent="Objects/herring" unique_id=1515827365]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30.379747, 0, -1127.4509)
+
+[node name="herring_181" type="Marker3D" parent="Objects/herring" unique_id=75826430]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30.379747, 0, -1126.4506)
+
+[node name="herring_182" type="Marker3D" parent="Objects/herring" unique_id=1165868873]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 36.455696, 0, -1119.4478)
+
+[node name="herring_183" type="Marker3D" parent="Objects/herring" unique_id=896019040]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 41.518986, 0, -1053.4214)
+
+[node name="herring_184" type="Marker3D" parent="Objects/herring" unique_id=1561670829]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 43.544304, 0, -1045.4182)
+
+[node name="herring_185" type="Marker3D" parent="Objects/herring" unique_id=1528673756]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 43.544304, 0, -1031.4126)
+
+[node name="herring_186" type="Marker3D" parent="Objects/herring" unique_id=1779238552]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 43.544304, 0, -1014.40576)
+
+[node name="herring_187" type="Marker3D" parent="Objects/herring" unique_id=1263459927]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 41.518986, 0, -999.3998)
+
+[node name="herring_188" type="Marker3D" parent="Objects/herring" unique_id=1189437133]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 43.544304, 0, -988.3954)
+
+[node name="herring_189" type="Marker3D" parent="Objects/herring" unique_id=759760879]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 39.49367, 0, -983.3934)
+
+[node name="herring_190" type="Marker3D" parent="Objects/herring" unique_id=1251157359]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 34.430378, 0, -976.39056)
+
+[node name="herring_191" type="Marker3D" parent="Objects/herring" unique_id=1729365461]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 38.481014, 0, -908.36334)
+
+[node name="herring_192" type="Marker3D" parent="Objects/herring" unique_id=811323468]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35.44304, 0, -898.3593)
+
+[node name="herring_193" type="Marker3D" parent="Objects/herring" unique_id=1066706987]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35.44304, 0, -889.3557)
+
+[node name="herring_194" type="Marker3D" parent="Objects/herring" unique_id=2066817171]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 34.430378, 0, -889.3557)
+
+[node name="herring_195" type="Marker3D" parent="Objects/herring" unique_id=737228790]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 38.481014, 0, -885.3541)
+
+[node name="herring_196" type="Marker3D" parent="Objects/herring" unique_id=402876456]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 42.531647, 0, -880.3521)
+
+[node name="herring_197" type="Marker3D" parent="Objects/herring" unique_id=48403864]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 41.518986, 0, -880.3521)
+
+[node name="herring_198" type="Marker3D" parent="Objects/herring" unique_id=664292162]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 47.594936, 0, -875.35016)
+
+[node name="herring_199" type="Marker3D" parent="Objects/herring" unique_id=1702647203]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 49.620255, 0, -871.3485)
+
+[node name="herring_200" type="Marker3D" parent="Objects/herring" unique_id=1610834297]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 54.683544, 0, -864.34576)
+
+[node name="herring_201" type="Marker3D" parent="Objects/herring" unique_id=1647894136]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35.44304, 0, -818.32733)
+
+[node name="herring_202" type="Marker3D" parent="Objects/herring" unique_id=1612055915]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32.405064, 0, -813.3253)
+
+[node name="herring_203" type="Marker3D" parent="Objects/herring" unique_id=1699307600]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32.405064, 0, -812.32495)
+
+[node name="herring_204" type="Marker3D" parent="Objects/herring" unique_id=636616041]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32.405064, 0, -811.3245)
+
+[node name="herring_205" type="Marker3D" parent="Objects/herring" unique_id=185905549]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32.405064, 0, -804.3217)
+
+[node name="herring_206" type="Marker3D" parent="Objects/herring" unique_id=895955890]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60.759495, 0, -792.31696)
+
+[node name="herring_207" type="Marker3D" parent="Objects/herring" unique_id=1386894002]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 56.708862, 0, -786.3145)
+
+[node name="herring_208" type="Marker3D" parent="Objects/herring" unique_id=1728709728]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55.6962, 0, -786.3145)
+
+[node name="herring_209" type="Marker3D" parent="Objects/herring" unique_id=1423006627]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 51.64557, 0, -778.31134)
+
+[node name="herring_210" type="Marker3D" parent="Objects/herring" unique_id=1632885069]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 53.670887, 0, -777.3109)
+
+[node name="herring_211" type="Marker3D" parent="Objects/herring" unique_id=370447997]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50.63291, 0, -773.3093)
+
+[node name="herring_212" type="Marker3D" parent="Objects/herring" unique_id=2025544083]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 47.594936, 0, -771.30853)
+
+[node name="herring_213" type="Marker3D" parent="Objects/herring" unique_id=1839609465]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 49.620255, 0, -764.3057)
+
+[node name="herring_214" type="Marker3D" parent="Objects/herring" unique_id=435915835]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55.6962, 0, -754.3017)
+
+[node name="herring_215" type="Marker3D" parent="Objects/herring" unique_id=963484436]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 65.822784, 0, -713.28534)
+
+[node name="herring_216" type="Marker3D" parent="Objects/herring" unique_id=1545485622]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18.227848, 0, -713.28534)
+
+[node name="herring_217" type="Marker3D" parent="Objects/herring" unique_id=698935845]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25.316456, 0, -708.2833)
+
+[node name="herring_218" type="Marker3D" parent="Objects/herring" unique_id=1174708965]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25.316456, 0, -707.2829)
+
+[node name="herring_219" type="Marker3D" parent="Objects/herring" unique_id=702766359]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 46.58228, 0, -706.28253)
+
+[node name="herring_220" type="Marker3D" parent="Objects/herring" unique_id=41980971]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45.569622, 0, -706.28253)
+
+[node name="herring_221" type="Marker3D" parent="Objects/herring" unique_id=1661591206]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 65.822784, 0, -704.28174)
+
+[node name="herring_222" type="Marker3D" parent="Objects/herring" unique_id=1241704961]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 41.518986, 0, -704.28174)
+
+[node name="herring_223" type="Marker3D" parent="Objects/herring" unique_id=826829143]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 57.72152, 0, -696.2785)
+
+[node name="herring_224" type="Marker3D" parent="Objects/herring" unique_id=1377910264]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60.759495, 0, -692.2769)
+
+[node name="herring_225" type="Marker3D" parent="Objects/herring" unique_id=294922178]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.13924, 0, -687.2749)
+
+[node name="herring_226" type="Marker3D" parent="Objects/herring" unique_id=1854754034]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24.303797, 0, -676.2705)
+
+[node name="herring_227" type="Marker3D" parent="Objects/herring" unique_id=1623440929]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 46.58228, 0, -665.2661)
+
+[node name="herring_228" type="Marker3D" parent="Objects/herring" unique_id=382628131]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.253164, 0, -644.2577)
+
+[node name="herring_229" type="Marker3D" parent="Objects/herring" unique_id=129929140]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.253164, 0, -643.2573)
+
+[node name="herring_230" type="Marker3D" parent="Objects/herring" unique_id=1574759620]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22.27848, 0, -636.2545)
+
+[node name="herring_231" type="Marker3D" parent="Objects/herring" unique_id=1392433939]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25.316456, 0, -626.2505)
+
+[node name="herring_232" type="Marker3D" parent="Objects/herring" unique_id=1453548125]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26.329113, 0, -619.2477)
+
+[node name="herring_233" type="Marker3D" parent="Objects/herring" unique_id=2013598656]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 72.91139, 0, -567.22687)
+
+[node name="herring_234" type="Marker3D" parent="Objects/herring" unique_id=1754301354]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 72.91139, 0, -566.2265)
+
+[node name="herring_235" type="Marker3D" parent="Objects/herring" unique_id=2014186821]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 68.860756, 0, -557.2229)
+
+[node name="herring_236" type="Marker3D" parent="Objects/herring" unique_id=771356597]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55.6962, 0, -556.2225)
+
+[node name="herring_237" type="Marker3D" parent="Objects/herring" unique_id=1706494102]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 59.746834, 0, -554.2217)
+
+[node name="herring_238" type="Marker3D" parent="Objects/herring" unique_id=2102260843]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 67.8481, 0, -516.2065)
+
+[node name="herring_239" type="Marker3D" parent="Objects/herring" unique_id=756651276]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 62.78481, 0, -506.20248)
+
+[node name="herring_240" type="Marker3D" parent="Objects/herring" unique_id=860367665]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 59.746834, 0, -500.20007)
+
+[node name="herring_241" type="Marker3D" parent="Objects/herring" unique_id=1317233987]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 57.72152, 0, -493.19727)
+
+[node name="herring_242" type="Marker3D" parent="Objects/herring" unique_id=1646594860]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55.6962, 0, -488.19528)
+
+[node name="herring_243" type="Marker3D" parent="Objects/herring" unique_id=1679579899]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 54.683544, 0, -488.19528)
+
+[node name="herring_244" type="Marker3D" parent="Objects/herring" unique_id=711427240]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 57.72152, 0, -480.19208)
+
+[node name="herring_245" type="Marker3D" parent="Objects/herring" unique_id=1437726729]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60.759495, 0, -471.18848)
+
+[node name="herring_246" type="Marker3D" parent="Objects/herring" unique_id=560066554]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 61.772152, 0, -461.18448)
+
+[node name="herring_247" type="Marker3D" parent="Objects/herring" unique_id=1338974177]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60.759495, 0, -451.18048)
+
+[node name="herring_248" type="Marker3D" parent="Objects/herring" unique_id=770597021]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 46.58228, 0, -416.16647)
+
+[node name="herring_249" type="Marker3D" parent="Objects/herring" unique_id=803080721]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 53.670887, 0, -412.16486)
+
+[node name="herring_250" type="Marker3D" parent="Objects/herring" unique_id=737415906]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 42.531647, 0, -408.16327)
+
+[node name="herring_251" type="Marker3D" parent="Objects/herring" unique_id=1536804793]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 59.746834, 0, -406.16248)
+
+[node name="herring_252" type="Marker3D" parent="Objects/herring" unique_id=1397845123]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 34.430378, 0, -403.16125)
+
+[node name="herring_253" type="Marker3D" parent="Objects/herring" unique_id=1680576733]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60.759495, 0, -398.15927)
+
+[node name="herring_254" type="Marker3D" parent="Objects/herring" unique_id=251324720]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26.329113, 0, -394.15765)
+
+[node name="herring_255" type="Marker3D" parent="Objects/herring" unique_id=1503889018]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 23.29114, 0, -387.15488)
+
+[node name="herring_256" type="Marker3D" parent="Objects/herring" unique_id=1311466345]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22.27848, 0, -387.15488)
+
+[node name="herring_257" type="Marker3D" parent="Objects/herring" unique_id=485488684]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 67.8481, 0, -134.05362)
+
+[node name="herring_258" type="Marker3D" parent="Objects/herring" unique_id=1905237715]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 39.49367, 0, -130.05202)
+
+[node name="herring_259" type="Marker3D" parent="Objects/herring" unique_id=2037742746]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 38.481014, 0, -130.05202)
+
+[node name="herring_260" type="Marker3D" parent="Objects/herring" unique_id=1930213867]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 59.746834, 0, -120.04802)
+
+[node name="herring_261" type="Marker3D" parent="Objects/herring" unique_id=1327397934]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 41.518986, 0, -120.04802)
+
+[node name="herring_262" type="Marker3D" parent="Objects/herring" unique_id=50293311]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55.6962, 0, -112.044815)
+
+[node name="herring_263" type="Marker3D" parent="Objects/herring" unique_id=236839484]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 62.78481, 0, -100.040016)
+
+[node name="herring_264" type="Marker3D" parent="Objects/herring" unique_id=1273973084]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 52.658226, 0, -97.03882)
+
+[node name="herring_265" type="Marker3D" parent="Objects/herring" unique_id=918816800]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 43.544304, 0, -97.03882)
+
+[node name="herring_266" type="Marker3D" parent="Objects/herring" unique_id=1083227267]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 29.367088, 0, -97.03882)
+
+[node name="herring_267" type="Marker3D" parent="Objects/herring" unique_id=1226622762]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 52.658226, 0, -71.02841)
+
+[node name="herring_268" type="Marker3D" parent="Objects/herring" unique_id=1314253702]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30.379747, 0, -67.02681)
+
+[node name="herring_269" type="Marker3D" parent="Objects/herring" unique_id=445614152]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 52.658226, 0, -62.02481)
+
+[node name="herring_270" type="Marker3D" parent="Objects/herring" unique_id=279059694]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30.379747, 0, -59.02361)
+
+[node name="herring_271" type="Marker3D" parent="Objects/herring" unique_id=212811060]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 52.658226, 0, -56.022408)
+
+[node name="herring_272" type="Marker3D" parent="Objects/herring" unique_id=2056781538]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 41.518986, 0, -55.022007)
+
+[node name="herring_273" type="Marker3D" parent="Objects/herring" unique_id=1915927586]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 31.392405, 0, -49.019608)
+
+[node name="tree_barren" type="Node3D" parent="Objects" unique_id=707121596]
+
+[node name="tree_barren_0" type="Marker3D" parent="Objects/tree_barren" unique_id=1677939371]
+transform = Transform3D(2.769948, 0, 0, 0, 2.9811594, 0, 0, 0, 2.769948, 38.481014, 0, -2142.8572)
+
+[node name="tree_barren_1" type="Marker3D" parent="Objects/tree_barren" unique_id=2044442624]
+transform = Transform3D(2.6267738, 0, 0, 0, 3.268619, 0, 0, 0, 2.6267738, 59.746834, 0, -2136.8547)
+
+[node name="tree_barren_2" type="Marker3D" parent="Objects/tree_barren" unique_id=182662431]
+transform = Transform3D(3.2662044, 0, 0, 0, 3.5572796, 0, 0, 0, 3.2662044, 22.27848, 0, -2133.8535)
+
+[node name="tree_barren_3" type="Marker3D" parent="Objects/tree_barren" unique_id=1678899819]
+transform = Transform3D(2.214572, 0, 0, 0, 2.36415, 0, 0, 0, 2.214572, 39.49367, 0, -2124.8499)
+
+[node name="tree_barren_4" type="Marker3D" parent="Objects/tree_barren" unique_id=860608976]
+transform = Transform3D(3.6492267, 0, 0, 0, 4.051162, 0, 0, 0, 3.6492267, 53.670887, 0, -1646.6587)
+
+[node name="tree_barren_5" type="Marker3D" parent="Objects/tree_barren" unique_id=872550211]
+transform = Transform3D(3.3129325, 0, 0, 0, 3.3664925, 0, 0, 0, 3.3129325, 28.354431, 0, -1611.6447)
+
+[node name="tree_barren_6" type="Marker3D" parent="Objects/tree_barren" unique_id=1957973830]
+transform = Transform3D(3.0612378, 0, 0, 0, 3.2045841, 0, 0, 0, 3.0612378, 47.594936, 0, -1598.6394)
+
+[node name="tree_barren_7" type="Marker3D" parent="Objects/tree_barren" unique_id=123716085]
+transform = Transform3D(2.0283654, 0, 0, 0, 2.612287, 0, 0, 0, 2.0283654, 22.27848, 0, -689.2757)
+
+[node name="tree_barren_8" type="Marker3D" parent="Objects/tree_barren" unique_id=1373672846]
+transform = Transform3D(3.6607656, 0, 0, 0, 4.193368, 0, 0, 0, 3.6607656, 48.607594, 0, -657.2629)
+
+[node name="tree_barren_9" type="Marker3D" parent="Objects/tree_barren" unique_id=172417952]
+transform = Transform3D(2.0307648, 0, 0, 0, 2.534206, 0, 0, 0, 2.0307648, 53.670887, 0, -86.03442)
+
+[node name="tree_barren_10" type="Marker3D" parent="Objects/tree_barren" unique_id=1449043732]
+transform = Transform3D(3.6843805, 0, 0, 0, 4.0834813, 0, 0, 0, 3.6843805, 37.468353, 0, -72.02881)
+
+[node name="tree_barren_11" type="Marker3D" parent="Objects/tree_barren" unique_id=1110069311]
+transform = Transform3D(2.769446, 0, 0, 0, 2.8433256, 0, 0, 0, 2.769446, 43.544304, 0, -29.011604)
+
+[node name="finish" type="Node3D" parent="Objects" unique_id=699647261]
+
+[node name="finish_0" type="Marker3D" parent="Objects/finish" unique_id=926156504]
+transform = Transform3D(9, 0, 0, 0, 6, 0, 0, 0, 9, 42.531647, 0, -2.0008004)

@@ -1,0 +1,75 @@
+[gd_resource type="Resource" script_class="EventSet" format=3]
+
+[ext_resource type="Script" path="res://scripts/course/race_cup.gd" id="1_6v3n3"]
+[ext_resource type="Script" path="res://scripts/course/race_event.gd" id="2_8xl44"]
+[ext_resource type="Resource" path="res://courses/bunny_hill/course.tres" id="3_k35rd"]
+[ext_resource type="Resource" path="res://courses/twisty_slope/course.tres" id="4_30uf2"]
+[ext_resource type="Resource" path="res://courses/bumpy_ride/course.tres" id="5_6encq"]
+[ext_resource type="Resource" path="res://courses/frozen_river/course.tres" id="6_46qwt"]
+[ext_resource type="Resource" path="res://courses/path_of_daggers/course.tres" id="7_t8x4s"]
+[ext_resource type="Script" path="res://scripts/course/event_set.gd" id="8_jttfq"]
+
+[sub_resource type="Resource" id="Resource_l2w5n"]
+script = ExtResource("2_8xl44")
+id = &"race_bunnyhill"
+course_dir = "bunny_hill"
+course = ExtResource("3_k35rd")
+herring = Vector3i(20, 22, 23)
+time = Vector3(37, 34, 30)
+music_theme = &"calm"
+
+[sub_resource type="Resource" id="Resource_hd5v7"]
+script = ExtResource("2_8xl44")
+id = &"race_twistyslope"
+course_dir = "twisty_slope"
+course = ExtResource("4_30uf2")
+light = &"night"
+herring = Vector3i(21, 23, 24)
+time = Vector3(43, 39, 34)
+music_theme = &"spunky"
+
+[sub_resource type="Resource" id="Resource_bf03g"]
+script = ExtResource("2_8xl44")
+id = &"race_bumpyride"
+course_dir = "bumpy_ride"
+course = ExtResource("5_6encq")
+herring = Vector3i(13, 16, 17)
+time = Vector3(35, 31, 28)
+
+[sub_resource type="Resource" id="Resource_kww1g"]
+script = ExtResource("1_6v3n3")
+id = &"canadian"
+display_name = "Canadian Cup"
+description = "The classic Tux Racer cup for beginners. Learn to paddle and to find the best track."
+races = Array[ExtResource("2_8xl44")]([SubResource("Resource_l2w5n"), SubResource("Resource_hd5v7"), SubResource("Resource_bf03g")])
+
+[sub_resource type="Resource" id="Resource_xfk3u"]
+script = ExtResource("2_8xl44")
+id = &"race_frozenriver"
+course_dir = "frozen_river"
+course = ExtResource("6_46qwt")
+light = &"evening"
+herring = Vector3i(40, 48, 52)
+time = Vector3(160, 150, 146)
+
+[sub_resource type="Resource" id="Resource_ron0s"]
+script = ExtResource("2_8xl44")
+id = &"race_pathofdaggers"
+course_dir = "path_of_daggers"
+course = ExtResource("7_t8x4s")
+snow = 1
+herring = Vector3i(34, 38, 42)
+time = Vector3(149, 132, 128)
+
+[sub_resource type="Resource" id="Resource_kf5kw"]
+script = ExtResource("1_6v3n3")
+id = &"swiss"
+display_name = "Swiss Cup"
+description = "Two slightly more challenging courses that shipped with the original Tux Racer."
+races = Array[ExtResource("2_8xl44")]([SubResource("Resource_xfk3u"), SubResource("Resource_ron0s")])
+
+[resource]
+script = ExtResource("8_jttfq")
+id = &"classics"
+display_name = "Tux Racer Classics"
+cups = Array[ExtResource("1_6v3n3")]([SubResource("Resource_kww1g"), SubResource("Resource_kf5kw")])

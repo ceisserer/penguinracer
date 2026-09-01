@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="CourseData" format=3]
+
+[ext_resource type="Image" path="res://courses/bunny_hill/heightmap.res" id="1_84qdt"]
+[ext_resource type="Resource" path="res://resources/environments/tuxracer_sunny.tres" id="1_sw4qv"]
+[ext_resource type="Texture2D" path="res://courses/bunny_hill/preview.png" id="2_sw4qv"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_ketam"]
+[ext_resource type="Texture2D" path="res://courses/bunny_hill/splat_0.png" id="4_rp2sb"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_q704f"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="6_leugn"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="7_wwua0"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="8_p0r68"]
+
+[resource]
+script = ExtResource("3_ketam")
+display_name = "Bunny Hill"
+author = "Jasmin Patry"
+description = "Let's start out easy, just collect the herring in the time limit and you'll be fine. The best part is that you don't have to use those stupid T-bar lifts."
+preview = ExtResource("2_sw4qv")
+heightmap = ExtResource("1_84qdt")
+heightmap_size = Vector2i(179, 519)
+splat_maps = Array[Texture2D]([ExtResource("4_rp2sb")])
+splat_size = Vector2i(179, 519)
+terrain_layers = Array[ExtResource("5_q704f")]([ExtResource("6_leugn"), ExtResource("7_wwua0"), ExtResource("8_p0r68")])
+play_bounds = PackedVector2Array(2.5, 1, 87.5, 1, 87.5, -490, 2.5, -490)
+environment_preset = ExtResource("1_sw4qv")
+finish_brake = 15.0
+imported_from = "default/bunny_hill"
+import_version = 1
