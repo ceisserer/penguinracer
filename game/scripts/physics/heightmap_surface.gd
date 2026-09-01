@@ -23,6 +23,7 @@ var _friction: PackedFloat32Array = PackedFloat32Array()
 var _depth: PackedFloat32Array = PackedFloat32Array()
 var _dominant: PackedByteArray = PackedByteArray()
 var _particles: PackedByteArray = PackedByteArray()
+var _trackmarks: PackedByteArray = PackedByteArray()
 var _normals: PackedVector3Array = PackedVector3Array()
 var _dx: float = 1.0
 var _dz: float = 1.0
@@ -56,17 +57,20 @@ func build(p_heights: PackedFloat32Array, p_size: Vector2i, p_world_size: Vector
 		set_uniform_terrain(0.35, 0.05, 0, true)
 
 ## Uniform terrain everywhere — the synthetic-slope case for Phase 0 tests.
-func set_uniform_terrain(friction: float, depth: float, terrain_id: int, particles: bool) -> void:
+func set_uniform_terrain(friction: float, depth: float, terrain_id: int, particles: bool,
+		trackmarks: bool = true) -> void:
 	var n: int = heights.size()
 	_friction.resize(n)
 	_depth.resize(n)
 	_dominant.resize(n)
 	_particles.resize(n)
+	_trackmarks.resize(n)
 	_friction.fill(friction)
 	_depth.fill(depth)
 	for i: int in n:
 		_dominant[i] = terrain_id
 		_particles[i] = 1 if particles else 0
+		_trackmarks[i] = 1 if trackmarks else 0
 
 ## Pre-blend the per-texel gameplay scalars from splat weights.
 ## `weights` is `size.x * size.y * layer_count` bytes, 0..255 per layer.
@@ -79,15 +83,18 @@ func set_splat(weights: PackedByteArray, layers: Array[TerrainLayer]) -> void:
 	_depth.resize(n)
 	_dominant.resize(n)
 	_particles.resize(n)
+	_trackmarks.resize(n)
 
 	var fr: PackedFloat32Array = PackedFloat32Array()
 	var dp: PackedFloat32Array = PackedFloat32Array()
 	var pa: PackedByteArray = PackedByteArray()
-	fr.resize(lc); dp.resize(lc); pa.resize(lc)
+	var tm: PackedByteArray = PackedByteArray()
+	fr.resize(lc); dp.resize(lc); pa.resize(lc); tm.resize(lc)
 	for l: int in lc:
 		fr[l] = layers[l].friction
 		dp[l] = layers[l].compression_depth
 		pa[l] = 1 if layers[l].emits_particles else 0
+		tm[l] = 1 if layers[l].takes_trackmarks else 0
 
 	for i: int in n:
 		var base: int = i * lc
@@ -111,11 +118,13 @@ func set_splat(weights: PackedByteArray, layers: Array[TerrainLayer]) -> void:
 			_depth[i] = dp[0]
 			_dominant[i] = 0
 			_particles[i] = pa[0]
+			_trackmarks[i] = tm[0]
 		else:
 			_friction[i] = f / total
 			_depth[i] = d / total
 			_dominant[i] = best
 			_particles[i] = pa[best]
+			_trackmarks[i] = tm[best]
 
 ## Per-texel smooth normals from central differences, including the analytic
 ## base slope. Interpolated bilinearly at query time.
@@ -203,6 +212,7 @@ func sample_into(x: float, z: float, out: SurfaceSample) -> void:
 		nearest = i01
 	out.terrain_id = _dominant[nearest]
 	out.emits_particles = _particles[nearest] == 1
+	out.takes_trackmarks = _trackmarks[nearest] == 1
 
 	if snow_field != null:
 		snow_field.apply_to_sample(x, z, out)

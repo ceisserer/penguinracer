@@ -56,11 +56,13 @@ static func _splat_blending(t: TestCase) -> void:
 	ice.friction = 0.2
 	ice.compression_depth = 0.03
 	ice.emits_particles = false
+	ice.takes_trackmarks = false
 	var snow := TerrainLayer.new()
 	snow.id = &"snow"
 	snow.friction = 0.35
 	snow.compression_depth = 0.11
 	snow.emits_particles = true
+	snow.takes_trackmarks = true
 	var layers: Array[TerrainLayer] = [ice, snow]
 
 	var nx: int = 4
@@ -88,10 +90,12 @@ static func _splat_blending(t: TestCase) -> void:
 	t.eq_f(sample.friction, 0.2, 1e-5, "pure ice reads the ice friction")
 	t.eq_f(sample.compression_depth, 0.03, 1e-5, "pure ice reads the ice depth")
 	t.ok(not sample.emits_particles, "ice does not throw up spray")
+	t.ok(not sample.takes_trackmarks, "ice holds no trench")
 
 	s.sample_into(3.0, 0.0, sample)
 	t.eq_f(sample.friction, 0.35, 1e-5, "pure snow reads the snow friction")
 	t.ok(sample.emits_particles, "snow throws up spray")
+	t.ok(sample.takes_trackmarks, "snow holds a trench")
 
 	# Across the boundary friction blends smoothly instead of stepping. This is
 	# ETR's barycentric blend generalised to splat weights (§4.2).
@@ -106,6 +110,28 @@ static func _splat_blending(t: TestCase) -> void:
 		t.ok(sample.friction >= prev - 1e-6, "friction is monotone across the boundary")
 		t.ok(absf(sample.friction - prev) < 0.06, "friction has no step discontinuity")
 		prev = sample.friction
+
+	# ETR keeps `[part]` and `[trackmarks]` independent, and ships one terrain
+	# where they disagree: `strike_snow` is `[part] 1 [trackmarks] 0`. Spray and
+	# deformation must therefore read different flags, not one flag twice.
+	t.begin("spray and trackmarks are independent")
+	var strike := TerrainLayer.new()
+	strike.id = &"strike_snow"
+	strike.friction = 0.3
+	strike.compression_depth = 0.04
+	strike.emits_particles = true
+	strike.takes_trackmarks = false
+
+	var uniform := HeightmapSurface.new()
+	uniform.build(heights, Vector2i(nx, ny), Vector2(3.0, 3.0), 0.0)
+	var sw := PackedByteArray()
+	sw.resize(nx * ny)
+	sw.fill(255)
+	uniform.set_splat(sw, [strike] as Array[TerrainLayer])
+	uniform.sample_into(1.5, -1.5, sample)
+	t.ok(sample.emits_particles, "strike_snow throws up spray")
+	t.ok(not sample.takes_trackmarks, "strike_snow keeps no trench")
+	t.eq_f(sample.friction, 0.3, 1e-5, "strike_snow keeps its own friction")
 
 static func _snow_field(t: TestCase) -> void:
 	t.begin("snow field")

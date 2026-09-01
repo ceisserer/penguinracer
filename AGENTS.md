@@ -83,7 +83,7 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 
 | Phase | State |
 |---|---|
-| 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 2278 assertions, 0 failures, 0.7 s headless. |
+| 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 2293 assertions, 0 failures, 0.8 s headless. |
 | 1 — importer + first course | **done** — all 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. bunny_hill drivable in a browser; wild_mountains (100×1000) runs. |
 | 2 — rendering | partial — splat PBR, chunked terrain, instanced trees, HUD, migrated skyboxes. Tone matched to the original on Bunny Hill; no LightmapGI bake. Snow and ice carry procedural micro-relief, a twinkling crystal glint and a Fresnel sky reflection. |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror both wired; a carve leaves a track with a shaded trench, a self-occluded floor and a bright ploughed lip. |
@@ -216,6 +216,11 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   `-- --remote-keyboard` makes it stretch such a press to 100 ms, which is opt-in because the
   stretch costs a local keyboard its frame-exact release. `godot --path game
   res://scenes/key_log.tscn` prints what the link is actually delivering.
+- **A migrated field is not ported until something reads it.** `[trackmarks]` was imported onto
+  `TerrainLayer` and written into all 41 layer resources, but never reached `SurfaceSample`, so the
+  deformation stamp gated on `[part]` instead. The two agree on every terrain a shipped course
+  uses, and the tests passed because they asserted only what the consumer consumed. When adding a
+  surface property, trace it to its consumer and test it there.
 - **Directional shadows stop at `directional_shadow_max_distance`**, on a sphere around the camera.
   Set shorter than the visible slope it reads as an arc of shadow travelling in front of the
   player. It is derived from the environment's fog range in `RaceScene._shadow_range_for` — keep it

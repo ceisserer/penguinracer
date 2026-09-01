@@ -362,6 +362,34 @@ reads the answer off the console instead of re-deriving it. `scenes/key_log.tscn
 each key was actually held and states which keyboard it is looking at — run it over the link
 rather than guessing.
 
+### 15. `[part]` and `[trackmarks]` are two flags, and one terrain disagrees
+
+Terrain surface properties were ported in Phase 0 and are load-bearing: `[friction]` and
+`[depth]` are pre-blended per heightmap texel and read by `calc_friction_force`,
+`calc_brake_force`, `calc_paddle_force`, `calc_roll_normal` and `calc_normal_force`, so ice at
+0.2 and rock at 0.7 genuinely play differently. But only three of the four gameplay fields
+reached the physics query path. `TerrainLayer.takes_trackmarks` was imported from
+`[trackmarks]`, saved into all 41 layer resources, and then read by nothing except the importer's
+own `is_deformable` assignment — the deformation stamp in `RaceScene._on_substep` gated on
+`emits_particles` instead.
+
+For every terrain any shipped course actually uses the two flags agree, so nothing was visibly
+wrong. They disagree on exactly one terrain in `terrains.lst`: `strike_snow` is
+`[part] 1 [trackmarks] 0` — snow that sprays but packs too hard to hold a trench. It is currently
+unreachable anyway, because ETR's own ±30 colour matching lets `snow` (255,255,255) swallow it
+(255,230,255) before the lookup gets there, which is why no course references it.
+
+Fixed by carrying `takes_trackmarks` through `SurfaceSample` and `HeightmapSurface` alongside
+`emits_particles` — same dominant-texel rule, one more `PackedByteArray` — and gating the stamp on
+it. Corrected 2026-09-01. The lesson is that a migrated field is not ported until something reads
+it: the resources looked complete and the tests passed because the tests only asserted what the
+consumer happened to consume.
+
+Still not ported from `terrains.lst`: `[sound]` (`TerrainLayer.footstep_sound` exists and is
+always null — there is no audio system yet, Phase 5) and `[starttex]`/`[tracktex]`/`[stoptex]`,
+which are the original's trackmark decal atlas indices and have no analogue here — the GPU trail
+map replaced them.
+
 ## Built
 
 ### Phase 0 — physics core · **done**
@@ -373,7 +401,7 @@ paddle, and the roll normal. ODE23 (Bogacki–Shampine) with adaptive stepping, 
 `MAX_STEP_DIST` cap. Trees and herring go through a uniform spatial grid, fixing the original's
 O(items) scan per substep.
 
-**2278 assertions, 0 failures**, in 0.7 s headless. Per-force golden values are worked out by
+**2293 assertions, 0 failures**, in 0.8 s headless. Per-force golden values are worked out by
 hand from the constants — air drag at 20 m/s, each of the three spring bands, the 400 N lateral
 friction cap, the 30°/55° bank angles, the paddle's fade to nothing at 60 km/h — so a change in
 feel shows up as a test failure rather than as a vague complaint. Whole-simulation tests cover

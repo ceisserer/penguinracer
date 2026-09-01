@@ -14,8 +14,11 @@ var friction: float = 0.35
 var compression_depth: float = 0.05
 ## Dominant terrain layer index — for footstep sounds and particle gating.
 var terrain_id: int = 0
-## Whether the dominant layer emits kick-up particles.
+## Whether the dominant layer emits kick-up particles. ETR `[part]`.
 var emits_particles: bool = true
+## Whether the dominant layer holds a trench. ETR `[trackmarks]`, which is a
+## separate flag from `[part]`: `strike_snow` sprays but keeps no track.
+var takes_trackmarks: bool = true
 
 func copy_from(other: SurfaceSample) -> void:
 	height = other.height
@@ -24,3 +27,4 @@ func copy_from(other: SurfaceSample) -> void:
 	compression_depth = other.compression_depth
 	terrain_id = other.terrain_id
 	emits_particles = other.emits_particles
+	takes_trackmarks = other.takes_trackmarks

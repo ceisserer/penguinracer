@@ -303,7 +303,9 @@ func _on_substep(h: float, pos: Vector3, speed: float) -> void:
 		return
 	var sample := SurfaceSample.new()
 	course_root.surface.sample_into(pos.x, pos.z, sample)
-	if not sample.emits_particles:
+	# `[trackmarks]`, not `[part]`: ETR keeps the two separate, and `strike_snow`
+	# is the terrain where they disagree — it sprays but holds no track.
+	if not sample.takes_trackmarks:
 		return
 	# How deep the belly is riding, capped by the terrain's own compression.
 	var sink: float = clampf(sample.height - pos.y, 0.0, sample.compression_depth * 2.0)
