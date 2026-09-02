@@ -1,0 +1,237 @@
+[gd_resource type="Theme" load_steps=17 format=3]
+
+[ext_resource type="Texture2D" path="res://themes/checkbox_off.png" id="1_check_off"]
+[ext_resource type="Texture2D" path="res://themes/checkbox_on.png" id="2_check_on"]
+
+; Extreme Tux Racer's GUI palette, as a Godot theme.
+;
+; Every colour here is one of the named constants in `etr-0.8.4/src/common.cpp`:
+;   colBackgr  (0.4,  0.6, 0.8) the flat blue every menu screen is cleared to
+;   colMBackgr (0.35, 0.5, 0.7) the fill of a framed box
+;   colDBackgr (0.2,  0.3, 0.6) the recessed fill: a selected row, a slider track
+;   colLBackgr (0.5,  0.7, 0.9) the raised fill: a scrollbar grabber
+;   colWhite                    all text, and every frame outline
+;   colDYell   (1.0,  0.8, 0.0) focus — text and outline both
+;   colLGrey   (0.7,  0.7, 0.7) inactive text and secondary lines
+;
+; ETR's own widgets are drawn by SFML with square corners and a 3 px outline
+; (`DrawFrameX`, `TFramedText`, `TTextField`), so nothing here is rounded.
+
+[sub_resource type="StyleBoxEmpty" id="Empty"]
+
+[sub_resource type="StyleBoxEmpty" id="ButtonText"]
+content_margin_left = 20.0
+content_margin_top = 6.0
+content_margin_right = 20.0
+content_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxFlat" id="Framed"]
+content_margin_left = 18.0
+content_margin_top = 14.0
+content_margin_right = 18.0
+content_margin_bottom = 14.0
+bg_color = Color(0.35, 0.5, 0.7, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(1, 1, 1, 1)
+
+[sub_resource type="StyleBoxFlat" id="Field"]
+content_margin_left = 14.0
+content_margin_top = 6.0
+content_margin_right = 14.0
+content_margin_bottom = 6.0
+bg_color = Color(0.35, 0.5, 0.7, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(1, 1, 1, 1)
+
+[sub_resource type="StyleBoxFlat" id="FieldFocus"]
+content_margin_left = 14.0
+content_margin_top = 6.0
+content_margin_right = 14.0
+content_margin_bottom = 6.0
+bg_color = Color(0.35, 0.5, 0.7, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(1, 0.8, 0, 1)
+
+[sub_resource type="StyleBoxFlat" id="PictureFrame"]
+content_margin_left = 3.0
+content_margin_top = 3.0
+content_margin_right = 3.0
+content_margin_bottom = 3.0
+bg_color = Color(0.4, 0.6, 0.8, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(1, 1, 1, 1)
+
+[sub_resource type="StyleBoxFlat" id="Selected"]
+bg_color = Color(0.2, 0.3, 0.6, 1)
+
+[sub_resource type="StyleBoxFlat" id="Cursor"]
+bg_color = Color(0, 0, 0, 0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 0.8, 0, 1)
+
+[sub_resource type="StyleBoxFlat" id="CursorUnfocused"]
+bg_color = Color(0, 0, 0, 0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 1, 1, 0.5)
+
+[sub_resource type="StyleBoxFlat" id="SliderTrack"]
+content_margin_top = 4.0
+content_margin_bottom = 4.0
+bg_color = Color(0.2, 0.3, 0.6, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 1, 1, 1)
+
+[sub_resource type="StyleBoxFlat" id="SliderFill"]
+content_margin_top = 4.0
+content_margin_bottom = 4.0
+bg_color = Color(1, 0.8, 0, 1)
+
+[sub_resource type="StyleBoxFlat" id="ScrollTrack"]
+content_margin_left = 3.0
+content_margin_right = 3.0
+bg_color = Color(0.2, 0.3, 0.6, 1)
+
+[sub_resource type="StyleBoxFlat" id="ScrollGrabber"]
+bg_color = Color(0.5, 0.7, 0.9, 1)
+
+[sub_resource type="StyleBoxFlat" id="ScrollGrabberFocus"]
+bg_color = Color(1, 0.8, 0, 1)
+
+[resource]
+resource_name = "ETR menu"
+
+Label/colors/font_color = Color(1, 1, 1, 1)
+Label/colors/font_outline_color = Color(0, 0, 0, 0)
+Label/constants/outline_size = 0
+Label/constants/shadow_offset_x = 0
+Label/constants/shadow_offset_y = 0
+
+DimLabel/base_type = &"Label"
+DimLabel/colors/font_color = Color(0.7, 0.7, 0.7, 1)
+
+AccentLabel/base_type = &"Label"
+AccentLabel/colors/font_color = Color(1, 0.8, 0, 1)
+
+Button/colors/font_color = Color(1, 1, 1, 1)
+Button/colors/font_focus_color = Color(1, 0.8, 0, 1)
+Button/colors/font_hover_color = Color(1, 0.8, 0, 1)
+Button/colors/font_pressed_color = Color(1, 0.8, 0, 1)
+Button/colors/font_hover_pressed_color = Color(1, 0.8, 0, 1)
+Button/colors/font_disabled_color = Color(0.7, 0.7, 0.7, 1)
+Button/colors/font_outline_color = Color(0, 0, 0, 0)
+Button/constants/outline_size = 0
+Button/styles/normal = SubResource("ButtonText")
+Button/styles/hover = SubResource("ButtonText")
+Button/styles/pressed = SubResource("ButtonText")
+Button/styles/disabled = SubResource("ButtonText")
+Button/styles/focus = SubResource("Empty")
+
+; ETR's own checkbox is a ring with a cream tick in it, not a box
+; (`TCheckbox` over textures/checkbox.png + checkmark_small.png). Redrawn as
+; checkbox_{off,on}.png and bound to a [CheckBox], because Godot's default
+; [CheckButton] switch is a dark slab that disappears against this blue.
+CheckBox/colors/font_color = Color(1, 1, 1, 1)
+CheckBox/colors/font_focus_color = Color(1, 0.8, 0, 1)
+CheckBox/colors/font_hover_color = Color(1, 0.8, 0, 1)
+CheckBox/colors/font_pressed_color = Color(1, 0.8, 0, 1)
+CheckBox/colors/icon_normal_color = Color(1, 1, 1, 1)
+CheckBox/colors/icon_focus_color = Color(1, 1, 1, 1)
+CheckBox/colors/icon_hover_color = Color(1, 1, 1, 1)
+CheckBox/colors/icon_pressed_color = Color(1, 1, 1, 1)
+CheckBox/icons/unchecked = ExtResource("1_check_off")
+CheckBox/icons/checked = ExtResource("2_check_on")
+CheckBox/constants/h_separation = 10
+CheckBox/styles/normal = SubResource("Empty")
+CheckBox/styles/hover = SubResource("Empty")
+CheckBox/styles/pressed = SubResource("Empty")
+CheckBox/styles/disabled = SubResource("Empty")
+CheckBox/styles/focus = SubResource("Empty")
+
+CheckButton/colors/font_color = Color(1, 1, 1, 1)
+CheckButton/colors/font_focus_color = Color(1, 0.8, 0, 1)
+CheckButton/colors/font_hover_color = Color(1, 0.8, 0, 1)
+CheckButton/colors/font_pressed_color = Color(1, 0.8, 0, 1)
+CheckButton/colors/icon_normal_color = Color(1, 1, 1, 1)
+CheckButton/colors/icon_focus_color = Color(1, 0.8, 0, 1)
+CheckButton/colors/icon_hover_color = Color(1, 0.8, 0, 1)
+CheckButton/colors/icon_pressed_color = Color(1, 0.8, 0, 1)
+CheckButton/styles/normal = SubResource("Empty")
+CheckButton/styles/hover = SubResource("Empty")
+CheckButton/styles/pressed = SubResource("Empty")
+CheckButton/styles/disabled = SubResource("Empty")
+CheckButton/styles/focus = SubResource("Empty")
+
+OptionButton/colors/font_color = Color(1, 1, 1, 1)
+OptionButton/colors/font_focus_color = Color(1, 0.8, 0, 1)
+OptionButton/colors/font_hover_color = Color(1, 0.8, 0, 1)
+OptionButton/colors/font_pressed_color = Color(1, 0.8, 0, 1)
+OptionButton/colors/font_disabled_color = Color(0.7, 0.7, 0.7, 1)
+OptionButton/styles/normal = SubResource("Field")
+OptionButton/styles/hover = SubResource("FieldFocus")
+OptionButton/styles/pressed = SubResource("FieldFocus")
+OptionButton/styles/disabled = SubResource("Field")
+OptionButton/styles/focus = SubResource("FieldFocus")
+
+PopupMenu/colors/font_color = Color(1, 1, 1, 1)
+PopupMenu/colors/font_hover_color = Color(1, 0.8, 0, 1)
+PopupMenu/colors/font_separator_color = Color(0.7, 0.7, 0.7, 1)
+PopupMenu/styles/panel = SubResource("Field")
+PopupMenu/styles/hover = SubResource("Selected")
+
+Panel/styles/panel = SubResource("Framed")
+PanelContainer/styles/panel = SubResource("Framed")
+
+; The 3 px white outline ETR puts round a course preview
+; (`TTexture::DrawFrame(..., 3, colWhite)` in race_select.cpp).
+PictureFrame/base_type = &"PanelContainer"
+PictureFrame/styles/panel = SubResource("PictureFrame")
+
+ItemList/colors/font_color = Color(1, 1, 1, 1)
+ItemList/colors/font_hovered_color = Color(1, 0.8, 0, 1)
+ItemList/colors/font_selected_color = Color(1, 0.8, 0, 1)
+ItemList/colors/guide_color = Color(1, 1, 1, 0.15)
+ItemList/constants/v_separation = 6
+ItemList/styles/panel = SubResource("Empty")
+ItemList/styles/focus = SubResource("Empty")
+ItemList/styles/hovered = SubResource("Empty")
+ItemList/styles/selected = SubResource("Selected")
+ItemList/styles/selected_focus = SubResource("Selected")
+ItemList/styles/cursor = SubResource("Cursor")
+ItemList/styles/cursor_unfocused = SubResource("CursorUnfocused")
+
+HSlider/styles/slider = SubResource("SliderTrack")
+HSlider/styles/grabber_area = SubResource("SliderFill")
+HSlider/styles/grabber_area_highlight = SubResource("SliderFill")
+
+VScrollBar/styles/scroll = SubResource("ScrollTrack")
+VScrollBar/styles/scroll_focus = SubResource("ScrollTrack")
+VScrollBar/styles/grabber = SubResource("ScrollGrabber")
+VScrollBar/styles/grabber_highlight = SubResource("ScrollGrabberFocus")
+VScrollBar/styles/grabber_pressed = SubResource("ScrollGrabberFocus")
+
+HScrollBar/styles/scroll = SubResource("ScrollTrack")
+HScrollBar/styles/scroll_focus = SubResource("ScrollTrack")
+HScrollBar/styles/grabber = SubResource("ScrollGrabber")
+HScrollBar/styles/grabber_highlight = SubResource("ScrollGrabberFocus")
+HScrollBar/styles/grabber_pressed = SubResource("ScrollGrabberFocus")

@@ -1,22 +1,7 @@
 [gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/shell/settings_menu.gd" id="1_settings"]
-
-[sub_resource type="StyleBoxFlat" id="Panel_1"]
-content_margin_left = 22.0
-content_margin_top = 20.0
-content_margin_right = 22.0
-content_margin_bottom = 20.0
-bg_color = Color(0.05, 0.07, 0.11, 0.9)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.45, 0.6, 0.8, 0.35)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_right = 6
-corner_radius_bottom_left = 6
+[ext_resource type="Theme" path="res://themes/etr_menu.tres" id="2_theme"]
 
 [node name="SettingsMenu" type="CanvasLayer"]
 layer = 10
@@ -29,7 +14,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0.01, 0.02, 0.05, 0.55)
+color = Color(0.4, 0.6, 0.8, 1)
 
 [node name="Frame" type="CenterContainer" parent="."]
 anchors_preset = 15
@@ -37,11 +22,11 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = ExtResource("2_theme")
 
 [node name="Panel" type="PanelContainer" parent="Frame"]
 custom_minimum_size = Vector2(760, 0)
 layout_mode = 2
-theme_override_styles/panel = SubResource("Panel_1")
 
 [node name="Body" type="VBoxContainer" parent="Frame/Panel"]
 layout_mode = 2
@@ -50,9 +35,9 @@ theme_override_constants/separation = 14
 [node name="Title" type="Label" parent="Frame/Panel/Body"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 30
 text = "Configuration"
+horizontal_alignment = 1
 
 [node name="Rows" type="VBoxContainer" parent="Frame/Panel/Body"]
 layout_mode = 2
@@ -67,7 +52,6 @@ theme_override_constants/separation = 14
 unique_name_in_owner = true
 custom_minimum_size = Vector2(230, 0)
 layout_mode = 2
-theme_override_colors/font_color = Color(0.88, 0.9, 0.94, 1)
 theme_override_font_sizes/font_size = 18
 text = "Resolution:"
 
@@ -91,11 +75,10 @@ theme_override_constants/separation = 14
 unique_name_in_owner = true
 custom_minimum_size = Vector2(230, 0)
 layout_mode = 2
-theme_override_colors/font_color = Color(0.88, 0.9, 0.94, 1)
 theme_override_font_sizes/font_size = 18
 text = "Fullscreen:"
 
-[node name="FullscreenCheck" type="CheckButton" parent="Frame/Panel/Body/Rows/FullscreenRow"]
+[node name="FullscreenCheck" type="CheckBox" parent="Frame/Panel/Body/Rows/FullscreenRow"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 38)
 layout_mode = 2
@@ -108,7 +91,6 @@ theme_override_constants/separation = 14
 [node name="RenderScaleLabel" type="Label" parent="Frame/Panel/Body/Rows/RenderScaleRow"]
 custom_minimum_size = Vector2(230, 0)
 layout_mode = 2
-theme_override_colors/font_color = Color(0.88, 0.9, 0.94, 1)
 theme_override_font_sizes/font_size = 18
 text = "3D render scale:"
 
@@ -126,7 +108,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(200, 0)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.68, 0.78, 0.9, 1)
+theme_type_variation = &"DimLabel"
 theme_override_font_sizes/font_size = 15
 
 [node name="FogStartRow" type="HBoxContainer" parent="Frame/Panel/Body/Rows"]
@@ -136,7 +118,6 @@ theme_override_constants/separation = 14
 [node name="FogStartLabel" type="Label" parent="Frame/Panel/Body/Rows/FogStartRow"]
 custom_minimum_size = Vector2(230, 0)
 layout_mode = 2
-theme_override_colors/font_color = Color(0.88, 0.9, 0.94, 1)
 theme_override_font_sizes/font_size = 18
 text = "Clear air before fog:"
 
@@ -153,7 +134,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(200, 0)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.68, 0.78, 0.9, 1)
+theme_type_variation = &"DimLabel"
 theme_override_font_sizes/font_size = 15
 
 [node name="FogScaleRow" type="HBoxContainer" parent="Frame/Panel/Body/Rows"]
@@ -163,7 +144,6 @@ theme_override_constants/separation = 14
 [node name="FogScaleLabel" type="Label" parent="Frame/Panel/Body/Rows/FogScaleRow"]
 custom_minimum_size = Vector2(230, 0)
 layout_mode = 2
-theme_override_colors/font_color = Color(0.88, 0.9, 0.94, 1)
 theme_override_font_sizes/font_size = 18
 text = "Fog range:"
 
@@ -181,12 +161,12 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(200, 0)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.68, 0.78, 0.9, 1)
+theme_type_variation = &"DimLabel"
 theme_override_font_sizes/font_size = 15
 
 [node name="Note" type="Label" parent="Frame/Panel/Body"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.68, 0.78, 0.9, 1)
+theme_type_variation = &"DimLabel"
 theme_override_font_sizes/font_size = 15
 text = "Fog is read when a course loads, so a change to it shows on the next race. 0 m and 1.0 x is the original's fog exactly."
 autowrap_mode = 3
@@ -194,7 +174,7 @@ autowrap_mode = 3
 [node name="Path" type="Label" parent="Frame/Panel/Body"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.5, 0.58, 0.7, 1)
+theme_type_variation = &"DimLabel"
 theme_override_font_sizes/font_size = 13
 autowrap_mode = 3
 
@@ -205,14 +185,14 @@ theme_override_constants/separation = 10
 
 [node name="OkButton" type="Button" parent="Frame/Panel/Body/Buttons"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 42)
+custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 22
 text = "Ok"
 
 [node name="CancelButton" type="Button" parent="Frame/Panel/Body/Buttons"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 42)
+custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 22
 text = "Cancel"

@@ -24,12 +24,24 @@ signal closed()
 ## list from the main menu.
 signal back_requested()
 
+## What is behind the panel, and therefore what the backdrop has to be.
+##
+## ETR clears every menu screen to `colBackgr` and draws nothing else behind it
+## (`Winsys.clear()` at the top of `CRaceSelect::Loop`), so reached from the main
+## menu this is an opaque screen in that blue rather than a scrim. Over a running
+## race there is a course behind the panel worth keeping — dismissing the menu
+## resumes exactly where the player was — so the same rectangle becomes a
+## translucent wash in `colDBackgr`, dark enough to read white text against snow.
+const SCREEN_COLOR := Color(0.4, 0.6, 0.8, 1.0)
+const OVER_RACE_COLOR := Color(0.2, 0.3, 0.6, 0.72)
+
 var _catalog: CourseCatalog
 ## The catalog rows that are actually present in this build. The `WebOneCourse`
 ## export ships one course against the full index; listing the other 43 would
 ## offer the player 43 dead ends.
 var _entries: Array[CourseListing] = []
 
+@onready var _dim: ColorRect = %Dim
 @onready var _list: ItemList = %CourseList
 @onready var _title: Label = %Title
 @onready var _result: Label = %Result
@@ -75,6 +87,7 @@ func open(current_dir: String, resumable: bool, result_text: String = "") -> voi
 	_result.text = result_text
 	_result.visible = not result_text.is_empty()
 	_continue_button.visible = resumable
+	_dim.color = OVER_RACE_COLOR if resumable else SCREEN_COLOR
 	visible = true
 	var index: int = _index_of(current_dir)
 	if index < 0 and not _entries.is_empty():

@@ -44,6 +44,7 @@ static var _boot_handled: bool = false
 @onready var _settings: SettingsMenu = $SettingsMenu
 @onready var _loading: CanvasLayer = $Loading
 @onready var _loading_label: Label = %LoadingLabel
+@onready var _wait_label: Label = %WaitLabel
 
 func _ready() -> void:
 	var first_run: bool = not _boot_handled
@@ -62,6 +63,7 @@ func _ready() -> void:
 	_practice_button.text = tr("PRACTICE")
 	_settings_button.text = tr("CONFIGURATION")
 	_quit_button.text = tr("QUIT")
+	_wait_label.text = tr("PLEASE_WAIT")
 	# The browser owns the tab; a quit button there does nothing useful.
 	_quit_button.visible = not OS.has_feature("web")
 	_loading.visible = false
@@ -98,7 +100,9 @@ func _open_settings() -> void:
 	_settings.open()
 
 func _on_course_chosen(listing: CourseListing) -> void:
-	_loading_label.text = "%s   %s" % [tr("LOADING"), listing.title()]
+	# ETR's loading screen: the course in yellow, "please wait" in white under
+	# it, both centred on the same flat blue every other screen is cleared to.
+	_loading_label.text = "%s '%s'" % [tr("LOADING"), listing.title()]
 	_loading.visible = true
 	Audio.halt_all()
 	# Building a course blocks the main thread for long enough to be seen as a

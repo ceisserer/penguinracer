@@ -1,51 +1,21 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/shell/course_menu.gd" id="1_menu"]
-
-[sub_resource type="StyleBoxFlat" id="Panel_1"]
-content_margin_left = 14.0
-content_margin_top = 12.0
-content_margin_right = 14.0
-content_margin_bottom = 12.0
-bg_color = Color(0.05, 0.07, 0.11, 0.9)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.45, 0.6, 0.8, 0.35)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_right = 6
-corner_radius_bottom_left = 6
-
-[sub_resource type="StyleBoxFlat" id="Panel_2"]
-content_margin_left = 18.0
-content_margin_top = 16.0
-content_margin_right = 18.0
-content_margin_bottom = 16.0
-bg_color = Color(0.05, 0.07, 0.11, 0.9)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.45, 0.6, 0.8, 0.35)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_right = 6
-corner_radius_bottom_left = 6
+[ext_resource type="Theme" path="res://themes/etr_menu.tres" id="2_theme"]
 
 [node name="CourseMenu" type="CanvasLayer"]
 layer = 10
 script = ExtResource("1_menu")
 
 [node name="Dim" type="ColorRect" parent="."]
+unique_name_in_owner = true
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0.01, 0.02, 0.05, 0.55)
+color = Color(0.4, 0.6, 0.8, 1)
 
 [node name="Frame" type="MarginContainer" parent="."]
 anchors_preset = 15
@@ -53,6 +23,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = ExtResource("2_theme")
 theme_override_constants/margin_left = 56
 theme_override_constants/margin_top = 40
 theme_override_constants/margin_right = 56
@@ -65,16 +36,17 @@ theme_override_constants/separation = 10
 [node name="Title" type="Label" parent="Frame/Body"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 34
 text = "Select a race"
+horizontal_alignment = 1
 
 [node name="Result" type="Label" parent="Frame/Body"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.87, 0.45, 1)
+theme_type_variation = &"AccentLabel"
 theme_override_font_sizes/font_size = 19
+horizontal_alignment = 1
 
 [node name="Columns" type="HBoxContainer" parent="Frame/Body"]
 layout_mode = 2
@@ -84,7 +56,6 @@ theme_override_constants/separation = 16
 [node name="ListPanel" type="PanelContainer" parent="Frame/Body/Columns"]
 custom_minimum_size = Vector2(340, 0)
 layout_mode = 2
-theme_override_styles/panel = SubResource("Panel_1")
 
 [node name="CourseList" type="ItemList" parent="Frame/Body/Columns/ListPanel"]
 unique_name_in_owner = true
@@ -94,13 +65,16 @@ theme_override_font_sizes/font_size = 17
 [node name="InfoPanel" type="PanelContainer" parent="Frame/Body/Columns"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_styles/panel = SubResource("Panel_2")
 
 [node name="Info" type="VBoxContainer" parent="Frame/Body/Columns/InfoPanel"]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="Preview" type="TextureRect" parent="Frame/Body/Columns/InfoPanel/Info"]
+[node name="PreviewFrame" type="PanelContainer" parent="Frame/Body/Columns/InfoPanel/Info"]
+layout_mode = 2
+theme_type_variation = &"PictureFrame"
+
+[node name="Preview" type="TextureRect" parent="Frame/Body/Columns/InfoPanel/Info/PreviewFrame"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 230)
 layout_mode = 2
@@ -110,20 +84,18 @@ stretch_mode = 5
 [node name="CourseName" type="Label" parent="Frame/Body/Columns/InfoPanel/Info"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 26
 
 [node name="Meta" type="Label" parent="Frame/Body/Columns/InfoPanel/Info"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.68, 0.78, 0.9, 1)
+theme_type_variation = &"DimLabel"
 theme_override_font_sizes/font_size = 16
 
 [node name="Description" type="Label" parent="Frame/Body/Columns/InfoPanel/Info"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_colors/font_color = Color(0.88, 0.9, 0.94, 1)
 theme_override_font_sizes/font_size = 16
 autowrap_mode = 3
 
@@ -134,27 +106,28 @@ theme_override_constants/separation = 10
 
 [node name="RaceButton" type="Button" parent="Frame/Body/Columns/InfoPanel/Info/Buttons"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 42)
+custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 22
 text = "Race!"
 
 [node name="ContinueButton" type="Button" parent="Frame/Body/Columns/InfoPanel/Info/Buttons"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 42)
+custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 22
 text = "Continue"
 
 [node name="BackButton" type="Button" parent="Frame/Body/Columns/InfoPanel/Info/Buttons"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(120, 42)
+custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 22
 text = "Back"
 
 [node name="Hint" type="Label" parent="Frame/Body"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.7, 0.76, 0.85, 1)
+theme_type_variation = &"DimLabel"
 theme_override_font_sizes/font_size = 15
+horizontal_alignment = 1

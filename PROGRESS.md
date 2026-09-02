@@ -307,6 +307,35 @@ built `Environment` rather than the preset, so a stretched fog carries the shado
 Godot's own `--resolution`/`--fullscreen` outrank the file — `tools/shot.sh` keeps capturing at
 1280x720 whatever a developer's settings say.
 
+The fifth slice: making it look like the original. `themes/etr_menu.tres` is the colour table at
+the top of `etr-0.8.4/src/common.cpp` expressed as a Godot theme, and all three screens wear it
+instead of the thirty-odd `theme_override_colors` they used to carry between them. Every value in
+it is one of ETR's named constants — `colBackgr` (0.4, 0.6, 0.8) is the flat blue `Winsys.clear()`
+paints every menu screen with, `colMBackgr` fills a framed box, `colDBackgr` is the recessed fill
+under a selected row or a slider track, text and frame outlines are white, focus is `colDYell`
+and a secondary line is `colLGrey`. Frames are square and 3 px, because ETR's are SFML
+`RectangleShape`s with `setOutlineThickness(3)` and no notion of a corner radius.
+
+Three things followed from reading the original rather than guessing at it:
+
+- **ETR's menu buttons have no chrome at all.** `TTextButton` is a `sf::Text` and a mouse
+  rectangle; it is white, and it turns `colDYell` when the mouse is over it or the keyboard has
+  walked onto it — those being the same thing there, since `MouseMove` sets `focus`. So `Button`
+  in the theme is `StyleBoxEmpty` in all five states with the colour doing the work, and the main
+  menu's column is centred under the title the way `CGameTypeSelect::Enter` centres its seven.
+- **The blue is the screen, not a scrim.** The course list opened from the main menu is an opaque
+  `colBackgr` screen; opened over a running race, where dismissing it resumes the course behind
+  it, the same rectangle is a translucent `colDBackgr` wash. That is `resumable` — the flag the
+  menu already took to decide whether to offer Continue — deciding one more thing.
+- **The checkbox had to be redrawn.** ETR's is a ring with a cream tick (`checkbox.png` +
+  `checkmark_small.png`, and the tick really is 255, 250, 208), not a box; Godot's default
+  `CheckButton` is a dark slab that vanishes against blue and cannot be modulated lighter.
+  `themes/checkbox_{on,off}.png` are that shape drawn here, 32², bound as the `CheckBox` icons.
+
+Not migrated: the four corner ornaments and the title logo `DrawGUIFrame`/`DrawGUIBackground`
+paint over the blue, and the `param.ui_snow` particles that drift across every menu. All of it is
+`etr-0.8.4/data/textures` art and waits on the licence audit.
+
 Not done, and none of it started: cups and events (the resources are imported and unused),
 medals from the migrated thresholds, and save profiles. Sound and music volumes and the language
 are ETR's `options.txt` keys that this file and this screen still do not carry.
@@ -340,7 +369,9 @@ are ETR's `options.txt` keys that this file and this screen still do not carry.
 - **The game shell stops at free course selection** (Phase 5): no cup progression, medals or save
   profiles. The migrated event thresholds are sitting there ready; the translations are wired up.
   The settings screen moves the five keys the file has and not the three ETR's own configuration
-  screen also has — sound volume, music volume and language.
+  screen also has — sound volume, music volume and language. The screens carry the original's
+  palette but none of its menu art — corner ornaments, title logo, drifting `ui_snow` — which is
+  blocked on the licence audit below.
 - **The terrain slide sound is on or off**, because the original's speed-and-lean `SlideVolume`
   ships commented out (history §16), and 12 of the 43 terrains — `snow` among them — name no
   sound at all. Both are faithful and both are the obvious first thing to improve; the mapping is one

@@ -32,6 +32,8 @@ game/                     Godot project
   scripts/config/         GameConfig: the settings file, read once at startup
   scenes/                 main_menu.tscn (the main scene), course_menu.tscn,
                           settings_menu.tscn, race.tscn
+  themes/                 etr_menu.tres — ETR's GUI palette as a Godot theme,
+                          plus the two checkbox icons it needs
   addons/etr_import/      one-way, re-runnable importer from the ETR data tree
   courses/<name>/         generated: course.tres, course.tscn, heightmap.res, splat_*.png
   resources/              generated: terrain layers, object prefabs, environments, events,

@@ -47,6 +47,8 @@ game/                     Godot project (project.godot, gl_compatibility)
   assets/sounds|music/    GENERATED: the 10 effects and 10 pieces, copied verbatim
   scenes/                 main_menu.tscn (the main scene), course_menu.tscn,
                           settings_menu.tscn, race.tscn, key_log.tscn
+  themes/                 etr_menu.tres — ETR's `common.cpp` palette as a Godot
+                          theme, and the checkbox icons it binds
   tests/                  headless suite (physics, surface, input, audio, imported
                           terrain library, character rig) + ODE benchmark
   spikes/s1_pingpong/     ping-pong render-target spike (risk S1)
@@ -119,7 +121,7 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 | 2 — rendering | partial — splat PBR, chunked terrain, instanced trees, HUD, migrated skyboxes. Tone matched to the original on Bunny Hill; no LightmapGI bake. Snow and ice carry procedural micro-relief, a twinkling crystal glint and a Fresnel sky reflection. |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror both wired; a carve leaves a track with a shaded trench, a self-occluded floor and a bright ploughed lip. |
 | 4 — character | rig + canned clips done, procedural layer not started — welded ArrayMesh from `shape.lst` **skinned** to a Skeleton3D with ETR joint names, the four keyframe lists as an AnimationLibrary plus a `KeyframePath` of root motion each, and the pre-race start animation (`CIntro`) wired into the race. No additive layer over racing (`AdjustJoints`); finish/wonrace/lostrace imported but not played. |
-| 5 — game shell | partial — `main_menu.tscn` is the main scene: Practice opens the course list, Configuration edits `penguinracer.cfg` graphically, and a race is a scene the shell hands over to and takes back. Generated course catalog, 13 languages wired to `tr()`, audio (10 effects + 10 pieces + 3 racing themes on an `AudioDirector` autoload that reproduces ETR's one-voice-per-cue mixer). No cups, medals or profiles (data is imported and waiting); no volume or language controls on the settings screen. |
+| 5 — game shell | partial — `main_menu.tscn` is the main scene: Practice opens the course list, Configuration edits `penguinracer.cfg` graphically, and a race is a scene the shell hands over to and takes back. Every screen wears `themes/etr_menu.tres`, so the shell reads as the original's: the flat `colBackgr` blue, white text, `colDYell` on whatever has focus, square white-outlined frames. Generated course catalog, 13 languages wired to `tr()`, audio (10 effects + 10 pieces + 3 racing themes on an `AudioDirector` autoload that reproduces ETR's one-voice-per-cue mixer). No cups, medals or profiles (data is imported and waiting); no volume or language controls on the settings screen; none of ETR's menu art (corner ornaments, title logo), which waits on the licence audit. |
 | 6 — polish/ship | not started. |
 
 ### Spikes
@@ -373,6 +375,14 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   menu, deliberately: that is how the shell itself gets verified. In a browser there is no command
   line, so `index.html?course=<dir>` says the same thing and is what keeps the web harness's
   `RACE_READY` arriving.
+- **A `Control`'s theme does not reach a `CanvasLayer`'s children.**
+  `Control::_propagate_theme_changed` recurses into `CanvasItem` and `Window` children and
+  nothing else, so a `CanvasLayer` under a themed `Control` is where propagation stops — the
+  labels inside it silently fall back to Godot's default theme, which on a menu means grey-on-blue
+  where every neighbouring screen is white-on-blue. Nothing warns; the panel just looks wrong.
+  Each of the shell's `CanvasLayer` screens therefore carries `themes/etr_menu.tres` on its own
+  top-level `Control` rather than inheriting one. `course_menu.tscn` would need that anyway: it is
+  instanced under `race.tscn` too, whose root is a `Node3D` with no theme to inherit.
 - **Directional shadows stop at `directional_shadow_max_distance`**, on a sphere around the camera.
   Set shorter than the visible slope it reads as an arc of shadow travelling in front of the
   player. It is derived from the environment's fog range in `RaceScene._shadow_range_for` — keep it
@@ -452,6 +462,16 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   the original interpolates the two angles separately and rebuilds both matrices. The two agree
   exactly whenever one angle is constant across a segment, which covers all of `start.lst` (no
   `[arm]` at all). A `Skeleton3D` rotation track offers no per-axis alternative.
+- **The menus reproduce ETR's palette, not its menu art.** `themes/etr_menu.tres` is the colour
+  table from `src/common.cpp` — `colBackgr` for the screen, `colMBackgr` behind a frame,
+  `colDBackgr` for a recessed fill, white text and outlines, `colDYell` for focus, `colLGrey` for
+  a secondary line — applied through Godot's theme system rather than by drawing SFML rectangles.
+  What is missing is the art `DrawGUIFrame`/`DrawGUIBackground` paint over it: the four corner
+  ornaments and the title logo, which are `etr-0.8.4/data/textures` assets and wait on the licence
+  audit. The falling `param.ui_snow` particles are missing for the same reason plus one more —
+  they are a menu-only particle system with no gameplay tie. ETR's checkbox is its own shape,
+  a ring with a cream tick, and is redrawn here as `themes/checkbox_{on,off}.png` rather than
+  copied, because Godot's default `CheckButton` switch is a dark slab that disappears on blue.
 - Numeric string IDs became semantic keys (`PRESS_ANY_KEY_TO_START`); old IDs are traceable via
   `i18n/legacy_string_ids.cfg`.
 
