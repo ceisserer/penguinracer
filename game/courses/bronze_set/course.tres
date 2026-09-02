@@ -1,33 +1,33 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_n4ws1"]
-[ext_resource type="Image" path="res://courses/bronze_set/heightmap.res" id="1_v2klh"]
-[ext_resource type="Texture2D" path="res://courses/bronze_set/preview.png" id="2_n4ws1"]
-[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_kidla"]
-[ext_resource type="Texture2D" path="res://courses/bronze_set/splat_0.png" id="4_1t6or"]
-[ext_resource type="Texture2D" path="res://courses/bronze_set/splat_1.png" id="5_gdbbb"]
-[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_24h7c"]
-[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="7_4lir1"]
-[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="8_76l2f"]
-[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="9_ov732"]
-[ext_resource type="Resource" path="res://resources/terrain/rock04.tres" id="10_vml87"]
-[ext_resource type="Resource" path="res://resources/terrain/rock06.tres" id="11_qpaep"]
-[ext_resource type="Resource" path="res://resources/terrain/rock01.tres" id="12_ay6ab"]
+[ext_resource type="Image" path="res://courses/bronze_set/heightmap.res" id="2_kidla"]
+[ext_resource type="Texture2D" path="res://courses/bronze_set/preview.png" id="3_1t6or"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_gdbbb"]
+[ext_resource type="Texture2D" path="res://courses/bronze_set/splat_0.png" id="5_24h7c"]
+[ext_resource type="Texture2D" path="res://courses/bronze_set/splat_1.png" id="6_4lir1"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="7_76l2f"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="8_ov732"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="9_vml87"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="10_qpaep"]
+[ext_resource type="Resource" path="res://resources/terrain/rock04.tres" id="11_ay6ab"]
+[ext_resource type="Resource" path="res://resources/terrain/rock06.tres" id="12_pnxxg"]
+[ext_resource type="Resource" path="res://resources/terrain/rock01.tres" id="13_rl887"]
 
 [resource]
-script = ExtResource("3_kidla")
+script = ExtResource("4_gdbbb")
 display_name = "Bronze Set"
 author = "S.ET."
 description = "Learn how to control our beloved Tux and enjoy the landscape."
-preview = ExtResource("2_n4ws1")
-heightmap = ExtResource("1_v2klh")
+preview = ExtResource("3_1t6or")
+heightmap = ExtResource("2_kidla")
 heightmap_size = Vector2i(199, 5999)
 world_size = Vector2(100, 3000)
 height_scale = 20.0
 base_angle = 20.0
-splat_maps = Array[Texture2D]([ExtResource("4_1t6or"), ExtResource("5_gdbbb")])
+splat_maps = Array[Texture2D]([ExtResource("5_24h7c"), ExtResource("6_4lir1")])
 splat_size = Vector2i(199, 5999)
-terrain_layers = Array[ExtResource("6_24h7c")]([ExtResource("7_4lir1"), ExtResource("8_76l2f"), ExtResource("9_ov732"), ExtResource("10_vml87"), ExtResource("11_qpaep"), ExtResource("12_ay6ab")])
+terrain_layers = Array[ExtResource("7_76l2f")]([ExtResource("8_ov732"), ExtResource("9_vml87"), ExtResource("10_qpaep"), ExtResource("11_ay6ab"), ExtResource("12_pnxxg"), ExtResource("13_rl887")])
 start_position = Vector2(50, 2)
 finish_line_z = -3000.0
 play_bounds = PackedVector2Array(0, 1, 100, 1, 100, -3020, 0, -3020)
@@ -36,3 +36,4 @@ environment_preset = ExtResource("1_n4ws1")
 use_keyframe = false
 imported_from = "extras/bronze_set"
 import_version = 1
+import_fingerprint = "20b4b2d8f23bbd6b9f9611cb7115069e92d7ba9205dd6a64e8a46da9a823f992"

@@ -1,29 +1,29 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_7ec0d"]
-[ext_resource type="Image" path="res://courses/the_long_ride/heightmap.res" id="1_d36y7"]
-[ext_resource type="Texture2D" path="res://courses/the_long_ride/preview.png" id="2_7ec0d"]
-[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_nylne"]
-[ext_resource type="Texture2D" path="res://courses/the_long_ride/splat_0.png" id="4_xfnru"]
-[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_7x25v"]
-[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="6_38kvc"]
-[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="7_7vlvl"]
-[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="8_2mom5"]
-[ext_resource type="Resource" path="res://resources/terrain/rock04.tres" id="9_jiwhh"]
+[ext_resource type="Image" path="res://courses/the_long_ride/heightmap.res" id="2_nylne"]
+[ext_resource type="Texture2D" path="res://courses/the_long_ride/preview.png" id="3_xfnru"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_7x25v"]
+[ext_resource type="Texture2D" path="res://courses/the_long_ride/splat_0.png" id="5_38kvc"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_7vlvl"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="7_2mom5"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="8_jiwhh"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="9_pke6p"]
+[ext_resource type="Resource" path="res://resources/terrain/rock04.tres" id="10_4aeod"]
 
 [resource]
-script = ExtResource("3_nylne")
+script = ExtResource("4_7x25v")
 display_name = "The Long Ride"
 author = "Siechfred"
-preview = ExtResource("2_7ec0d")
-heightmap = ExtResource("1_d36y7")
+preview = ExtResource("3_xfnru")
+heightmap = ExtResource("2_nylne")
 heightmap_size = Vector2i(159, 7999)
 world_size = Vector2(80, 4000)
 height_scale = 7.5
 base_angle = 30.0
-splat_maps = Array[Texture2D]([ExtResource("4_xfnru")])
+splat_maps = Array[Texture2D]([ExtResource("5_38kvc")])
 splat_size = Vector2i(159, 7999)
-terrain_layers = Array[ExtResource("5_7x25v")]([ExtResource("6_38kvc"), ExtResource("7_7vlvl"), ExtResource("8_2mom5"), ExtResource("9_jiwhh")])
+terrain_layers = Array[ExtResource("6_7vlvl")]([ExtResource("7_2mom5"), ExtResource("8_jiwhh"), ExtResource("9_pke6p"), ExtResource("10_4aeod")])
 start_position = Vector2(45, 5)
 finish_line_z = -4000.0
 play_bounds = PackedVector2Array(0, 1, 80, 1, 80, -4020, 0, -4020)
@@ -32,3 +32,4 @@ environment_preset = ExtResource("1_7ec0d")
 use_keyframe = false
 imported_from = "extras/the_long_ride"
 import_version = 1
+import_fingerprint = "254c06e87fd3a5fd98db9ebaf9e3e2c782785fbe5228ce4fe3b7619618076c93"

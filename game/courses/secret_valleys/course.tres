@@ -1,27 +1,27 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_ek6q8"]
-[ext_resource type="Image" path="res://courses/secret_valleys/heightmap.res" id="1_fue4j"]
-[ext_resource type="Texture2D" path="res://courses/secret_valleys/preview.png" id="2_ek6q8"]
-[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_fp31k"]
-[ext_resource type="Texture2D" path="res://courses/secret_valleys/splat_0.png" id="4_u4soh"]
-[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_f33vd"]
-[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="6_pyb35"]
-[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="7_c0hlo"]
+[ext_resource type="Image" path="res://courses/secret_valleys/heightmap.res" id="2_fp31k"]
+[ext_resource type="Texture2D" path="res://courses/secret_valleys/preview.png" id="3_u4soh"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_f33vd"]
+[ext_resource type="Texture2D" path="res://courses/secret_valleys/splat_0.png" id="5_pyb35"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_c0hlo"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="7_gtf6l"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="8_k2yr4"]
 
 [resource]
-script = ExtResource("3_fp31k")
+script = ExtResource("4_f33vd")
 display_name = "Secret Valleys"
 author = "Reinhard Niehoff"
 description = "Hidden places, some of them not easy to discover. There are 10 groups of dead trees - try to find them."
-preview = ExtResource("2_ek6q8")
-heightmap = ExtResource("1_fue4j")
+preview = ExtResource("3_u4soh")
+heightmap = ExtResource("2_fp31k")
 heightmap_size = Vector2i(199, 1999)
 world_size = Vector2(100, 2000)
 height_scale = 12.0
-splat_maps = Array[Texture2D]([ExtResource("4_u4soh")])
+splat_maps = Array[Texture2D]([ExtResource("5_pyb35")])
 splat_size = Vector2i(199, 1999)
-terrain_layers = Array[ExtResource("5_f33vd")]([ExtResource("6_pyb35"), ExtResource("7_c0hlo")])
+terrain_layers = Array[ExtResource("6_c0hlo")]([ExtResource("7_gtf6l"), ExtResource("8_k2yr4")])
 start_position = Vector2(50, 3)
 finish_line_z = -1980.0
 play_bounds = PackedVector2Array(2.5, 1, 97.5, 1, 97.5, -2000, 2.5, -2000)
@@ -30,3 +30,4 @@ environment_preset = ExtResource("1_ek6q8")
 use_keyframe = false
 imported_from = "default/secret_valleys"
 import_version = 1
+import_fingerprint = "78b32bce939ed664c7076de9cef2180812bdaf10dcdad79bf54c5bca47b9522b"

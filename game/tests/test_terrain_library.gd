@@ -25,6 +25,8 @@ static func run(t: TestCase) -> void:
 	_identity(t, layers)
 	_matches_source(t, layers)
 	_repeated_name(t, layers)
+	_shading_table(t, layers)
+	_provenance(t, layers)
 
 static func _load_all(t: TestCase) -> Array[TerrainLayer]:
 	t.begin("terrain library/on disk")
@@ -127,3 +129,58 @@ static func _repeated_name(t: TestCase, layers: Array[TerrainLayer]) -> void:
 	# one untextured too — asserted so that giving it an albedo is a deliberate
 	# deviation rather than an unnoticed one.
 	t.ok(pave[0].albedo == null, "the first pave04 has no texture to import")
+
+## The rendering half: roughness is authored per layer rather than derived in
+## `TerrainRenderer`, so the value that used to be a hardcoded 0.25/0.85 now has
+## to actually be in the file. A library where every layer took the script
+## default would look right on rock and wrong on all seven ice terrains, and
+## nothing else would notice.
+static func _shading_table(t: TestCase, layers: Array[TerrainLayer]) -> void:
+	t.begin("terrain library/shading table")
+	var ice_count: int = 0
+	var shiny_count: int = 0
+	for layer: TerrainLayer in layers:
+		if layer.shiny:
+			shiny_count += 1
+		t.ok(layer.roughness >= 0.0 and layer.roughness <= 1.0,
+			"'%s' has a roughness in range (%.2f)" % [layer.id, layer.roughness])
+		t.ok(layer.uv_scale > 0.0,
+			"'%s' has a positive repeat length (%.2f m)" % [layer.id, layer.uv_scale])
+		if layer.is_ice():
+			ice_count += 1
+			t.eq_f(layer.roughness, 0.25, 1e-6, "ice '%s' is smooth" % layer.id)
+			t.eq_f(layer.friction, 0.2, 1e-6,
+				"ice '%s' is ETR ice, not merely smooth" % layer.id)
+		else:
+			t.eq_f(layer.roughness, 0.85, 1e-6, "'%s' is rough" % layer.id)
+	# Seven records are ice and ETR marks only three of them `[shiny]` — ice1,
+	# ice2 and greenice. The friction clause is carrying hockey_ice, snowy_ice,
+	# snowy_greenice and snowy_hockey_ice, i.e. the majority, which is why it
+	# exists. It works because exactly these seven are `[friction] 0.2` and the
+	# next lowest terrain in the file is 0.3. If a future edit puts something at
+	# 0.25 this assertion is what notices.
+	t.ok(ice_count == 7, "seven terrains shade as ice (%d)" % ice_count)
+	t.ok(shiny_count == 3, "only three of them are marked shiny (%d)" % shiny_count)
+
+## Provenance: the committed library has to still hash to what the importer
+## wrote, and an edit has to be detectable. Without the second assertion the
+## first one passes trivially on a mechanism that never fires.
+static func _provenance(t: TestCase, layers: Array[TerrainLayer]) -> void:
+	t.begin("terrain library/provenance")
+	for layer: TerrainLayer in layers:
+		t.ok(not layer.import_fingerprint.is_empty(),
+			"'%s' records what the importer wrote" % layer.id)
+		t.ok(not layer.edited_since_import(),
+			"'%s' is unedited, so a re-import may overwrite it" % layer.id)
+
+	# Mutate a copy and watch the guard trip. `duplicate()` leaves the stored
+	# fingerprint alone, which is exactly the state a hand-edited file is in.
+	var probe: TerrainLayer = layers[0].duplicate()
+	probe.import_fingerprint = probe.fingerprint()
+	t.ok(not probe.edited_since_import(), "an untouched copy is still clean")
+	probe.friction += 0.1
+	t.ok(probe.edited_since_import(), "a changed friction is noticed")
+	probe.friction -= 0.1
+	t.ok(not probe.edited_since_import(), "and un-noticed when it is put back")
+	probe.albedo = null
+	t.ok(probe.edited_since_import(), "a changed albedo is noticed too")

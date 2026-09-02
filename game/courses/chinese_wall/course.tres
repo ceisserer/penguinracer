@@ -1,29 +1,29 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_nk248"]
-[ext_resource type="Image" path="res://courses/chinese_wall/heightmap.res" id="1_o1xjb"]
-[ext_resource type="Texture2D" path="res://courses/chinese_wall/preview.png" id="2_nk248"]
-[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_d77du"]
-[ext_resource type="Texture2D" path="res://courses/chinese_wall/splat_0.png" id="4_dbeur"]
-[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_6kmat"]
-[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="6_d7akt"]
-[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="7_sfxqq"]
-[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="8_614qp"]
+[ext_resource type="Image" path="res://courses/chinese_wall/heightmap.res" id="2_d77du"]
+[ext_resource type="Texture2D" path="res://courses/chinese_wall/preview.png" id="3_dbeur"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_6kmat"]
+[ext_resource type="Texture2D" path="res://courses/chinese_wall/splat_0.png" id="5_d7akt"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_sfxqq"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="7_614qp"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="8_3tkbu"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="9_petea"]
 
 [resource]
-script = ExtResource("3_d77du")
+script = ExtResource("4_6kmat")
 display_name = "The Chinese Wall"
 author = "Reinhard Niehoff"
 description = "Try to keep the top of the wall. In the case of falling down you need to find a ramp to jump back on the wall."
-preview = ExtResource("2_nk248")
-heightmap = ExtResource("1_o1xjb")
+preview = ExtResource("3_dbeur")
+heightmap = ExtResource("2_d77du")
 heightmap_size = Vector2i(199, 1999)
 world_size = Vector2(100, 1500)
 height_scale = 12.0
 base_angle = 30.0
-splat_maps = Array[Texture2D]([ExtResource("4_dbeur")])
+splat_maps = Array[Texture2D]([ExtResource("5_d7akt")])
 splat_size = Vector2i(199, 1999)
-terrain_layers = Array[ExtResource("5_6kmat")]([ExtResource("6_d7akt"), ExtResource("7_sfxqq"), ExtResource("8_614qp")])
+terrain_layers = Array[ExtResource("6_sfxqq")]([ExtResource("7_614qp"), ExtResource("8_3tkbu"), ExtResource("9_petea")])
 start_position = Vector2(50, 3)
 finish_line_z = -1485.0
 play_bounds = PackedVector2Array(2.5, 1, 97.5, 1, 97.5, -1505, 2.5, -1505)
@@ -32,3 +32,4 @@ environment_preset = ExtResource("1_nk248")
 use_keyframe = false
 imported_from = "default/chinese_wall"
 import_version = 1
+import_fingerprint = "1aa3c9907b914f60f1ae89c97bdcf63b2f22f42a9bbaad6f743bd8ba2daa5456"

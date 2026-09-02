@@ -14,3 +14,4 @@ is_deformable = false
 legacy_color = Color(1, 0.9019608, 1, 1)
 legacy_name = &"strike_snow"
 legacy_index = 7
+import_fingerprint = "40351e5b4a898420a2369ac9bd211c600474acf7b0f66d44845c3c23437ae7b3"

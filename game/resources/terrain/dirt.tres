@@ -16,3 +16,4 @@ is_deformable = false
 legacy_color = Color(0.8235294, 0.8235294, 0, 1)
 legacy_name = &"dirt"
 legacy_index = 22
+import_fingerprint = "9f57017083d122e1fd00bcc8d4df9477d6a54f40af5325610a2fdd0cbd6d25fd"

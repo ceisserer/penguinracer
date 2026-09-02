@@ -1,28 +1,28 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_5653t"]
-[ext_resource type="Image" path="res://courses/follow_white_rabbit/heightmap.res" id="1_o3b1k"]
-[ext_resource type="Texture2D" path="res://courses/follow_white_rabbit/preview.png" id="2_5653t"]
-[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_uyk5o"]
-[ext_resource type="Texture2D" path="res://courses/follow_white_rabbit/splat_0.png" id="4_cpnat"]
-[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_tdjgj"]
-[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="6_usigg"]
-[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="7_2pgn3"]
+[ext_resource type="Image" path="res://courses/follow_white_rabbit/heightmap.res" id="2_uyk5o"]
+[ext_resource type="Texture2D" path="res://courses/follow_white_rabbit/preview.png" id="3_cpnat"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_tdjgj"]
+[ext_resource type="Texture2D" path="res://courses/follow_white_rabbit/splat_0.png" id="5_usigg"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_2pgn3"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="7_k10iy"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="8_1prdr"]
 
 [resource]
-script = ExtResource("3_uyk5o")
+script = ExtResource("4_tdjgj")
 display_name = "Follow the White Rabbit"
 author = "Korora the Penguin"
 description = "The Matrix has you. To get out, watch out for Agents (the first turnoff on your right) and do NOT take any blue pills (herring, found in the first two turnoffs on the left)."
-preview = ExtResource("2_5653t")
-heightmap = ExtResource("1_o3b1k")
+preview = ExtResource("3_cpnat")
+heightmap = ExtResource("2_uyk5o")
 heightmap_size = Vector2i(255, 1249)
 world_size = Vector2(128, 625)
 height_scale = 42.0
 base_angle = 30.0
-splat_maps = Array[Texture2D]([ExtResource("4_cpnat")])
+splat_maps = Array[Texture2D]([ExtResource("5_usigg")])
 splat_size = Vector2i(255, 1249)
-terrain_layers = Array[ExtResource("5_tdjgj")]([ExtResource("6_usigg"), ExtResource("7_2pgn3")])
+terrain_layers = Array[ExtResource("6_2pgn3")]([ExtResource("7_k10iy"), ExtResource("8_1prdr")])
 start_position = Vector2(80, 0)
 finish_line_z = -625.0
 play_bounds = PackedVector2Array(0, 1, 128, 1, 128, -645, 0, -645)
@@ -31,3 +31,4 @@ environment_preset = ExtResource("1_5653t")
 use_keyframe = false
 imported_from = "extras/follow_white_rabbit"
 import_version = 1
+import_fingerprint = "e80583e5f7d0ae1953b679c1a5276381ed74ea4725c7313349582f9ff009778f"

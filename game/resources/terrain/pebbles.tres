@@ -16,3 +16,4 @@ is_deformable = false
 legacy_color = Color(0.5882353, 0, 0, 1)
 legacy_name = &"pebbles"
 legacy_index = 26
+import_fingerprint = "552c10ea09eeffb1c556017d48cca8875c15d460d15f435d224916f4d0570458"

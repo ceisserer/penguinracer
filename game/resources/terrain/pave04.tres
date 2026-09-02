@@ -13,3 +13,4 @@ is_deformable = false
 legacy_color = Color(0.3529412, 0, 0, 1)
 legacy_name = &"pave04"
 legacy_index = 24
+import_fingerprint = "5cdaae2546c9b5c9d296e8f8bc335fbc772377cbb8515492a24222e1aa50ec55"

@@ -1,32 +1,32 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
-[ext_resource type="Image" path="res://courses/pygoscelis_adeliae/heightmap.res" id="1_s4gly"]
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_y882j"]
-[ext_resource type="Texture2D" path="res://courses/pygoscelis_adeliae/preview.png" id="2_y882j"]
-[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_hwyy6"]
-[ext_resource type="Texture2D" path="res://courses/pygoscelis_adeliae/splat_0.png" id="4_m4aba"]
-[ext_resource type="Texture2D" path="res://courses/pygoscelis_adeliae/splat_1.png" id="5_xg65k"]
-[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_ll2ja"]
-[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="7_tl5qm"]
-[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="8_idygm"]
-[ext_resource type="Resource" path="res://resources/terrain/rock04.tres" id="9_2e4lc"]
-[ext_resource type="Resource" path="res://resources/terrain/rock06.tres" id="10_30gb7"]
-[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="11_niwn0"]
-[ext_resource type="Resource" path="res://resources/terrain/rock01.tres" id="12_72ktr"]
+[ext_resource type="Image" path="res://courses/pygoscelis_adeliae/heightmap.res" id="2_hwyy6"]
+[ext_resource type="Texture2D" path="res://courses/pygoscelis_adeliae/preview.png" id="3_m4aba"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_xg65k"]
+[ext_resource type="Texture2D" path="res://courses/pygoscelis_adeliae/splat_0.png" id="5_ll2ja"]
+[ext_resource type="Texture2D" path="res://courses/pygoscelis_adeliae/splat_1.png" id="6_tl5qm"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="7_idygm"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="8_2e4lc"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="9_30gb7"]
+[ext_resource type="Resource" path="res://resources/terrain/rock04.tres" id="10_niwn0"]
+[ext_resource type="Resource" path="res://resources/terrain/rock06.tres" id="11_72ktr"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="12_b7qkm"]
+[ext_resource type="Resource" path="res://resources/terrain/rock01.tres" id="13_uswhl"]
 
 [resource]
-script = ExtResource("3_hwyy6")
+script = ExtResource("4_xg65k")
 display_name = "Pygoscelis adeliae"
 author = "Korora the Penguin"
-preview = ExtResource("2_y882j")
-heightmap = ExtResource("1_s4gly")
+preview = ExtResource("3_m4aba")
+heightmap = ExtResource("2_hwyy6")
 heightmap_size = Vector2i(127, 2047)
 world_size = Vector2(64, 1024)
 height_scale = 4.2
 base_angle = 36.0
-splat_maps = Array[Texture2D]([ExtResource("4_m4aba"), ExtResource("5_xg65k")])
+splat_maps = Array[Texture2D]([ExtResource("5_ll2ja"), ExtResource("6_tl5qm")])
 splat_size = Vector2i(127, 2047)
-terrain_layers = Array[ExtResource("6_ll2ja")]([ExtResource("7_tl5qm"), ExtResource("8_idygm"), ExtResource("9_2e4lc"), ExtResource("10_30gb7"), ExtResource("11_niwn0"), ExtResource("12_72ktr")])
+terrain_layers = Array[ExtResource("7_idygm")]([ExtResource("8_2e4lc"), ExtResource("9_30gb7"), ExtResource("10_niwn0"), ExtResource("11_72ktr"), ExtResource("12_b7qkm"), ExtResource("13_uswhl")])
 start_position = Vector2(29, 0)
 finish_line_z = -1024.0
 play_bounds = PackedVector2Array(0, 1, 64, 1, 64, -1044, 0, -1044)
@@ -35,3 +35,4 @@ environment_preset = ExtResource("1_y882j")
 use_keyframe = false
 imported_from = "extras/pygoscelis_adeliae"
 import_version = 1
+import_fingerprint = "2ede090be80023c0169df18ac2dbc4f5abc5448dc98eb707b8d0e9d7057a2c21"

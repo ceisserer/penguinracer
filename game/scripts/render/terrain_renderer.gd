@@ -57,11 +57,19 @@ func _build_material() -> ShaderMaterial:
 	var roughness := [0.85, 0.85, 0.85, 0.85, 0.85, 0.85, 0.85, 0.85]
 	var snowness := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 	var iceness := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+	# Unused slots keep a legal repeat length: the shader divides by these, and
+	# `layer_count` gates the sample but not the uniform.
+	var uv_scales := [6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0]
 	for i: int in mini(layers.size(), 8):
 		if layers[i].albedo != null:
 			mat.set_shader_parameter("albedo_%d" % i, layers[i].albedo)
 		var ice: bool = layers[i].is_ice()
-		roughness[i] = 0.25 if ice else 0.85
+		# Authored on the layer, not derived here. The importer seeds it from
+		# `is_ice()` with the 0.25/0.85 this line used to hardcode, so the
+		# migrated library lands on exactly the values it always had — but a
+		# terrain that wants to be rougher than its neighbours can now say so.
+		roughness[i] = layers[i].roughness
+		uv_scales[i] = layers[i].uv_scale
 		iceness[i] = 1.0 if ice else 0.0
 		# `is_deformable` is the migrated "snow deforms, rock does not" flag,
 		# which is exactly the distinction the wrap, micro-relief and glint
@@ -72,7 +80,7 @@ func _build_material() -> ShaderMaterial:
 	_set_layer_table(mat, "layer_roughness", roughness)
 	_set_layer_table(mat, "layer_snowness", snowness)
 	_set_layer_table(mat, "layer_iceness", iceness)
-	mat.set_shader_parameter("uv_scale", layers[0].uv_scale if layers.size() > 0 else 6.0)
+	_set_layer_table(mat, "layer_uv_scale", uv_scales)
 	mat.set_shader_parameter("sparkle_noise", _sparkle_texture())
 	mat.set_shader_parameter("detail_map", _detail_texture())
 	mat.set_shader_parameter("detail_gradient_scale", _detail_gradient_scale)

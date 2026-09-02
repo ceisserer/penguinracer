@@ -1,34 +1,34 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
-[ext_resource type="Image" path="res://courses/snow_run_1/heightmap.res" id="1_1pn8l"]
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_eb86d"]
-[ext_resource type="Texture2D" path="res://courses/snow_run_1/preview.png" id="2_eb86d"]
-[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_2476w"]
-[ext_resource type="Texture2D" path="res://courses/snow_run_1/splat_0.png" id="4_qqlos"]
-[ext_resource type="Texture2D" path="res://courses/snow_run_1/splat_1.png" id="5_pdflo"]
-[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_kk7f7"]
-[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="7_kfjbs"]
-[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="8_eu0m1"]
-[ext_resource type="Resource" path="res://resources/terrain/rock06.tres" id="9_3bf1u"]
-[ext_resource type="Resource" path="res://resources/terrain/rock04.tres" id="10_ksd45"]
-[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="11_ppndt"]
-[ext_resource type="Resource" path="res://resources/terrain/rock01.tres" id="12_fvxht"]
-[ext_resource type="Resource" path="res://resources/terrain/snowy_rock06.tres" id="13_8eylh"]
+[ext_resource type="Image" path="res://courses/snow_run_1/heightmap.res" id="2_2476w"]
+[ext_resource type="Texture2D" path="res://courses/snow_run_1/preview.png" id="3_qqlos"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_pdflo"]
+[ext_resource type="Texture2D" path="res://courses/snow_run_1/splat_0.png" id="5_kk7f7"]
+[ext_resource type="Texture2D" path="res://courses/snow_run_1/splat_1.png" id="6_kfjbs"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="7_eu0m1"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="8_3bf1u"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="9_ksd45"]
+[ext_resource type="Resource" path="res://resources/terrain/rock06.tres" id="10_ppndt"]
+[ext_resource type="Resource" path="res://resources/terrain/rock04.tres" id="11_fvxht"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="12_8eylh"]
+[ext_resource type="Resource" path="res://resources/terrain/rock01.tres" id="13_7u7h7"]
+[ext_resource type="Resource" path="res://resources/terrain/snowy_rock06.tres" id="14_pkiwa"]
 
 [resource]
-script = ExtResource("3_2476w")
+script = ExtResource("4_pdflo")
 display_name = "Snow Run 1"
 author = "Tom Kocourek"
 description = "Try to sled your way down this course."
-preview = ExtResource("2_eb86d")
-heightmap = ExtResource("1_1pn8l")
+preview = ExtResource("3_qqlos")
+heightmap = ExtResource("2_2476w")
 heightmap_size = Vector2i(399, 2999)
 world_size = Vector2(200, 1500)
 height_scale = 8.0
 base_angle = 30.0
-splat_maps = Array[Texture2D]([ExtResource("4_qqlos"), ExtResource("5_pdflo")])
+splat_maps = Array[Texture2D]([ExtResource("5_kk7f7"), ExtResource("6_kfjbs")])
 splat_size = Vector2i(399, 2999)
-terrain_layers = Array[ExtResource("6_kk7f7")]([ExtResource("7_kfjbs"), ExtResource("8_eu0m1"), ExtResource("9_3bf1u"), ExtResource("10_ksd45"), ExtResource("11_ppndt"), ExtResource("12_fvxht"), ExtResource("13_8eylh")])
+terrain_layers = Array[ExtResource("7_eu0m1")]([ExtResource("8_3bf1u"), ExtResource("9_ksd45"), ExtResource("10_ppndt"), ExtResource("11_fvxht"), ExtResource("12_8eylh"), ExtResource("13_7u7h7"), ExtResource("14_pkiwa")])
 start_position = Vector2(104, 6)
 finish_line_z = -1490.0
 play_bounds = PackedVector2Array(5, 1, 195, 1, 195, -1510, 5, -1510)
@@ -37,3 +37,4 @@ environment_preset = ExtResource("1_eb86d")
 use_keyframe = false
 imported_from = "extras/snow_run_1"
 import_version = 1
+import_fingerprint = "8f5ad04108256be954a0a7b26ae292e6fede884c42db8b6dec894789c63c8512"

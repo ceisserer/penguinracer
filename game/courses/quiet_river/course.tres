@@ -1,28 +1,28 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
-[ext_resource type="Image" path="res://courses/quiet_river/heightmap.res" id="1_8wc3q"]
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_to68l"]
-[ext_resource type="Texture2D" path="res://courses/quiet_river/preview.png" id="2_to68l"]
-[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_nr1yl"]
-[ext_resource type="Texture2D" path="res://courses/quiet_river/splat_0.png" id="4_sg7td"]
-[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_rd335"]
-[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="6_11rsg"]
-[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="7_aql7c"]
-[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="8_vt7fq"]
+[ext_resource type="Image" path="res://courses/quiet_river/heightmap.res" id="2_nr1yl"]
+[ext_resource type="Texture2D" path="res://courses/quiet_river/preview.png" id="3_sg7td"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_rd335"]
+[ext_resource type="Texture2D" path="res://courses/quiet_river/splat_0.png" id="5_11rsg"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_aql7c"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="7_vt7fq"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="8_p7kcb"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="9_msu7u"]
 
 [resource]
-script = ExtResource("3_nr1yl")
+script = ExtResource("4_rd335")
 display_name = "Quiet River"
 author = "BlankHare"
 description = "This one is willingly a very fast and technical ride. Keeping the pace and getting all the herrings will be quite tricky (yes, it _is_ possible) and it's easyer to \"fall\" of the frosen rivver than to come back on it."
-preview = ExtResource("2_to68l")
-heightmap = ExtResource("1_8wc3q")
+preview = ExtResource("3_sg7td")
+heightmap = ExtResource("2_nr1yl")
 heightmap_size = Vector2i(199, 1999)
 world_size = Vector2(50, 2000)
 height_scale = 12.0
-splat_maps = Array[Texture2D]([ExtResource("4_sg7td")])
+splat_maps = Array[Texture2D]([ExtResource("5_11rsg")])
 splat_size = Vector2i(199, 1999)
-terrain_layers = Array[ExtResource("5_rd335")]([ExtResource("6_11rsg"), ExtResource("7_aql7c"), ExtResource("8_vt7fq")])
+terrain_layers = Array[ExtResource("6_aql7c")]([ExtResource("7_vt7fq"), ExtResource("8_p7kcb"), ExtResource("9_msu7u")])
 start_position = Vector2(20, 3)
 finish_line_z = -2000.0
 play_bounds = PackedVector2Array(0.5, 1, 49.5, 1, 49.5, -2020, 0.5, -2020)
@@ -31,3 +31,4 @@ environment_preset = ExtResource("1_to68l")
 use_keyframe = false
 imported_from = "default/quiet_river"
 import_version = 1
+import_fingerprint = "3a6dd560c9d92ad4b68959aef72777eeb6851cf2bb18172fa54b54bfbccc50c7"

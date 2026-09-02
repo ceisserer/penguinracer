@@ -16,3 +16,4 @@ is_deformable = false
 legacy_color = Color(0.7058824, 0.7058824, 0, 1)
 legacy_name = &"mud"
 legacy_index = 23
+import_fingerprint = "03e5f626ae70faa4d38abc39251b07888ecafcd38574ff38e3a7262813756a48"

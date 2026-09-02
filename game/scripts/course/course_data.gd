@@ -50,11 +50,49 @@ extends Resource
 @export var use_keyframe: bool = true
 
 @export_group("Provenance")
-## Set by the importer. Cleared when a designer edits the course in-editor,
-## after which re-import refuses to overwrite without an explicit flag.
 @export var imported_from: String = ""
 @export var import_version: int = 0
+## Explicit "hands off": tick it in the Inspector and re-import skips this
+## course until someone passes `--force`.
+##
+## It used to be documented as being cleared when a designer edits the course
+## in-editor, but nothing ever set it — the importer was its only writer, and it
+## only ever wrote `false`. The automatic half of that promise is now
+## [method fingerprint]; this stays as the manual override, which is worth
+## having for a course whose edits are not yet made.
 @export var modified_in_editor: bool = false
+## Hash of the authored fields, as the importer last wrote them.
+@export var import_fingerprint: String = ""
+
+## Hash of what a designer can change from the Inspector, for detecting an edit
+## the importer did not make. See [method TerrainLayer.fingerprint] for why
+## provenance is recorded rather than observed.
+##
+## Covers the fields, not the generated bulk: the heightmap [Image] and the
+## splat textures are external resources at fixed paths, and a course whose
+## heightmap was repainted has a different `.res` file rather than a different
+## `course.tres`.
+func fingerprint() -> String:
+	var layer_ids: PackedStringArray = PackedStringArray()
+	for layer: TerrainLayer in terrain_layers:
+		layer_ids.push_back(String(layer.id) if layer != null else "<null>")
+	var env_path: String = ""
+	if environment_preset != null:
+		env_path = environment_preset.resource_path
+	return "|".join([
+		display_name, author, description,
+		str(heightmap_size), str(world_size), "%.6f" % height_scale,
+		"%.6f" % base_angle, str(splat_size), ",".join(layer_ids),
+		str(start_position), "%.6f" % finish_line_z, str(play_bounds),
+		str(play_size), env_path, String(music_theme),
+		"%.6f" % finish_brake, str(use_keyframe),
+		imported_from, str(import_version), str(modified_in_editor),
+	]).sha256_text()
+
+## Whether this resource still holds what the importer wrote. An empty
+## fingerprint is unknown provenance and counts as unedited.
+func edited_since_import() -> bool:
+	return not import_fingerprint.is_empty() and fingerprint() != import_fingerprint
 
 ## Rectangular play bounds as a polygon, matching the original's inset box.
 func default_play_bounds() -> PackedVector2Array:

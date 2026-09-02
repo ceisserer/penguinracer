@@ -16,3 +16,4 @@ is_deformable = false
 legacy_color = Color(0, 0.47058824, 0.23529412, 1)
 legacy_name = &"grass02"
 legacy_index = 39
+import_fingerprint = "5d4bcde3112e5dddbbc2f9cddba83894b881f2d5db2bbdc95c21778ab4587f3d"

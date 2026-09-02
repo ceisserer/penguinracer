@@ -28,3 +28,4 @@ environment_preset = ExtResource("1_oxqyc")
 use_keyframe = false
 imported_from = "extras/twists"
 import_version = 1
+import_fingerprint = "abdd2a781e25441db1efcf129f131193c17846ba79fb18f039a7c9417b9a9840"

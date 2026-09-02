@@ -1,33 +1,33 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_f50mr"]
-[ext_resource type="Image" path="res://courses/el_reto/heightmap.res" id="1_pnq0f"]
-[ext_resource type="Texture2D" path="res://courses/el_reto/preview.png" id="2_f50mr"]
-[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_vvp5n"]
-[ext_resource type="Texture2D" path="res://courses/el_reto/splat_0.png" id="4_46c1l"]
-[ext_resource type="Texture2D" path="res://courses/el_reto/splat_1.png" id="5_p08qx"]
-[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_6l7yq"]
-[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="7_wcnwa"]
-[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="8_cfacn"]
-[ext_resource type="Resource" path="res://resources/terrain/rock01.tres" id="9_iq6kc"]
-[ext_resource type="Resource" path="res://resources/terrain/rock06.tres" id="10_3dfn8"]
-[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="11_alme7"]
-[ext_resource type="Resource" path="res://resources/terrain/rock04.tres" id="12_gcx8n"]
+[ext_resource type="Image" path="res://courses/el_reto/heightmap.res" id="2_vvp5n"]
+[ext_resource type="Texture2D" path="res://courses/el_reto/preview.png" id="3_46c1l"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_p08qx"]
+[ext_resource type="Texture2D" path="res://courses/el_reto/splat_0.png" id="5_6l7yq"]
+[ext_resource type="Texture2D" path="res://courses/el_reto/splat_1.png" id="6_wcnwa"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="7_cfacn"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="8_iq6kc"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="9_3dfn8"]
+[ext_resource type="Resource" path="res://resources/terrain/rock01.tres" id="10_alme7"]
+[ext_resource type="Resource" path="res://resources/terrain/rock06.tres" id="11_gcx8n"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="12_q6feb"]
+[ext_resource type="Resource" path="res://resources/terrain/rock04.tres" id="13_8ahir"]
 
 [resource]
-script = ExtResource("3_vvp5n")
+script = ExtResource("4_p08qx")
 display_name = "El Reto"
 author = "garions"
 description = "Fast course."
-preview = ExtResource("2_f50mr")
-heightmap = ExtResource("1_pnq0f")
+preview = ExtResource("3_46c1l")
+heightmap = ExtResource("2_vvp5n")
 heightmap_size = Vector2i(199, 5749)
 world_size = Vector2(100, 2875)
 height_scale = 10.0
 base_angle = 29.0
-splat_maps = Array[Texture2D]([ExtResource("4_46c1l"), ExtResource("5_p08qx")])
+splat_maps = Array[Texture2D]([ExtResource("5_6l7yq"), ExtResource("6_wcnwa")])
 splat_size = Vector2i(199, 5749)
-terrain_layers = Array[ExtResource("6_6l7yq")]([ExtResource("7_wcnwa"), ExtResource("8_cfacn"), ExtResource("9_iq6kc"), ExtResource("10_3dfn8"), ExtResource("11_alme7"), ExtResource("12_gcx8n")])
+terrain_layers = Array[ExtResource("7_cfacn")]([ExtResource("8_iq6kc"), ExtResource("9_3dfn8"), ExtResource("10_alme7"), ExtResource("11_gcx8n"), ExtResource("12_q6feb"), ExtResource("13_8ahir")])
 start_position = Vector2(50, 2)
 finish_line_z = -2875.0
 play_bounds = PackedVector2Array(0, 1, 100, 1, 100, -2895, 0, -2895)
@@ -36,3 +36,4 @@ environment_preset = ExtResource("1_f50mr")
 use_keyframe = false
 imported_from = "extras/el_reto"
 import_version = 1
+import_fingerprint = "39e80ed3db976d76dbf4bbcf74b412228d50b3f49762655820b9e2f4c7f40361"

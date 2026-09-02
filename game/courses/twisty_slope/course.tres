@@ -1,29 +1,30 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
-[ext_resource type="Image" path="res://courses/twisty_slope/heightmap.res" id="1_atopj"]
 [ext_resource type="Resource" path="res://resources/environments/tuxracer_sunny.tres" id="1_m5hom"]
-[ext_resource type="Texture2D" path="res://courses/twisty_slope/preview.png" id="2_m5hom"]
-[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_uvujk"]
-[ext_resource type="Texture2D" path="res://courses/twisty_slope/splat_0.png" id="4_qx86s"]
-[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_30y56"]
-[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="6_hn618"]
-[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="7_1ljcs"]
-[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="8_cl16v"]
+[ext_resource type="Image" path="res://courses/twisty_slope/heightmap.res" id="2_uvujk"]
+[ext_resource type="Texture2D" path="res://courses/twisty_slope/preview.png" id="3_qx86s"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_30y56"]
+[ext_resource type="Texture2D" path="res://courses/twisty_slope/splat_0.png" id="5_hn618"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_1ljcs"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="7_cl16v"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="8_3ctcc"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="9_fm3to"]
 
 [resource]
-script = ExtResource("3_uvujk")
+script = ExtResource("4_30y56")
 display_name = "Twisty Slope"
 author = "Jasmin Patry"
 description = "Tight twists make grabbing herring difficult. Hard turns and not too much braking will lead you to victory."
-preview = ExtResource("2_m5hom")
-heightmap = ExtResource("1_atopj")
+preview = ExtResource("3_qx86s")
+heightmap = ExtResource("2_uvujk")
 heightmap_size = Vector2i(179, 519)
-splat_maps = Array[Texture2D]([ExtResource("4_qx86s")])
+splat_maps = Array[Texture2D]([ExtResource("5_hn618")])
 splat_size = Vector2i(179, 519)
-terrain_layers = Array[ExtResource("5_30y56")]([ExtResource("6_hn618"), ExtResource("7_1ljcs"), ExtResource("8_cl16v")])
+terrain_layers = Array[ExtResource("6_1ljcs")]([ExtResource("7_cl16v"), ExtResource("8_3ctcc"), ExtResource("9_fm3to")])
 play_bounds = PackedVector2Array(17.5, 1, 72.5, 1, 72.5, -490, 17.5, -490)
 play_size = Vector2(55, 470)
 environment_preset = ExtResource("1_m5hom")
 finish_brake = 15.0
 imported_from = "default/twisty_slope"
 import_version = 1
+import_fingerprint = "09a144fd4c7b039a3ce1f0a1e8a24b5e8edec4e8d6ed0205b3d8eb1030177429"

@@ -15,3 +15,4 @@ is_deformable = false
 legacy_color = Color(1, 0.7058824, 0.5882353, 1)
 legacy_name = &"snowy_pebbles"
 legacy_index = 33
+import_fingerprint = "2df2154ffa9ddfcb23a0ae09640654048a7424d645725d666f27fbddd7c21b84"

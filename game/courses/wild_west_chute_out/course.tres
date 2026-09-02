@@ -1,28 +1,28 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_n6c3v"]
-[ext_resource type="Image" path="res://courses/wild_west_chute_out/heightmap.res" id="1_vmypl"]
-[ext_resource type="Texture2D" path="res://courses/wild_west_chute_out/preview.png" id="2_n6c3v"]
-[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_eluqp"]
-[ext_resource type="Texture2D" path="res://courses/wild_west_chute_out/splat_0.png" id="4_t6vae"]
-[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_8t65t"]
-[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="6_yyq65"]
-[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="7_yv6yy"]
-[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="8_oms5y"]
+[ext_resource type="Image" path="res://courses/wild_west_chute_out/heightmap.res" id="2_eluqp"]
+[ext_resource type="Texture2D" path="res://courses/wild_west_chute_out/preview.png" id="3_t6vae"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_8t65t"]
+[ext_resource type="Texture2D" path="res://courses/wild_west_chute_out/splat_0.png" id="5_yyq65"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_yv6yy"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="7_oms5y"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="8_0k6x6"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="9_mf20n"]
 
 [resource]
-script = ExtResource("3_eluqp")
+script = ExtResource("4_8t65t")
 display_name = "Wild West Chute Out"
 author = "J.W. Bruce"
-preview = ExtResource("2_n6c3v")
-heightmap = ExtResource("1_vmypl")
+preview = ExtResource("3_t6vae")
+heightmap = ExtResource("2_eluqp")
 heightmap_size = Vector2i(179, 479)
 world_size = Vector2(90, 480)
 height_scale = 9.0
 base_angle = 28.0
-splat_maps = Array[Texture2D]([ExtResource("4_t6vae")])
+splat_maps = Array[Texture2D]([ExtResource("5_yyq65")])
 splat_size = Vector2i(179, 479)
-terrain_layers = Array[ExtResource("5_8t65t")]([ExtResource("6_yyq65"), ExtResource("7_yv6yy"), ExtResource("8_oms5y")])
+terrain_layers = Array[ExtResource("6_yv6yy")]([ExtResource("7_oms5y"), ExtResource("8_0k6x6"), ExtResource("9_mf20n")])
 finish_line_z = -480.0
 play_bounds = PackedVector2Array(0, 1, 90, 1, 90, -500, 0, -500)
 play_size = Vector2(90, 480)
@@ -30,3 +30,4 @@ environment_preset = ExtResource("1_n6c3v")
 use_keyframe = false
 imported_from = "extras/wild_west_chute_out"
 import_version = 1
+import_fingerprint = "ed6f2c201f132ddaa7d054108ece2ec0644b4e57d0399df283b71c7608787e6c"

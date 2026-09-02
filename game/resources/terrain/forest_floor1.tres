@@ -16,3 +16,4 @@ is_deformable = false
 legacy_color = Color(0.3529412, 0.3529412, 0.11764706, 1)
 legacy_name = &"forest_floor1"
 legacy_index = 34
+import_fingerprint = "6e94eeb8f9a6bccbc4392445aeb281a429250b61587a4e315be14397f79cbb64"

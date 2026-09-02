@@ -39,8 +39,14 @@ uniform sampler2D albedo_4 : source_color, filter_linear_mipmap_anisotropic, rep
 uniform sampler2D albedo_5 : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D albedo_6 : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D albedo_7 : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
-// ETR generated terrain UVs at 1/6 world scale; keep that as the default.
-uniform float uv_scale = 6.0;
+// Metres per texture repeat, per layer. ETR generated terrain UVs at 1/6 world
+// scale for the whole course, and this was a single uniform to match — but the
+// scale is declared per layer on `TerrainLayer`, and uploading only layer 0's
+// meant every other layer silently inherited it. Same shape as the tables
+// below: `_hi` covers layers 4-7. Zero is not a legal repeat length, so the
+// sampler guards it rather than trusting the table to be filled.
+uniform vec4 layer_uv_scale = vec4(6.0);
+uniform vec4 layer_uv_scale_hi = vec4(6.0);
 // Per-layer tables, split low/high because GLSL ES 3.0 has no `float[8]`
 // uniform worth relying on and a pair of vec4s indexes for free. `_hi` covers
 // layers 4-7; courses that use them used to fall off the end of these tables
@@ -269,15 +275,18 @@ void vertex() {
 	}
 }
 
-vec4 sample_layers(vec2 uv, vec4 w0, vec4 w1) {
-	vec4 c = texture(albedo_0, uv) * w0.r;
-	if (layer_count > 1) { c += texture(albedo_1, uv) * w0.g; }
-	if (layer_count > 2) { c += texture(albedo_2, uv) * w0.b; }
-	if (layer_count > 3) { c += texture(albedo_3, uv) * w0.a; }
-	if (layer_count > 4) { c += texture(albedo_4, uv) * w1.r; }
-	if (layer_count > 5) { c += texture(albedo_5, uv) * w1.g; }
-	if (layer_count > 6) { c += texture(albedo_6, uv) * w1.b; }
-	if (layer_count > 7) { c += texture(albedo_7, uv) * w1.a; }
+// `p` is the world XZ position; each layer divides it by its own repeat length.
+vec4 sample_layers(vec2 p, vec4 w0, vec4 w1) {
+	vec4 s0 = max(layer_uv_scale, vec4(0.001));
+	vec4 s1 = max(layer_uv_scale_hi, vec4(0.001));
+	vec4 c = texture(albedo_0, p / s0.r) * w0.r;
+	if (layer_count > 1) { c += texture(albedo_1, p / s0.g) * w0.g; }
+	if (layer_count > 2) { c += texture(albedo_2, p / s0.b) * w0.b; }
+	if (layer_count > 3) { c += texture(albedo_3, p / s0.a) * w0.a; }
+	if (layer_count > 4) { c += texture(albedo_4, p / s1.r) * w1.r; }
+	if (layer_count > 5) { c += texture(albedo_5, p / s1.g) * w1.g; }
+	if (layer_count > 6) { c += texture(albedo_6, p / s1.b) * w1.b; }
+	if (layer_count > 7) { c += texture(albedo_7, p / s1.a) * w1.a; }
 	return c;
 }
 
@@ -305,8 +314,7 @@ void fragment() {
 	w0 /= max(total, 0.001);
 	w1 /= max(total, 0.001);
 
-	vec2 uv = world_pos.xz / uv_scale;
-	ALBEDO = sample_layers(uv, w0, w1).rgb;
+	ALBEDO = sample_layers(world_pos.xz, w0, w1).rgb;
 	METALLIC = 0.0;
 
 	snow_mask = clamp(dot(layer_snowness, w0) + dot(layer_snowness_hi, w1), 0.0, 1.0);

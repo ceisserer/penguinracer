@@ -11,3 +11,4 @@ albedo = ExtResource("1_gr0t1")
 legacy_color = Color(1, 1, 1, 1)
 legacy_name = &"snow"
 legacy_index = 4
+import_fingerprint = "24a926993d8f9d762db3adb204b8860b478325d0d0ef7d1d9fa6bec56972e106"

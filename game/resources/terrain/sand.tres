@@ -14,3 +14,4 @@ is_deformable = false
 legacy_color = Color(0.9411765, 0.9411765, 0, 1)
 legacy_name = &"sand"
 legacy_index = 21
+import_fingerprint = "84148bbc00c4961a4d0ad605bf0da3c82ee52900480a8e1bc3d7a30080a4eaf0"

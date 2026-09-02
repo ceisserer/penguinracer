@@ -1,28 +1,28 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_m17dj"]
-[ext_resource type="Image" path="res://courses/explore_mountains/heightmap.res" id="1_olh7x"]
-[ext_resource type="Texture2D" path="res://courses/explore_mountains/preview.png" id="2_m17dj"]
-[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_j3elc"]
-[ext_resource type="Texture2D" path="res://courses/explore_mountains/splat_0.png" id="4_ygy0v"]
-[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_wpmpr"]
-[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="6_eam0d"]
-[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="7_owe7v"]
-[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="8_2mfcc"]
+[ext_resource type="Image" path="res://courses/explore_mountains/heightmap.res" id="2_j3elc"]
+[ext_resource type="Texture2D" path="res://courses/explore_mountains/preview.png" id="3_ygy0v"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_wpmpr"]
+[ext_resource type="Texture2D" path="res://courses/explore_mountains/splat_0.png" id="5_eam0d"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_owe7v"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="7_2mfcc"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="8_kjklb"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="9_a4btq"]
 
 [resource]
-script = ExtResource("3_j3elc")
+script = ExtResource("4_wpmpr")
 display_name = "Explore The Mountains"
 author = "Reinhard Niehoff"
 description = "If you don't reach time and herring try to find another way through the mountains."
-preview = ExtResource("2_m17dj")
-heightmap = ExtResource("1_olh7x")
+preview = ExtResource("3_ygy0v")
+heightmap = ExtResource("2_j3elc")
 heightmap_size = Vector2i(199, 1999)
 world_size = Vector2(100, 2000)
 height_scale = 12.0
-splat_maps = Array[Texture2D]([ExtResource("4_ygy0v")])
+splat_maps = Array[Texture2D]([ExtResource("5_eam0d")])
 splat_size = Vector2i(199, 1999)
-terrain_layers = Array[ExtResource("5_wpmpr")]([ExtResource("6_eam0d"), ExtResource("7_owe7v"), ExtResource("8_2mfcc")])
+terrain_layers = Array[ExtResource("6_owe7v")]([ExtResource("7_2mfcc"), ExtResource("8_kjklb"), ExtResource("9_a4btq")])
 start_position = Vector2(50, 3)
 finish_line_z = -1980.0
 play_bounds = PackedVector2Array(2.5, 1, 97.5, 1, 97.5, -2000, 2.5, -2000)
@@ -32,3 +32,4 @@ music_theme = &"calm"
 use_keyframe = false
 imported_from = "default/explore_mountains"
 import_version = 1
+import_fingerprint = "5008e3e9c893105320d4a4574f70ed79ab6e6556dc77b693a471949b84aaab49"

@@ -1,29 +1,29 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_u4qck"]
-[ext_resource type="Image" path="res://courses/frozen_lakes/heightmap.res" id="1_w1n75"]
-[ext_resource type="Texture2D" path="res://courses/frozen_lakes/preview.png" id="2_u4qck"]
-[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_ne225"]
-[ext_resource type="Texture2D" path="res://courses/frozen_lakes/splat_0.png" id="4_s5k2g"]
-[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_pwdkh"]
-[ext_resource type="Resource" path="res://resources/terrain/rock02.tres" id="6_ic732"]
-[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="7_x2mqy"]
-[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="8_t81u2"]
-[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="9_ha58a"]
+[ext_resource type="Image" path="res://courses/frozen_lakes/heightmap.res" id="2_ne225"]
+[ext_resource type="Texture2D" path="res://courses/frozen_lakes/preview.png" id="3_s5k2g"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_pwdkh"]
+[ext_resource type="Texture2D" path="res://courses/frozen_lakes/splat_0.png" id="5_ic732"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_x2mqy"]
+[ext_resource type="Resource" path="res://resources/terrain/rock02.tres" id="7_t81u2"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="8_ha58a"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="9_2n3gh"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="10_bullr"]
 
 [resource]
-script = ExtResource("3_ne225")
+script = ExtResource("4_pwdkh")
 display_name = "Frozen Lakes"
 author = "unknown"
 description = "A cold, silent world of rocks and ice. Regard your speed when you cross the lakes."
-preview = ExtResource("2_u4qck")
-heightmap = ExtResource("1_w1n75")
+preview = ExtResource("3_s5k2g")
+heightmap = ExtResource("2_ne225")
 heightmap_size = Vector2i(199, 1999)
 world_size = Vector2(100, 2000)
 height_scale = 12.0
-splat_maps = Array[Texture2D]([ExtResource("4_s5k2g")])
+splat_maps = Array[Texture2D]([ExtResource("5_ic732")])
 splat_size = Vector2i(199, 1999)
-terrain_layers = Array[ExtResource("5_pwdkh")]([ExtResource("6_ic732"), ExtResource("7_x2mqy"), ExtResource("8_t81u2"), ExtResource("9_ha58a")])
+terrain_layers = Array[ExtResource("6_x2mqy")]([ExtResource("7_t81u2"), ExtResource("8_ha58a"), ExtResource("9_2n3gh"), ExtResource("10_bullr")])
 start_position = Vector2(50, 3)
 finish_line_z = -1980.0
 play_bounds = PackedVector2Array(2.5, 1, 97.5, 1, 97.5, -2000, 2.5, -2000)
@@ -32,3 +32,4 @@ environment_preset = ExtResource("1_u4qck")
 use_keyframe = false
 imported_from = "default/frozen_lakes"
 import_version = 1
+import_fingerprint = "a69b887ddee9e46942084bd5b88ff297bb6c34f57b72ff84dec01643dab70e44"

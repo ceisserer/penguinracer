@@ -16,3 +16,4 @@ is_deformable = false
 legacy_color = Color(0.23529412, 0.23529412, 0.23529412, 1)
 legacy_name = &"rock06"
 legacy_index = 16
+import_fingerprint = "da0f86775b6b61231864d4a09dd627d626493661ee03069dd3615a6742de2404"

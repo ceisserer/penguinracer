@@ -1,30 +1,30 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_0r7ha"]
-[ext_resource type="Image" path="res://courses/penguins_cant_fly/heightmap.res" id="1_7hffh"]
-[ext_resource type="Texture2D" path="res://courses/penguins_cant_fly/preview.png" id="2_0r7ha"]
-[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_jcmc1"]
-[ext_resource type="Texture2D" path="res://courses/penguins_cant_fly/splat_0.png" id="4_e0bfc"]
-[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_hcct7"]
-[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="6_8ucbh"]
-[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="7_im7so"]
-[ext_resource type="Resource" path="res://resources/terrain/rock06.tres" id="8_wdsrv"]
-[ext_resource type="Resource" path="res://resources/terrain/rock01.tres" id="9_hvhal"]
+[ext_resource type="Image" path="res://courses/penguins_cant_fly/heightmap.res" id="2_jcmc1"]
+[ext_resource type="Texture2D" path="res://courses/penguins_cant_fly/preview.png" id="3_e0bfc"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_hcct7"]
+[ext_resource type="Texture2D" path="res://courses/penguins_cant_fly/splat_0.png" id="5_8ucbh"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_im7so"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="7_wdsrv"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="8_hvhal"]
+[ext_resource type="Resource" path="res://resources/terrain/rock06.tres" id="9_decxp"]
+[ext_resource type="Resource" path="res://resources/terrain/rock01.tres" id="10_qf0g4"]
 
 [resource]
-script = ExtResource("3_jcmc1")
+script = ExtResource("4_hcct7")
 display_name = "Who Says Penguins Can't Fly?"
 author = "Bill Scherer"
 description = "A fast and stupid course but lot of people like it."
-preview = ExtResource("2_0r7ha")
-heightmap = ExtResource("1_7hffh")
+preview = ExtResource("3_e0bfc")
+heightmap = ExtResource("2_jcmc1")
 heightmap_size = Vector2i(119, 3599)
 world_size = Vector2(60, 2500)
 height_scale = 10.0
 base_angle = 30.0
-splat_maps = Array[Texture2D]([ExtResource("4_e0bfc")])
+splat_maps = Array[Texture2D]([ExtResource("5_8ucbh")])
 splat_size = Vector2i(119, 3599)
-terrain_layers = Array[ExtResource("5_hcct7")]([ExtResource("6_8ucbh"), ExtResource("7_im7so"), ExtResource("8_wdsrv"), ExtResource("9_hvhal")])
+terrain_layers = Array[ExtResource("6_im7so")]([ExtResource("7_wdsrv"), ExtResource("8_hvhal"), ExtResource("9_decxp"), ExtResource("10_qf0g4")])
 start_position = Vector2(30, 3.5)
 finish_line_z = -2500.0
 play_bounds = PackedVector2Array(0, 1, 60, 1, 60, -2520, 0, -2520)
@@ -33,3 +33,4 @@ environment_preset = ExtResource("1_0r7ha")
 use_keyframe = false
 imported_from = "default/penguins_cant_fly"
 import_version = 1
+import_fingerprint = "c0ef019781f12a90aaa9be19ce3073909f505848fed356c7fcf73b2d46fc7749"

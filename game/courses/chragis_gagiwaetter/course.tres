@@ -1,29 +1,29 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
-[ext_resource type="Image" path="res://courses/chragis_gagiwaetter/heightmap.res" id="1_jqdee"]
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_ral1i"]
-[ext_resource type="Texture2D" path="res://courses/chragis_gagiwaetter/preview.png" id="2_ral1i"]
-[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_qsr1y"]
-[ext_resource type="Texture2D" path="res://courses/chragis_gagiwaetter/splat_0.png" id="4_ae8sq"]
-[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_tyhop"]
-[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="6_itjbb"]
-[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="7_e2ymh"]
-[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="8_a4l4r"]
+[ext_resource type="Image" path="res://courses/chragis_gagiwaetter/heightmap.res" id="2_qsr1y"]
+[ext_resource type="Texture2D" path="res://courses/chragis_gagiwaetter/preview.png" id="3_ae8sq"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_tyhop"]
+[ext_resource type="Texture2D" path="res://courses/chragis_gagiwaetter/splat_0.png" id="5_itjbb"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_e2ymh"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="7_a4l4r"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="8_k2i3m"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="9_5d571"]
 
 [resource]
-script = ExtResource("3_qsr1y")
+script = ExtResource("4_tyhop")
 display_name = "Chragi's Gagiwaetter"
 author = "Chragi"
 description = "The author says: a wicked course, wicked, wicked and very wicked indeed! Beginners stay home!"
-preview = ExtResource("2_ral1i")
-heightmap = ExtResource("1_jqdee")
+preview = ExtResource("3_ae8sq")
+heightmap = ExtResource("2_qsr1y")
 heightmap_size = Vector2i(399, 3999)
 world_size = Vector2(100, 2500)
 height_scale = 20.0
 base_angle = 28.0
-splat_maps = Array[Texture2D]([ExtResource("4_ae8sq")])
+splat_maps = Array[Texture2D]([ExtResource("5_itjbb")])
 splat_size = Vector2i(399, 3999)
-terrain_layers = Array[ExtResource("5_tyhop")]([ExtResource("6_itjbb"), ExtResource("7_e2ymh"), ExtResource("8_a4l4r")])
+terrain_layers = Array[ExtResource("6_e2ymh")]([ExtResource("7_a4l4r"), ExtResource("8_k2i3m"), ExtResource("9_5d571")])
 start_position = Vector2(30, 3)
 finish_line_z = -2500.0
 play_bounds = PackedVector2Array(2.5, 1, 97.5, 1, 97.5, -2520, 2.5, -2520)
@@ -32,3 +32,4 @@ environment_preset = ExtResource("1_ral1i")
 use_keyframe = false
 imported_from = "default/chragis_gagiwaetter"
 import_version = 1
+import_fingerprint = "4fd916280673f13955674afefeb49ddec23fa38ddb1b8382ddcfb90bbb7b6e54"

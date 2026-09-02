@@ -1,32 +1,32 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_5e8by"]
-[ext_resource type="Image" path="res://courses/downhill_fear/heightmap.res" id="1_h0fxq"]
-[ext_resource type="Texture2D" path="res://courses/downhill_fear/preview.png" id="2_5e8by"]
-[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_c1qmg"]
-[ext_resource type="Texture2D" path="res://courses/downhill_fear/splat_0.png" id="4_aobg3"]
-[ext_resource type="Texture2D" path="res://courses/downhill_fear/splat_1.png" id="5_6i6fj"]
-[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_1t8bd"]
-[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="7_y8ao2"]
-[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="8_1qndh"]
-[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="9_if0kt"]
-[ext_resource type="Resource" path="res://resources/terrain/rock06.tres" id="10_661xl"]
-[ext_resource type="Resource" path="res://resources/terrain/dirty_snow.tres" id="11_bs43h"]
-[ext_resource type="Resource" path="res://resources/terrain/rock04.tres" id="12_p42js"]
+[ext_resource type="Image" path="res://courses/downhill_fear/heightmap.res" id="2_c1qmg"]
+[ext_resource type="Texture2D" path="res://courses/downhill_fear/preview.png" id="3_aobg3"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_6i6fj"]
+[ext_resource type="Texture2D" path="res://courses/downhill_fear/splat_0.png" id="5_1t8bd"]
+[ext_resource type="Texture2D" path="res://courses/downhill_fear/splat_1.png" id="6_y8ao2"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="7_1qndh"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="8_if0kt"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="9_661xl"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="10_bs43h"]
+[ext_resource type="Resource" path="res://resources/terrain/rock06.tres" id="11_p42js"]
+[ext_resource type="Resource" path="res://resources/terrain/dirty_snow.tres" id="12_tyhai"]
+[ext_resource type="Resource" path="res://resources/terrain/rock04.tres" id="13_4todh"]
 
 [resource]
-script = ExtResource("3_c1qmg")
+script = ExtResource("4_6i6fj")
 display_name = "The Downhill Fear"
 author = "unknown"
 description = "Downward the hill, sliding and jumping ..."
-preview = ExtResource("2_5e8by")
-heightmap = ExtResource("1_h0fxq")
+preview = ExtResource("3_aobg3")
+heightmap = ExtResource("2_c1qmg")
 heightmap_size = Vector2i(119, 3599)
 world_size = Vector2(60, 1800)
 base_angle = 24.0
-splat_maps = Array[Texture2D]([ExtResource("4_aobg3"), ExtResource("5_6i6fj")])
+splat_maps = Array[Texture2D]([ExtResource("5_1t8bd"), ExtResource("6_y8ao2")])
 splat_size = Vector2i(119, 3599)
-terrain_layers = Array[ExtResource("6_1t8bd")]([ExtResource("7_y8ao2"), ExtResource("8_1qndh"), ExtResource("9_if0kt"), ExtResource("10_661xl"), ExtResource("11_bs43h"), ExtResource("12_p42js")])
+terrain_layers = Array[ExtResource("7_1qndh")]([ExtResource("8_if0kt"), ExtResource("9_661xl"), ExtResource("10_bs43h"), ExtResource("11_p42js"), ExtResource("12_tyhai"), ExtResource("13_4todh")])
 start_position = Vector2(30, 3.5)
 finish_line_z = -1800.0
 play_bounds = PackedVector2Array(0, 1, 60, 1, 60, -1820, 0, -1820)
@@ -35,3 +35,4 @@ environment_preset = ExtResource("1_5e8by")
 use_keyframe = false
 imported_from = "default/downhill_fear"
 import_version = 1
+import_fingerprint = "2860f31349baa0a59e8c818215adf29dbda3b52875273f714c6b5e46de204e5a"

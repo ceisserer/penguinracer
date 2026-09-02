@@ -1,26 +1,26 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_0nop2"]
-[ext_resource type="Image" path="res://courses/inception/heightmap.res" id="1_chbeq"]
-[ext_resource type="Texture2D" path="res://courses/inception/preview.png" id="2_0nop2"]
-[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_qlhve"]
-[ext_resource type="Texture2D" path="res://courses/inception/splat_0.png" id="4_86pd4"]
-[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_5jmtk"]
-[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="6_4pn7x"]
+[ext_resource type="Image" path="res://courses/inception/heightmap.res" id="2_qlhve"]
+[ext_resource type="Texture2D" path="res://courses/inception/preview.png" id="3_86pd4"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_5jmtk"]
+[ext_resource type="Texture2D" path="res://courses/inception/splat_0.png" id="5_4pn7x"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_xgftr"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="7_smv2y"]
 
 [resource]
-script = ExtResource("3_qlhve")
+script = ExtResource("4_5jmtk")
 display_name = "Inception"
 author = "Korora the Penguin"
-preview = ExtResource("2_0nop2")
-heightmap = ExtResource("1_chbeq")
+preview = ExtResource("3_86pd4")
+heightmap = ExtResource("2_qlhve")
 heightmap_size = Vector2i(499, 1999)
 world_size = Vector2(250, 1000)
 height_scale = 40.0
 base_angle = 60.0
-splat_maps = Array[Texture2D]([ExtResource("4_86pd4")])
+splat_maps = Array[Texture2D]([ExtResource("5_4pn7x")])
 splat_size = Vector2i(499, 1999)
-terrain_layers = Array[ExtResource("5_5jmtk")]([ExtResource("6_4pn7x")])
+terrain_layers = Array[ExtResource("6_xgftr")]([ExtResource("7_smv2y")])
 start_position = Vector2(116, 8)
 finish_line_z = -1000.0
 play_bounds = PackedVector2Array(0, 1, 250, 1, 250, -1020, 0, -1020)
@@ -29,3 +29,4 @@ environment_preset = ExtResource("1_0nop2")
 use_keyframe = false
 imported_from = "extras/inception"
 import_version = 1
+import_fingerprint = "76436cc74d329a3039fca280c50eec9cfa54f27acc61575b5aea3c0003361f68"

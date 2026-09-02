@@ -1,28 +1,28 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_fu2eh"]
-[ext_resource type="Image" path="res://courses/herrings_half_pipe/heightmap.res" id="1_q8f63"]
-[ext_resource type="Texture2D" path="res://courses/herrings_half_pipe/preview.png" id="2_fu2eh"]
-[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="3_18pes"]
-[ext_resource type="Texture2D" path="res://courses/herrings_half_pipe/splat_0.png" id="4_1pt0k"]
-[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="5_ekx7q"]
-[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="6_s3bw0"]
-[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="7_swh5d"]
-[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="8_kohsk"]
+[ext_resource type="Image" path="res://courses/herrings_half_pipe/heightmap.res" id="2_18pes"]
+[ext_resource type="Texture2D" path="res://courses/herrings_half_pipe/preview.png" id="3_1pt0k"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_ekx7q"]
+[ext_resource type="Texture2D" path="res://courses/herrings_half_pipe/splat_0.png" id="5_s3bw0"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="6_swh5d"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="7_kohsk"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="8_6y2a0"]
+[ext_resource type="Resource" path="res://resources/terrain/rock.tres" id="9_3ejmn"]
 
 [resource]
-script = ExtResource("3_18pes")
+script = ExtResource("4_ekx7q")
 display_name = "60 herrings half pipe"
 author = "David Furodet"
-preview = ExtResource("2_fu2eh")
-heightmap = ExtResource("1_q8f63")
+preview = ExtResource("3_1pt0k")
+heightmap = ExtResource("2_18pes")
 heightmap_size = Vector2i(119, 239)
 world_size = Vector2(25, 800)
 height_scale = 50.0
 base_angle = 35.0
-splat_maps = Array[Texture2D]([ExtResource("4_1pt0k")])
+splat_maps = Array[Texture2D]([ExtResource("5_s3bw0")])
 splat_size = Vector2i(119, 239)
-terrain_layers = Array[ExtResource("5_ekx7q")]([ExtResource("6_s3bw0"), ExtResource("7_swh5d"), ExtResource("8_kohsk")])
+terrain_layers = Array[ExtResource("6_swh5d")]([ExtResource("7_kohsk"), ExtResource("8_6y2a0"), ExtResource("9_3ejmn")])
 start_position = Vector2(12, 3.5)
 finish_line_z = -800.0
 play_bounds = PackedVector2Array(0, 1, 25, 1, 25, -820, 0, -820)
@@ -31,3 +31,4 @@ environment_preset = ExtResource("1_fu2eh")
 use_keyframe = false
 imported_from = "extras/herrings_half_pipe"
 import_version = 1
+import_fingerprint = "f68256877fc2c28d6bf4621cb687ef7181b5ed4f1b7cea0f48d42b3dfa5922e2"
