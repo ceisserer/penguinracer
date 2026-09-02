@@ -12,10 +12,11 @@
 #
 # Either way `--fixed-fps` makes the simulation advance by frame count rather
 # than by how slowly it happens to draw, which is what makes two runs — and the
-# two paths — comparable at all. `--no-audio` keeps the run silent: a capture
-# has nothing to hear, and a container with no sound card falls back to the
-# dummy driver, which never mixes and so never reaps a stopped playback —
-# leaving a "leaked at exit" warning over every screenshot.
+# two paths — comparable at all. `--no-audio` keeps the run silent, which a
+# capture has no use for and which saves loading 18 MB of streams. It used to
+# be load-bearing as well — a capture that played anything printed a "leaked at
+# exit" warning over the screenshot — but that is fixed at the source now, in
+# `AudioDirector.quit_game`, and a capture with sound exits just as cleanly.
 set -euo pipefail
 OUT="${1:?output png}"
 FRAMES="${2:-250}"

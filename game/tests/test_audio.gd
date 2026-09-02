@@ -184,6 +184,20 @@ static func _director_behaviour(t: TestCase) -> void:
 	t.ok(director.music_track() == director.library.track(&"wonrace_1"),
 		"a different situation does")
 
+	# What the way out rests on. `quit_game` calls `silence` and then hands the
+	# mixer a fixed interval to retire what was stopped; anything `silence`
+	# misses is still sounding when the interval runs out, and is reported as a
+	# leaked ObjectDB instance at exit rather than as a failure here.
+	director.play(&"rock_sound", true)
+	t.ok(director.is_playing(&"rock_sound"), "a cue is sounding before the shutdown")
+	director.silence()
+	t.ok(not director.is_playing(&"rock_sound"), "silence stops a looping effect")
+	t.ok(director.music_track() == null, "and forgets the music track")
+	t.ok((director.get_node(^"Music") as AudioStreamPlayer).stream == null,
+		"and lets go of the stream the music player held")
+	director.silence()
+	t.ok(director.music_track() == null, "and survives being called twice")
+
 	# `--no-audio` has to gate every entry point, not just the music.
 	director.enabled = false
 	director.stop_music()

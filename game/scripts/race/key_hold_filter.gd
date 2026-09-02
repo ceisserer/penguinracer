@@ -12,7 +12,9 @@
 ##
 ## With [member compensate] off — the default — this is exactly that poll and
 ## nothing more; the pulse is still *noticed*, and says so once, so the cause is
-## discoverable from the console rather than from the physics. Turning it on
+## discoverable from the console rather than from the physics. What it takes to
+## be noticed is a *train* of pulses and not a single one — see
+## [constant PULSE_WINDOW], and the note on why one is not evidence. Turning it on
 ## ([code]--remote-keyboard[/code]) stretches every press to [constant STRETCH],
 ## long enough to bridge the ~33 ms between autorepeat pulses and turn a
 ## stuttering train of them back into a continuous hold. That is a real cost on
@@ -28,20 +30,42 @@ extends RefCounted
 ## repeats, and stay short enough that letting go still reads as deliberate.
 const STRETCH := 0.1
 
+## How close two pulses on the same action have to be before they count as a
+## pulsed transport rather than as a player.
+##
+## One pulse is not evidence of anything. A press and release that both land in
+## one frame is also what an ordinary quick tap looks like on an ordinary local
+## keyboard — `xdotool key w` against a windowed build reproduces it exactly —
+## and diagnosing the transport off a single sample meant one flick of the
+## steering printed a paragraph telling the player to reconfigure their remote
+## desktop.
+##
+## A pulsed transport does not send one. It repeats the pair at the keyboard's
+## autorepeat rate for as long as the key is held, which X11 defaults to every
+## 25–33 ms, so the second pulse arrives about a frame or two after the first.
+## A finger cannot: both halves of each tap would have to fall inside a single
+## frame *and* the two taps be a tenth of a second apart. 150 ms leaves the
+## autorepeat case several times the margin it needs and stays far inside what
+## a hand can do.
+const PULSE_WINDOW := 0.15
+
 ## Stretch presses to bridge a pulsed keyboard. Off is the plain poll.
 var compensate: bool = false
 
-## Set the first time a press is seen that did not survive to a frame poll.
+## Set once a run of pulses has arrived too fast to be a player tapping.
 ## Sticky: the diagnosis is about the transport, not about one keystroke.
 var remote_keyboard: bool = false
 
 var _actions: PackedStringArray
 var _hold: Dictionary[StringName, float] = {}
+## Time left in which another pulse on this action would corroborate the last.
+var _pulse_window: Dictionary[StringName, float] = {}
 
 func _init(actions: PackedStringArray) -> void:
 	_actions = actions
 	for action: StringName in _actions:
 		_hold[action] = 0.0
+		_pulse_window[action] = 0.0
 
 ## Sample the Input singleton once for this frame.
 func poll(delta: float) -> void:
@@ -52,9 +76,8 @@ func poll(delta: float) -> void:
 ## The state machine, separated from the singleton so the suite can drive it.
 ## `edge` without `down` is the pulse: pressed and released inside one frame.
 func feed(action: StringName, down: bool, edge: bool, delta: float) -> void:
-	if edge and not down and not remote_keyboard:
-		remote_keyboard = true
-		_report()
+	if not remote_keyboard:
+		_watch_for_pulses(action, edge and not down, delta)
 	if down:
 		_hold[action] = STRETCH
 	elif not compensate:
@@ -63,6 +86,17 @@ func feed(action: StringName, down: bool, edge: bool, delta: float) -> void:
 		_hold[action] = STRETCH
 	else:
 		_hold[action] = maxf(_hold[action] - delta, 0.0)
+
+## Corroboration, not detection: a pulse only means anything if another one on
+## the same action followed it inside [constant PULSE_WINDOW].
+func _watch_for_pulses(action: StringName, pulse: bool, delta: float) -> void:
+	var window: float = maxf(_pulse_window.get(action, 0.0) - delta, 0.0)
+	if pulse:
+		if window > 0.0:
+			remote_keyboard = true
+			_report()
+		window = PULSE_WINDOW
+	_pulse_window[action] = window
 
 func pressed(action: StringName) -> bool:
 	return _hold.get(action, 0.0) > 0.0

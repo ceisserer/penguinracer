@@ -33,6 +33,11 @@ const MAX_VOLUME := 100.0
 ## Stand-in for silence: `linear_to_db(0)` is -inf, which a player mixes badly.
 const SILENCE_DB := -80.0
 
+## How long [method quit_game] leaves between silencing the mixer and bringing
+## the tree down. See that method for why the wait exists and how long it has
+## to be; the measured floor is one mixer buffer and this is several of them.
+const QUIT_SETTLE := 0.1
+
 ## `param.sound_volume`, default from `game_config.cpp`.
 var sound_volume: int = 90:
 	set(value):
@@ -57,6 +62,8 @@ var _players: Dictionary = {}
 var _looping: Dictionary = {}
 var _music: AudioStreamPlayer
 var _current_track: AudioStream
+## Set by [method quit_game] so a second close request cannot restart the wait.
+var _quitting: bool = false
 
 func _ready() -> void:
 	setup()
@@ -65,16 +72,64 @@ func _ready() -> void:
 	# because EXIT_TREE reaches the children first and stopping a player that
 	# is already out of the tree releases nothing.
 	#
-	# It does not silence the "N ObjectDB instances were leaked at exit"
-	# warning under the dummy audio driver — see the note in PROGRESS.md §16.
-	tree_exiting.connect(_release)
+	# By itself this is too late to release anything — see [method quit_game],
+	# which is the path every quit in the game actually takes. This stays as
+	# the backstop for a tree that comes down some other way.
+	tree_exiting.connect(silence)
+	# Take the window's close button over, so `quit_game` gets its wait. On web
+	# the tab owns the lifetime and there is nothing to intercept.
+	if not OS.has_feature("web"):
+		get_tree().auto_accept_quit = false
 
-func _release() -> void:
+## The window's close button, Alt+F4, and the OS asking politely. Godot
+## propagates this to every node under the root window — autoloads included —
+## just before it would have quit for us, which is the hook `auto_accept_quit
+## = false` in [method _ready] leaves open.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		quit_game()
+
+## Stop everything that is sounding. Safe to call more than once.
+func silence() -> void:
 	halt_all()
 	if _music != null:
 		_music.stop()
 		_music.stream = null
 	_current_track = null
+
+## How the game leaves: silence the mixer, let it settle, then quit.
+##
+## [b]Why the wait.[/b] `AudioServer` does not release a playback where it is
+## stopped. `stop()` only marks it for deletion; the mixer has to run once more
+## to fade it out, and the object is freed after that by the
+## `AudioServer::update()` at the end of a main-loop iteration. Neither happens
+## if the tree is already coming down, so stopping from `tree_exiting` — or in
+## the same breath as `SceneTree.quit()` — frees nothing, and Godot reports the
+## stream, its playback and the Ogg packet sequence behind them on the way out:
+## [codeblock lang=text]
+## WARNING: 4 ObjectDB instances were leaked at exit
+## ERROR: 2 resources still in use at exit
+## [/codeblock]
+## Only the music showed up there, because it is the one thing still playing
+## when a player quits; a looping slide cue would have joined it.
+##
+## [b]How long, and why it is not counted in frames.[/b] What has to elapse is
+## one mixer buffer on the audio thread, which is wall-clock time and has
+## nothing to do with how fast the renderer is going. Waiting a frame or two
+## happens to work on a slow frame and not on a fast one: in a scene idling at
+## about 1500 fps, five runs each, yielding without a wall-clock wait leaked
+## 5/5 and a 5 ms wait leaked 0/5 — the frames were there either way, the
+## milliseconds were not. [constant QUIT_SETTLE] is 100 ms, several buffers at
+## any plausible latency setting, and not something a player feels on the way
+## out. A frame count that looked sufficient on this machine would have been a
+## frame count that came apart on a faster one.
+func quit_game(code: int = 0) -> void:
+	if _quitting:
+		return
+	_quitting = true
+	silence()
+	await get_tree().create_timer(QUIT_SETTLE, true, false, true).timeout
+	get_tree().quit(code)
 
 ## Load the banks and build the voices. Split out of [method _ready] and made
 ## idempotent because the headless suite attaches a director to a tree that is

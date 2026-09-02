@@ -31,4 +31,7 @@ func _process(_delta: float) -> void:
 	var img: Image = get_viewport().get_texture().get_image()
 	img.save_png(_path)
 	print("captured %s after %d frames" % [_path, _count])
-	get_tree().quit(0)
+	# Through the audio director rather than straight to the tree, so a capture
+	# run that was not given `--no-audio` still exits without a leak warning
+	# printed over the screenshot. See `AudioDirector.quit_game`.
+	Audio.quit_game(0)

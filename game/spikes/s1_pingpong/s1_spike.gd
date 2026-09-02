@@ -152,6 +152,6 @@ func _report(ok: bool, extra: String) -> void:
 	# harness gets a clean exit code.
 	await get_tree().create_timer(2.0).timeout
 	if not OS.has_feature("web"):
-		get_tree().quit(0 if ok else 1)
+		Audio.quit_game(0 if ok else 1)
 	_label.text = "%s\n%s" % [header, "\n".join(_results)]
 	_label.add_theme_color_override("font_color", Color.GREEN if ok else Color.RED)
