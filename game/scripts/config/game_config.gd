@@ -75,6 +75,23 @@ var fog_distance_scale: float = 2.0
 ## being rewritten behind the player's back.
 var character: String = CharacterCatalog.DEFAULT_DIR
 
+## Whether a race shows the player's best recorded run beside them.
+##
+## Recording happens either way and costs about 4 kB a run — see [RaceRecorder].
+## This is only whether the ghost is drawn, so turning it off and back on again
+## does not lose the times set in between.
+var ghosts: bool = true
+
+# --- multiplayer ---
+
+## What other racers see this player called. ETR has `players.lst` and an avatar
+## picture behind its registration screen; there are no profiles here yet, so
+## the name is a settings key until there is somewhere better for it to live.
+var player_name: String = "Racer"
+## Port a hosted session listens on, and the one `--join=` assumes when the
+## address does not carry its own.
+var multiplayer_port: int = RaceNetwork.DEFAULT_PORT
+
 func _ready() -> void:
 	load_or_create()
 	apply_display()
@@ -110,6 +127,13 @@ func read(cfg: ConfigFile) -> void:
 	character = str(cfg.get_value("game", "character", character)).strip_edges()
 	if character.is_empty():
 		character = CharacterCatalog.DEFAULT_DIR
+	ghosts = bool(cfg.get_value("game", "ghosts", ghosts))
+	player_name = str(cfg.get_value("multiplayer", "player_name",
+		player_name)).strip_edges()
+	if player_name.is_empty():
+		player_name = "Racer"
+	multiplayer_port = clampi(int(cfg.get_value("multiplayer", "port",
+		multiplayer_port)), 1024, 65535)
 
 ## `"1280x720"` → `Vector2i(1280, 720)`; `"auto"` → [constant Vector2i.ZERO],
 ## meaning the window is left as the platform sized it. Anything unparseable
@@ -181,8 +205,24 @@ distance_scale = %.2f
 ; tux, trixi, boris, samuel or beastie. The Character screen sets this.
 ; A name that is not installed falls back to tux.
 character = "%s"
+
+; Race against your own best run on each course, drawn as a translucent
+; penguin. Times are recorded either way; this only draws them.
+ghosts = %s
+
+[multiplayer]
+
+; What other racers see you called.
+player_name = "%s"
+
+; Port a hosted session listens on. Multiplayer is desktop-only and is started
+; from the command line for now:
+;     godot --path game -- --host --course=bunny_hill
+;     godot --path game -- --join=192.168.1.20 --course=bunny_hill
+port = %d
 """ % [_resolution_text(), str(fullscreen).to_lower(), render_scale,
-		fog_start_distance, fog_distance_scale, character]
+		fog_start_distance, fog_distance_scale, character,
+		str(ghosts).to_lower(), player_name, multiplayer_port]
 
 ## `"auto"` when the window is the platform's to size, `"1280x720"` otherwise.
 ## The round trip through [method parse_resolution] has to survive: a saved

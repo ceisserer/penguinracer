@@ -64,6 +64,11 @@ func _ready() -> void:
 		# `?character=trixi`. Same reason: the race scene reads `--character=`
 		# where there is a command line, and there is none in a browser.
 		RaceScene.requested_character = str(_url_query().get("character", ""))
+		# `--host` / `--join=`. Started here rather than in the race scene
+		# because the session outlives any one race: the peer stays connected
+		# across a restart and across picking another course.
+		Net.configure(Config.player_name, Config.character)
+		Net.start_from_cmdline(Config.multiplayer_port)
 	if first_run and _direct_race_requested():
 		_start_race(_requested_course_path())
 		return
@@ -186,9 +191,17 @@ func _unhandled_input(event: InputEvent) -> void:
 ## the default course is the right one. A bare `--capture=` is not — that one
 ## captures whatever is on screen, which is how this screen gets screenshotted.
 ## Such a run also skips the start animation; see [member RaceScene.play_intro].
+##
+## `--host`/`--join=` count too. There is no lobby screen yet, so a session
+## started from the command line has nowhere to wait: both ends name the course
+## themselves and meet on it. A lobby is where the host would name it once —
+## [member RaceNetwork.course_dir] already carries it to the client, and nothing
+## reads it yet.
 func _direct_race_requested() -> bool:
 	for arg: String in OS.get_cmdline_user_args():
-		if arg.begins_with("--course=") or arg.begins_with("--auto-input="):
+		if arg.begins_with("--course=") or arg.begins_with("--auto-input=") \
+				or arg == "--host" or arg.begins_with("--host=") \
+				or arg.begins_with("--join="):
 			return true
 	var query: Dictionary = _url_query()
 	return query.has("course") or query.has("autostart")

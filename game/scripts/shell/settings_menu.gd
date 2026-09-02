@@ -3,9 +3,15 @@
 ## ETR's `options.txt` has two halves — the keys its configuration screen can
 ## also set, and the keys only the file carries — and [GameConfig] started as
 ## the second half because there was no screen. This is the screen, and it moves
-## every key in the file: window size, fullscreen, render scale, and the two fog
-## distances. Nothing else lands here; a value migrated out of `etr-0.8.4/data`
-## belongs on a resource, not in a settings panel.
+## every key a player can act on today: window size, fullscreen, render scale,
+## the two fog distances, and whether a race draws the ghost of your best run.
+## Nothing else lands here; a value migrated out of `etr-0.8.4/data` belongs on
+## a resource, not in a settings panel.
+##
+## Two keys are deliberately file-only for now — `[multiplayer] player_name` and
+## `port`. A name you cannot see anyone use and a port with no session to open
+## are settings for a screen that does not exist yet; they arrive here with the
+## lobby. See [RaceNetwork].
 ##
 ## Editing is transactional. The widgets hold a copy, [b]Ok[/b] writes it to
 ## [GameConfig], applies the display half and saves the file, [b]Cancel[/b]
@@ -47,6 +53,8 @@ const RESOLUTIONS: Array[Vector2i] = [
 @onready var _resolution: OptionButton = %ResolutionOption
 @onready var _fullscreen_row: Control = %FullscreenRow
 @onready var _fullscreen: CheckBox = %FullscreenCheck
+@onready var _ghost_label: Label = %GhostLabel
+@onready var _ghost: CheckBox = %GhostCheck
 @onready var _render_scale: HSlider = %RenderScaleSlider
 @onready var _render_scale_value: Label = %RenderScaleValue
 @onready var _fog_start: HSlider = %FogStartSlider
@@ -60,6 +68,9 @@ func _ready() -> void:
 	_title.text = tr("CONFIGURATION")
 	_resolution_label.text = tr("RESOLUTION")
 	_fullscreen_label.text = tr("FULLSCREEN")
+	# Not a migrated string — the original has no ghosts. Written here in the
+	# same shape as the rows around it until the shell has strings of its own.
+	_ghost_label.text = "Race your best time:"
 	_ok_button.text = tr("OK")
 	_cancel_button.text = tr("CANCEL")
 	_path_label.text = ProjectSettings.globalize_path(GameConfig.PATH)
@@ -83,6 +94,7 @@ func _ready() -> void:
 func open() -> void:
 	_fill_resolutions(Config.resolution)
 	_fullscreen.button_pressed = Config.fullscreen
+	_ghost.button_pressed = Config.ghosts
 	_render_scale.value = Config.render_scale
 	_fog_start.value = Config.fog_start_distance
 	_fog_scale.value = Config.fog_distance_scale
@@ -135,6 +147,7 @@ func _accept() -> void:
 	if _resolution_row.visible:
 		Config.resolution = _resolution.get_selected_metadata()
 		Config.fullscreen = _fullscreen.button_pressed
+	Config.ghosts = _ghost.button_pressed
 	Config.render_scale = _render_scale.value
 	Config.fog_start_distance = _fog_start.value
 	Config.fog_distance_scale = _fog_scale.value

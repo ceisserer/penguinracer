@@ -220,20 +220,35 @@ original's `RotateNode` skips a name it cannot find rather than failing.
 
 ```
 Game shell (menus, cups, scoring, i18n)      ← Godot Control scenes
-Race scene
-  ├── RacePhysics        (GDScript, headless-testable, no node deps)
+Race scene                                   fixed 60 Hz tick, interpolated presentation
+  ├── Racer[]            everyone on the hill; the presentation reads RacerState and
+  │   │                  cannot tell which kind filled it
+  │   ├── SimulatedRacer RacePhysics + InputSource + SprayEmitter + snow stamps
+  │   │                  → the local player; an AI opponent is a different InputSource
+  │   └── PlaybackRacer  RacerStateStream, read by time
+  │                      → a ghost, and a network peer
   ├── SurfaceProvider    (interface)  ← HeightmapSurface  [← CompositeSurface later]
   ├── SnowField          (CPU deformation mirror)
   ├── TerrainRenderer    (chunked ArrayMesh + splat/displacement shader)
   ├── SnowFieldGPU       (ping-pong SubViewports → trail map texture)
-  ├── SprayEmitter       (GPUParticles3D)
   ├── ChaseCamera
-  └── CharacterRig       (skinned skeleton, canned keyframes, procedural additive layer)
+  └── CourseRoot         (heightmap, object grids, MultiMesh batches)
+
+RacePhysics              (GDScript, headless-testable, no node deps) — one per SimulatedRacer
+CharacterRig             (skinned skeleton, canned keyframes, procedural additive layer)
+                         — one under each Racer
+Net / RaceNetwork        (autoload) ENet session; snapshots in and out of PlaybackRacers
 ```
 
 `RacePhysics` must have **zero node dependencies** — plain `RefCounted` operating on a
 `SurfaceProvider`. That is what makes headless parity testing (§6, Phase 0) possible, and it is the
 main structural improvement over ETR's `CControl`, which reached into six globals.
+
+> **Correction, 2026-09-02.** The race scene held *the* player until the multiplayer foundation
+> was built; it now holds a list of racers, and `RacePhysics` is one per simulated racer rather
+> than one per scene. Nothing about the zero-node rule changed — it is what made a second
+> simulation free — but §4.1 as originally drawn put the physics, the rig and the spray directly
+> under the race scene, and they hang off a racer now. See §4.6.
 
 ### 4.2 Surface queries
 
@@ -340,6 +355,58 @@ resolution are the file's whole contents so far; see `scripts/config/game_config
 
 Accept as out of scope under Compatibility: volumetric snowfall (use layered scrolling noise +
 GPUParticles instead), SSR on ice, real HDR glare.
+
+### 4.6 More than one racer — ghosts, AI and network play
+
+Added 2026-09-02. §8.4 says redesign beyond the original is in scope and should be taken into
+account in the initial design; this is the design. Three features — network play, AI opponents,
+racing a recorded run — look like three features and are one, if the seam is picked right.
+
+**The seam is `RacerState`**: time, position, orientation, velocity, progress, flags, herring, as
+14 float32s. It is the only thing the presentation reads. A racer simulated here fills it from
+`RacePhysics`; a ghost fills it from a recorded stream; a peer fills it from a packet. One
+presentation path serves all three, and the same 14 floats are the ghost file format and the wire
+format, so the two never drift apart.
+
+**Two kinds of racer, not four.** `SimulatedRacer` owns a `RacePhysics` fed by an `InputSource`;
+`PlaybackRacer` owns a `RacerStateStream` read by time. The player and an AI opponent are the
+first; a ghost and a remote peer are the second. What decides the split is whether the motion has
+to be *derived* here or only *shown* here — and a remote peer is emphatically the second, which is
+what keeps eight opponents at eight skinned meshes rather than eight ODE solvers.
+
+**An AI is an `InputSource`, not a kind of racer.** `poll()` is handed the `RacePhysics`, which
+owns the position, the velocity, the `SurfaceProvider` under the racer and the tree grid ahead of
+it. Nothing else is needed and nothing is reserved for it.
+
+**A fixed 60 Hz tick with interpolated presentation is the precondition for all of it.** A run has
+to mean the same thing at 30 fps and at 144 or a ghost is not a fair opponent and two peers cannot
+agree who finished first. Phase 0's determinism test already asserted the property at a fixed
+step; this is what makes the game itself honour it. The phase of the interpolation is subtle — see
+history §20.
+
+**Recording is both poses and intent, deliberately.** Poses are what a ghost plays back: exact,
+free to replay, and independent of the physics still being what it was — which matters because
+this game runs on native libm and on WebAssembly's, and an input replay across the two would drift.
+The intent trace is a fortieth of the size and is for anything that must re-derive a run: a
+regression test, a run replayed against a changed force constant, an AI corpus. It carries a hash
+of the force model so a stale trace refuses rather than lying.
+
+**Network model: everyone simulates themselves, nobody simulates anybody else.** Each peer
+broadcasts a snapshot 20 times a second and shows everyone else 150 ms behind the local clock. No
+authority over positions, no rollback, no prediction. Legitimate here because racers do not
+collide with each other and the surface is identical on every machine; *not* legitimate for a game
+where players push each other, and this design would have to be replaced rather than extended if
+one ever wanted that.
+
+**Transport is ENet and therefore desktop-only.** A browser has no UDP socket. WebRTC delivers the
+same `MultiplayerAPI` with the same RPCs behind one factory function, and additionally needs a
+signalling server — hosted infrastructure, not repository content. Web multiplayer is blocked on
+that, not on the game code. This is the one place the "no system may depend on a feature
+Compatibility lacks" rule (§4.1 rule 2) is knowingly bent: the feature degrades to absent in the
+browser rather than breaking anything there.
+
+Not designed here and deliberately left open: the lobby (who is racing what, and a countdown
+everyone starts on), a finishing-order screen, and whether cups are ever raced together.
 
 ---
 
@@ -467,6 +534,13 @@ save/profiles, settings, 15-language i18n, audio mixing.
 > carries a `--character=`/`?character=` override across the scene swap, the same shape as
 > `requested_course_path` and for the same reason.
 
+> **Addition, 2026-09-02 — multiplayer foundation.** Not a phase; §8.4 scope, designed in §4.6
+> and built alongside Phase 5 because it reshapes the race scene and the later that happens the
+> more there is to reshape. Ghosts ship; AI and network play have their seams and one of the two
+> has a transport.
+> **Exit (met):** a recorded run replays to within 1e-9 of the original trajectory; the player
+> races their own best time on any course; two processes see each other on the hill.
+
 ### Phase 6 — Polish + ship — **M**
 Quality tiers replacing `perf_level`, WASM size budget, loading/streaming, redesigned finish sequence
 (no gravity hack), input remapping, gamepad, touch.
@@ -514,6 +588,11 @@ mass against our own heightmap, exactly as ETR did. Its limitations do not apply
 1. **Godot version** — 4.7 stable
 2. **Fidelity vs. improvement on course import** — preserve-on-import, improve in-editor per course.
 4. **Scope beyond the original** — redesign (ghosts, time trials, multiplayer, procedural courses) is in scople, this features should be taken into account for the initial design and added later.
+   > **Acted on, 2026-09-02.** The design is §4.6 and the foundation is built: a fixed-tick
+   > simulation, a racer list split into simulated and played-back, `RacerState` as the one thing
+   > the presentation reads, and recording in both poses and intent. Ghosts are finished; the ENet
+   > session is a working scaffold with no lobby and no web; AI opponents need an `InputSource`
+   > and nothing else. Time trials and procedural courses are untouched.
 5. **Desktop native** — ship it? sure, desktop and web are equally important. therfore it is ok to develop and test against the native version.
 
 ---

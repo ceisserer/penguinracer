@@ -27,7 +27,9 @@ game/                     Godot project
   scripts/camera/         chase camera
   scripts/character/      the character rig, the migrated keyframe root motion, and
                           the catalog of the five playable characters
-  scripts/race/           the race scene: wires simulation to presentation
+  scripts/race/           the race scene and the racers on the hill: the player, an
+                          optional ghost of your best run, and one per network peer
+  scripts/net/            the ENet session and the snapshots it carries
   scripts/shell/          HUD, main menu, course menu, settings screen
   scripts/audio/          the AudioDirector autoload and the sound/music banks
   scripts/config/         GameConfig: the settings file, read once at startup
@@ -43,7 +45,8 @@ game/                     Godot project
                           bank and music library
   assets/                 generated: textures, skyboxes and the migrated audio
   tests/                  headless suite (physics, surface, input, audio, terrain
-                          library, settings, character rig) + ODE benchmark
+                          library, settings, character rig, recording and playback)
+                          + ODE benchmark
   spikes/s1_pingpong/     the ping-pong render-target spike (risk S1)
 etr-0.8.4/                the original source and data, read-only
 tools/                    importer driver and the browser test harness
@@ -82,6 +85,8 @@ godot --path game spikes/s1_pingpong/s1_spike.tscn   # snow render-target spike
 godot --path game res://scenes/key_log.tscn          # keyboard delivery probe
 godot --path game -- --no-audio                      # play with the sound off
 godot --path game -- --no-intro                      # ... and without the start animation
+godot --path game -- --host --course=bunny_hill      # host a session for others to join
+godot --path game -- --join=<address> --course=bunny_hill    # ... join one
 ```
 
 Every race opens with the original's start sequence: your character is standing off to one side of
@@ -123,6 +128,30 @@ A run that names a course or a scripted input (`--course=`, `--auto-input=`, and
 `tools/shot.sh`) skips the menu and lands on the slope, which is also true of `?course=<dir>` on
 the web build's URL.
 
+## Racing yourself, and racing other people
+
+Every run you make is recorded — a couple of bytes per simulated frame, plus a pose twenty times a
+second, about 150 kB for a long course. Beat your stored time on a course and the new run replaces
+it, in `user://ghosts/<course>.res` beside the settings file. The next race on that course draws it
+as a translucent penguin taking the line you took, with the gap in seconds on the HUD: amber when
+you are behind it, green when you are ahead. Turn it off with **Race your best time** on the
+Configuration screen, or `[game] ghosts = false` in the file; the times keep being recorded either
+way, so turning it back on does not lose them. A scripted run (`--auto-input=`) neither keeps a
+ghost nor races one, which is what stops a screenshot comparison growing a second penguin.
+
+Two people on two machines can race the same course together:
+
+```bash
+godot --path game -- --host --course=bunny_hill              # one machine
+godot --path game -- --join=192.168.1.20 --course=bunny_hill # the other
+```
+
+Each machine simulates only its own penguin and tells the others where it is twenty times a
+second; nobody's physics is second-guessed. **Desktop only** — the transport is ENet, which is
+UDP, and a browser cannot open a UDP socket. There is no lobby yet either, so both ends name the
+course themselves and start when they start; `[multiplayer] player_name` in the settings file is
+what the other players see you called.
+
 ## Settings
 
 Written the first time the game runs, with its comments, read once at startup, and moved either by
@@ -148,6 +177,11 @@ distance_scale = 2.00     ; multiplies the range migrated from the environment's
 
 [game]
 character = "tux"         ; tux, trixi, boris, samuel or beastie
+ghosts = true             ; draw your best run on this course beside you
+
+[multiplayer]
+player_name = "Racer"     ; what other racers see you called
+port = 27015              ; the port --host listens on and --join= assumes
 ```
 
 Delete the file to get the defaults and the comments back. Godot's own `--resolution` and
@@ -165,7 +199,9 @@ has its own menu entry and the answer sticks — `--character=<dir>` (or `?chara
 overrides it for one run without touching the file.
 
 Sound and music volumes are still ETR's defaults on the audio director and are in neither the file
-nor the settings screen yet.
+nor the settings screen yet. The two multiplayer keys are in the file but not on the screen: a name
+you cannot see anyone use and a port with no session to open are settings for a lobby that does not
+exist.
 
 Development flags, useful for headless verification:
 

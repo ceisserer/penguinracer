@@ -84,6 +84,23 @@ custom_minimum_size = Vector2(0, 38)
 layout_mode = 2
 size_flags_horizontal = 0
 
+[node name="GhostRow" type="HBoxContainer" parent="Frame/Panel/Body/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="GhostLabel" type="Label" parent="Frame/Panel/Body/Rows/GhostRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(230, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Race your best time:"
+
+[node name="GhostCheck" type="CheckBox" parent="Frame/Panel/Body/Rows/GhostRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+size_flags_horizontal = 0
+
 [node name="RenderScaleRow" type="HBoxContainer" parent="Frame/Panel/Body/Rows"]
 layout_mode = 2
 theme_override_constants/separation = 14

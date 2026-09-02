@@ -32,6 +32,12 @@ game/                     Godot project (project.godot, gl_compatibility)
   scripts/render/         terrain chunks, GPU snow field, spray
   scripts/camera/         chase camera        scripts/shell/  main menu, course menu,
                                                               settings screen, HUD
+  scripts/race/           RaceScene and the racer layer: Racer + SimulatedRacer +
+                          PlaybackRacer, RacerState (the 14-float snapshot that is
+                          also the ghost file format and the wire format),
+                          RacerStateStream, InputSource and its kinds,
+                          RaceRecording + RaceRecorder + GhostStore
+  scripts/net/            RaceNetwork autoload (`Net`) — ENet session, snapshot RPCs
   scripts/character/      CharacterRig + KeyframePath — the rig the importer writes
                           and the root motion a keyframe animation cannot carry —
                           plus CharacterCatalog/CharacterListing, the generated
@@ -51,6 +57,8 @@ game/                     Godot project (project.godot, gl_compatibility)
   scenes/                 main_menu.tscn (the main scene), course_menu.tscn,
                           character_menu.tscn, settings_menu.tscn, race.tscn,
                           key_log.tscn
+  user://ghosts/          NOT in the repo: the player's best run per course, written
+                          by GhostStore and replayed as a translucent second penguin
   themes/                 etr_menu.tres — ETR's `common.cpp` palette as a Godot
                           theme, and the checkbox icons it binds
   tests/                  headless suite (physics, surface, input, audio, imported
@@ -85,6 +93,8 @@ godot --path game -- --character=trixi                             # ... as one 
 godot --path game -- --remote-keyboard                             # ... over a pulsed remote keyboard
 godot --path game -- --no-audio                                    # ... silent, for captures
 godot --path game -- --no-intro                                    # ... skipping the start animation
+godot --path game -- --host --course=bunny_hill                    # ... hosting a session (ENet, desktop only)
+godot --path game -- --join=127.0.0.1 --course=bunny_hill          # ... joining one
 godot --path game res://scenes/key_log.tscn                        # what the link does to the keyboard
 godot --headless --path game --script res://tests/run_tests.gd     # physics suite + benchmark
 godot --path game spikes/s1_pingpong/s1_spike.tscn                 # snow RT spike
@@ -104,8 +114,10 @@ node tools/webtest/run_web_test.js \
 
 Settings live in `user://penguinracer.cfg` — on Linux
 `~/.local/share/godot/app_userdata/PenguinRacer/`, written with its comments on first run.
-Window size, render scale and fog distance; delete it to get the defaults back. The main menu's
-**Configuration** screen moves the same five keys and writes the same commented file back.
+Window size, render scale, fog distance, whether ghosts are drawn, and the two multiplayer keys;
+delete it to get the defaults back. The main menu's **Configuration** screen moves the six a
+player can act on — `[multiplayer] player_name` and `port` are file-only until there is a lobby —
+and writes the same commented file back.
 
 Export presets: `Web` (all 44 courses), `WebOneCourse` (bunny_hill, 6.6 MB pck), `WebSpike`.
 The test server must set COOP/COEP and `.wasm`/`.pck` MIME types or the export fails obscurely.
@@ -128,6 +140,7 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 | 4 — character | rig + canned clips done for **all five characters**, procedural layer not started — welded ArrayMesh from `shape.lst` **skinned** to a Skeleton3D with ETR joint names, the four keyframe lists as an AnimationLibrary plus a `KeyframePath` of root motion each, and the pre-race start animation (`CIntro`) wired into the race. Tux, Trixi, Boris, Samuel and Beastie each carry their own shape and their own clips; `resources/characters.tres` indexes them and `GameConfig.character` picks one. No additive layer over racing (`AdjustJoints`); finish/wonrace/lostrace imported but not played. |
 | 5 — game shell | partial — `main_menu.tscn` is the main scene: Practice opens the course list, Configuration edits `penguinracer.cfg` graphically, and a race is a scene the shell hands over to and takes back. `character_menu.tscn` is the character half of `CRegist` — arrows over a framed name with the migrated 128x128 preview under it. Every screen wears `themes/etr_menu.tres`, so the shell reads as the original's: the flat `colBackgr` blue, white text, `colDYell` on whatever has focus, square white-outlined frames. Generated course and character catalogs, 13 languages wired to `tr()`, audio (10 effects + 10 pieces + 3 racing themes on an `AudioDirector` autoload that reproduces ETR's one-voice-per-cue mixer). No cups, medals or profiles (data is imported and waiting; the player half of `CRegist` waits on them); no volume or language controls on the settings screen; none of ETR's menu art (corner ornaments, title logo), which waits on the licence audit. |
 | 6 — polish/ship | not started. |
+| multiplayer foundation | seams built, ghosts working, network scaffold desktop-only — beyond the original, plan §8.4. The simulation runs on a fixed 60 Hz tick with interpolated presentation; `RaceScene` owns a list of `Racer`s, split into `SimulatedRacer` (a `RacePhysics` fed by an `InputSource`) and `PlaybackRacer` (a `RacerStateStream` read by time). Ghosts are finished end to end: every run is recorded, a completed best is written to `user://ghosts/<course>.res`, and the next race draws it translucent with the gap in seconds on the HUD. `Net` hosts/joins an ENet session over `--host`/`--join=` and each peer broadcasts 20 snapshots a second. No lobby, no countdown, no AI, no web (ENet is UDP). |
 
 ### Spikes
 
@@ -167,6 +180,16 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 5. **Deviations from the original are marked `DEVIATION` in the source, each with a reason.**
    Follow that convention.
 6. GDScript only for gameplay — C# has no web export. Avoid GDExtension addons.
+7. **The simulation runs on a fixed tick and the presentation interpolates.** `RaceScene.SIM_HZ`
+   is 60 and `_process` ticks up to the frame, not up to the last tick before it — see the trap
+   list for why the phase matters. Nothing that affects the race may run on frame time: input is
+   polled with the tick length, and only the camera lag, the streaming window, the particle rates
+   and the deformation render target are allowed the screen's rate.
+8. **A racer is whatever fills a `RacerState`.** The presentation reads that struct and nothing
+   else, so it cannot tell the player from an AI, a ghost or a peer. Do not branch on
+   `Racer.kind` in drawing code; add a subclass or an `InputSource` instead. The 14-float layout
+   is a file format and a wire format at once — appending a field is a version bump, moving one
+   silently reinterprets every stored ghost.
 
 ## Traps found the hard way
 
@@ -402,6 +425,40 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   Set shorter than the visible slope it reads as an arc of shadow travelling in front of the
   player. It is derived from the environment's fog range in `RaceScene._shadow_range_for` — keep it
   tied to visibility rather than hardcoding a number.
+- **A fixed timestep has a phase, and the textbook one draws a tick behind.** The usual loop adds
+  the frame time to an accumulator, ticks while it holds a whole `SIM_DT`, and draws between the
+  last two states by `accumulator / SIM_DT` — which at exactly 60 fps is zero every frame, so it
+  draws the *previous* tick forever. That is 16.7 ms of constant latency, and it moved every
+  reference capture: the procedural snow relief is computed per fragment from the view, so a
+  fifteen-centimetre camera shift repainted a sixth of the frame. `RaceScene` keeps how far the
+  simulation is *ahead* of the drawn instant instead (`_sim_lead`), ticks while that is
+  negative, and draws at `1 − lead / SIM_DT`. At 60 fps the lead is exactly zero and the draw is
+  the live tick, bit for bit what the variable-timestep loop did; at 144 Hz the three frames
+  between two ticks land exactly where they belong. history §20.
+- **`GPUParticles3D` seeds itself per run, so the spray is not part of any bit-exact capture
+  comparison.** Two runs of unchanged code differ over the spray by ~20 kB of a 2.2 MB frame.
+  Mask x 450–700, y 250–520 out of a `carve` capture of Bunny Hill before concluding anything from
+  a byte diff — everything outside that plume really is reproducible, to the byte.
+- **An autoload's singleton name is a static type dependency, so two autoloads can be a parse
+  cycle.** `GameConfig` names `RaceNetwork.DEFAULT_PORT` for its default; had `RaceNetwork` also
+  said `Config.player_name`, GDScript would resolve `Config` to `game_config.gd` at parse time and
+  both scripts would fail to compile — reported as *"Nonexistent function 'new' in base
+  'GDScript'"* at whatever tried to use one, naming neither. The transport takes its identity
+  through `RaceNetwork.configure()` instead, which is the better arrangement anyway.
+- **`ResourceLoader.load(path, "SomeScriptClass")` always fails.** The type hint is checked against
+  `ClassDB`, which knows nothing about `class_name`, and the load errors out rather than falling
+  back. Pass `""` and cast the result — `GhostStore.load_for` does. Also pass
+  `CACHE_MODE_IGNORE` for anything under `user://` that the game rewrites while running, or the
+  copy read at the start of the race is the run the player has just beaten.
+- **GDScript's `%` formatter has no `%g`**, and `PackedStringArray` has no `join` — it is
+  `String.join(array)`, the other way round. Both are silent-ish: the first prints *"unsupported
+  format character"* per call from inside whatever loop you put it in, the second is a parse error
+  that takes every depending script down with it.
+- **A new `class_name` is invisible until the project is reimported.** `godot --headless --path
+  game --script ...` does not scan the filesystem, so a script added outside the editor is not in
+  `.godot/global_script_class_cache.cfg` and every reference to it is *"Could not find type X in
+  the current scope"* — including from scripts that were fine a moment ago. Run
+  `godot --headless --path game --import` after adding one.
 
 ## Deliberate deviations from ETR
 
@@ -472,7 +529,8 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   draws at `cpos.y + TUX_Y_CORR` and stops. This used to be a local offset on the rig node, which
   is the same thing while the body's up axis is the surface normal — during the start animation it
   is not, and an offset along a standing penguin's local Y walked him sideways out of his own
-  footprints. It is `RaceScene.CHARACTER_SINK` now, applied by whoever writes the body transform.
+  footprints. It is `Racer.CHARACTER_SINK` now, applied by `Racer.present` — which is the only
+  place a body transform is written, for every racer, whoever is driving it.
 - **A shoulder carrying both `[sh]` and `[arm]` is one quaternion key interpolated by slerp**, where
   the original interpolates the two angles separately and rebuilds both matrices. The two agree
   exactly whenever one angle is constant across a segment, which covers all of `start.lst` (no
@@ -498,8 +556,36 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   right; the clamping and the greyed-out end arrow are the original's (`TUpDown::Click` stops at
   `minimum`/`maximum` and calls `SetActive(false)`). The `n / 5` counter under the preview is new:
   five characters behind two arrows give no sense of how many there are.
+- **The simulation runs on a fixed 60 Hz tick.** ETR steps its ODE with the frame time and its
+  `CControl` state is whatever the frame rate made of it. A fixed tick is what makes a run mean
+  the same thing at 30 fps and at 144, which a recorded ghost and two networked peers both
+  require. It costs nothing at 60 — see the trap list — and the ODE's own adaptive substepping is
+  unchanged underneath it.
+- **A ghost is played back as poses, not re-simulated from its input trace.** Both are recorded
+  (`RaceRecording`) and they are not redundant: input replay only reproduces a run if every float
+  operation lands on the same bit, and this game ships to native desktops and to a WebAssembly
+  runtime with a different libm, so a ghost recorded on one and replayed on the other would drift
+  unfalsifiably. The trace is for what has to re-derive a run rather than repeat it — regression
+  tests, a run replayed against a changed constant, an AI corpus — and carries a hash of the force
+  model so a stale one says so.
+- **A scripted run neither keeps a ghost nor races one.** `--auto-input=` is every reference
+  capture; a capture that set a best time would leave a file behind and every later capture of
+  that course would come out with a second penguin on the slope, differing between machines for
+  no reason visible in the frame.
+- **Every peer simulates only itself and broadcasts snapshots.** No host authority over positions,
+  no rollback, no prediction — racers do not collide with each other, the surface is identical
+  everywhere, and the only shared mutable state on the course is the herring. A game where players
+  pushed each other would need an authority and this design would not survive one.
+- **Herring are shared and first come, first served** between simulated racers, because
+  `RacePhysics.items` is one `ObjectGrid`. A ghost cannot take one — it is not simulated and never
+  touches the grid — and over the network each machine only removes what its own racers collected.
+- **Only the local player's slide and tree hits are audible.** The migrated mixer has one voice
+  per cue and no positional audio, so another racer's collision three hundred metres up the hill
+  would be indistinguishable from your own.
 - Numeric string IDs became semantic keys (`PRESS_ANY_KEY_TO_START`); old IDs are traceable via
-  `i18n/legacy_string_ids.cfg`.
+  `i18n/legacy_string_ids.cfg`. `ghost` and the Configuration screen's *Race your best time* are
+  the two strings so far that are neither migrated nor keyed — the original has no ghosts, so
+  there is nothing to migrate and a `tr()` key would resolve to nothing in all 13 languages.
 
 ## Licensing
 

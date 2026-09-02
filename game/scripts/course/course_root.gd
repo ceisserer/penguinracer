@@ -20,6 +20,10 @@ var items: ObjectGrid
 ## Index into [member items] → the MultiMesh instance slot, so collected herring
 ## can be hidden without rebuilding the batch.
 var _item_instances: Dictionary[int, Array] = {}
+## The transform each of those slots was built with, so a restart can put a
+## collected herring back. Kept here rather than re-read off the MultiMesh
+## because [method hide_item] has already overwritten it by then.
+var _item_transforms: Dictionary[int, Transform3D] = {}
 
 ## Build the runtime representation. Safe to call once, from the race scene.
 func build_runtime() -> void:
@@ -55,6 +59,7 @@ func build_runtime() -> void:
 			elif prefab == null or prefab.collectable:
 				var idx: int = items.add(p + Vector3(0.0, height * 0.5, 0.0), diam, height, 0)
 				_item_instances[idx] = [type_name, transforms.size() - 1]
+				_item_transforms[idx] = transforms[transforms.size() - 1]
 		if prefab != null and prefab.mesh != null and not transforms.is_empty():
 			_add_batch(type_name, prefab, transforms)
 
@@ -84,6 +89,22 @@ func hide_item(index: int) -> void:
 	if mmi == null:
 		return
 	mmi.multimesh.set_instance_transform(entry[1], Transform3D().scaled(Vector3.ZERO))
+
+## Put every collected herring back, for a restart.
+##
+## Two halves, and both are needed: the [ObjectGrid] holds whether an item is
+## still there for the simulation, and the [MultiMesh] holds whether it is still
+## there for the eye. Neither used to be undone, so pressing `r` raced a course
+## that had been stripped of everything the previous run picked up — invisible
+## until there was a ghost of that run collecting fish that were no longer
+## there.
+func reset_items() -> void:
+	items.reset_collectables()
+	for index: int in _item_transforms:
+		var entry: Array = _item_instances[index]
+		var mmi: MultiMeshInstance3D = get_node_or_null("Batch_%s" % entry[0])
+		if mmi != null:
+			mmi.multimesh.set_instance_transform(entry[1], _item_transforms[index])
 
 ## Discard the authoring markers once the batches and grids exist.
 func release_markers() -> void:

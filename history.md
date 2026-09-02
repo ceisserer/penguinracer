@@ -69,7 +69,7 @@ should not be built. Two things bought most of the headroom, both worth keeping:
 
 ## What the plan did not know
 
-Nineteen things turned up during implementation, in the order they were found. The first four
+Twenty things turned up during implementation, in the order they were found. The first four
 change the plan's own §1 constraint table; the rest are the original's behaviour, Godot's, or
 the difference between the two. Each is kept whole — the wrong turns are the useful part.
 
@@ -616,3 +616,42 @@ the real game under the same window-manager harness: a single `xdotool key w` no
 and ten of them 30 ms apart — a translating remote desktop, near enough — still reports.
 
 Fixed 2026-09-02, both sections.
+
+### 20. A fixed timestep has a phase, and the obvious one is a tick behind
+
+Preparing for more than one racer meant moving the simulation off the frame time and onto a fixed
+60 Hz tick: a run has to mean the same thing at 30 fps and at 144, or a recorded ghost is not a
+fair opponent and two peers cannot agree who reached the line first. The tick rate was easy to
+pick — every reference capture is taken with `--fixed-fps 60`, so at 60 the accumulator would take
+exactly one tick a frame and nothing would move.
+
+Nothing moved *in the simulation*. A sixth of the frame moved anyway.
+
+The loop was written the way every article writes it. Add the frame time to an accumulator, take a
+tick for each whole `SIM_DT` in it, and draw between the last two states by `accumulator / SIM_DT`
+— which at exactly 60 fps is zero, every frame, forever, so the game drew the *previous* tick and
+never the live one. A constant 16.7 ms of latency, and against a procedural relief field that is
+computed per fragment from the view, a fifteen-centimetre camera shift repaints everything:
+1.0 M of 2.2 M bytes differed from the baseline capture, 15 % of them by more than one level.
+
+The bug is in the phase, not in the interpolation. `accumulator / SIM_DT` renders at simulation
+time `(n−1)·dt + accumulator`, which is a full `dt` behind the frame's own instant of
+`n·dt + accumulator`. Rendering the live state instead would be only `accumulator` behind — better
+at 60 fps and jerky everywhere else, since at 144 Hz some frames get a tick and some get none.
+
+The formulation that is neither: run the simulation *up to* the frame rather than up to the last
+tick before it. Keep how far the simulation is ahead of the drawn instant, subtract the frame time
+from it, tick while it is negative, and draw at `1 − lead / SIM_DT`. At 60 fps the lead comes out
+at exactly zero, the draw is the live tick, and the capture is the old one bit for bit. At 144 Hz
+the three frames between two ticks land at 0.417, 0.833 and 0.25 of the way through their
+respective intervals — which is 1/144, 2/144 and 3/144 of simulated time, exactly where the frames
+are.
+
+Verified by re-running `tools/shot.sh` against the pre-change tree: outside the spray — which was
+never bit-reproducible, because `GPUParticles3D` seeds itself per run, and two runs of the
+*unchanged* code differ there by the same 20 kB — the 200-frame Bunny Hill capture is pixel
+identical. The other thing that had to move to get there was the CPU snow field: it used to be
+recentred and then decayed after the step, and the first draft had the decay on the tick and the
+recentre on the frame, which is a different order.
+
+Written 2026-09-02.

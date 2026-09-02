@@ -387,6 +387,92 @@ medals from the migrated thresholds, and save profiles — the player half of `C
 last of those. Sound and music volumes and the language are ETR's `options.txt` keys that this
 file and this screen still do not carry.
 
+### Multiplayer foundation · **seams built, ghosts working, network scaffold desktop-only**
+
+Not a phase in the plan — plan §8.4 says redesign beyond the original is in scope and should be
+taken into account in the initial design. This is that: the shape three separate features need,
+built once, with one of them finished so the shape is not a guess.
+
+**One racer became a list of racers.** `RaceScene` used to hold *the* player: one `RacePhysics`,
+one `$Player` node, one input poll, one herring count. It now holds `racers: Array[Racer]` and
+advances all of them on the same tick. The split under `Racer` is the whole design:
+
+```
+Racer                  identity, rig, and the interpolated body transform
+  ├── SimulatedRacer   owns a RacePhysics, fed by an InputSource
+  │                    → the local player today, an AI opponent later
+  └── PlaybackRacer    owns a RacerStateStream, read by time
+                       → a ghost today, a network peer today
+```
+
+`RacerState` is the seam: 14 float32s — time, position, orientation, velocity, progress, flags,
+herring — and the *only* thing the presentation reads. A simulated racer fills it from
+`RacePhysics`; a ghost fills it from a recorded stream; a peer fills it from a packet. The same
+14 floats are the file format and the wire format, so a ghost on disk and a snapshot on the wire
+are the same bytes in the same order.
+
+**The simulation runs on a fixed 60 Hz tick, and the presentation interpolates.** This is the
+load-bearing change and everything else rests on it: a run has to mean the same thing at 30 fps
+and at 144 or a recorded ghost is not a fair opponent and two peers cannot agree who reached the
+line first. `tests/test_multiplayer.gd` asserts it directly — a run recorded as intent, replayed
+through `ReplayInputSource`, lands within 1e-9 of where it started. Getting the interpolation
+*phase* right was the one subtle part and moved every reference capture the first time; see
+history §20. It moves none of them now: outside the spray, a 200-frame Bunny Hill capture is
+pixel-identical to the one from before this work.
+
+**Ghosts are the consumer that proves the seams.** Every run the player makes is recorded — 2
+bytes of intent per tick plus a 14-float pose every third tick, about 150 kB for a four-minute
+run — and a completed run that beats the stored one is written to `user://ghosts/<course>.res`.
+The next race on that course draws it as a translucent penguin on the line it took, with the gap
+in seconds on the HUD. `[game] ghosts` in `penguinracer.cfg` and a checkbox on the Configuration
+screen turn it off.
+
+Two things are recorded, deliberately, and they are not redundant:
+
+- **Poses** are what a ghost plays back. Exact by construction, cost nothing to replay, and ask
+  nothing of the physics still being what it was. That last part is why they exist: input replay
+  only reproduces a run if every float lands on the same bit, and this game ships to native
+  desktops *and* to a WebAssembly runtime with a different libm. A ghost recorded on one and
+  replayed on the other would drift, slowly and unfalsifiably.
+- **The input trace** is a fortieth of the size and is the exact thing for anything that has to
+  re-derive a run rather than repeat it: a regression test, a saved run replayed against a changed
+  force constant, and the corpus an AI would be scored against. It carries a hash of every
+  constant in the force model, so a trace from before one moved says so instead of quietly
+  producing a different race.
+
+**AI opponents need no new machinery.** An opponent is an `InputSource` subclass — `poll()` is
+handed the `RacePhysics`, which owns the position, the velocity, the surface under the racer and
+the tree grid ahead of it — driving a `SimulatedRacer`. Nothing is stubbed for it and nothing is
+waiting on it; the seam is exercised today by `ScriptedInputSource`, which is what `--auto-input=`
+became.
+
+**The network scaffold is ENet, peer-to-peer, and desktop-only.** `Net` (`scripts/net/race_network.gd`)
+hosts or joins a session; each peer simulates only itself and broadcasts a snapshot 20 times a
+second, and every other peer draws it as a `PlaybackRacer` read 150 ms behind the local clock.
+No host authority over positions, no rollback, no prediction — racers do not collide with each
+other, the surface is identical on every machine, and the only shared mutable state is the
+herring. Verified with two processes on one machine: both see the other on the hill, spawned off
+the first snapshot to arrive.
+
+```bash
+godot --path game -- --host --course=bunny_hill
+godot --path game -- --join=127.0.0.1 --course=bunny_hill
+```
+
+What it is not: there is no lobby screen (both ends name the course themselves, though
+`RaceNetwork.course_dir` already carries the host's choice to the client and nothing reads it
+yet), no countdown, no finishing-order screen, and **no web support** — ENet is UDP and a browser
+has no UDP socket. WebRTC delivers the same `MultiplayerAPI` with the same RPCs behind
+`RaceNetwork._new_peer`, and additionally needs a signalling server, which is hosted
+infrastructure rather than a piece of this repository.
+
+**Two bugs fell out of the refactor and are fixed.** `ObjectGrid.reset_collectables` had never
+been called, so pressing `r` raced a course stripped of every herring the previous run collected —
+invisible until a ghost of that run was there collecting fish that were not; `CourseRoot.reset_items`
+now puts back both the grid flag and the instance transform. And a peer joining a race already in
+progress used to stand still forever, because its playback clock started at zero while its
+snapshots were stamped a minute in.
+
 ## Known gaps
 
 - **The near-field terrain mesh is too coarse for the trench to read as geometry.** Chunk
@@ -415,14 +501,16 @@ file and this screen still do not carry.
   how it looks, and that is a design call rather than a fidelity one.
 - **The game shell stops at free course selection** (Phase 5): no cup progression, medals or save
   profiles. The migrated event thresholds are sitting there ready; the translations are wired up.
-  The settings screen moves the six keys the file has and not the three ETR's own configuration
-  screen also has — sound volume, music volume and language. The screens carry the original's
+  The settings screen moves the six keys a player can act on and not the three ETR's own
+  configuration screen also has — sound volume, music volume and language — nor the two
+  multiplayer keys, which are a name nobody can see used and a port with no session to open. The screens carry the original's
   palette but none of its menu art — corner ornaments, title logo, drifting `ui_snow` — which is
   blocked on the licence audit below.
 - **All five characters are the importer's welded-sphere placeholders**, and only Tux's has been
   looked at joint by joint. The other four render, animate and carry their own clips, and the
   suite checks the contract they share; nobody has compared Trixi's start animation against the
-  original frame by frame. The procedural layer (`AdjustJoints`) is unwritten for all of them,
+  original frame by frame; a ghost is drawn as whoever set the time, not as whoever is racing now.
+  The procedural layer (`AdjustJoints`) is unwritten for all of them,
   and every character has identical physics — which is true in ETR too, `characters.lst` carries
   no per-character constants and `[type]` is a column nothing reads.
 - **The terrain slide sound is on or off**, because the original's speed-and-lean `SlideVolume`
@@ -444,6 +532,25 @@ file and this screen still do not carry.
   the shader does to snow and ice is course-global, and per-layer normal maps are out of reach
   under Compatibility: the terrain shader already binds 13 of WebGL2's guaranteed 16 fragment
   texture units. materials.md §5 has the arithmetic and the extension point.
+- **Multiplayer is a transport and a seam, not a game mode.** No lobby, no countdown, no
+  finishing-order screen, no way in from the menu — a session is `--host`/`--join=` on the command
+  line. And no web: ENet is UDP. The snapshot path a WebRTC peer would use is the one ghosts
+  already run on, so the missing piece is the peer and a signalling server, not the game code.
+- **A ghost is silent and leaves no trench.** It is a `PlaybackRacer`, so it has no ODE substeps
+  to hang spray on and never stamps the deformation field. The same is true of a remote racer,
+  plus its tree hits: the mixer has one voice per cue and no positional audio, so another racer's
+  collision would be indistinguishable from your own. Spray from a state stream would have to be
+  driven off the sampled velocity and steering flags rather than off substeps.
+- **The GPU deformation window follows one racer.** It is a single 64 m toroidal window centred on
+  the view target, so a second simulated racer outside it deforms the CPU mirror — which is what
+  the physics reads, and is course-wide — but leaves no visible trench.
+  `SimulatedRacer.deforms_snow` is the knob if eight racers stamping one 1024² target ever has to
+  give.
+- **Herring are first come, first served, and shared.** Two simulated racers on one course race
+  for the same fish, because `RacePhysics.items` is one `ObjectGrid` and collecting clears the flag
+  on it. That is the competitive reading; a per-racer item set would be a copy of the whole table
+  per opponent. Over the network nobody agrees about it at all — a remote racer is played back and
+  never touches the grid, so each machine only removes what its own racers collected.
 - **Asset licence audit not started** (risk S5). Independent of engineering, long lead time,
   blocks Phase 5.
 - **Two terrain layers import with no albedo**, because `terrains.lst` names a texture that is

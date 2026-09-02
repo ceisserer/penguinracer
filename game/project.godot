@@ -97,5 +97,6 @@ texture={
 [autoload]
 
 Config="*res://scripts/config/game_config.gd"
+Net="*res://scripts/net/race_network.gd"
 DebugCapture="*res://scripts/debug/debug_capture.gd"
 Audio="*res://scripts/audio/audio_director.gd"
