@@ -655,3 +655,65 @@ recentred and then decayed after the step, and the first draft had the decay on 
 recentre on the frame, which is a different order.
 
 Written 2026-09-02.
+
+---
+
+### 21. Steering that was ignored because it was too polite
+
+The first field of computer opponents drove down the hill perfectly happily and would not move
+sideways. Not sluggishly — not at all. The planner picked an aim point six metres to the left, the
+heading error came out at four degrees, the stick was set to −0.16, and the racer held its heading
+for the rest of the course.
+
+It was found by the one assertion that could find it. Two opponents were given the same lane and
+the same personality and told to give each other room; the test said they had to end up more than
+a metre apart, and they ended the run 0.40 m apart, which is exactly where they started. Every
+other assertion — that each level gets down the hill, that hard out-drives easy, that an opponent
+goes through the gap in a stand of trees — passed, because all of those are satisfied by driving
+in a straight line down a fall line that happens to point at the finish.
+
+`RacePhysics._calc_steering_controls` is a faithful port of `CalcSteeringControls`, and the
+original reads the joystick like this:
+
+```gdscript
+if absf(input.stick_turn) > 0.2:
+    turn_fact = input.stick_turn
+elif input.left_turn != input.right_turn:
+    turn_fact = -1.0 if input.left_turn else 1.0
+else:
+    turn_fact = 0.0
+```
+
+0.2 is a thumbstick's deadzone, and it is correct: a stick at rest reads a few per cent off centre
+and a game that steered on that would be unplayable. What it also means is that an input source
+which steers *proportionally*, and does not set the digital flags, is silently rounded to "not
+steering" for every error inside a fifth of full lock. The AI set only the stick, on purpose — the
+flags are full lock or nothing, and an opponent that could only steer flat out saws at every line
+it takes.
+
+Nothing warns. The intent is well-formed, the field is in range, the sign is right, and the value
+is thrown away one function later.
+
+The fix is a sentence: anything worth correcting has to come out past the deadzone. `stick_for`
+maps a heading error to `[0.21, 1.0]` with a small dead band of its own — four per cent of the
+level's own full-lock angle, so a hard opponent notices a smaller error than an easy one — and
+returns zero below it. The ladder moved when it landed, which is the other half of the evidence:
+easy dropped from 236 m to 231 m over thirty seconds (it now actually steers to the fish it wants)
+and hard rose from 418 m to 422 m.
+
+The generalisation is worth keeping. A faithfully ported input path has the *player's* hardware
+baked into it, and a synthetic driver is not a player: it has no drift to reject, no dead zone to
+survive and no fingers. Deadzones, latch windows, autorepeat and edge detection are all places
+where the port is correct and a non-human caller is quietly filtered out. This is the second one
+of those in the repository — §14 is the same shape from the other direction, an edge detector that
+fires for a key that was never held.
+
+Two smaller things fell out of the same session and are in the trap list rather than here. A
+GDScript lambda captures by value, so `func(): hits += 1` counts into a copy and the tree-collision
+assertion passed on every run including the failing ones. And an obstacle that moves with you is
+not scored like one that stands still: the rival-avoidance penalty was first written as
+distance-from-the-candidate-line, which is the test a tree gets, and since every candidate line
+starts at the racer's own position it came out about equal for all nine of them — a penalty that
+discriminates between nothing.
+
+Written 2026-09-02.

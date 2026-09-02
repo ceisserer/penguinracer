@@ -79,8 +79,21 @@ var character: String = CharacterCatalog.DEFAULT_DIR
 ##
 ## Recording happens either way and costs about 4 kB a run — see [RaceRecorder].
 ## This is only whether the ghost is drawn, so turning it off and back on again
-## does not lose the times set in between.
+## does not lose the times set in between. A race against computer opponents
+## draws no ghost whatever this says — see [method RaceScene._setup_ghost].
 var ghosts: bool = true
+
+## How many computer opponents the main menu's *Race the computer* entry offers
+## next time, 1..[constant RaceSetup.MAX_OPPONENTS].
+##
+## Not on the Configuration screen, unlike the six keys above it. This is a
+## choice made in the flow of racing — it is on the course screen, next to the
+## course — and it is stored so that the choice survives quitting the game
+## rather than only the scene. Three is a field you can see all of.
+var opponents: int = 3
+## How well those opponents drive. See [AISkill]: the levels move driving
+## habits, never the physics.
+var opponent_skill: AISkill.Level = AISkill.Level.MEDIUM
 
 # --- multiplayer ---
 
@@ -128,6 +141,10 @@ func read(cfg: ConfigFile) -> void:
 	if character.is_empty():
 		character = CharacterCatalog.DEFAULT_DIR
 	ghosts = bool(cfg.get_value("game", "ghosts", ghosts))
+	opponents = clampi(int(cfg.get_value("game", "opponents", opponents)),
+		1, RaceSetup.MAX_OPPONENTS)
+	opponent_skill = AISkill.parse(str(cfg.get_value("game", "opponent_skill",
+		AISkill.name_of(opponent_skill))))
 	player_name = str(cfg.get_value("multiplayer", "player_name",
 		player_name)).strip_edges()
 	if player_name.is_empty():
@@ -208,7 +225,17 @@ character = "%s"
 
 ; Race against your own best run on each course, drawn as a translucent
 ; penguin. Times are recorded either way; this only draws them.
+; A race against computer opponents never draws one — the standings take that
+; line of the HUD.
 ghosts = %s
+
+; How many computer opponents the main menu's "Race the computer" entry starts
+; with [1...9], and how well they drive: easy, medium or hard. The course
+; screen sets both, and writes them back here.
+; They are also `--opponents=N --difficulty=hard` on the command line, which is
+; how a race is started without going through the menu.
+opponents = %d
+opponent_skill = "%s"
 
 [multiplayer]
 
@@ -222,7 +249,8 @@ player_name = "%s"
 port = %d
 """ % [_resolution_text(), str(fullscreen).to_lower(), render_scale,
 		fog_start_distance, fog_distance_scale, character,
-		str(ghosts).to_lower(), player_name, multiplayer_port]
+		str(ghosts).to_lower(), opponents, AISkill.name_of(opponent_skill),
+		player_name, multiplayer_port]
 
 ## `"auto"` when the window is the platform's to size, `"1280x720"` otherwise.
 ## The round trip through [method parse_resolution] has to survive: a saved

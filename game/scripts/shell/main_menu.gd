@@ -6,13 +6,26 @@
 ## settings screen to live. This is the plan's arrangement (godot-port-plan.md
 ## §4.1): the shell above the race, holding it rather than sitting inside it.
 ##
-## Three entries, all of them ETR's own words: `PRACTICE` is a single free race
-## on any course — the original's term for exactly this, and the reason the
-## label comes out of the imported strings rather than being written here —
+## Four entries. Three are ETR's own words: `PRACTICE` is a single free race on
+## any course — the original's term for exactly this, and the reason the label
+## comes out of the imported strings rather than being written here —
 ## `SELECT_A_CHARACTER` is [CharacterMenu] over the five rows of
 ## `char/characters.lst`, and `CONFIGURATION` is [SettingsMenu] over
 ## `penguinracer.cfg`. Cups, events and profiles are imported and waiting; when
 ## they arrive they are more entries in the same column.
+##
+## The fourth is *Race the computer*, and it is beyond the original — ETR has no
+## opponents on the hill at all, so there is no string to migrate and the label
+## is written here (see [AISkill] for the same call about the difficulty names).
+## It opens the same [CourseMenu] Practice does, carrying a [RaceSetup] that
+## turns the panel's opponent and skill spinners on. Both entries are one screen
+## for that reason: the difference between them is two numbers, and a player who
+## has just been beaten should be able to change one of them without leaving.
+##
+## The field itself is remembered — `[game] opponents` and `opponent_skill` in
+## `penguinracer.cfg`, written when a race starts rather than on a settings
+## screen, because it is a choice made in the flow of racing rather than a
+## preference someone goes looking for.
 ##
 ## The character entry is here rather than on its own startup screen because
 ## ETR's is half of `CRegist`, whose other half is the player profile — see
@@ -42,6 +55,7 @@ static var _boot_handled: bool = false
 ## and would otherwise show the title through their own dim.
 @onready var _frame: MarginContainer = %Frame
 @onready var _practice_button: Button = %PracticeButton
+@onready var _opponents_button: Button = %OpponentsButton
 @onready var _character_button: Button = %CharacterButton
 @onready var _settings_button: Button = %SettingsButton
 @onready var _quit_button: Button = %QuitButton
@@ -76,6 +90,8 @@ func _ready() -> void:
 	_title.text = ProjectSettings.get_setting("application/config/name", "PenguinRacer")
 	_version.text = "v%s" % ProjectSettings.get_setting("application/config/version", "")
 	_practice_button.text = tr("PRACTICE")
+	# Not a migrated string; the original has nobody to race against.
+	_opponents_button.text = "Race the computer"
 	_settings_button.text = tr("CONFIGURATION")
 	_quit_button.text = tr("QUIT")
 	_wait_label.text = tr("PLEASE_WAIT")
@@ -84,7 +100,8 @@ func _ready() -> void:
 	_quit_button.visible = not OS.has_feature("web")
 	_loading.visible = false
 
-	_practice_button.pressed.connect(_open_course_menu)
+	_practice_button.pressed.connect(_open_practice_menu)
+	_opponents_button.pressed.connect(_open_race_menu)
 	_character_button.pressed.connect(_open_character_menu)
 	_settings_button.pressed.connect(_open_settings)
 	_quit_button.pressed.connect(func() -> void: Audio.quit_game(0))
@@ -108,11 +125,21 @@ func _show_root() -> void:
 	_frame.visible = true
 	_practice_button.grab_focus()
 
-func _open_course_menu() -> void:
+func _open_practice_menu() -> void:
+	_open_course_menu(RaceSetup.practice())
+
+## The same screen with the field spinners showing, opened on whatever the
+## player last raced — [GameConfig] holds it so that the answer survives a
+## restart of the game, not just of the scene.
+func _open_race_menu() -> void:
+	_open_course_menu(RaceSetup.against(Config.opponents, Config.opponent_skill))
+
+func _open_course_menu(setup: RaceSetup) -> void:
 	_frame.visible = false
 	# Nothing is loaded and nothing is running, so there is no race to continue
 	# and the last course raced is only a highlight.
-	_course_menu.open(RaceScene.requested_course_path.get_base_dir().get_file(), false)
+	_course_menu.open(RaceScene.requested_course_path.get_base_dir().get_file(),
+		false, setup)
 
 func _open_character_menu() -> void:
 	_frame.visible = false
@@ -145,7 +172,16 @@ func _refresh_character_button() -> void:
 	var name: String = listing.title() if listing != null else Config.character
 	_character_button.text = "%s %s" % [tr("SELECT_A_CHARACTER"), name]
 
-func _on_course_chosen(listing: CourseListing) -> void:
+func _on_course_chosen(listing: CourseListing, setup: RaceSetup) -> void:
+	# The field travels to the race the way the course does, and is remembered
+	# for the next time this screen opens. A practice run leaves the stored
+	# field alone: choosing to race alone is not choosing zero opponents.
+	RaceScene.requested_setup = setup
+	if setup.is_race() and (setup.opponents != Config.opponents
+			or setup.skill != Config.opponent_skill):
+		Config.opponents = setup.opponents
+		Config.opponent_skill = setup.skill
+		Config.save()
 	# ETR's loading screen: the course in yellow, "please wait" in white under
 	# it, both centred on the same flat blue every other screen is cleared to.
 	_loading_label.text = "%s '%s'" % [tr("LOADING"), listing.title()]

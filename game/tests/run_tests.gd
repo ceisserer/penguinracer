@@ -25,6 +25,7 @@ func _run() -> void:
 	TestConfig.run(t)
 	TestInput.run(t)
 	TestMultiplayer.run(t)
+	TestAI.run(t)
 	TestAudio.run(t)
 
 	var elapsed: int = Time.get_ticks_msec() - start

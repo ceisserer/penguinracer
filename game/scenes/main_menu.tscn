@@ -74,6 +74,13 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 30
 text = "Practice"
 
+[node name="OpponentsButton" type="Button" parent="Frame/Body/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(340, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "Race the computer"
+
 [node name="CharacterButton" type="Button" parent="Frame/Body/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(340, 0)

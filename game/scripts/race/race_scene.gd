@@ -6,10 +6,18 @@
 ##
 ## [b]There is more than one penguin on the hill.[/b] The scene owns a list of
 ## [Racer]s rather than a player: one [SimulatedRacer] for the person at the
-## keyboard, optionally a [PlaybackRacer] replaying their best run as a ghost,
-## and one more per connected peer. The scene does not branch on which is which
-## — it advances them all on the same tick and draws them all from the same
-## [RacerState]. See [Racer] for the split and [RaceNetwork] for the session.
+## keyboard, up to nine more driven by an [AIInputSource], optionally a
+## [PlaybackRacer] replaying their best run as a ghost, and one more per
+## connected peer. The scene does not branch on which is which — it advances
+## them all on the same tick and draws them all from the same [RacerState]. See
+## [Racer] for the split, [AISkill] for the opponents and [RaceNetwork] for the
+## session.
+##
+## [b]Two modes, one scene.[/b] [RaceSetup] is the whole of the difference:
+## zero opponents is Practice, which is what the game did before and what every
+## reference capture still gets, and one to nine is a race. Nothing else
+## branches on it — an opponent is built the same way the player is and the
+## presentation cannot tell them apart.
 ##
 ## [b]The simulation runs on a fixed tick[/b] ([constant SIM_HZ]) and the
 ## presentation interpolates between the last two. That is the other half of
@@ -57,6 +65,10 @@ const INTRO_HEIGHT_CORRECTION := -0.05
 ## default, named here because the intro is where the original says it.
 const INTRO_CAMERA_DISTANCE := 4.0
 
+## Particles an opponent's spray may have in flight per side. A quarter of the
+## player's; see [member SimulatedRacer.spray_pool].
+const OPPONENT_SPRAY_POOL := 180
+
 ## What a ghost is tinted. Cold and pale so it separates from a real racer at a
 ## glance and from the snow at speed; see [method Racer.make_translucent].
 const GHOST_TINT := Color(0.55, 0.78, 1.0, 0.40)
@@ -90,6 +102,14 @@ static var requested_course_path: String = ""
 ## `?character=trixi` in the browser, where [MainMenu] reads the URL one scene
 ## before this one exists. Empty means "whoever the config file names".
 static var requested_character: String = ""
+## The field the shell asked for, or null for whatever the command line says —
+## which is Practice unless it says otherwise.
+##
+## Static for the same reason as [member requested_course_path]: the shell picks
+## the mode on a screen that no longer exists by the time this scene is built.
+## Set by [CourseMenu] through [MainMenu]; cleared by nobody, so a session keeps
+## racing the field it chose until it chooses another.
+static var requested_setup: RaceSetup = null
 ## Whether the shell was asked for a race without the start animation.
 ##
 ## Static for the same reason as [member requested_course_path]: a browser has no
@@ -118,6 +138,11 @@ var camera: ChaseCamera
 var racers: Array[Racer] = []
 ## The person at the keyboard.
 var local: SimulatedRacer
+## The computer opponents, in start-line order. Empty in Practice.
+var opponents: Array[SimulatedRacer] = []
+## How many opponents this race has and how well they drive. Never null once
+## `_ready` has run.
+var setup: RaceSetup
 ## The player's best recorded run on this course, or null.
 var ghost: PlaybackRacer
 ## Who the camera, the snow window and the HUD are about. The local player
@@ -159,6 +184,9 @@ var _run_id: int = 0
 var _sim_lead: float = 0.0
 
 var _racers_root: Node3D
+## Every racer's position, rebuilt in place each tick and shared by reference
+## with the opponents. See [method _refresh_rivals].
+var _rival_positions: Array[Vector3] = []
 var _remote: Dictionary[int, PlaybackRacer] = {}
 var _sun: DirectionalLight3D
 
@@ -184,6 +212,9 @@ var _slide_sample := SurfaceSample.new()
 ## Development-only scripted input, for headless verification shots.
 ## `--auto-input=carve` slaloms, `--auto-input=brake` drags the belly.
 var _auto_input: String = ""
+## `--opponents=N --difficulty=hard`: a field without going through the shell.
+## Used only when the shell has not asked for one.
+var _cli_setup := RaceSetup.new()
 ## `--remote-keyboard`: bridge a keyboard arriving as zero-length pulses.
 var _compensate_keys: bool = false
 
@@ -235,11 +266,21 @@ func _ready() -> void:
 			course_scene_path = "res://courses/%s/course.tscn" % arg.trim_prefix("--course=")
 		elif arg.begins_with("--character="):
 			requested_character = arg.trim_prefix("--character=")
+		elif arg.begins_with("--opponents="):
+			_cli_setup.opponents = clampi(
+				arg.trim_prefix("--opponents=").to_int(), 0, RaceSetup.MAX_OPPONENTS)
+		elif arg.begins_with("--difficulty="):
+			_cli_setup.skill = AISkill.parse(arg.trim_prefix("--difficulty="))
+	# The shell outranks the command line here, unlike `--course=`: the two flags
+	# are a way to start a race without a menu, not a way to keep overriding a
+	# choice the player has just made on one.
+	setup = requested_setup.copy() if requested_setup != null else _cli_setup
 	# After the arguments, not before: `--character=` names a rig and this is
 	# where it has been read. The start animation is per character too — Trixi's
 	# `start.lst` is not Tux's — so the rig has to exist before the intro is set
 	# up on the course load below.
 	_create_local_racer()
+	_create_opponents()
 	_intro_enabled = play_intro and _auto_input.is_empty()
 	menu = $CourseMenu
 	menu.course_chosen.connect(_on_course_chosen)
@@ -278,10 +319,88 @@ func _create_local_racer() -> void:
 func _local_character_dir() -> String:
 	return requested_character if not requested_character.is_empty() else Config.character
 
+## Build the field.
+##
+## An opponent is not a special kind of racer — it is exactly what
+## [method _create_local_racer] builds, with an [AIInputSource] where the
+## keyboard goes and no recorder, because a ghost is the player's own best run
+## and a computer's is not a time anybody set. Everything downstream — the
+## simulation, the spray, the snow stamps, the herring grid, the rig, the
+## interpolated draw, the standings — is the same code path.
+##
+## Each opponent gets its own character where there are enough to go round, its
+## own seat in the start line and its own personality drawn from that seat, so a
+## field of nine is nine racers rather than one drawn nine times.
+func _create_opponents() -> void:
+	if setup == null or not setup.is_race():
+		return
+	var catalog: CharacterCatalog = CharacterCatalog.load_default()
+	# The player is already wearing one of the five, so the first opponent to
+	# reach it is the second of that character on the hill and is named as such.
+	var worn: Dictionary[String, int] = {_local_character_dir(): 1}
+	for i: int in setup.opponents:
+		var racer := SimulatedRacer.new()
+		racer.name = "Opponent%d" % (i + 1)
+		racer.kind = Racer.Kind.AI
+		racer.spray_pool = OPPONENT_SPRAY_POOL
+		racer.start_offset = RaceSetup.lane_offset(i)
+		racer.input_source = AIInputSource.new(AISkill.for_level(setup.skill), i, 0)
+		var listing: CharacterListing = _opponent_character(catalog, i)
+		var dir: String = listing.dir if listing != null else CharacterCatalog.DEFAULT_DIR
+		racer.display_name = _opponent_name(listing, dir, worn)
+		_add_racer(racer, dir)
+		# Only the collection matters here — [method _on_item_collected] hides
+		# the fish for everyone and plays the cue for the player alone. A tree an
+		# opponent hits is deliberately not connected: the mixer has one voice
+		# per cue and no positional audio, so it would sound like the player's.
+		racer.item_collected.connect(_on_item_collected)
+		racer.finished_race.connect(_on_racer_finished)
+		opponents.push_back(racer)
+	print("field: %s" % setup.describe())
+
+## Replace the field with one built from the current [member setup]. Called when
+## the in-race menu comes back with a different number of opponents.
+func _rebuild_opponents() -> void:
+	for racer: SimulatedRacer in opponents:
+		racers.erase(racer)
+		# Out of the tree before the free, not just queued for it: `queue_free`
+		# leaves the node a child until the end of the frame, and the
+		# replacements go in under the same names.
+		_racers_root.remove_child(racer)
+		racer.queue_free()
+	opponents.clear()
+	_create_opponents()
+	if course_root != null:
+		for racer: SimulatedRacer in opponents:
+			_build_simulation(racer, course_root.course_data)
+
+## Which character an opponent races as. The catalog in order, starting after
+## the player's own, so the racer beside you is never wearing your suit until
+## there are more opponents than characters.
+func _opponent_character(catalog: CharacterCatalog, index: int) -> CharacterListing:
+	if catalog == null or catalog.entries.is_empty():
+		return null
+	var start: int = catalog.index_of(_local_character_dir())
+	return catalog.entries[(start + 1 + index) % catalog.entries.size()]
+
+## What the standings call an opponent. The character's own name, which is what
+## a player would call the penguin they can see — numbered from the second one
+## wearing it, because two racers called Trixi on one line is not a standing.
+##
+## [param worn] counts how many of each character are already on the hill and is
+## updated here. It starts with the player's own, so a field large enough to
+## come round the catalog produces "Tux 2" beside a player racing as Tux, rather
+## than a second plain Tux nobody can tell from the one they are steering.
+func _opponent_name(listing: CharacterListing, dir: String,
+		worn: Dictionary[String, int]) -> String:
+	var base: String = listing.title() if listing != null else "Racer"
+	var nth: int = worn.get(dir, 0) + 1
+	worn[dir] = nth
+	return base if nth == 1 else "%s %d" % [base, nth]
+
 ## Put a racer in the tree, give it a rig and register it. [param scene_path]
 ## overrides the catalog lookup; empty means "look [param character_dir] up".
 func _add_racer(racer: Racer, character_dir: String, scene_path: String = "") -> void:
-	racer.slot = racers.size()
 	racer.character_dir = character_dir
 	_racers_root.add_child(racer)
 	var path: String = scene_path
@@ -371,12 +490,18 @@ func _scripted_run() -> bool:
 	return not _auto_input.is_empty()
 
 ## Load the best recorded run for this course, if the player wants one.
+##
+## Not in a race against opponents. A ghost is a second penguin on your own line
+## and the HUD has one status line to say something on — with a field on the
+## hill that line is the standings, and the translucent copy of yourself is one
+## more thing to mistake for someone you are racing. The recording still happens
+## and a best time is still kept; only the drawing is dropped.
 func _setup_ghost() -> void:
 	if ghost != null:
 		racers.erase(ghost)
 		ghost.queue_free()
 		ghost = null
-	if not Config.ghosts or _scripted_run():
+	if not Config.ghosts or _scripted_run() or setup.is_race():
 		return
 	var recording: RaceRecording = GhostStore.load_for(current_course_dir)
 	if recording == null:
@@ -415,7 +540,15 @@ func restart(with_intro: bool = true) -> void:
 		if racer is SimulatedRacer:
 			var sim: SimulatedRacer = racer
 			sim.snow_cpu = snow_cpu
-			sim.restart(start.x, start.y, current_course_dir)
+			# The player has no offset and is not put through the clamp at all:
+			# their start point is the course's own, whoever else is on the line.
+			# A course whose start sits inside [constant RaceSetup.LANE_MARGIN]
+			# of its own boundary would otherwise be moved by the field existing,
+			# and every reference capture with it.
+			var x: float = start.x
+			if sim.start_offset != 0.0:
+				x = RaceSetup.lane_x(x + sim.start_offset, course.effective_play_bounds())
+			sim.restart(x, start.y, current_course_dir)
 		elif racer is PlaybackRacer:
 			(racer as PlaybackRacer).restart()
 		racer.present(1.0)
@@ -470,6 +603,7 @@ func _simulation_tick(dt: float) -> void:
 		return
 	if not running:
 		return
+	_refresh_rivals()
 	for racer: Racer in racers:
 		racer.advance(dt)
 	if Net.active() and local != null:
@@ -480,6 +614,30 @@ func _simulation_tick(dt: float) -> void:
 	# GPU window, which is only ever drawn, follows the view target instead.
 	snow_cpu.recenter(local.state.position.x, local.state.position.z)
 	snow_cpu.decay(dt)
+
+## Tell the opponents where everybody is.
+##
+## The one thing an [AIInputSource] cannot read out of its own [RacePhysics],
+## because racers do not collide and so never enter one another's simulation.
+## Read before anyone advances, so every opponent plans against the same
+## instant — the previous tick — rather than against however far down the list
+## it happens to sit.
+##
+## The array is written in place and shared by reference; the index is written
+## with it so that a peer disconnecting, which renumbers the list, cannot leave
+## an opponent swerving to avoid itself.
+func _refresh_rivals() -> void:
+	if opponents.is_empty():
+		return
+	_rival_positions.resize(racers.size())
+	for i: int in racers.size():
+		_rival_positions[i] = racers[i].state.position
+		var sim := racers[i] as SimulatedRacer
+		if sim == null or not (sim.input_source is AIInputSource):
+			continue
+		var ai: AIInputSource = sim.input_source
+		ai.rivals = _rival_positions
+		ai.rival_index = i
 
 ## Everything that follows the simulation and is allowed to run at the screen's
 ## rate rather than the simulation's: the camera lag, the streaming window, the
@@ -659,6 +817,20 @@ func ghost_delta() -> float:
 		return INF
 	return local.race_time - when
 
+## Where [param racer] is in the field, counting from 1. Zero if they are not on
+## this hill at all.
+func place_of(racer: Racer) -> int:
+	return standings().find(racer) + 1
+
+## `1st`..`10th` from the imported string table, which is exactly as far as it
+## goes — and exactly as far as a field of ten needs it to.
+func place_label(place: int) -> String:
+	const ORDINALS: PackedStringArray = ["1ST", "2ND", "3RD", "4TH", "5TH",
+		"6TH", "7TH", "8TH", "9TH", "10TH"]
+	if place < 1 or place > ORDINALS.size():
+		return str(place)
+	return tr(ORDINALS[place - 1])
+
 # ==================================================================
 #                           course menu
 # ==================================================================
@@ -676,7 +848,7 @@ func open_menu(result_text: String = "") -> void:
 	else:
 		Audio.halt_all()
 		Audio.play_theme(course_root.course_data.music_theme, MusicTheme.Situation.WON)
-	menu.open(current_course_dir, running, result_text)
+	menu.open(current_course_dir, running, setup, result_text)
 
 func _on_menu_closed() -> void:
 	paused = false
@@ -687,10 +859,23 @@ func _on_menu_closed() -> void:
 	_sim_lead = 0.0
 	Audio.play_theme(course_root.course_data.music_theme, MusicTheme.Situation.RACE)
 
-func _on_course_chosen(listing: CourseListing) -> void:
+## The menu came back with a course and — since it is the same panel that offers
+## the field — possibly a different one of those too. A changed field is rebuilt
+## before the restart, so that racing the same course again with two more
+## opponents does not need the scene reloading.
+func _on_course_chosen(listing: CourseListing, chosen: RaceSetup) -> void:
 	paused = false
 	_sim_lead = 0.0
+	var field_changed: bool = not chosen.matches(setup)
+	setup = chosen.copy()
+	# What the shell offers next time, and what a scene swap carries.
+	requested_setup = setup.copy()
+	if field_changed:
+		_rebuild_opponents()
 	if listing.dir == current_course_dir:
+		if field_changed:
+			# Practice and a race disagree about whether a ghost is drawn.
+			_setup_ghost()
 		restart()
 		return
 	course_scene_path = listing.scene_path
@@ -733,9 +918,18 @@ static func _is_skip_press(event: InputEvent) -> bool:
 		or event is InputEventJoypadButton and event.is_pressed()
 
 ## What the menu shows above the list when it comes up after a finish.
+##
+## The place goes first in a race, because it is the answer to the question the
+## player asked by entering one. It is read at the moment the panel is built —
+## three seconds after the line, by which point the opponents who were going to
+## beat you have — and it is a place among everyone still racing, so an opponent
+## a hundred metres up the hill is behind you and counted as such.
 func _result_line() -> String:
-	return "%s   —   %s %.2f %s   %s %d" % [
+	var line: String = "%s   —   %s %.2f %s   %s %d" % [
 		tr("RACE_OVER"), tr("TIME"), race_time, tr("SECONDS"), tr("HERRING"), herring]
+	if not setup.is_race():
+		return line
+	return "%s %s   —   %s" % [tr("POSITION"), place_label(place_of(local)), line]
 
 func _apply_environment(preset: EnvironmentPreset) -> void:
 	var we: WorldEnvironment = $WorldEnvironment

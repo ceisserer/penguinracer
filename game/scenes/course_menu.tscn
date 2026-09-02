@@ -99,6 +99,40 @@ size_flags_vertical = 3
 theme_override_font_sizes/font_size = 16
 autowrap_mode = 3
 
+[node name="FieldRow" type="HBoxContainer" parent="Frame/Body/Columns/InfoPanel/Info"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="OpponentsLabel" type="Label" parent="Frame/Body/Columns/InfoPanel/Info/FieldRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Opponents:"
+
+[node name="OpponentsOption" type="OptionButton" parent="Frame/Body/Columns/InfoPanel/Info/FieldRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(90, 38)
+layout_mode = 2
+theme_override_font_sizes/font_size = 17
+
+[node name="FieldSpacer" type="Control" parent="Frame/Body/Columns/InfoPanel/Info/FieldRow"]
+custom_minimum_size = Vector2(20, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="SkillLabel" type="Label" parent="Frame/Body/Columns/InfoPanel/Info/FieldRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Skill:"
+
+[node name="SkillOption" type="OptionButton" parent="Frame/Body/Columns/InfoPanel/Info/FieldRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 38)
+layout_mode = 2
+theme_override_font_sizes/font_size = 17
+
 [node name="Buttons" type="HBoxContainer" parent="Frame/Body/Columns/InfoPanel/Info"]
 layout_mode = 2
 alignment = 2

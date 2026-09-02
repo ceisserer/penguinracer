@@ -378,6 +378,21 @@ what keeps eight opponents at eight skinned meshes rather than eight ODE solvers
 owns the position, the velocity, the `SurfaceProvider` under the racer and the tree grid ahead of
 it. Nothing else is needed and nothing is reserved for it.
 
+> Built 2026-09-02, and the prediction held with one correction. `AIInputSource` needed nothing
+> added to `InputSource`, `SimulatedRacer` or the presentation — but it did need one thing the
+> `RacePhysics` genuinely does not contain: **where the other racers are.** Nobody on this hill
+> collides with anybody (see the network model below), so a second penguin never enters anyone's
+> simulation, and two opponents that both wanted the same herring converged on it and rode the
+> rest of the course as one blurred penguin. `RaceScene` therefore writes every racer's position
+> into one shared array each tick and hands it to each opponent. It is presentation-quality rather
+> than correctness: an opponent will still drive through another to miss a tree.
+>
+> The other correction is that a difficulty setting had nowhere obvious to live and should not
+> live in the physics. `AISkill` is a table of driving habits — lookahead, reaction, nerve, paddle
+> discipline, tree clearance, weave — and every racer stays the same 20 kg point mass under the
+> same §4.1 forces, because `characters.lst` carries no per-character constants and neither does
+> this. See PROGRESS.md for the table and the measured ladder.
+
 **A fixed 60 Hz tick with interpolated presentation is the precondition for all of it.** A run has
 to mean the same thing at 30 fps and at 144 or a ghost is not a fair opponent and two peers cannot
 agree who finished first. Phase 0's determinism test already asserted the property at a fixed
@@ -406,7 +421,10 @@ Compatibility lacks" rule (§4.1 rule 2) is knowingly bent: the feature degrades
 browser rather than breaking anything there.
 
 Not designed here and deliberately left open: the lobby (who is racing what, and a countdown
-everyone starts on), a finishing-order screen, and whether cups are ever raced together.
+everyone starts on), a finishing-order screen, and whether cups are ever raced together. A field
+of computer opponents needs none of the three, which is why it shipped first — it starts when the
+player presses Race!, everyone shares one clock, and the place goes on the panel that already
+comes up after the line.
 
 ---
 
@@ -540,6 +558,17 @@ save/profiles, settings, 15-language i18n, audio mixing.
 > has a transport.
 > **Exit (met):** a recorded run replays to within 1e-9 of the original trajectory; the player
 > races their own best time on any course; two processes see each other on the hill.
+
+> **Addition, 2026-09-02 — computer opponents.** Also not a phase, also §8.4 scope, and the first
+> thing to be built *on* the racer layer rather than into it: a fourth main-menu entry, `Race the
+> computer`, and a `RaceSetup` carrying 0–9 opponents and a skill across the scene swap the same
+> way `requested_course_path` does. The course screen grew the two spinners rather than getting a
+> screen of its own, because the choice belongs beside the course and because someone who has just
+> been beaten should be able to change it without leaving the panel. Nothing in the racer layer
+> changed to accept it — see the note in §4.6 for the one thing the design did not foresee.
+> **Exit (met):** the three levels finish in order on the same slope with the ends of the ladder
+> 190 m apart over 30 s; an opponent goes through a gap in a stand of trees a straight-line racer
+> drives into; a field replays identically; a Practice capture is unchanged.
 
 ### Phase 6 — Polish + ship — **M**
 Quality tiers replacing `perf_level`, WASM size budget, loading/streaming, redesigned finish sequence

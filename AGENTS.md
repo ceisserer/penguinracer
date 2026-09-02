@@ -35,7 +35,9 @@ game/                     Godot project (project.godot, gl_compatibility)
   scripts/race/           RaceScene and the racer layer: Racer + SimulatedRacer +
                           PlaybackRacer, RacerState (the 14-float snapshot that is
                           also the ghost file format and the wire format),
-                          RacerStateStream, InputSource and its kinds,
+                          RacerStateStream, InputSource and its kinds — including
+                          AIInputSource + AISkill, the computer opponents —
+                          RaceSetup (practice or a field of 1..9),
                           RaceRecording + RaceRecorder + GhostStore
   scripts/net/            RaceNetwork autoload (`Net`) — ENet session, snapshot RPCs
   scripts/character/      CharacterRig + KeyframePath — the rig the importer writes
@@ -62,7 +64,8 @@ game/                     Godot project (project.godot, gl_compatibility)
   themes/                 etr_menu.tres — ETR's `common.cpp` palette as a Godot
                           theme, and the checkbox icons it binds
   tests/                  headless suite (physics, surface, input, audio, imported
-                          terrain library, character rig) + ODE benchmark
+                          terrain library, character rig, racer layer, computer
+                          opponents) + ODE benchmark
   spikes/s1_pingpong/     ping-pong render-target spike (risk S1)
 etr-0.8.4/                original source + data — READ-ONLY, never write here
 tools/                    import_all.sh, shot.sh (deterministic screenshot, real GPU
@@ -114,10 +117,11 @@ node tools/webtest/run_web_test.js \
 
 Settings live in `user://penguinracer.cfg` — on Linux
 `~/.local/share/godot/app_userdata/PenguinRacer/`, written with its comments on first run.
-Window size, render scale, fog distance, whether ghosts are drawn, and the two multiplayer keys;
-delete it to get the defaults back. The main menu's **Configuration** screen moves the six a
-player can act on — `[multiplayer] player_name` and `port` are file-only until there is a lobby —
-and writes the same commented file back.
+Window size, render scale, fog distance, whether ghosts are drawn, the size and skill of the
+computer field, and the two multiplayer keys; delete it to get the defaults back. The main menu's
+**Configuration** screen moves the six a player can act on — `[multiplayer] player_name` and
+`port` are file-only until there is a lobby, and `opponents`/`opponent_skill` are set from the
+course screen instead, where the choice is actually made — and writes the same commented file back.
 
 Export presets: `Web` (all 44 courses), `WebOneCourse` (bunny_hill, 6.6 MB pck), `WebSpike`.
 The test server must set COOP/COEP and `.wasm`/`.pck` MIME types or the export fails obscurely.
@@ -138,9 +142,10 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 | 2 — rendering | partial — splat PBR, chunked terrain, instanced trees, HUD, migrated skyboxes. Tone matched to the original on Bunny Hill; no LightmapGI bake. Snow and ice carry procedural micro-relief, a twinkling crystal glint and a Fresnel sky reflection. |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror both wired; a carve leaves a track with a shaded trench, a self-occluded floor and a bright ploughed lip. |
 | 4 — character | rig + canned clips done for **all five characters**, procedural layer not started — welded ArrayMesh from `shape.lst` **skinned** to a Skeleton3D with ETR joint names, the four keyframe lists as an AnimationLibrary plus a `KeyframePath` of root motion each, and the pre-race start animation (`CIntro`) wired into the race. Tux, Trixi, Boris, Samuel and Beastie each carry their own shape and their own clips; `resources/characters.tres` indexes them and `GameConfig.character` picks one. No additive layer over racing (`AdjustJoints`); finish/wonrace/lostrace imported but not played. |
-| 5 — game shell | partial — `main_menu.tscn` is the main scene: Practice opens the course list, Configuration edits `penguinracer.cfg` graphically, and a race is a scene the shell hands over to and takes back. `character_menu.tscn` is the character half of `CRegist` — arrows over a framed name with the migrated 128x128 preview under it. Every screen wears `themes/etr_menu.tres`, so the shell reads as the original's: the flat `colBackgr` blue, white text, `colDYell` on whatever has focus, square white-outlined frames. Generated course and character catalogs, 13 languages wired to `tr()`, audio (10 effects + 10 pieces + 3 racing themes on an `AudioDirector` autoload that reproduces ETR's one-voice-per-cue mixer). No cups, medals or profiles (data is imported and waiting; the player half of `CRegist` waits on them); no volume or language controls on the settings screen; none of ETR's menu art (corner ornaments, title logo), which waits on the licence audit. |
+| 5 — game shell | partial — `main_menu.tscn` is the main scene: Practice opens the course list, *Race the computer* opens the same list with a field of 1–9 opponents behind it, Configuration edits `penguinracer.cfg` graphically, and a race is a scene the shell hands over to and takes back. `character_menu.tscn` is the character half of `CRegist` — arrows over a framed name with the migrated 128x128 preview under it. Every screen wears `themes/etr_menu.tres`, so the shell reads as the original's: the flat `colBackgr` blue, white text, `colDYell` on whatever has focus, square white-outlined frames. Generated course and character catalogs, 13 languages wired to `tr()`, audio (10 effects + 10 pieces + 3 racing themes on an `AudioDirector` autoload that reproduces ETR's one-voice-per-cue mixer). No cups, medals or profiles (data is imported and waiting; the player half of `CRegist` waits on them); no volume or language controls on the settings screen; none of ETR's menu art (corner ornaments, title logo), which waits on the licence audit. |
 | 6 — polish/ship | not started. |
-| multiplayer foundation | seams built, ghosts working, network scaffold desktop-only — beyond the original, plan §8.4. The simulation runs on a fixed 60 Hz tick with interpolated presentation; `RaceScene` owns a list of `Racer`s, split into `SimulatedRacer` (a `RacePhysics` fed by an `InputSource`) and `PlaybackRacer` (a `RacerStateStream` read by time). Ghosts are finished end to end: every run is recorded, a completed best is written to `user://ghosts/<course>.res`, and the next race draws it translucent with the gap in seconds on the HUD. `Net` hosts/joins an ENet session over `--host`/`--join=` and each peer broadcasts 20 snapshots a second. No lobby, no countdown, no AI, no web (ENet is UDP). |
+| computer opponents | **done** — beyond the original, which has nobody on the hill. `RaceSetup` is the whole mode switch: 0 opponents is Practice and 1–9 is a race, chosen on the course screen and remembered in `penguinracer.cfg`. An opponent is a `SimulatedRacer` driven by an `AIInputSource` — the seam the racer layer was built for, used with no change to it. It plans an aim point every `AISkill.plan_interval` ticks by scoring nine candidate lines against trees, the play bounds, swerve cost, its own lane, the friction ahead, herring and the other racers. **The three levels move driving habits and never the physics**: lookahead, reaction, nerve, how long they paddle, how readily they brake. Measured over 30 s of a 22° slope: easy 231 m, medium 333 m, hard 422 m, a player holding the accelerator straight 413 m. Deterministic — the only randomness is a per-seat personality drawn once from a seed. No jumps, no tricks, no cups. |
+| multiplayer foundation | seams built, ghosts working, network scaffold desktop-only — beyond the original, plan §8.4. The simulation runs on a fixed 60 Hz tick with interpolated presentation; `RaceScene` owns a list of `Racer`s, split into `SimulatedRacer` (a `RacePhysics` fed by an `InputSource`) and `PlaybackRacer` (a `RacerStateStream` read by time). Ghosts are finished end to end: every run is recorded, a completed best is written to `user://ghosts/<course>.res`, and the next race draws it translucent with the gap in seconds on the HUD. `Net` hosts/joins an ENet session over `--host`/`--join=` and each peer broadcasts 20 snapshots a second. No lobby, no countdown, no web (ENet is UDP). |
 
 ### Spikes
 
@@ -454,6 +459,27 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   `String.join(array)`, the other way round. Both are silent-ish: the first prints *"unsupported
   format character"* per call from inside whatever loop you put it in, the second is a parse error
   that takes every depending script down with it.
+- **`RacePhysics` ignores an analogue stick under 0.2, and there is no warning of any kind.**
+  `_calc_steering_controls` takes the stick only when `absf(stick_turn) > 0.2` — the deadzone a
+  real thumbstick needs — and otherwise falls through to the digital `left_turn`/`right_turn`
+  flags, which are full lock or nothing. A source that steers proportionally and does not set the
+  flags therefore does nothing at all below a fifth of lock: the aim point is right, the heading
+  error is right, the stick is set correctly, and the racer holds whatever heading it had. It
+  presented as two AI opponents that had each correctly decided to give the other room and
+  neither moving a centimetre. `AIInputSource.stick_for` maps anything worth correcting to
+  [`MIN_EFFECTIVE_STICK`, 1.0] for that reason.
+- **A GDScript lambda captures by value, so a counter incremented inside one never comes back.**
+  `var hits := 0` + `signal.connect(func(): hits += 1)` compiles, runs, increments a copy, and
+  leaves `hits` at zero — which in a test is worse than a crash, because the assertion that the
+  opponent hit no trees passed on every run including the ones where it hit eleven. Capture a
+  one-element `Array` instead; arrays are references.
+- **An obstacle that moves with you is not scored like one that stands still.** The first cut of
+  the AI's rival avoidance measured, for each candidate line, the distance from that line to the
+  other racer — the same test it uses for a tree. Every candidate line starts at the racer's own
+  position, so a rival alongside is about equally far from all nine of them: a constant penalty,
+  which discriminates between nothing. A tree is somewhere you will be; a rival is a *column* you
+  will both still be in when you get there, so what is scored is the lateral gap at the aim point,
+  weighted by how close alongside they already are.
 - **A new `class_name` is invisible until the project is reimported.** `godot --headless --path
   game --script ...` does not scan the filesystem, so a script added outside the editor is not in
   `.godot/global_script_class_cache.cfg` and every reference to it is *"Could not find type X in
@@ -582,10 +608,32 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 - **Only the local player's slide and tree hits are audible.** The migrated mixer has one voice
   per cue and no positional audio, so another racer's collision three hundred metres up the hill
   would be indistinguishable from your own.
+- **There are computer opponents, and the original has none.** ETR races the clock: `CRacing`
+  simulates one `CControl` and the only other times on the hill are the highscore table's. A field
+  of 1–9 is a second mode beside Practice, chosen on the course screen. What it deliberately is
+  not is a difficulty applied to the *simulation* — every racer is the same 20 kg point mass under
+  the same §4.1 forces, because `characters.lst` carries no per-character constants and neither
+  does this. `AISkill` moves habits only: lookahead, reaction, nerve, paddle discipline, tree
+  clearance, weave.
+- **An opponent is told where the other racers are.** Everything else an `AIInputSource` reads is
+  in its own `RacePhysics`; the racers are not, because nobody on this hill collides with anybody
+  and so no racer ever enters another's simulation. Without it, two opponents that both want the
+  same herring converge on it and ride the rest of the course as one blurred penguin. It is a soft
+  penalty on a line, not a collision — an opponent will drive through another to miss a tree.
+- **A race against opponents draws no ghost**, whatever `[game] ghosts` says. The HUD has one
+  status line, and with a field on the hill that line is the standings; a translucent copy of
+  yourself beside eight racers is one more thing to mistake for one of them. The run is still
+  recorded and a best time is still kept.
+- **An opponent's grooming counts.** Nine simulated racers stamp the same `SnowField`, and packed
+  snow is faster here, so a time set in a race is not strictly comparable to one set alone —
+  and it is still stored as a best time. Racing a groomed line is racing.
 - Numeric string IDs became semantic keys (`PRESS_ANY_KEY_TO_START`); old IDs are traceable via
-  `i18n/legacy_string_ids.cfg`. `ghost` and the Configuration screen's *Race your best time* are
-  the two strings so far that are neither migrated nor keyed — the original has no ghosts, so
-  there is nothing to migrate and a `tr()` key would resolve to nothing in all 13 languages.
+  `i18n/legacy_string_ids.cfg`. `ghost`, the Configuration screen's *Race your best time*, the main menu's
+  *Race the computer* and the course screen's *Opponents* / *Skill* / *Easy, Medium, Hard* are the
+  strings so far that are neither migrated nor keyed — the original has neither ghosts nor
+  opponents, so there is nothing to migrate and a `tr()` key would resolve to nothing in all 13
+  languages. The finishing place reuses the migrated `POSITION` and `1ST`..`10TH`, which is also
+  why the field stops at nine.
 
 ## Licensing
 

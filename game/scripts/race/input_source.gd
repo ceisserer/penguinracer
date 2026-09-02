@@ -8,10 +8,11 @@
 ## - [ScriptedInputSource] — the canned carve a capture run drives with.
 ## - [ReplayInputSource] — a recorded trace, re-simulated rather than played
 ##   back as poses. See [RaceRecording] for when that is the right one.
-## - an AI. Nothing here is missing for it: [method poll] is handed the
-##   simulation, which owns the position, the velocity, the [SurfaceProvider]
-##   under the racer and the tree grid ahead of it. An opponent is a subclass
-##   that reads those and returns intent, not a new kind of racer.
+## - [AIInputSource] — a computer opponent. Nothing had to be added for it:
+##   [method poll] is handed the simulation, which owns the position, the
+##   velocity, the [SurfaceProvider] under the racer and the tree grid ahead of
+##   it. An opponent is a subclass that reads those and returns intent, not a
+##   new kind of racer.
 ##
 ## [b]Not[/b] a network peer. A remote racer is not simulated here at all — it
 ## is a [PlaybackRacer] fed by the snapshots its own machine sends. See

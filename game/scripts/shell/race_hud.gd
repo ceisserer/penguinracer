@@ -55,11 +55,14 @@ func _process(_delta: float) -> void:
 		"   FINISH" if race.physics.finished else ""]
 	_update_status()
 
-## The ghost delta if there is a ghost, otherwise the gap to the racer ahead.
+## The ghost delta if there is a ghost, otherwise where the player is in the
+## field.
 ##
 ## Never both: two numbers on one line, one of them signed and one of them not,
-## is a line nobody reads at 60 km/h. The ghost wins because it is the one the
-## player asked for.
+## is a line nobody reads at 60 km/h. Which one it is decides itself — a race
+## against opponents does not draw a ghost (see
+## [method RaceScene._setup_ghost]), so [method RaceScene.ghost_delta] is
+## infinite there and the standings take the line.
 func _update_status() -> void:
 	var delta: float = race.ghost_delta()
 	if is_finite(delta):
@@ -67,16 +70,34 @@ func _update_status() -> void:
 		_status.add_theme_color_override("font_color",
 			BEHIND_COLOR if delta > 0.0 else AHEAD_COLOR)
 		return
-	_status.add_theme_color_override("font_color", Color.WHITE)
 	if race.racers.size() < 2:
 		_status.text = ""
 		return
-	# Positions, best first, with the player's own row marked. Short enough that
-	# eight racers still fit on one line.
-	var parts := PackedStringArray()
-	var place: int = 0
-	for racer: Racer in race.standings():
-		place += 1
-		var mark: String = "*" if racer == race.local else ""
-		parts.push_back("%d.%s%s" % [place, mark, racer.display_name])
-	_status.text = "   ".join(parts)
+	_show_standings()
+
+## Where the player is, and who is either side of them.
+##
+## Not the whole field: ten names on one line is a line nobody reads, and the
+## only rows that change how you drive are the one you are chasing and the one
+## chasing you. The gap is metres down the course rather than seconds, because
+## metres is what [member RacerState.progress] holds for everybody — a racer who
+## has not reached your point yet has no time to be compared against, which is
+## the thing that makes a ghost delta a different measurement from this one.
+func _show_standings() -> void:
+	var ordered: Array[Racer] = race.standings()
+	var place: int = ordered.find(race.local) + 1
+	if place < 1:
+		_status.text = ""
+		return
+	_status.add_theme_color_override("font_color",
+		AHEAD_COLOR if place == 1 else Color.WHITE)
+	var parts := PackedStringArray(["%d / %d" % [place, ordered.size()]])
+	if place > 1:
+		parts.push_back(_gap_line("↑", ordered[place - 2]))
+	if place < ordered.size():
+		parts.push_back(_gap_line("↓", ordered[place]))
+	_status.text = "    ".join(parts)
+
+func _gap_line(arrow: String, other: Racer) -> String:
+	return "%s %s %.0f m" % [arrow, other.display_name,
+		absf(other.state.progress - race.local.state.progress)]

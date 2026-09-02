@@ -1,7 +1,8 @@
 ## A racer whose motion is computed here, from intent.
 ##
-## The player is one. An AI opponent would be another — same class, a different
-## [InputSource] — and so is the replay of a recorded input trace. What they
+## The player is one. So is a computer opponent — same class, an
+## [AIInputSource] instead of a [LocalInputSource] — and so is the replay of a
+## recorded input trace. What they
 ## share is that a [RacePhysics] is stepped for them every tick, which is also
 ## what they cost: the ODE loop, the surface queries, the spray and the
 ## deformation stamps. A ghost and a remote peer are [PlaybackRacer]s precisely
@@ -43,6 +44,18 @@ var running: bool = false
 ## This racer's spray. One per simulated racer: the emission counts come out of
 ## their own steering and their own substeps, so it cannot be shared.
 var spray: SprayEmitter
+## Particles the spray may have in flight per side. Read once, by [method
+## _ready], so it has to be set before the racer enters the tree.
+##
+## An opponent gets a smaller pool than the player: nine of them at the player's
+## budget is 12 600 particles for penguins that are mostly a dot in the fog, and
+## the whole reason the pool is fixed at all is to stop a brake-slide spiking a
+## frame on a phone.
+var spray_pool: int = 700
+## Metres across the start line this racer begins from. Zero for the player,
+## whose start point is the one the course authored — which is what keeps a
+## practice run byte-identical to one from before there were opponents.
+var start_offset: float = 0.0
 ## The CPU deformation mirror this racer stamps, and the GPU one. Both may be
 ## null — the GPU field is a single 64 m window that follows the view target, so
 ## a racer outside it stamps the CPU mirror only.
@@ -63,6 +76,7 @@ func is_simulated() -> bool:
 func _ready() -> void:
 	spray = SprayEmitter.new()
 	spray.name = "Spray"
+	spray.pool_size = spray_pool
 	# The emitter positions its two particle systems in world space and steers
 	# them with world-space direction vectors, so it must not inherit this
 	# node's basis — which is the racer's body, rolling and pitching with the

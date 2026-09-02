@@ -27,8 +27,9 @@ game/                     Godot project
   scripts/camera/         chase camera
   scripts/character/      the character rig, the migrated keyframe root motion, and
                           the catalog of the five playable characters
-  scripts/race/           the race scene and the racers on the hill: the player, an
-                          optional ghost of your best run, and one per network peer
+  scripts/race/           the race scene and the racers on the hill: the player, up to
+                          nine computer opponents, an optional ghost of your best run,
+                          and one per network peer
   scripts/net/            the ENet session and the snapshots it carries
   scripts/shell/          HUD, main menu, course menu, settings screen
   scripts/audio/          the AudioDirector autoload and the sound/music banks
@@ -45,8 +46,8 @@ game/                     Godot project
                           bank and music library
   assets/                 generated: textures, skyboxes and the migrated audio
   tests/                  headless suite (physics, surface, input, audio, terrain
-                          library, settings, character rig, recording and playback)
-                          + ODE benchmark
+                          library, settings, character rig, recording and playback,
+                          computer opponents) + ODE benchmark
   spikes/s1_pingpong/     the ping-pong render-target spike (risk S1)
 etr-0.8.4/                the original source and data, read-only
 tools/                    importer driver and the browser test harness
@@ -115,11 +116,12 @@ overlapping cues because ETR gives each sound a single voice, riding a terrain l
 original's quirks came along deliberately — the slide sound has no speed term (ETR wrote one and
 left it commented out) and 12 of its 43 terrains, `snow` included, name no sound at all.
 
-The game opens on a main menu with three entries, all of them ETR's own words for what they do:
+The game opens on a main menu with four entries. Three are ETR's own words for what they do:
 **Practice** is a single free race and opens the course list — all 44 courses with preview, author
 and description, arrows and Enter to pick one — **Select a character** is the five of them from
 `char/characters.lst`, arrows over a framed name with the original's 128x128 preview under it, and
-**Configuration** is the settings screen below. Picking a course draws a loading panel and then hands over to the race; `Esc` there brings
+**Configuration** is the settings screen below. The fourth, **Race the computer**, is beyond the
+original and is the section after next. Picking a course draws a loading panel and then hands over to the race; `Esc` there brings
 the course list back over the live slope, so the next course is one keypress away, and it comes up
 by itself a few seconds after the finish line with the time and herring count. Cups, medals and
 profiles are still to come — selection is free, and the events are imported and waiting.
@@ -127,6 +129,35 @@ profiles are still to come — selection is free, and the events are imported an
 A run that names a course or a scripted input (`--course=`, `--auto-input=`, and so every
 `tools/shot.sh`) skips the menu and lands on the slope, which is also true of `?course=<dir>` on
 the web build's URL.
+
+## Racing the computer
+
+ETR races the clock. **Race the computer** puts one to nine opponents on the hill with you, and
+opens the same course screen Practice does with two spinners on it: how many, and how well they
+drive — easy, medium or hard. Both are remembered, and both can be changed from the in-race menu,
+so being beaten and trying again at a different setting takes two keypresses.
+
+An opponent is not a special kind of racer. It runs the same physics you do, on the same tick, over
+the same terrain, and it collects the same herring — first one there takes it. The only thing a
+difficulty setting moves is how well it drives: how far ahead it looks, how quickly it reacts, how
+much room it insists on round a tree, how long it keeps paddling and how readily it brakes. Nothing
+in the force model is scaled for it, because every character in the original has identical physics
+and so does every character here. A hard opponent will beat a good line; an easy one brakes into
+corners it did not need to brake into and stops paddling at half the speed paddling still helps at.
+
+They start abreast, three metres apart, either side of the course's own start point — you begin
+exactly where a practice run begins. They wear the other characters and are called by them, so the
+HUD's second line reads `3 / 10   ↑ Trixi 8 m   ↓ Boris 14 m`: your place in the field, and who is
+either side of you. After the line the result panel leads with `Position 3rd`.
+
+A race draws no ghost even with ghosts turned on — the HUD has one status line and in a race that
+line is the standings. Your time is still recorded and still kept if it is a best.
+
+From the command line, without the menu:
+
+```bash
+godot --path game -- --course=bunny_hill --opponents=5 --difficulty=hard
+```
 
 ## Racing yourself, and racing other people
 
@@ -178,6 +209,8 @@ distance_scale = 2.00     ; multiplies the range migrated from the environment's
 [game]
 character = "tux"         ; tux, trixi, boris, samuel or beastie
 ghosts = true             ; draw your best run on this course beside you
+opponents = 3             ; how many computer racers "Race the computer" starts with [1...9]
+opponent_skill = "medium" ; easy, medium or hard
 
 [multiplayer]
 player_name = "Racer"     ; what other racers see you called
@@ -201,7 +234,8 @@ overrides it for one run without touching the file.
 Sound and music volumes are still ETR's defaults on the audio director and are in neither the file
 nor the settings screen yet. The two multiplayer keys are in the file but not on the screen: a name
 you cannot see anyone use and a port with no session to open are settings for a lobby that does not
-exist.
+exist. The two opponent keys are in the file and on the *course* screen rather than the settings
+one, because that is where the choice is actually made — beside the course you are about to race.
 
 Development flags, useful for headless verification:
 

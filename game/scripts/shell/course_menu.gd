@@ -3,21 +3,29 @@
 ## Shown from two places, and it is `resumable` on [method open] that tells them
 ## apart:
 ##
-## - from [MainMenu]'s single-player entry, with nothing loaded behind it. There
-##   is no race to continue, so that button is hidden and Back is the only exit.
+## - from [MainMenu], with nothing loaded behind it. There is no race to
+##   continue, so that button is hidden and Back is the only exit.
 ## - over the running race, on Esc or after the finish line. The course behind
 ##   the panel stays loaded and rendered, so opening the menu costs nothing and
 ##   dismissing it resumes exactly where the player was. Picking a course hands
 ##   a [CourseListing] to [RaceScene], which swaps it in place rather than
 ##   reloading the scene.
 ##
+## It also carries the [RaceSetup], and that is why the same panel serves both
+## of the main menu's race entries: Practice opens it with an empty field and
+## the two spinners hidden, racing the computer opens it with the field the
+## player last chose. Keeping them here rather than on a screen of their own is
+## what lets someone who has just been beaten drop the difficulty and press
+## Race! again without walking back out to the main menu.
+##
 ## Cups and events are imported and waiting in `res://resources/events/`; this
 ## screen only does free selection of a single course.
 class_name CourseMenu
 extends CanvasLayer
 
-## A course was picked. The host loads it and hides the menu.
-signal course_chosen(listing: CourseListing)
+## A course was picked, with the field to race it against. The host loads the
+## course, applies the field and hides the menu.
+signal course_chosen(listing: CourseListing, setup: RaceSetup)
 ## The player dismissed the menu without choosing — resume whatever is behind it.
 signal closed()
 ## The player asked to leave: to the main menu from a race, out of the course
@@ -53,6 +61,16 @@ var _entries: Array[CourseListing] = []
 @onready var _continue_button: Button = %ContinueButton
 @onready var _back_button: Button = %BackButton
 @onready var _hint: Label = %Hint
+@onready var _field_row: Control = %FieldRow
+@onready var _opponents_label: Label = %OpponentsLabel
+@onready var _opponents: OptionButton = %OpponentsOption
+@onready var _skill_label: Label = %SkillLabel
+@onready var _skill: OptionButton = %SkillOption
+
+## The field the panel is currently offering. Held rather than read back off the
+## widgets on close, so that a Practice open cannot lose the race settings the
+## player made on the previous one.
+var _setup := RaceSetup.new()
 
 func _ready() -> void:
 	_catalog = CourseCatalog.load_default()
@@ -61,6 +79,12 @@ func _ready() -> void:
 	_continue_button.text = tr("CONTINUE")
 	_back_button.text = tr("BACK")
 	_hint.text = "↑↓  •  Enter: %s  •  Esc: %s" % [tr("RACE"), tr("BACK")]
+	# Neither of these is a migrated string: ETR has no computer opponents, so
+	# there is nothing to migrate and a `tr()` key would resolve to nothing in
+	# all thirteen languages. Same call as `ghost` and *Race your best time*.
+	_opponents_label.text = "Opponents:"
+	_skill_label.text = "Skill:"
+	_fill_field_options()
 
 	_list.item_selected.connect(_on_item_selected)
 	_list.item_activated.connect(_on_item_activated)
@@ -80,14 +104,36 @@ func _fill_list() -> void:
 		_entries.push_back(entry)
 		_list.add_item(entry.title())
 
+## The one to nine an [OptionButton] offers, plus the skill names.
+##
+## One is the smallest field worth calling a race and nine is
+## [constant RaceSetup.MAX_OPPONENTS] — the ordinals in the imported string
+## table stop at tenth, and ten simulated racers is where the tick cost stops
+## being free. Zero is not on the list because zero is Practice, which is the
+## other button on the main menu.
+func _fill_field_options() -> void:
+	_opponents.clear()
+	for count: int in range(1, RaceSetup.MAX_OPPONENTS + 1):
+		_opponents.add_item(str(count), count)
+	_skill.clear()
+	for index: int in AISkill.LABELS.size():
+		_skill.add_item(AISkill.label_of(AISkill.level_at(index)), index)
+
 ## Show the menu. `current_dir` is highlighted, `resumable` controls whether
-## there is a race worth going back to, and `result_text` carries the summary
-## of the race that just ended.
-func open(current_dir: String, resumable: bool, result_text: String = "") -> void:
+## there is a race worth going back to, `setup` is the field to offer — an empty
+## one hides the two spinners and makes this the Practice screen — and
+## `result_text` carries the summary of the race that just ended.
+func open(current_dir: String, resumable: bool, setup: RaceSetup,
+		result_text: String = "") -> void:
+	_setup = setup.copy() if setup != null else RaceSetup.new()
 	_result.text = result_text
 	_result.visible = not result_text.is_empty()
 	_continue_button.visible = resumable
 	_dim.color = OVER_RACE_COLOR if resumable else SCREEN_COLOR
+	_field_row.visible = _setup.is_race()
+	if _setup.is_race():
+		_opponents.select(_opponents.get_item_index(_setup.opponents))
+		_skill.select(_skill.get_item_index(_setup.skill))
 	visible = true
 	var index: int = _index_of(current_dir)
 	if index < 0 and not _entries.is_empty():
@@ -133,7 +179,15 @@ func _race_selected() -> void:
 
 func _choose(entry: CourseListing) -> void:
 	visible = false
-	course_chosen.emit(entry)
+	course_chosen.emit(entry, _chosen_setup())
+
+## The field as the spinners now stand. Practice stays practice however the
+## spinners were last left: they are hidden and their values are last race's.
+func _chosen_setup() -> RaceSetup:
+	if not _setup.is_race():
+		return RaceSetup.practice()
+	return RaceSetup.against(_opponents.get_selected_id(),
+		AISkill.level_at(_skill.get_selected_id()))
 
 func _show_details(entry: CourseListing) -> void:
 	_name.text = entry.title()

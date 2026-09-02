@@ -473,6 +473,115 @@ now puts back both the grid flag and the instance transform. And a peer joining 
 progress used to stand still forever, because its playback clock started at zero while its
 snapshots were stamped a minute in.
 
+### Computer opponents · **done**
+
+Also not a phase in the plan, and beyond the original in a plainer way than the multiplayer
+foundation was: ETR races the clock. `CRacing` simulates one `CControl`, and the only other times
+on its hill are the highscore table's. This is a second mode beside Practice — a field of one to
+nine racers you can actually be beaten by.
+
+**It arrived through the seam and changed nothing else.** The racer layer was built with
+`InputSource` as the place an opponent would come from, and this is that prediction being cashed:
+an opponent is a `SimulatedRacer` with an `AIInputSource` where the keyboard goes. The class did
+not change. `SimulatedRacer` gained two fields — a smaller particle pool and a start-line offset —
+and `RaceScene` gained a constructor for the field and a per-tick line telling the opponents where
+everybody is. The presentation, the recorder, the herring grid, the snow stamps, the standings and
+the interpolated draw are all the code that was already there.
+
+```
+RaceSetup            0 opponents = Practice, 1..9 = a race, plus a skill
+  └── AISkill        one tuning table per level: EASY, MEDIUM, HARD
+        └── AIInputSource   plans a line, returns the seven fields a keyboard fills
+```
+
+**A difficulty setting is not allowed to touch the physics.** Every racer on the hill is the same
+twenty-kilogram point mass under the same §4.1 forces — `characters.lst` carries no per-character
+constants and neither does this — so the only thing a level can move is the quality of the intent.
+`AISkill` is therefore a table of driving habits:
+
+| | easy | medium | hard |
+|---|---|---|---|
+| lookahead | 13 m | 20 m | 28 m |
+| replan interval | 10 ticks (167 ms) | 5 (83 ms) | 3 (50 ms) |
+| full lock at | 36° | 26° | 18° |
+| clearance round a trunk | 3.4 m | 2.4 m | 1.9 m |
+| paddles below | 7.0 m/s | 12.0 m/s | 16.67 m/s (all of it) |
+| brakes above | 12.0 m/s | 19.0 m/s | never |
+| brakes at a heading error of | 20° | 34° | 52° |
+| weave | 3.4 m | 1.6 m | 0.5 m |
+| reads the friction ahead | no | half | fully |
+| detours for herring | most | some | barely |
+
+That is what makes the ladder honest, and it comes out in the simulation rather than in a
+multiplier. Thirty seconds down a 22° rolling slope, no trees:
+
+```
+easy    230.6 m   27.8 km/h
+medium  332.5 m   44.1 km/h
+hard    421.9 m   58.3 km/h
+paddle  412.8 m   60.5 km/h     <- a player holding the accelerator and nothing else
+```
+
+So a hard opponent on an open slope is about as fast as a perfect straight line, and faster than
+one on a course with anything in the way. Medium is comfortably beatable and easy is a long way
+back. The three assertions that keep it that way are in `tests/test_ai.gd`: the tuning table has to
+be monotone in every column, the three levels have to finish in order with the ends of the ladder
+at least 25 m apart, and each has to actually get down the hill.
+
+**How the planner works.** Once every `plan_interval` ticks it picks a world x it wants to be at
+`lookahead` metres further down, by scoring nine candidate lines 1.5 m apart:
+
+- **trees**, by how far the line intrudes into the clearance the level insists on, plus a flat
+  charge larger than everything else put together for a line that actually collides;
+- **the play bounds**, which reject a candidate outright — with the probe's z pulled back inside
+  the polygon, or the last thirty metres of every course would be raced by an opponent with no
+  opinion about where to go;
+- **swerving**, because the fastest line through nothing is a straight one, plus a weak pull back
+  toward the lane it started in;
+- **the terrain**, where `line_greed` prefers the low friction of ice or a packed trench — packed
+  snow is faster here, so an opponent that reads it is taking a real racing line;
+- **herring**, inverted on purpose: the fish are points and points cost time, so it is the easy
+  opponent that chases them;
+- **the other racers**, which is the one thing it is told rather than shown.
+
+Between plans it steers at the aim point it last chose, which is what makes the interval a
+reaction time and not merely a saving. Paddling, braking and the weave are decided every tick.
+
+**Why the other racers have to be told.** Nobody on this hill collides with anybody — that is the
+multiplayer design and it is deliberate — so another penguin never appears in anyone's
+`RacePhysics`. Left to themselves, two opponents that both wanted the same herring converged on it
+and rode the rest of the course as one blurred penguin. `RaceScene._refresh_rivals` writes every
+racer's position into one shared array once a tick, before anybody advances, and hands it to each
+opponent with its own index in it. It is a soft penalty on a line rather than a collision: an
+opponent will still drive through another to miss a tree, because the tree is the one that hurts.
+
+**It is deterministic.** The only randomness is a per-seat personality — weave phase, and a few
+per cent either way on lookahead, nerve, paddle discipline and tree clearance — drawn once at
+construction from a seeded `RandomNumberGenerator`. Nothing is rolled per tick. So a field replays
+identically, which is what lets it be recorded like any other run and asserted on headlessly.
+
+**What the player sees.** *Race the computer* on the main menu opens the same course screen
+Practice does, with two spinners on it: how many, and how well they drive. Both are remembered in
+`penguinracer.cfg` and both can be changed from the in-race menu, so someone who has just been
+beaten can drop the difficulty and press Race! again without walking back out. The field starts
+abreast, three metres apart, laid out either side of the course's own start point — the player is
+never moved, so a practice run and every reference capture start exactly where they always did.
+Opponents wear the other characters, taken from the catalog starting after the player's own, and
+are called by them; a tenth racer would be "Trixi 2". The HUD's status line becomes the standings:
+place out of the field, and the name and distance of the racer either side of you. The result panel
+leads with `Position 3rd`, from the migrated `POSITION` and `1ST`..`10TH` — which is also why the
+field stops at nine.
+
+A race draws no ghost whatever `[game] ghosts` says: the status line is the standings, and a
+translucent copy of yourself among eight racers is one more thing to mistake for one of them. The
+run is still recorded and a best time still kept.
+
+**What it costs.** Ten `RacePhysics` on the tick instead of one. The S2 benchmark is 0.045 ms per
+frame per racer, so a full field is under half a millisecond — about 3 % of a 16.7 ms budget
+native, 4 % in the browser. Opponents get a quarter of the player's spray particle pool. A capture
+of Bunny Hill in Practice is byte-identical to one from before this work, outside the
+`GPUParticles3D` plume that is not reproducible between any two runs.
+
 ## Known gaps
 
 - **The near-field terrain mesh is too coarse for the trench to read as geometry.** Chunk
@@ -551,6 +660,27 @@ snapshots were stamped a minute in.
   on it. That is the competitive reading; a per-racer item set would be a copy of the whole table
   per opponent. Over the network nobody agrees about it at all — a remote racer is played back and
   never touches the grid, so each machine only removes what its own racers collected.
+- **A computer opponent never jumps, never does a trick and never uses the terrain vertically.**
+  The jump is a fixed 294 N impulse that costs contact with the snow, and nothing in this force
+  model makes leaving the ground faster, so the planner has no reason to reach for it — which also
+  means an opponent will not clear a gap or use a ramp the way a good player does. Tricks are pure
+  score and it ignores them.
+- **The planner is two-dimensional.** It scores candidate lines in XZ and never looks at the
+  height field, so it cannot see that the fast line is over a roll rather than round it, and it
+  cannot tell a drop from a slope. A terrain sample is taken for friction only. Adding relief to
+  the score is the obvious next thing and needs no new machinery.
+- **Nobody collides, so a field can still overlap.** The rival penalty is soft and only looks
+  ahead; two racers converging from behind, or one overtaking through a gap it has to take, will
+  briefly share a square metre. Making that impossible means collisions between racers, which is a
+  different feature and one the peer-to-peer network design would not survive.
+- **A race is not a cup and there is no results screen.** The finishing place is one line on the
+  panel that already comes up after the line. No podium, no per-racer times, no points table —
+  those belong with the imported `EventSet` data and the profiles that are still to come.
+- **An opponent's grooming counts toward your best time.** Nine simulated racers stamp the same
+  `SnowField`, and packed snow is faster here, so a time set in a race is not strictly comparable
+  to one set alone — and it is still stored as a best. That is the deliberate reading (racing a
+  groomed line is racing), but it means a ghost from a race and a ghost from a practice run are
+  not quite the same measurement.
 - **Asset licence audit not started** (risk S5). Independent of engineering, long lead time,
   blocks Phase 5.
 - **Two terrain layers import with no albedo**, because `terrains.lst` names a texture that is

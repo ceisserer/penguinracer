@@ -39,8 +39,9 @@ const CHARACTER_SINK := 0.1
 enum Kind {
 	## The player, simulated from the keyboard.
 	LOCAL,
-	## Simulated from an [InputSource] that is not a person. Nothing constructs
-	## one yet; it is what an opponent will be.
+	## A computer opponent: simulated exactly as the player is, from an
+	## [AIInputSource] rather than a keyboard. See [AISkill] for what a
+	## difficulty setting is allowed to move, which is nothing in the physics.
 	AI,
 	## A recorded run of the player's own, played back beside them.
 	GHOST,
@@ -54,8 +55,6 @@ enum Kind {
 signal finished_race(racer: Racer)
 
 var kind: Kind = Kind.LOCAL
-## Position in the race's racer list, and the index the HUD orders by.
-var slot: int = 0
 var display_name: String = ""
 ## Directory name of the character being raced as, e.g. `tux`.
 var character_dir: String = ""
