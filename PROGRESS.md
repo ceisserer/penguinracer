@@ -3,7 +3,7 @@
 Companion to [`godot-port-plan.md`](./godot-port-plan.md). What exists today, and what is
 knowingly missing.
 
-How it got here — the two de-risking spikes in full, and the seventeen things the plan did not
+How it got here — the two de-risking spikes in full, and the nineteen things the plan did not
 know — moved to [`history.md`](./history.md). The distilled version of the same lessons, the one
 worth reading before touching the code, is the trap list in [`AGENTS.md`](./AGENTS.md).
 
@@ -36,8 +36,9 @@ paddle, and the roll normal. ODE23 (Bogacki–Shampine) with adaptive stepping, 
 `MAX_STEP_DIST` cap. Trees and herring go through a uniform spatial grid, fixing the original's
 O(items) scan per substep.
 
-**0 failures** — 2293 assertions when the phase closed, 2921 today across physics, surface,
-input, audio and the imported terrain library, in 0.9 s headless. Per-force golden values are
+**0 failures** — 2293 assertions when the phase closed, 3254 today across physics, surface,
+input, audio, the imported terrain library, the settings file and the character rig, in 0.9 s
+headless. Per-force golden values are
 worked out by hand from the constants — air drag at 20 m/s, each of the three spring bands, the
 400 N lateral friction cap, the 30°/55° bank angles, the paddle's fade to nothing at 60 km/h — so
 a change in feel shows up as a test failure rather than as a vague complaint. Whole-simulation
@@ -73,6 +74,11 @@ declares `pave04` three times, which is legal in a format where courses referenc
 colour and nothing looks one up by name. Keying by name collapsed two of the three from Phase 1
 until 2026-09-01; the layers now carry `legacy_name` and `legacy_index` back to their record, and
 `tests/test_terrain_library.gd` checks the generated set against the file. History §17.
+
+Generated resources carry an `import_fingerprint` and re-import skips anything that no longer
+hashes to it (2026-09-01). The `modified_in_editor` flag this replaces had been checked since
+Phase 1 and never once fired — nothing ever set it — and terrain layers, the one place a designer
+can tune a material from the Inspector, had no guard at all. See materials.md §6.
 
 `bunny_hill` is drivable end to end with chunked terrain, splat-blended PBR, instanced trees,
 herring pickups, the chase camera and a HUD — **including in a browser**. The Phase 1 exit
@@ -118,28 +124,73 @@ force model friction directly scales the retarding force (ice 0.2 fast … rock 
 coefficients are exported so the call can be redone by feel. Flagging it rather than quietly
 picking a side.
 
-### Phase 4 — character · **placeholder done**
+### Phase 4 — character · **rig and canned animations done; procedural layer not started**
 
-`shape.lst` → a welded `ArrayMesh` of scaled spheres plus a `Skeleton3D` carrying ETR's own joint
-names, and the four keyframe lists → an `AnimationLibrary`. A recognisable Tux is on screen now,
-and authored skinned glTF art drops in later against the same joint names.
+`shape.lst` → a welded `ArrayMesh` of scaled spheres **skinned to** a `Skeleton3D` carrying ETR's
+own joint names, and the four keyframe lists → an `AnimationLibrary` plus the root motion the
+animations cannot carry. A recognisable Tux is on screen, he walks himself to the start line
+before every race, and authored skinned glTF art drops in later against the same joint names.
 
-### Phase 5 — game shell · **course selection and audio done, rest not started**
+The scene the importer writes is now a `CharacterRig`: skeleton, skinned mesh, `AnimationPlayer`,
+and one `KeyframePath` per clip. The race scene owns the clock and asks the rig to pose itself at
+a time; nothing about the character reaches back into the simulation.
+
+**The start animation.** `CIntro` in the original, and the first thing the game does after a
+course finishes loading: Tux stands 1.25 m across the slope and a metre behind the line, waddles
+over in six steps, turns to face down the hill, drops onto his belly and the race begins. Four and
+a half seconds; any key skips it, and the HUD says so. `r` mid-race does not replay it — the
+original's Reset state re-enters Racing, not Intro. Scripted runs (`--auto-input=`, and anything
+passing `--no-intro` or `?nointro=1`) never see it, which is what keeps every reference capture
+where it was.
+
+Four things had to be fixed before any of that could show:
+
+- **The mesh was not skinned to the skeleton it shipped with.** Vertices carried no bone indices
+  and no weights, and the `MeshInstance3D` had neither a `Skin` nor a path to the `Skeleton3D`.
+  Every joint name was right, every bone posed correctly, and the model was a statue. Each sphere
+  is now bound rigidly to the nearest joint above it — which is not an approximation, it is what
+  the original does, since a sphere is a leaf under exactly one chain of matrices.
+- **Every bone was a root.** `set_bone_parent` was never reached, because the walk up to the
+  nearest ancestor joint used a helper that could only return 0 or −1. Rests were global
+  transforms too, which is self-consistent with a flat list — and rotating a hip left the knee
+  behind.
+- **The joint rotations were all about X.** The file names its axis per tag and they are not all
+  the same one: `[sh]`, `[hip]`, `[knee]`, `[ankle]` and `[neck]` turn about Z, `[head]` and
+  `[arm]` about Y. A `Skeleton3D` rotation track is also an absolute pose rather than an offset
+  from the rest, so each key is `rest × R`.
+- **A missing tag is a zero, not "hold".** The original resets every joint each frame and
+  reapplies what the file names, and `SPFloatN` defaults to 0. Keying only the tags present is
+  what would leave Tux racing the whole course with his flippers out, because `start.lst` stops
+  writing `[sh]` on its seventh line rather than writing zeros there.
+
+The root motion went to a `KeyframePath` resource rather than a fifth track, for two reasons the
+plan did not know: the authored Y is a *clearance above the terrain* (`CKeyframe::Update` adds
+`Course.FindYCoord`), so a baked position track would walk Tux through the hill on 43 of the 44
+courses; and the yaw/pitch/roll is applied to node 0, whose frame is the world, so it belongs to
+the node the race scene positions the character with — above the rig, and out of reach of any
+`AnimationPlayer` on it. The race scene samples the path against the same clock it seeks the
+animation on, so the two cannot drift.
+
+Still missing: the procedural additive layer (lean into turns, brace on brake, flap on paddle,
+impact reaction on tree hit) — `AdjustJoints` in the original, which runs *over* the rest pose
+during racing where the canned clips replace it. The finish, wonrace and lostrace clips are
+imported and playable but not wired to anything; they belong with cups and the game-over screen.
+
+### Phase 5 — game shell · **menu, course selection, settings and audio done; cups and profiles not started**
 
 The first slice: picking what to race next. `scenes/course_menu.tscn` + `scripts/shell/course_menu.gd`
 list all 44 courses with preview, author, length, slope and description, and hand the choice to
-`RaceScene`, which swaps the course in place through the `load_course` path that already existed.
-Esc opens and closes it mid-race; it comes back up 3 s after the finish line with the time and
-herring count, so the next course is one keypress away.
+whoever is showing them. Esc opens and closes it mid-race; it comes back up 3 s after the finish
+line with the time and herring count, so the next course is one keypress away.
 
 Three decisions worth keeping:
 
-- **The menu draws over the running race rather than replacing it.** Plan §4.1 puts the shell
-  above the race scene; the course-select screen is a `CanvasLayer` inside it instead. The course
-  behind the panel stays loaded and rendered, so opening the menu costs nothing, closing it
-  resumes exactly where the player was, and `--capture`/`RACE_READY` keep working unchanged.
-  A screen that has to exist before any course is loaded — a title screen, cup selection — will
-  want the plan's arrangement; this one did not.
+- **The menu drew over the running race rather than replacing it — until there was somewhere else
+  to draw.** Plan §4.1 puts the shell above the race scene; for one phase the course-select screen
+  was a `CanvasLayer` inside it, because nothing needed to exist before a course was loaded and
+  that arrangement cost nothing. A title screen is exactly the thing that does, so the shell is
+  now the plan's shape after all (below). The panel still draws over the live course when it is
+  opened from inside a race, which is the half of the original decision that was right.
 - **The course list is a generated resource, not a directory scan.** `DirAccess` over
   `res://courses/` returns nothing in an exported build: the exporter converts text resources to
   binary and remaps them off their source paths. `resources/courses.tres` is written by the
@@ -184,10 +235,81 @@ Two decisions worth keeping:
 
 `-- --no-audio` gates the whole thing, for capture runs where a soundtrack is only a slow start.
 Volumes are the original's `param.sound_volume` 90 / `param.music_volume` 20 and live on the
-director; there is no options screen to move them from yet.
+director. The configuration screen does not move them yet — they are two more keys the settings
+file would have to carry first.
+
+The third slice: the screen the game starts on. `scenes/main_menu.tscn` +
+`scripts/shell/main_menu.gd` is the main scene now, and `race.tscn` is something it hands over to
+and takes back. Two entries, both of them ETR's own — `PRACTICE`, which opens the course list, and
+`CONFIGURATION`, which is the settings screen — so the labels come out of the imported strings in
+13 languages rather than being written in English in a scene file. Quit is there on desktop and
+hidden in a browser, where the tab owns it. Cups, events and profiles are more entries in the same
+column when they arrive.
+
+Four decisions worth keeping:
+
+- **The course travels on a static.** `RaceScene.requested_course_path` is written just before
+  `change_scene_to_file` and read in `_ready`. A scene swap leaves nothing to set a property on —
+  the node is built by the tree, after the caller is gone — and an autoload for one string would
+  be a third global for the shell to own. `load_course` writes it back, so the menu highlights
+  what was actually raced.
+- **A scripted run never sees the menu.** `--course=` or `--auto-input=` hands straight over, which
+  is every `tools/shot.sh`, every headless capture and the whole verification path; in a browser
+  `index.html?course=<dir>` says the same thing, since there is no command line in a page. `RACE_READY`
+  therefore still arrives where it always did. A bare `--capture=` is deliberately *not* on that
+  list: it screenshots whatever is on screen, which is how the shell itself gets verified.
+- **The loading panel is drawn before the load starts.** Building a course blocks the main thread
+  long enough to read as a freeze, and `visible = true` on the frame you then block is a panel
+  nobody sees — `await RenderingServer.frame_post_draw` is what makes it a composited frame rather
+  than an assignment.
+- **Leaving a race frees it.** Back from the in-race menu changes scene rather than hiding a
+  panel: a loaded course is most of the memory in the game and the menu has a gradient to draw
+  over, not a slope. It is also the original's "abort race", which until now had nowhere to go.
+- **Leaving the game goes through the audio director.** Quit, the window's close button, `Esc`
+  out of `key_log` and the end of a capture all call `AudioDirector.quit_game()` rather than
+  `SceneTree.quit()`, because a playback that is stopped as the tree comes down is never released
+  and Godot says so on the way out (history §18). The director owns `auto_accept_quit` for the
+  same reason. Anything added later that wants to end the process wants that method, not the
+  tree's.
+
+The fourth slice: settings. `scripts/config/game_config.gd` is the `Config` autoload and
+`user://penguinracer.cfg` is its file — plain text, written with its comments the first time the
+game runs, read once at startup, edited by hand or from `scenes/settings_menu.tscn`. It is ETR's
+`options.txt` in shape and in purpose: that file also has a group its options screen can set and a
+group only the file can, and this is now the first group, because the screen exists. Five keys —
+window size, fullscreen, `render_scale` (the 3D viewport's fraction of the window, the cheapest
+framerate knob under Compatibility) and the two fog distances.
+
+The screen writes the file back the way the file was written in the first place: as commented
+text, by hand, not through `ConfigFile.save`, which drops every comment it did not put there. The
+comments are regenerated on each save, so editing the prose in the file does not survive a visit
+to the screen and editing the values does — `tests/test_config.gd` round-trips the writer through
+the reader, including `"auto"`, which is the one value that is not a size and which a naive
+`0x0` would lose. Editing is transactional: the widgets hold the copy, Ok applies and saves,
+Cancel throws it away. Every slider spans exactly what `GameConfig.read` would clamp a hand-edited
+value to, so the screen cannot silently narrow a file it did not write.
+
+Fog is why it exists now. `light.lst` ships `[fogstart] 0` for six of the eight presets, and the
+two of those six that are sunny are what all 44 shipped courses select, so the original's haze
+begins at the camera and the trees two lengths ahead are already washed toward white; the defaults here are 40 m of clear air and 2x the migrated range, i.e. 40–150 m where the
+data says 0–75. **This reverses a correction made the same day** — a 2.5x stretch had just been
+backed out as a wording-level "improvement" that removed the haze ETR's snow sits inside — and
+the difference is that it is now measured and revertible. On Bunny Hill the mid-distance tree band
+regains its contrast (5th percentile 143 → 65, clipping 19 % → 12 %) while the near field, which
+is where the `ambient_energy`/`sun_energy` tone match was fitted, does not move at all
+(mean 226.8 → 226.5, every percentile identical). `start_distance = 0` and `distance_scale = 1`
+in the settings file render exactly what the file says, which is the point of putting it there
+rather than in the migrated preset.
+
+`EnvironmentPreset.to_environment()` still writes the migrated range; `GameConfig.apply_fog`
+overwrites it in `RaceScene._apply_environment`, and the directional-shadow range now reads the
+built `Environment` rather than the preset, so a stretched fog carries the shadows out with it.
+Godot's own `--resolution`/`--fullscreen` outrank the file — `tools/shot.sh` keeps capturing at
+1280x720 whatever a developer's settings say.
 
 Not done, and none of it started: cups and events (the resources are imported and unused),
-medals from the migrated thresholds, save profiles, settings.
+medals from the migrated thresholds, and save profiles. Sound and music volumes and the language
+are ETR's `options.txt` keys that this file and this screen still do not carry.
 
 ## Known gaps
 
@@ -215,9 +337,10 @@ medals from the migrated thresholds, save profiles, settings.
   one-line changes; together they are why a side-by-side still looks different after the shading
   matches — ours shows a third less sky. Left alone because it changes how the game plays, not
   how it looks, and that is a design call rather than a fidelity one.
-- **The game shell stops at course selection and sound** (Phase 5): no cup progression, medals,
-  save profiles or settings. The migrated event thresholds are sitting there ready; the
-  translations are now wired up.
+- **The game shell stops at free course selection** (Phase 5): no cup progression, medals or save
+  profiles. The migrated event thresholds are sitting there ready; the translations are wired up.
+  The settings screen moves the five keys the file has and not the three ETR's own configuration
+  screen also has — sound volume, music volume and language.
 - **The terrain slide sound is on or off**, because the original's speed-and-lean `SlideVolume`
   ships commented out (history §16), and 12 of the 43 terrains — `snow` among them — name no
   sound at all. Both are faithful and both are the obvious first thing to improve; the mapping is one
@@ -232,6 +355,11 @@ medals from the migrated thresholds, save profiles, settings.
   documented, so backing any of them out is a one-line change.
 - **`wind_direction` is a shader constant, not course data.** Every course's sastrugi run the same
   way. It wants to come off the environment preset, or at least be seeded per course.
+- **A terrain material has two authored shading knobs and no more** — `roughness` and `uv_scale`,
+  both added 2026-09-01 when the dead `normal`/`roughness` texture slots came out. Everything else
+  the shader does to snow and ice is course-global, and per-layer normal maps are out of reach
+  under Compatibility: the terrain shader already binds 13 of WebGL2's guaranteed 16 fragment
+  texture units. materials.md §5 has the arithmetic and the extension point.
 - **Asset licence audit not started** (risk S5). Independent of engineering, long lead time,
   blocks Phase 5.
 - **Two terrain layers import with no albedo**, because `terrains.lst` names a texture that is

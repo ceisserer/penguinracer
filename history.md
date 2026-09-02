@@ -69,7 +69,7 @@ should not be built. Two things bought most of the headroom, both worth keeping:
 
 ## What the plan did not know
 
-Seventeen things turned up during implementation, in the order they were found. The first four
+Nineteen things turned up during implementation, in the order they were found. The first four
 change the plan's own §1 constraint table; the rest are the original's behaviour, Godot's, or
 the difference between the two. Each is kept whole — the wrong turns are the useful part.
 
@@ -464,6 +464,15 @@ Three things came out of the port that were not about audio:
   play-then-stop of a single WAV in a five-line script reproduces it. `tools/shot.sh` passes
   `--no-audio` now, which is right on its own terms — a capture has nothing to hear — and the
   capture it produces is byte-identical to the one from before this change.
+
+  **Corrected 2026-09-02, and it was not the driver.** `AudioServer` retires a stopped playback on
+  a *later* main-loop iteration on any driver: `stop()` marks it, the mixer fades it out, and
+  `AudioServer::update()` frees it after that. `tree_exiting` runs after the last iteration, so
+  there is no later one — which is why stopping there changed nothing, and why the five-line
+  repro reproduced it. The dummy driver's only contribution is making it happen on every machine
+  without a sound card, and the reasoning above stopped at that correlation. Fixed properly in
+  §18: every quit now goes through `AudioDirector.quit_game()`, which silences, waits out one
+  mixer buffer and only then brings the tree down.
 - **The test runner had to move off `_initialize`.** The tree's root Window is not yet inside the
   tree when a `SceneTree` script's `_initialize` runs, and an `AudioStreamPlayer` refuses to start
   outside one. Everything now runs on the first `_process` instead. The physics suite does not
@@ -518,3 +527,92 @@ phase: there was no capture to look odd and no assertion to go red. `tests/test_
 now checks the generated library back against `terrains.lst` record by record — one resource per
 record, unique ids, unique colour keys, and friction, depth, sound and colour matching the file —
 which is the level the bug lived at. Fixed 2026-09-01.
+
+### 18. Three lines on the console when the game closes
+
+Closing the game printed a keyboard diagnostic and two engine complaints:
+
+```
+KeyHoldFilter: pulsed keyboard confirmed; held controls are being stretched.
+WARNING: 4 ObjectDB instances were leaked at exit
+ERROR: 2 resources still in use at exit
+```
+
+`--verbose` named the two engine ones straight away: `OggPacketSequence`,
+`AudioStreamOggVorbis`, `AudioStreamPlaybackOggVorbis`, `OggPacketSequencePlayback`, and
+`res://assets/music/race1-jt.ogg` twice. Only the music — not one of the ten WAV effects, because
+music is the one thing still playing when a player quits.
+
+The standing explanation (§16) was that the dummy audio driver never mixes and so never retires a
+stopped playback, and that a container with no sound card was the whole story. That was a
+correlation. `AudioServer` retires a stopped playback on *any* driver a frame later than you stop
+it: `stop()` marks it for deletion, the mixer thread has to fade it out, and the object is freed
+by the `AudioServer::update()` at the end of a subsequent main-loop iteration. `AudioDirector`
+silenced everything from `tree_exiting`, which runs *after* the last iteration — so there was no
+subsequent one, and the "stopping the player, clearing its stream and freeing the node change
+nothing" observation from §16 was exactly right and pointed at the wrong culprit.
+
+Two things came out of measuring it rather than reasoning about it. The first is that stopping in
+the same breath as `SceneTree.quit()` does not work either — the leak needs a *gap*, not merely a
+stop that happens before the quit. The second is that the gap is wall-clock and not frames. A
+sweep of the two units in an idle scene, five runs each:
+
+| wait after silencing | leaks |
+|---|---|
+| yield only, no wall-clock wait | 5/5 |
+| 5 ms | 0/5 |
+
+while a frame-counted wait was pure noise at the same measurement — the scene idled at about
+1500 fps, so thirty frames went by in 19 ms and lost the race that five milliseconds won. What has
+to elapse is one mixer buffer on the audio thread; the renderer's frame rate has nothing to do
+with it, and a frame count tuned on a slow machine is a frame count that comes apart on a fast one.
+
+So every quit in the game now goes through `AudioDirector.quit_game()`: silence, wait
+`QUIT_SETTLE` (100 ms — several buffers at any plausible latency, and nothing a player feels on
+the way out), then `SceneTree.quit()`. The window's close button and Alt+F4 reach it because the
+director sets `auto_accept_quit = false` and handles `NOTIFICATION_WM_CLOSE_REQUEST`, which Godot
+propagates to every node under the root window, autoloads included. `tree_exiting` still silences
+as a backstop for a tree that comes down some other way; it just is not the mechanism any more.
+
+Verified by closing the real game from a window manager — Xvfb plus openbox plus `wmctrl -c`,
+which is the only way to exercise the path a player actually takes — on the menu with its music
+running and mid-race with the slide loop as well. Both exit clean. `tools/shot.sh` keeps
+`--no-audio`, which is still right on its own terms (a capture has nothing to hear, and it saves
+loading 18 MB of streams), but it is no longer load-bearing: a capture run *with* sound now exits
+clean too.
+
+An aside on method. An early attempt at a "before" run stashed `game/scripts` — and reverted a
+working tree with a phase of uncommitted work in it, so what came back was a pile of parse errors
+rather than the old behaviour. The trap list already carried this as `git stash` swallowing the
+test harness, with the lesson "narrow the stash to `game/`"; narrowing is not what makes it safe.
+A stash-based A/B assumes the tree is committed, and this one is not. Toggling the one constant
+under test (`QUIT_SETTLE`) is what a before-and-after wanted, and is what produced the table
+above.
+
+### 19. One zero-length pulse is also what a quick tap looks like
+
+The keyboard line above was not about closing the game at all — it is printed once, the first time
+`KeyHoldFilter` decides the transport is pulsed, and it happened to still be on screen at the end
+of a session. It was also, at least some of the time, wrong.
+
+§14 built the detector on the shape of the sample: a press whose `is_action_just_pressed()` edge
+arrived with `is_action_pressed()` already false was pressed and released inside one frame, which
+is what RustDesk's Legacy/Translate mode does to every held key. The shape is right and the
+inference from a single one is not. An ordinary finger on an ordinary local keyboard produces the
+same sample whenever a tap is shorter than a frame — `xdotool key w` against a windowed build
+reproduces it every single time — and one flick of the steering was enough to print a paragraph
+telling the player to go and reconfigure a remote desktop they were not using.
+
+What separates the two is cadence. A pulsed transport does not send one pulse; it repeats the
+down/up pair at the keyboard's autorepeat rate for as long as the key is held, which X11 defaults
+to every 25–33 ms. A hand cannot produce two of those inside 150 ms *and* have both halves of both
+taps land inside a frame each. So `KeyHoldFilter.PULSE_WINDOW` is 150 ms and nothing is reported
+until a second pulse on the *same* action lands inside it — one control tapped and another tapped
+alongside it is two hands, not a transport.
+
+The compensation was never gated on the diagnosis (it is gated on `--remote-keyboard`, which the
+player passes), so this changed no gameplay behaviour, only what gets printed. Confirmed against
+the real game under the same window-manager harness: a single `xdotool key w` now says nothing,
+and ten of them 30 ms apart — a translating remote desktop, near enough — still reports.
+
+Fixed 2026-09-02, both sections.

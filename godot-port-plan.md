@@ -144,7 +144,8 @@ class_name TerrainLayer extends Resource
 @export var is_deformable: bool             # snow yes, rock no
 ```
 
-**Correction, 2026-09-01.** Two fields of that sketch did not survive contact with the data.
+**Correction, 2026-09-01.** Four fields of that sketch did not survive contact with the data or
+with the renderer.
 `footstep_sound` is a `slide_sound: StringName` resolved against a global `SoundBank`, because
 `terrains.lst` names a cue exactly as `TerrList[i].sound` does and holding the stream here would
 pull 4 MB of shared effects into all 44 course packs. And `id` is **the record, not the
@@ -153,6 +154,15 @@ which is legal because the original identifies a terrain by the colour a course 
 `TTerrType` has no name field at all. One resource per name kept only the last of the three.
 Layers are keyed per record, a repeated name is disambiguated by its texture stem, and
 `legacy_name`/`legacy_index`/`legacy_color` point back at the source row. See history §17.
+
+`normal` and `roughness` are gone as textures. The terrain shader already binds 13 of WebGL2's
+guaranteed 16 fragment texture units — two splat maps, eight albedos, the trail map, the detail
+map and the sparkle noise — so eight more of either does not fit under Compatibility, and both
+had sat there for two phases as exports nothing sampled. `roughness` came back as a per-layer
+float, which the shader's existing `layer_roughness` table can carry for free; relief comes from
+the shared procedural detail field instead of per-layer normal maps. `uv_scale` was declared per
+layer and uploaded as a single uniform from `terrain_layers[0]`, so every other layer silently
+inherited layer 0's tiling — it is a table now too. See materials.md.
 
 ### 3.3 Objects as scene nodes
 
@@ -176,6 +186,23 @@ animation layer and the migrated keyframe animations keep working unchanged.
 
 `start/finish/wonrace/lostrace.lst` → Godot `Animation` resources on those joint names.
 
+**Correction, 2026-09-02.** Two things this section takes for granted are not free, and both were
+found by trying to play the start animation:
+
+- "Placeholder mesh **plus** a `Skeleton3D`" has to be *skinned* to it, with bone indices and
+  weights on the vertices and a `Skin` on the `MeshInstance3D`. Without that the joint names are
+  right, the bones pose correctly, and nothing moves. Each sphere binds rigidly to the nearest
+  joint above it, which is exact rather than approximate: in the original a sphere is a leaf under
+  one chain of matrices.
+- **A keyframe animation is not all animation.** `CKeyframe::Update` moves the body as well as the
+  joints, and neither half of that fits an `Animation` track: the authored Y is a clearance above
+  the terrain that `Course.FindYCoord` completes at runtime, and the yaw/pitch/roll goes to node 0,
+  whose frame is the world. The joints migrate to the `AnimationLibrary`; the root motion migrates
+  to a `KeyframePath` resource on the rig, sampled by whoever owns the clock.
+
+The generated scene is therefore a `CharacterRig` (below) rather than a bare `Node3D`, and it is
+that script — not just the joint names — that authored art has to keep.
+
 ---
 
 ## 4. Runtime architecture
@@ -192,7 +219,7 @@ Race scene
   ├── SnowFieldGPU       (ping-pong SubViewports → trail map texture)
   ├── SprayEmitter       (GPUParticles3D)
   ├── ChaseCamera
-  └── CharacterRig       (skeleton + procedural additive layer)
+  └── CharacterRig       (skinned skeleton, canned keyframes, procedural additive layer)
 ```
 
 `RacePhysics` must have **zero node dependencies** — plain `RefCounted` operating on a
@@ -290,8 +317,17 @@ from a noise texture, and careful in-shader tonemapping to fight the `RGBA8` LDR
   back do not exist in the data. `shaders/etr_skybox.gdshader` samples the cube directly. See
   history.md §10.
 
-The fog range in §4.3 is likewise the original's 75 m, not a stretched version of it: ETR's white
-haze is load-bearing for how its snow reads, and the skybox is what sits behind it.
+The fog range in §4.3 is the original's 75 m, not a stretched version of it: ETR's white haze is
+load-bearing for how its snow reads, and the skybox is what sits behind it.
+
+**Correction, 2026-09-01:** the *shipped default* is now 40–150 m, stretched from the migrated
+0–75 by the settings file rather than by the data. Six of the eight presets carry
+`[fogstart] 0`, which puts haze on the trees a couple of lengths in front of the player; the
+paragraph above is still right about what the haze does, and it survives at the horizon. The
+difference from the stretch that was backed out earlier the same day is that this one is
+measured — the near field the tone fit was solved on does not move — and that
+`penguinracer.cfg` restores the data exactly in two lines. Fog distance and window/render
+resolution are the file's whole contents so far; see `scripts/config/game_config.gd`.
 
 Accept as out of scope under Compatibility: volumetric snowfall (use layered scrolling noise +
 GPUParticles instead), SSR on ice, real HDR glare.
@@ -326,10 +362,10 @@ that dependency entirely.)
 
 | Source | Target |
 |---|---|
-| `terrains.lst` | One `TerrainLayer` resource **per record** (§3.2 correction); old diffuse PNGs wired as `albedo`, normal/roughness left null for later authoring |
+| `terrains.lst` | One `TerrainLayer` resource **per record** (§3.2 correction); old diffuse PNGs wired as `albedo`, `roughness` seeded from `is_ice()` (§3.2 correction, 2026-09-01) |
 | `object_types.lst` + object textures | Object prefab scenes (`.tscn`) |
 | `events.lst` | `Race` / `Cup` / `EventSet` resources — **keep the herring/time thresholds verbatim** |
-| `char/<name>/shape.lst` | Placeholder `ArrayMesh` + `Skeleton3D` (§3.4) |
+| `char/<name>/shape.lst` | Placeholder `ArrayMesh` skinned to a `Skeleton3D` (§3.4) |
 | `char/<name>/{start,finish,wonrace,lostrace}.lst` | `Animation` resources |
 | `env/<env>/<light>/light.lst` + skyboxes | `EnvironmentPreset` resources + three-face cube skies |
 | `sounds.lst`, `music.lst`, `racing_themes.lst` | Audio resource tables (OGG imports natively) |
@@ -342,6 +378,16 @@ The importer is **one-way and re-runnable**. Legacy files stay read-only under `
 resources land in `courses/` and are committed. Once a course has been touched in-editor it is owned
 by the new format and re-import would clobber it — so the importer writes a provenance marker and
 refuses to overwrite a modified course without an explicit flag.
+
+**Correction, 2026-09-01.** The provenance marker as built was a `modified_in_editor` bool that
+nothing ever set: the importer was its only writer and it only ever wrote `false`, so the guard
+had never once fired. It cannot be fixed by observing the editor — GDScript's `_set` is not called
+for script-declared exports, a property setter cannot tell an Inspector edit from a `.tres` being
+loaded, and there is no `EditorPlugin` here. Provenance is now recorded rather than observed: the
+importer stores an `import_fingerprint` hash of what it wrote, and a file that no longer hashes to
+it was changed by something else. This also covers what the original design missed entirely —
+`resources/terrain/*.tres`, the one place a designer can tune a material, which every import used
+to overwrite unconditionally. `modified_in_editor` survives as the manual override.
 
 ---
 
@@ -377,6 +423,8 @@ snow shading (wrap diffuse + sparkle).
 ### Phase 4 — Character — **M**
 Placeholder mesh from `shape.lst`, then authored skinned glTF. Procedural additive layer (lean into
 turns, brace on brake, flap on paddle, impact reaction on tree hit) over migrated keyframe animations.
+The rig and the canned clips are done, including the pre-race start animation (`CIntro`); the
+additive layer is not.
 > **Exit:** the penguin sells speed and carve direction without the player looking at the HUD.
 
 ### Phase 5 — Game shell — **M**
@@ -391,6 +439,17 @@ save/profiles, settings, 15-language i18n, audio mixing.
 > any screen that has to exist before a course is loaded. The course list itself is a generated
 > index resource (`resources/courses.tres`) rather than a directory scan, because `DirAccess` over
 > `res://` finds nothing once the exporter has remapped the text resources.
+>
+> **Correction to the correction, 2026-09-01.** A title screen is precisely the screen that has to
+> exist before a course is loaded, so §4.1 stands as drawn: `main_menu.tscn` is the main scene and
+> the race is a scene the shell changes to and back from. `Practice` opens the same course list,
+> `Configuration` is a settings screen over `penguinracer.cfg`, and the chosen course is handed
+> across the scene swap on `RaceScene.requested_course_path` — a static, because a scene change
+> leaves nothing to set a property on. What survives from 2026-08-31 is the in-race half: Esc still
+> draws the list over the live course and still swaps through `load_course`, so the menu that opens
+> mid-race is free and closing it is still a resume. Verification changed with it: `--course=` or
+> `--auto-input=` (and `?course=` in a browser) skips the shell, which is what keeps
+> `--capture`/`RACE_READY` working.
 
 ### Phase 6 — Polish + ship — **M**
 Quality tiers replacing `perf_level`, WASM size budget, loading/streaming, redesigned finish sequence

@@ -14,10 +14,11 @@ the game). Everything else is redesigned; original content is imported into the 
 | `etracer.md` | What the original C++ does. §4.1 = physics constants (authoritative), §5 = legacy file formats. |
 | `godot-port-plan.md` | Architecture, data model, phases, risks. |
 | `PROGRESS.md` | What is built today, and the known gaps. The running log. |
-| `history.md` | How it got here: the two spikes in full, and the seventeen things the plan did not know. Settled — read it for the reasoning behind a decision, not for current state. |
+| `history.md` | How it got here: the two spikes in full, and the nineteen things the plan did not know. Settled — read it for the reasoning behind a decision, not for current state. |
+| `materials.md` | How a terrain material works: `terrains.lst` → `TerrainLayer` → friction on the CPU and shading on the GPU, why there are 43 records and not three, and what the editor can and cannot author. |
 | `README.md` | Commands, prerequisites, layout. |
 
-Keep all five current when you change things. State goes in `PROGRESS.md`; once a piece of it is
+Keep all six current when you change things. State goes in `PROGRESS.md`; once a piece of it is
 settled and only the reasoning is still worth having, move it to `history.md` and leave the
 distilled lesson in the trap list below. Corrections to the plan go in `godot-port-plan.md`
 marked with a date.
@@ -29,8 +30,12 @@ game/                     Godot project (project.godot, gl_compatibility)
   scripts/physics/        RacePhysics + surface + snow — plain RefCounted, zero node deps
   scripts/course/         CourseData, TerrainLayer, prefabs, events, environments
   scripts/render/         terrain chunks, GPU snow field, spray
-  scripts/camera/         chase camera        scripts/shell/  HUD, course menu
+  scripts/camera/         chase camera        scripts/shell/  main menu, course menu,
+                                                              settings screen, HUD
+  scripts/character/      CharacterRig + KeyframePath — the rig the importer writes
+                          and the root motion a keyframe animation cannot carry
   scripts/audio/          AudioDirector autoload + generated sound/music banks
+  scripts/config/         GameConfig autoload — the player's settings file
   scripts/debug/          DebugCapture autoload (headless screenshots / scripted input),
                           key_log (what a remote desktop is doing to the keyboard)
   shaders/                terrain (splat + snow/ice shading), etr_skybox,
@@ -40,9 +45,10 @@ game/                     Godot project (project.godot, gl_compatibility)
   resources/  i18n/       GENERATED: layers, prefabs, environments, events, course
                           catalog, sound bank + music library, 13 translations
   assets/sounds|music/    GENERATED: the 10 effects and 10 pieces, copied verbatim
-  scenes/                 race.tscn, course_menu.tscn, key_log.tscn
+  scenes/                 main_menu.tscn (the main scene), course_menu.tscn,
+                          settings_menu.tscn, race.tscn, key_log.tscn
   tests/                  headless suite (physics, surface, input, audio, imported
-                          terrain library) + ODE benchmark
+                          terrain library, character rig) + ODE benchmark
   spikes/s1_pingpong/     ping-pong render-target spike (risk S1)
 etr-0.8.4/                original source + data — READ-ONLY, never write here
 tools/                    import_all.sh, shot.sh (deterministic screenshot, real GPU
@@ -67,9 +73,11 @@ Empty output means the scenes only churned ids — `git checkout` them and commi
 ## Commands
 
 ```bash
-godot --path game                                                  # play (Esc = course menu)
+godot --path game                                                  # play (opens on the main menu)
+godot --path game -- --course=bunny_hill                           # ... skip it, race that course
 godot --path game -- --remote-keyboard                             # ... over a pulsed remote keyboard
 godot --path game -- --no-audio                                    # ... silent, for captures
+godot --path game -- --no-intro                                    # ... skipping the start animation
 godot --path game res://scenes/key_log.tscn                        # what the link does to the keyboard
 godot --headless --path game --script res://tests/run_tests.gd     # physics suite + benchmark
 godot --path game spikes/s1_pingpong/s1_spike.tscn                 # snow RT spike
@@ -83,8 +91,14 @@ godot --path game -- --capture=/tmp/shot.png --capture-frames=200 \
 # web
 godot --headless --path game --export-release "Web" build/web/index.html
 node tools/webtest/server.js build/web 8060 &
-node tools/webtest/run_web_test.js http://127.0.0.1:8060/index.html /tmp/web.png RACE_READY
+node tools/webtest/run_web_test.js \
+    "http://127.0.0.1:8060/index.html?course=bunny_hill&nointro=1" /tmp/web.png RACE_READY
 ```
+
+Settings live in `user://penguinracer.cfg` — on Linux
+`~/.local/share/godot/app_userdata/PenguinRacer/`, written with its comments on first run.
+Window size, render scale and fog distance; delete it to get the defaults back. The main menu's
+**Configuration** screen moves the same five keys and writes the same commented file back.
 
 Export presets: `Web` (all 44 courses), `WebOneCourse` (bunny_hill, 6.6 MB pck), `WebSpike`.
 The test server must set COOP/COEP and `.wasm`/`.pck` MIME types or the export fails obscurely.
@@ -100,12 +114,12 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 
 | Phase | State |
 |---|---|
-| 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 2921 assertions, 0 failures, 0.9 s headless. |
+| 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 3254 assertions, 0 failures, 0.9 s headless. |
 | 1 — importer + first course | **done** — all 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. bunny_hill drivable in a browser; wild_mountains (100×1000) runs. |
 | 2 — rendering | partial — splat PBR, chunked terrain, instanced trees, HUD, migrated skyboxes. Tone matched to the original on Bunny Hill; no LightmapGI bake. Snow and ice carry procedural micro-relief, a twinkling crystal glint and a Fresnel sky reflection. |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror both wired; a carve leaves a track with a shaded trench, a self-occluded floor and a bright ploughed lip. |
-| 4 — character | placeholder done — welded ArrayMesh from `shape.lst` + Skeleton3D with ETR joint names + keyframe AnimationLibrary. |
-| 5 — game shell | partial — course-select menu over the live race, generated course catalog, 13 languages wired to `tr()`, and audio: 10 effects + 10 pieces + 3 racing themes on an `AudioDirector` autoload that reproduces ETR's one-voice-per-cue mixer. No cups, medals or profiles (data is imported and waiting). |
+| 4 — character | rig + canned clips done, procedural layer not started — welded ArrayMesh from `shape.lst` **skinned** to a Skeleton3D with ETR joint names, the four keyframe lists as an AnimationLibrary plus a `KeyframePath` of root motion each, and the pre-race start animation (`CIntro`) wired into the race. No additive layer over racing (`AdjustJoints`); finish/wonrace/lostrace imported but not played. |
+| 5 — game shell | partial — `main_menu.tscn` is the main scene: Practice opens the course list, Configuration edits `penguinracer.cfg` graphically, and a race is a scene the shell hands over to and takes back. Generated course catalog, 13 languages wired to `tr()`, audio (10 effects + 10 pieces + 3 racing themes on an `AudioDirector` autoload that reproduces ETR's one-voice-per-cue mixer). No cups, medals or profiles (data is imported and waiting); no volume or language controls on the settings screen. |
 | 6 — polish/ship | not started. |
 
 ### Spikes
@@ -141,8 +155,8 @@ takes the slow path, which is worth doing before trusting a small tone measureme
    on purpose: `SnowFieldGPU` (1024², 64 m toroidal window, for pixels) and `SnowField`
    (128² CPU mirror, for feel). They deliberately do not match.
 4. **The importer is one-way and re-runnable.** `etr-0.8.4/` is read-only. Generated resources land
-   in `game/courses/` and `game/resources/`. A course touched in-editor carries a provenance flag
-   and is skipped without `--force`.
+   in `game/courses/` and `game/resources/`. A course or terrain layer edited outside the importer
+   no longer hashes to its `import_fingerprint` and is skipped without `--force`.
 5. **Deviations from the original are marked `DEVIATION` in the source, each with a reason.**
    Follow that convention.
 6. GDScript only for gameplay — C# has no web export. Avoid GDExtension addons.
@@ -241,7 +255,10 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 - **`git stash` for an A/B render stashes your test harness too.** Capturing a "before" frame by
   stashing the working tree also reverted the change to `tools/shot.sh` that made captures fast,
   so the baseline silently went back to the two-minute software path and timed out mid-script,
-  leaving the work stashed. Commit tooling changes first, then `git stash push -- game`.
+  leaving the work stashed. Commit tooling changes first, then `git stash push -- game`. The
+  narrowing is not what makes it safe, though: a stash-based A/B assumes everything you are not
+  testing is committed, and in this tree it is not. Where the change under test is one constant,
+  toggle the constant.
 - **`Input.is_action_just_pressed()` stays true for a key that has already been released.** It
   compares the latched press frame to the current frame and never looks at the key state, so a
   keyboard forwarded as zero-length down/up pulses (RustDesk's Legacy/Translate mode, some VNC
@@ -250,6 +267,63 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   `-- --remote-keyboard` makes it stretch such a press to 100 ms, which is opt-in because the
   stretch costs a local keyboard its frame-exact release. `godot --path game
   res://scenes/key_log.tscn` prints what the link is actually delivering.
+- **One zero-length pulse is also what a quick tap looks like.** The detection above diagnosed the
+  transport off a single sample for a phase, so one flick of the steering on an ordinary local
+  keyboard printed the whole "your remote desktop is forwarding pulses" paragraph — `xdotool key w`
+  against a windowed build reproduces it every time. What separates the two is cadence, not shape:
+  a pulsed transport repeats the pair at the autorepeat rate for as long as the key is held, and a
+  finger cannot tap twice inside 150 ms with both halves of each tap landing in one frame.
+  `KeyHoldFilter.PULSE_WINDOW` is that corroboration window; nothing is reported until a second
+  pulse on the *same* action lands inside it. Compensation was never gated on the diagnosis, so
+  this changed no gameplay behaviour — only what gets printed.
+- **A provenance flag that nothing sets is worse than no flag.** `CourseData.modified_in_editor`
+  was checked by the importer for two phases and never once fired: the importer was its only
+  writer and only ever wrote `false`. Nor can it be fixed by watching the editor — GDScript's
+  `_set` is not called for script-declared exports, a property setter cannot tell an Inspector
+  edit from a `.tres` being loaded, and there is no `EditorPlugin` here. Record provenance instead
+  of observing it: `import_fingerprint` is a hash of what the importer wrote, `edited_since_import()`
+  recomputes it, and `_keep_edited()` skips a file that no longer matches. Store the hash rather
+  than diffing against a freshly imported record, or every change to the importer's own migration
+  logic makes all 43 layers look hand-edited.
+- **An exported field nothing reads is an invitation, not a placeholder.** `TerrainLayer` carried
+  `normal` and `roughness` as `Texture2D` slots "for later authoring"; the terrain shader has no
+  sampler for either and never could, because it already binds 13 of WebGL2's guaranteed 16
+  fragment texture units. Assigning one in the Inspector did nothing and said nothing. Same shape
+  as the trap below, one step earlier: there, a field reached the resource but not its consumer;
+  here it reached the resource and had no consumer at all. `uv_scale` was the middle case — per
+  layer in the data, uploaded from `terrain_layers[0]`, so seven of eight values were silently
+  discarded.
+- **A skeleton with the right joint names can still be a statue.** The generated character carried
+  15 correctly named bones with correct transforms and posed perfectly — onto nothing, because the
+  mesh had no `ARRAY_BONES`/`ARRAY_WEIGHTS`, the `MeshInstance3D` had no `Skin`, and its `skeleton`
+  path still pointed at its parent. Nothing warns: an unskinned mesh under a skeleton renders
+  exactly as it should, motionless. Every joint was also its own root, because the walk up to the
+  nearest ancestor joint went through a helper that could only return 0 or −1, and the rests were
+  global rather than parent-relative — which is *self-consistent* with a flat list, so it drew
+  correctly at rest and lost every hip-carries-the-knee relationship. Both were found by trying to
+  play an animation, not by reading the generated scene.
+- **`Skeleton3D` bone tracks are absolute poses, and each keyframe tag names its own axis.** A
+  rotation key replaces `bone_pose_rotation` outright rather than composing with the rest, so every
+  key has to be baked as `rest × R`. And `CKeyframe::InterpolateKeyframe` does not use one axis for
+  everything: `[sh]`, `[hip]`, `[knee]`, `[ankle]` and `[neck]` turn about the joint's Z, `[head]`
+  and `[arm]` about its Y. Getting either wrong still produces a pose, just not the authored one.
+- **In a keyframe file, a missing tag is a zero.** The original resets every joint each frame and
+  reapplies only what the line names, and `SPFloatN` defaults to 0 — so `start.lst` dropping `[sh]`
+  from its seventh line is what brings Tux's flippers back down before he lies on them. Keying only
+  the tags that are present holds the last value instead, and he races the whole course with them
+  out.
+- **Half of an ETR keyframe is not animation data.** `CKeyframe::Update` writes the body transform
+  as well as the joints, and neither half survives baking into an `Animation`: the authored Y is a
+  clearance the runtime completes with `Course.FindYCoord` (bake it and the character walks through
+  the hill on every course but the one it was baked against), and the yaw/pitch/roll goes to node 0,
+  whose frame is the world, so it belongs to the node *above* the rig. It lives in `KeyframePath`,
+  sampled by whoever owns the clock — which has to be the same clock the `AnimationPlayer` is
+  seeked on, or the two drift. That is why the player runs in
+  `ANIMATION_CALLBACK_MODE_PROCESS_MANUAL`.
+- **`object.packed_array.push_back(x)` throws the element away.** Reading a packed array back off a
+  property — including a script's own `@export var` on another object — hands out a copy, so the
+  append lands on a temporary. Build a local `PackedFloat32Array` and assign it once. Cost an
+  importer run with every `KeyframePath` empty and no error anywhere.
 - **A migrated field is not ported until something reads it.** `[trackmarks]` was imported onto
   `TerrainLayer` and written into every layer resource, but never reached `SurfaceSample`, so the
   deformation stamp gated on `[part]` instead. The two agree on every terrain a shipped course
@@ -266,14 +340,39 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   (`snow_sound` is `[vol] 0.2` in the file and gain 1.5 in the code). Both are migrated —
   `SoundCue.race_gain` is the live one, `legacy_volume` the file's — and volumes clip at
   `MIX_MAX_VOLUME` = 100, so at the default 90 that 1.5 is really 1.11.
-- **The dummy audio driver never reaps a stopped playback.** A container with no sound card
-  falls back to it, and Godot then prints "N ObjectDB instances were leaked at exit" after any
-  run that played anything — stopping the player, clearing its stream and freeing the node
-  change nothing, and a five-line play-then-stop reproduces it. `tools/shot.sh` passes
-  `--no-audio`; do not go hunting for a leak in `AudioDirector` when a capture reports one.
+- **`AudioServer` frees a stopped playback a frame later, so a quit has to wait for it.** `stop()`
+  only marks the playback for deletion; the mixer thread has to fade it out and the object is
+  freed by the `AudioServer::update()` at the end of a later main-loop iteration. Neither happens
+  once the tree is coming down, so silencing from `tree_exiting` — or in the same breath as
+  `SceneTree.quit()` — releases nothing and Godot reports "4 ObjectDB instances were leaked at
+  exit" plus "2 resources still in use at exit", the music stream and its Ogg packet sequence.
+  Every quit goes through `AudioDirector.quit_game()` for that reason: it silences, waits
+  `QUIT_SETTLE`, then quits, and it owns the window's close button (`auto_accept_quit = false`)
+  so the X and Alt+F4 get the same wait. **The wait is wall-clock, not frames** — it is the mixer
+  thread that has to run, and 30 frames of an idle scene went by in 19 ms and still lost the race.
+  This was read as a dummy-driver artefact for a phase, which it is not: the driver only makes it
+  reproduce everywhere, since a container with no sound card falls back to it.
 - **A `SceneTree` script's `_initialize` runs before the root Window is inside the tree**, and an
   `AudioStreamPlayer` refuses to start outside one. `tests/run_tests.gd` runs everything on the
   first `_process` for that reason — do not move it back.
+- **A window size from a settings file is not the size anything renders at.** `project.godot`
+  ships `window/stretch/mode="canvas_items"`, so the root viewport keeps the 1280x720 base
+  aspect: ask for a 1024x768 window and the capture comes out 1024x576, letterboxed. The window
+  really is the size that was asked for — do not go looking for a bug in the sizing code. Godot's
+  own `--resolution`/`--fullscreen` also outrank the file, deliberately, which is what keeps
+  `tools/shot.sh` capturing at 1280x720 whatever the developer's own settings say.
+- **`change_scene_to_file()` called from `_ready` prints "Parent node is busy adding/removing
+  children" and carries on.** The shell decides in its own `_ready` whether a scripted run should
+  skip the menu, which is exactly that case: the tree is still adding the scene that is asking to
+  be replaced. `change_scene_to_file.call_deferred(...)` waits the one frame it takes. The error is
+  not fatal — the race loads, `RACE_READY` prints, the capture is correct — so it is a red line
+  above a working screenshot rather than anything that fails.
+- **A run that wants a rendered course has to name one.** The main scene is `main_menu.tscn`, and
+  `--course=` or `--auto-input=` is what hands over to the race before the menu is ever shown —
+  `tools/shot.sh` passes both, so captures are unaffected. A bare `--capture=` screenshots the
+  menu, deliberately: that is how the shell itself gets verified. In a browser there is no command
+  line, so `index.html?course=<dir>` says the same thing and is what keeps the web harness's
+  `RACE_READY` arriving.
 - **Directional shadows stop at `directional_shadow_max_distance`**, on a sphere around the camera.
   Set shorter than the visible slope it reads as an arc of shadow travelling in front of the
   player. It is derived from the environment's fog range in `RaceScene._shadow_range_for` — keep it
@@ -302,15 +401,25 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   makes the rest visible: Schlick at the ~65 degree incidence a chase camera sits at is about
   0.09, and 0.09 of sky over an already near-white albedo is four levels nobody sees. All of it
   is behind uniforms; `ice_albedo = 1.0` and `detail_relief_* = 0` restore the previous look.
-- **Which layers are ice is `TerrainLayer.is_ice()`, not `[shiny]`.** The data only marks three of
-  the five ice terrains shiny; `hockey_ice` and `snowy_ice` ship without it. The friction clause
-  catches them, because every ETR ice terrain is `[friction] 0.2` and nothing else goes below 0.3.
+- **Which layers are ice is `TerrainLayer.is_ice()`, not `[shiny]`.** Seven records are ice and
+  the data marks only three of them shiny — `ice1`, `ice2`, `greenice`. `hockey_ice`,
+  `snowy_ice`, `snowy_greenice` and `snowy_hockey_ice` ship without it, so the friction clause
+  carries most of the set rather than a couple of stragglers. It catches them because every ETR
+  ice terrain is `[friction] 0.2` and nothing else goes below 0.3.
 - **Linear tone mapper, no glow, no SSAO.** ETR clamps in display space and has neither effect;
   a filmic curve redistributes both ends of the snow's range and glow smears the highlights that
   snow is mostly made of. Reproducing a fixed-function look means reproducing its transfer curve.
-- **Fog stays at the original's 75 m range** (`fog_distance_scale` 1.0). Stretching it to 2.5x to
-  recover draw distance was a wording-level "improvement" that removed the white haze ETR's snow
-  sits inside — corrected 2026-09-01, once there was a sky behind the fog to see.
+- **Fog is pushed out from the original's range, from the settings file** — 40 m of clear air in
+  front of the camera and 2x the migrated distance, i.e. 40–150 m where `light.lst` says 0–75.
+  Six of the eight presets ship `[fogstart] 0` — including both sunny ones, which is what all 44
+  shipped courses select — so ETR's haze begins *at* the camera and the trees a couple of lengths
+  ahead are already washed toward white. An earlier 2.5x stretch was backed
+  out on 2026-09-01 as a wording-level "improvement"; this is the same move made deliberately,
+  measured, and made revertible — `start_distance = 0` + `distance_scale = 1` in
+  `penguinracer.cfg` is the original's fog exactly. Measured on Bunny Hill: the mid-distance tree
+  band regains its contrast (5th percentile 143 → 65, clipping 19 % → 12 %) and the near field
+  the tone match was solved on does not move at all (mean 226.8 → 226.5). The white haze is still
+  what the horizon dissolves into; it just no longer starts on the player.
 - **`Environment.fog_density` gates depth fog too**, not just the exponential mode, and defaults
   to 0.01. Set `fog_mode = FOG_MODE_DEPTH` and a range and leave density alone and you get fog at
   one per cent — indistinguishable from fog switched off, and the migrated `[fogstart]`/`[fogend]`
@@ -327,6 +436,22 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 - **The slide has no speed or lean term.** ETR wrote one — `SlideVolume` in `racing.cpp` — and
   ships it commented out above "this function is not used yet", so the sound is on or off. Ported
   as it stands; the same goes for the 12 terrains that name no `[sound]` at all, `snow` included.
+- **The start animation is skipped for scripted runs.** `CIntro` runs before every race in the
+  original; here `--auto-input=`, `--no-intro` and `?nointro=1` bypass it, because four and a half
+  seconds of Tux walking in front of a frame counter would move every reference capture.
+  `tools/shot.sh` always passes `--auto-input=`, so captures are unaffected either way.
+- **The HUD says `PRESS ANY KEY TO START` over the start animation.** The original draws its
+  ordinary HUD there and never mentions that any key skips it. The string is a migrated one — it is
+  what ETR puts under its splash screen.
+- **The character sinks 0.1 m along its own up axis**, which the original does not do at all: it
+  draws at `cpos.y + TUX_Y_CORR` and stops. This used to be a local offset on the rig node, which
+  is the same thing while the body's up axis is the surface normal — during the start animation it
+  is not, and an offset along a standing penguin's local Y walked him sideways out of his own
+  footprints. It is `RaceScene.CHARACTER_SINK` now, applied by whoever writes the body transform.
+- **A shoulder carrying both `[sh]` and `[arm]` is one quaternion key interpolated by slerp**, where
+  the original interpolates the two angles separately and rebuilds both matrices. The two agree
+  exactly whenever one angle is constant across a segment, which covers all of `start.lst` (no
+  `[arm]` at all). A `Skeleton3D` rotation track offers no per-axis alternative.
 - Numeric string IDs became semantic keys (`PRESS_ANY_KEY_TO_START`); old IDs are traceable via
   `i18n/legacy_string_ids.cfg`.
 
