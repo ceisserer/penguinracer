@@ -22,6 +22,7 @@ static func _defaults(t: TestCase) -> void:
 	t.eq_f(c.render_scale, 1.0, 1e-6, "3D renders at full resolution")
 	t.eq_f(c.fog_start_distance, 40.0, 1e-6, "40 m of clear air in front of the camera")
 	t.eq_f(c.fog_distance_scale, 2.0, 1e-6, "the migrated fog range is doubled")
+	t.ok(c.character == "tux", "and you race as the first row of characters.lst")
 	c.free()
 
 static func _read(text: String) -> GameConfig:
@@ -58,6 +59,20 @@ distance_scale = 1.0
 
 	# Out-of-range values are clamped rather than obeyed. A render scale of 0
 	# is a viewport with no pixels and a fog scale of 0 is fog at the camera.
+	c = _read("[game]\ncharacter = \"trixi\"\n")
+	t.ok(c.character == "trixi", "the chosen character is read")
+	c.free()
+
+	# Unvalidated on purpose: a character can be missing from a narrowed export,
+	# and the fallback belongs to CharacterCatalog rather than to the file, so
+	# that an absent rig does not get written back over the player's choice.
+	c = _read("[game]\ncharacter = \" beastie \"\n")
+	t.ok(c.character == "beastie", "and stripped, because a hand-edited file has spaces")
+	c.free()
+	c = _read("[game]\ncharacter = \"\"\n")
+	t.ok(c.character == "tux", "an empty name is the default, not an empty rig")
+	c.free()
+
 	c = _read("[display]\nrender_scale = 12.0\n[fog]\ndistance_scale = 0.0\nstart_distance = -5.0\n")
 	t.eq_f(c.render_scale, 2.0, 1e-6, "render scale is clamped to 2x")
 	t.eq_f(c.fog_distance_scale, 0.1, 1e-6, "fog scale is clamped away from zero")
@@ -88,6 +103,7 @@ static func _round_trip(t: TestCase) -> void:
 	c.render_scale = 0.65
 	c.fog_start_distance = 15.0
 	c.fog_distance_scale = 1.3
+	c.character = "boris"
 
 	var back: GameConfig = _read(c.file_text())
 	t.ok(back.resolution == Vector2i(1920, 1080), "a chosen resolution comes back")
@@ -95,6 +111,7 @@ static func _round_trip(t: TestCase) -> void:
 	t.eq_f(back.render_scale, 0.65, 1e-6, "and the render scale")
 	t.eq_f(back.fog_start_distance, 15.0, 1e-6, "and where fog starts")
 	t.eq_f(back.fog_distance_scale, 1.3, 1e-6, "and how far it reaches")
+	t.ok(back.character == "boris", "and who the next race is run as")
 
 	# "auto" is the one value that is not a size, and writing it as 0x0 would
 	# come back through parse_resolution as the fallback instead.

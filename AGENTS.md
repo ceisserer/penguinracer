@@ -33,7 +33,9 @@ game/                     Godot project (project.godot, gl_compatibility)
   scripts/camera/         chase camera        scripts/shell/  main menu, course menu,
                                                               settings screen, HUD
   scripts/character/      CharacterRig + KeyframePath — the rig the importer writes
-                          and the root motion a keyframe animation cannot carry
+                          and the root motion a keyframe animation cannot carry —
+                          plus CharacterCatalog/CharacterListing, the generated
+                          index of the five playable characters
   scripts/audio/          AudioDirector autoload + generated sound/music banks
   scripts/config/         GameConfig autoload — the player's settings file
   scripts/debug/          DebugCapture autoload (headless screenshots / scripted input),
@@ -43,10 +45,12 @@ game/                     Godot project (project.godot, gl_compatibility)
   addons/etr_import/      one-way, re-runnable importer from the ETR data tree
   courses/<name>/         GENERATED: course.tres, course.tscn, heightmap.res, splat_*.png
   resources/  i18n/       GENERATED: layers, prefabs, environments, events, course
-                          catalog, sound bank + music library, 13 translations
+                          catalog, character catalog + the five rigs and their
+                          previews, sound bank + music library, 13 translations
   assets/sounds|music/    GENERATED: the 10 effects and 10 pieces, copied verbatim
   scenes/                 main_menu.tscn (the main scene), course_menu.tscn,
-                          settings_menu.tscn, race.tscn, key_log.tscn
+                          character_menu.tscn, settings_menu.tscn, race.tscn,
+                          key_log.tscn
   themes/                 etr_menu.tres — ETR's `common.cpp` palette as a Godot
                           theme, and the checkbox icons it binds
   tests/                  headless suite (physics, surface, input, audio, imported
@@ -77,6 +81,7 @@ Empty output means the scenes only churned ids — `git checkout` them and commi
 ```bash
 godot --path game                                                  # play (opens on the main menu)
 godot --path game -- --course=bunny_hill                           # ... skip it, race that course
+godot --path game -- --character=trixi                             # ... as one of the other four
 godot --path game -- --remote-keyboard                             # ... over a pulsed remote keyboard
 godot --path game -- --no-audio                                    # ... silent, for captures
 godot --path game -- --no-intro                                    # ... skipping the start animation
@@ -120,8 +125,8 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 | 1 — importer + first course | **done** — all 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. bunny_hill drivable in a browser; wild_mountains (100×1000) runs. |
 | 2 — rendering | partial — splat PBR, chunked terrain, instanced trees, HUD, migrated skyboxes. Tone matched to the original on Bunny Hill; no LightmapGI bake. Snow and ice carry procedural micro-relief, a twinkling crystal glint and a Fresnel sky reflection. |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror both wired; a carve leaves a track with a shaded trench, a self-occluded floor and a bright ploughed lip. |
-| 4 — character | rig + canned clips done, procedural layer not started — welded ArrayMesh from `shape.lst` **skinned** to a Skeleton3D with ETR joint names, the four keyframe lists as an AnimationLibrary plus a `KeyframePath` of root motion each, and the pre-race start animation (`CIntro`) wired into the race. No additive layer over racing (`AdjustJoints`); finish/wonrace/lostrace imported but not played. |
-| 5 — game shell | partial — `main_menu.tscn` is the main scene: Practice opens the course list, Configuration edits `penguinracer.cfg` graphically, and a race is a scene the shell hands over to and takes back. Every screen wears `themes/etr_menu.tres`, so the shell reads as the original's: the flat `colBackgr` blue, white text, `colDYell` on whatever has focus, square white-outlined frames. Generated course catalog, 13 languages wired to `tr()`, audio (10 effects + 10 pieces + 3 racing themes on an `AudioDirector` autoload that reproduces ETR's one-voice-per-cue mixer). No cups, medals or profiles (data is imported and waiting); no volume or language controls on the settings screen; none of ETR's menu art (corner ornaments, title logo), which waits on the licence audit. |
+| 4 — character | rig + canned clips done for **all five characters**, procedural layer not started — welded ArrayMesh from `shape.lst` **skinned** to a Skeleton3D with ETR joint names, the four keyframe lists as an AnimationLibrary plus a `KeyframePath` of root motion each, and the pre-race start animation (`CIntro`) wired into the race. Tux, Trixi, Boris, Samuel and Beastie each carry their own shape and their own clips; `resources/characters.tres` indexes them and `GameConfig.character` picks one. No additive layer over racing (`AdjustJoints`); finish/wonrace/lostrace imported but not played. |
+| 5 — game shell | partial — `main_menu.tscn` is the main scene: Practice opens the course list, Configuration edits `penguinracer.cfg` graphically, and a race is a scene the shell hands over to and takes back. `character_menu.tscn` is the character half of `CRegist` — arrows over a framed name with the migrated 128x128 preview under it. Every screen wears `themes/etr_menu.tres`, so the shell reads as the original's: the flat `colBackgr` blue, white text, `colDYell` on whatever has focus, square white-outlined frames. Generated course and character catalogs, 13 languages wired to `tr()`, audio (10 effects + 10 pieces + 3 racing themes on an `AudioDirector` autoload that reproduces ETR's one-voice-per-cue mixer). No cups, medals or profiles (data is imported and waiting; the player half of `CRegist` waits on them); no volume or language controls on the settings screen; none of ETR's menu art (corner ornaments, title logo), which waits on the licence audit. |
 | 6 — polish/ship | not started. |
 
 ### Spikes
@@ -304,6 +309,16 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   global rather than parent-relative — which is *self-consistent* with a flat list, so it drew
   correctly at rest and lost every hip-carries-the-knee relationship. Both were found by trying to
   play an animation, not by reading the generated scene.
+- **Four of the five characters name the left elbow `joint`.** `char/<name>/shape.lst` for Trixi,
+  Boris, Samuel and Beastie all carry `[joint] joint [name] joint for left_elbow`, and the `[name]`
+  beside it is what gives the copy-paste slip away. Samuel goes further and has no right leg, no
+  hands and no tail at all. None of it is an error to correct: `CCharShape::RotateNode` looks a
+  name up in `NodeIndex` and returns false when it is not there, so the original simply does not
+  rotate a joint the file does not name, and `AdjustJoints` is written against exactly that. Import
+  what the file says. What it means for tests is that Tux's sixteen-bone joint list is *Tux's* —
+  the contract the other four share is weaker (a skinned mesh, one root, parents before children,
+  the five joints they all do have) and asserting his list against them fails on the data being
+  faithful.
 - **`Skeleton3D` bone tracks are absolute poses, and each keyframe tag names its own axis.** A
   rotation key replaces `bone_pose_rotation` outright rather than composing with the rest, so every
   key has to be baked as `rest × R`. And `CKeyframe::InterpolateKeyframe` does not use one axis for
@@ -472,6 +487,17 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   they are a menu-only particle system with no gameplay tie. ETR's checkbox is its own shape,
   a ring with a cream tick, and is redrawn here as `themes/checkbox_{on,off}.png` rather than
   copied, because Godot's default `CheckButton` switch is a dark slab that disappears on blue.
+- **The chosen character is remembered, and it is asked for from the main menu.** ETR asks on
+  `CRegist`, the first screen of a launch, where a `TUpDown` over `Char.CharList` sits beside the
+  player-profile spinner — and it does not keep the answer: the spinner opens on index 0 every
+  time and `players.lst` has no column for it. There are no player profiles here yet, so the
+  player half of that screen has nothing to show; the character half is `character_menu.tscn`
+  behind its own main-menu entry, and the answer is `[game] character` in `penguinracer.cfg`.
+  `--character=<dir>` and `?character=<dir>` name one for a single run without writing the file.
+  The arrows are horizontal and flank the name where ETR stacks an up and a down arrow to its
+  right; the clamping and the greyed-out end arrow are the original's (`TUpDown::Click` stops at
+  `minimum`/`maximum` and calls `SetActive(false)`). The `n / 5` counter under the preview is new:
+  five characters behind two arrows give no sense of how many there are.
 - Numeric string IDs became semantic keys (`PRESS_ANY_KEY_TO_START`); old IDs are traceable via
   `i18n/legacy_string_ids.cfg`.
 

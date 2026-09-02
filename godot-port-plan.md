@@ -203,6 +203,15 @@ found by trying to play the start animation:
 The generated scene is therefore a `CharacterRig` (below) rather than a bare `Node3D`, and it is
 that script — not just the joint names — that authored art has to keep.
 
+**Addition, 2026-09-02.** This section says "Tux" throughout and the data says five: `characters.lst`
+names Tux, Trixi, Boris, Samuel and Beastie, and each `[dir]` has its own `shape.lst` and its own
+four keyframe lists. The importer already built all five; what was missing was any way to pick one.
+`resources/characters.tres` is that index — a `CharacterCatalog` written at import time for the
+same reason `resources/courses.tres` is, because `DirAccess` over `res://` finds nothing in an
+exported build — and `GameConfig.character` names a row of it. Do not assume a joint list is
+shared: four of the five spell the left elbow `[joint] joint` and Samuel has no right leg, and the
+original's `RotateNode` skips a name it cannot find rather than failing.
+
 ---
 
 ## 4. Runtime architecture
@@ -423,8 +432,8 @@ snow shading (wrap diffuse + sparkle).
 ### Phase 4 — Character — **M**
 Placeholder mesh from `shape.lst`, then authored skinned glTF. Procedural additive layer (lean into
 turns, brace on brake, flap on paddle, impact reaction on tree hit) over migrated keyframe animations.
-The rig and the canned clips are done, including the pre-race start animation (`CIntro`); the
-additive layer is not.
+The rig and the canned clips are done for all five characters, including the pre-race start
+animation (`CIntro`), and the shell can choose between them; the additive layer is not.
 > **Exit:** the penguin sells speed and carve direction without the player looking at the HUD.
 
 ### Phase 5 — Game shell — **M**
@@ -450,6 +459,13 @@ save/profiles, settings, 15-language i18n, audio mixing.
 > mid-race is free and closing it is still a resume. Verification changed with it: `--course=` or
 > `--auto-input=` (and `?course=` in a browser) skips the shell, which is what keeps
 > `--capture`/`RACE_READY` working.
+>
+> **Addition, 2026-09-02.** A third entry: `Select a character`, over the five rows of
+> `characters.lst`. It is the half of ETR's `CRegist` that this shell has something to put in —
+> the other half is the player profile, which arrives with save profiles later in this phase — and
+> unlike the original the answer is kept, in `penguinracer.cfg`. `RaceScene.requested_character`
+> carries a `--character=`/`?character=` override across the scene swap, the same shape as
+> `requested_course_path` and for the same reason.
 
 ### Phase 6 — Polish + ship — **M**
 Quality tiers replacing `perf_level`, WASM size budget, loading/streaming, redesigned finish sequence

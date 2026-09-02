@@ -1364,20 +1364,32 @@ func build_object_prefabs(object_types: Array[Dictionary]) -> Dictionary[String,
 ## day one, and when authored skinned glTF art arrives it drops in against the
 ## same `neck` / `head` / `left_shldr` / `left_hip` / … skeleton, so the
 ## procedural animation layer and the migrated keyframes keep working unchanged.
+## All five of them, not just Tux: `characters.lst` is a five-record file and
+## each `[dir]` has its own `shape.lst` and its own four keyframe lists, so
+## Trixi does not wave Tux's flippers. The catalog written at the end is what
+## the shell offers and what `penguinracer.cfg` names a row of.
 func import_characters(stage: String) -> void:
 	var chars: Array[Dictionary] = SPList.load_file(source_dir.path_join("char/characters.lst"))
 	ensure_dir("res://resources/characters")
-	var count: int = 0
+	var listings: Array[CharacterListing] = []
 	for rec: Dictionary in chars:
 		var dir_name: String = SPList.get_str(rec, "dir")
 		if dir_name.is_empty():
 			continue
 		var src: String = source_dir.path_join("char").path_join(dir_name)
+		var out_dir: String = "res://resources/characters".path_join(dir_name)
+		if stage == STAGE_ASSETS:
+			ensure_dir(out_dir)
+			# The 128x128 the registration screen draws in a white frame. Copied
+			# in the assets stage so that the listing built in the next one can
+			# ask whether it landed.
+			if not copy_file(src.path_join("preview.png"), out_dir.path_join("preview.png")):
+				_warn("%s: no preview.png" % dir_name)
 		var built: Dictionary = _build_character(src)
 		if built.is_empty():
+			_warn("%s: no usable shape.lst" % dir_name)
 			continue
 		if stage == STAGE_RESOURCES:
-			var out_dir: String = "res://resources/characters".path_join(dir_name)
 			ensure_dir(out_dir)
 			ResourceSaver.save(built["mesh"], out_dir.path_join("placeholder_mesh.res"))
 			# Keyframes first: the scene carries both halves of them, and the
@@ -1385,8 +1397,41 @@ func import_characters(stage: String) -> void:
 			# is about to be given.
 			var clips: Dictionary = _import_keyframes(src, out_dir, built["bones"])
 			_save_character_scene(out_dir, dir_name, built, clips)
-		count += 1
-	_log("characters: %d" % count)
+		listings.push_back(_character_listing_for(rec, dir_name, out_dir))
+	if stage == STAGE_RESOURCES:
+		_write_character_catalog(listings)
+	_log("characters: %d" % listings.size())
+
+## One [CharacterListing] for the character menu, straight off the
+## `characters.lst` record. `[name]` is the name the player reads and `[type]`
+## is migrated so the file is not silently lossy — nothing reads it, in the
+## original either.
+func _character_listing_for(rec: Dictionary, dir_name: String,
+		out_dir: String) -> CharacterListing:
+	var listing := CharacterListing.new()
+	listing.dir = dir_name
+	listing.display_name = SPList.get_str(rec, "name")
+	listing.shape_type = SPList.get_str(rec, "type", "spheres")
+	listing.scene_path = out_dir.path_join("%s.tscn" % dir_name)
+	var preview_path: String = out_dir.path_join("preview.png")
+	listing.preview_path = preview_path if ResourceLoader.exists(preview_path) else ""
+	return listing
+
+## Write the character index to [constant CharacterCatalog.PATH].
+##
+## Replaces rather than merges, unlike [method write_course_catalog]: every run
+## walks the whole of `characters.lst`, there is no `--character=` narrowing the
+## way `--course=` narrows the course loop, and the file's order is the menu's
+## order — so a merge would have nothing to preserve and could only reorder it.
+func _write_character_catalog(listings: Array[CharacterListing]) -> void:
+	if listings.is_empty():
+		_warn("no characters imported; leaving the catalog alone")
+		return
+	var catalog := CharacterCatalog.new()
+	catalog.entries = listings
+	ensure_dir(CharacterCatalog.PATH.get_base_dir())
+	ResourceSaver.save(catalog, CharacterCatalog.PATH)
+	_log("character catalog: %d characters" % catalog.entries.size())
 
 ## Walk the ellipsoid hierarchy, accumulating each node's transform exactly as
 ## `CCharShape::Load` does — the `[order]` string is a list of which operations

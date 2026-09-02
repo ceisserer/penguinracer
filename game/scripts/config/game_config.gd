@@ -59,6 +59,22 @@ var fog_start_distance: float = 40.0
 ## `fog_start_distance = 0.0` is the original's fog, exactly.
 var fog_distance_scale: float = 2.0
 
+# --- game ---
+
+## Directory name of the character raced as — a row of
+## [member CharacterCatalog.entries], which is a row of `char/characters.lst`.
+##
+## DEVIATION: ETR asks on its registration screen, once per launch, and does not
+## remember the answer — `g_game.character` is a pointer set from a `TUpDown`
+## that opens on index 0 every time, and `players.lst` stores a name and an
+## avatar but no character. There is no registration screen here, because there
+## are no player profiles yet (Phase 5), so the question is asked from its own
+## menu entry and the answer is kept. Storing an unvalidated directory name is
+## deliberate: a character can be missing from a narrowed export, and
+## [method CharacterCatalog.scene_path_for] falls back rather than the file
+## being rewritten behind the player's back.
+var character: String = CharacterCatalog.DEFAULT_DIR
+
 func _ready() -> void:
 	load_or_create()
 	apply_display()
@@ -91,6 +107,9 @@ func read(cfg: ConfigFile) -> void:
 		fog_start_distance)), 0.0)
 	fog_distance_scale = clampf(float(cfg.get_value("fog", "distance_scale",
 		fog_distance_scale)), 0.1, 10.0)
+	character = str(cfg.get_value("game", "character", character)).strip_edges()
+	if character.is_empty():
+		character = CharacterCatalog.DEFAULT_DIR
 
 ## `"1280x720"` → `Vector2i(1280, 720)`; `"auto"` → [constant Vector2i.ZERO],
 ## meaning the window is left as the platform sized it. Anything unparseable
@@ -155,8 +174,15 @@ start_distance = %.1f
 ; Multiplies the fog range migrated from the environment's light.lst.
 ; 1.0 is the original's 75 m white-out; larger sees further into the valley.
 distance_scale = %.2f
+
+[game]
+
+; Who you race as: one of the directories under char/ in the original data —
+; tux, trixi, boris, samuel or beastie. The Character screen sets this.
+; A name that is not installed falls back to tux.
+character = "%s"
 """ % [_resolution_text(), str(fullscreen).to_lower(), render_scale,
-		fog_start_distance, fog_distance_scale]
+		fog_start_distance, fog_distance_scale, character]
 
 ## `"auto"` when the window is the platform's to size, `"1280x720"` otherwise.
 ## The round trip through [method parse_resolution] has to survive: a saved

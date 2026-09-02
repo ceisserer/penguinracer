@@ -1,0 +1,43 @@
+[gd_resource type="Resource" script_class="CharacterCatalog" format=3]
+
+[ext_resource type="Script" path="res://scripts/character/character_listing.gd" id="1_b1ajn"]
+[ext_resource type="Script" path="res://scripts/character/character_catalog.gd" id="2_77t5r"]
+
+[sub_resource type="Resource" id="Resource_nht5o"]
+script = ExtResource("1_b1ajn")
+dir = "tux"
+display_name = "Tux"
+scene_path = "res://resources/characters/tux/tux.tscn"
+preview_path = "res://resources/characters/tux/preview.png"
+
+[sub_resource type="Resource" id="Resource_0ld1t"]
+script = ExtResource("1_b1ajn")
+dir = "trixi"
+display_name = "Trixi"
+scene_path = "res://resources/characters/trixi/trixi.tscn"
+preview_path = "res://resources/characters/trixi/preview.png"
+
+[sub_resource type="Resource" id="Resource_00wmf"]
+script = ExtResource("1_b1ajn")
+dir = "boris"
+display_name = "Boris"
+scene_path = "res://resources/characters/boris/boris.tscn"
+preview_path = "res://resources/characters/boris/preview.png"
+
+[sub_resource type="Resource" id="Resource_oj68t"]
+script = ExtResource("1_b1ajn")
+dir = "samuel"
+display_name = "Samuel"
+scene_path = "res://resources/characters/samuel/samuel.tscn"
+preview_path = "res://resources/characters/samuel/preview.png"
+
+[sub_resource type="Resource" id="Resource_j1nj0"]
+script = ExtResource("1_b1ajn")
+dir = "beastie"
+display_name = "Beastie"
+scene_path = "res://resources/characters/beastie/beastie.tscn"
+preview_path = "res://resources/characters/beastie/preview.png"
+
+[resource]
+script = ExtResource("2_77t5r")
+entries = Array[ExtResource("1_b1ajn")]([SubResource("Resource_nht5o"), SubResource("Resource_0ld1t"), SubResource("Resource_00wmf"), SubResource("Resource_oj68t"), SubResource("Resource_j1nj0")])

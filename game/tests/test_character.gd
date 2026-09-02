@@ -8,6 +8,11 @@
 ## naming has to fall back to zero rather than hold, which is the difference
 ## between Tux putting his flippers down before he lies on them and racing the
 ## whole course with them out.
+##
+## Tux is checked in detail, against the numbers in `char/tux/`. The other four
+## are checked against the contract they share with him — see
+## [method _every_character] for why that contract is weaker than his joint list
+## and not by an oversight.
 class_name TestCharacter
 extends RefCounted
 
@@ -37,6 +42,9 @@ static func run(t: TestCase) -> void:
 
 	tree.root.remove_child(rig)
 	rig.free()
+
+	_catalog(t)
+	_every_character(t, tree)
 
 static func _skeleton(t: TestCase, rig: CharacterRig) -> void:
 	t.begin("character/skeleton")
@@ -182,3 +190,107 @@ static func _start_poses(t: TestCase, rig: CharacterRig) -> void:
 	t.ok(sk.get_bone_pose_rotation(hip).is_equal_approx(rest_hip),
 		"stopping the clip restores the rest pose")
 	t.ok(not player.is_playing(), "and stops the player")
+
+# ------------------------------------------------------------------
+#                          all five of them
+# ------------------------------------------------------------------
+
+## The generated index the shell picks from, and the fallbacks that keep a
+## missing character from being a missing player.
+static func _catalog(t: TestCase) -> void:
+	t.begin("character/catalog")
+	var cat: CharacterCatalog = CharacterCatalog.load_default()
+	t.ok(cat.entries.size() == 5, "five characters (%d)" % cat.entries.size())
+
+	# The order is `characters.lst`'s, not alphabetical: ETR's spinner opens on
+	# index 0 and index 0 has to be Tux for that to mean anything.
+	var order: PackedStringArray = []
+	for e: CharacterListing in cat.entries:
+		order.push_back(e.dir)
+	t.ok(order == PackedStringArray(["tux", "trixi", "boris", "samuel", "beastie"]),
+		"in the file's order, Tux first (%s)" % ", ".join(order))
+	t.ok(cat.entries[0].display_name == "Tux", "with the name the file gives, untranslated")
+
+	t.ok(cat.index_of("beastie") == 4, "index_of finds a row")
+	t.ok(cat.index_of("nobody") == 0, "and a name nobody has opens on index 0")
+	t.ok(cat.find("trixi") != null and cat.find("trixi").dir == "trixi", "find returns the row")
+	t.ok(cat.find("nobody") == null, "and null for one that is not there")
+
+	# The fallback chain. A hand-edited config file and a `--character=` typo
+	# both arrive at scene_path_for, and both have to come back with a rig.
+	t.ok(cat.scene_path_for("boris").ends_with("boris/boris.tscn"), "a named character resolves")
+	t.ok(cat.scene_path_for("nobody").ends_with("tux/tux.tscn"),
+		"and an unknown one falls back to Tux rather than to no character at all")
+	t.ok(cat.scene_path_for("").ends_with("tux/tux.tscn"), "so does an empty name")
+
+	for e: CharacterListing in cat.entries:
+		t.ok(ResourceLoader.exists(e.scene_path), "%s has a scene" % e.dir)
+		# The 128x128 the registration screen frames. It is copied in the
+		# assets stage, so a listing with no preview means the two importer
+		# stages ran out of order.
+		t.ok(e.preview() != null, "%s has a preview" % e.dir)
+
+## Every character, not just Tux. The four others are not variants of him: they
+## have their own `shape.lst` and their own four keyframe lists, and the data
+## disagrees with itself between them — four of the five spell the left elbow
+## `[joint] joint` (the `[name] joint for left_elbow` beside it gives the slip
+## away), and Samuel has no right leg, no hands and no tail at all. The original
+## simply does not rotate a joint it cannot find: `CCharShape::RotateNode` looks
+## the name up in `NodeIndex` and returns false. So the contract checked here is
+## the weak one that is actually true of all five — a skinned mesh, a rooted
+## skeleton, and a start clip whose length matches its root motion — rather than
+## Tux's joint list, which is only Tux's.
+static func _every_character(t: TestCase, tree: SceneTree) -> void:
+	t.begin("character/every character")
+	for listing: CharacterListing in CharacterCatalog.load_default().entries:
+		var rig: CharacterRig = (load(listing.scene_path) as PackedScene).instantiate() as CharacterRig
+		if rig == null:
+			t.ok(false, "%s instantiates as a CharacterRig" % listing.dir)
+			continue
+		tree.root.add_child(rig)
+		var name: String = listing.dir
+
+		var sk: Skeleton3D = rig.skeleton
+		t.ok(sk != null and sk.get_bone_count() > 1, "%s: a skeleton with joints on it" % name)
+		var mi: MeshInstance3D = rig.get_node_or_null(^"Placeholder") as MeshInstance3D
+		t.ok(mi != null and mi.skin != null and mi.get_node_or_null(mi.skeleton) == sk,
+			"%s: the mesh is skinned to it" % name)
+
+		if sk != null:
+			# Exactly one root, and every other bone after its parent — a flat
+			# list poses each joint correctly and moves nothing below it.
+			var roots: int = 0
+			var ordered: bool = true
+			for b: int in sk.get_bone_count():
+				var parent: int = sk.get_bone_parent(b)
+				if parent < 0:
+					roots += 1
+				elif parent >= b:
+					ordered = false
+			t.ok(roots == 1, "%s: one root bone (%d)" % [name, roots])
+			t.ok(ordered, "%s: every bone comes after its parent" % name)
+			# The joints every character does have, and that AdjustJoints will
+			# reach for when the procedural layer lands.
+			for joint: String in ["neck", "head", "left_shldr", "left_hip", "left_knee"]:
+				t.ok(sk.find_bone(joint) >= 0, "%s: has a %s" % [name, joint])
+
+		# The two halves of a migrated clip are sampled off one clock, so a
+		# length that disagrees with its root motion is a rig that drifts.
+		var player: AnimationPlayer = rig.animation_player
+		for clip: StringName in [&"start", &"finish", &"wonrace", &"lostrace"]:
+			t.ok(player != null and player.has_animation(clip),
+				"%s: has the %s clip" % [name, clip])
+			var path: KeyframePath = rig.path_for(clip)
+			t.ok(path != null and path.times.size() > 1,
+				"%s: %s carries root motion" % [name, clip])
+			if player != null and player.has_animation(clip) and path != null:
+				t.eq_f(player.get_animation(clip).length, path.duration(), 1e-4,
+					"%s: %s is as long as its path" % [name, clip])
+
+		# The model frame is baked per scene, so it is per character to get
+		# wrong — and getting it wrong is a penguin riding the hill upright.
+		t.eq_v(rig.transform.basis * Vector3.UP, Vector3.FORWARD, 1e-5,
+			"%s: the model's forward is Godot's -Z" % name)
+
+		tree.root.remove_child(rig)
+		rig.free()

@@ -6,12 +6,17 @@
 ## settings screen to live. This is the plan's arrangement (godot-port-plan.md
 ## §4.1): the shell above the race, holding it rather than sitting inside it.
 ##
-## Two entries, both of them ETR's own: `PRACTICE` is a single free race on any
-## course — the original's word for exactly this, and the reason the label comes
-## out of the imported strings rather than being written here — and
-## `CONFIGURATION` is [SettingsMenu] over `penguinracer.cfg`. Cups, events and
-## profiles are imported and waiting; when they arrive they are more entries in
-## the same column.
+## Three entries, all of them ETR's own words: `PRACTICE` is a single free race
+## on any course — the original's term for exactly this, and the reason the
+## label comes out of the imported strings rather than being written here —
+## `SELECT_A_CHARACTER` is [CharacterMenu] over the five rows of
+## `char/characters.lst`, and `CONFIGURATION` is [SettingsMenu] over
+## `penguinracer.cfg`. Cups, events and profiles are imported and waiting; when
+## they arrive they are more entries in the same column.
+##
+## The character entry is here rather than on its own startup screen because
+## ETR's is half of `CRegist`, whose other half is the player profile — see
+## [CharacterMenu].
 ##
 ## [b]A scripted run never sees this screen.[/b] `--course=` or `--auto-input=`
 ## on the command line — which is every capture, every `tools/shot.sh` and the
@@ -37,10 +42,12 @@ static var _boot_handled: bool = false
 ## and would otherwise show the title through their own dim.
 @onready var _frame: MarginContainer = %Frame
 @onready var _practice_button: Button = %PracticeButton
+@onready var _character_button: Button = %CharacterButton
 @onready var _settings_button: Button = %SettingsButton
 @onready var _quit_button: Button = %QuitButton
 @onready var _version: Label = %Version
 @onready var _course_menu: CourseMenu = $CourseMenu
+@onready var _character_menu: CharacterMenu = $CharacterMenu
 @onready var _settings: SettingsMenu = $SettingsMenu
 @onready var _loading: CanvasLayer = $Loading
 @onready var _loading_label: Label = %LoadingLabel
@@ -54,6 +61,9 @@ func _ready() -> void:
 		# is the one screen that gets to look at the URL; the race scene reads
 		# the same thing off `--no-intro` where there is one.
 		RaceScene.play_intro = not _url_query().has("nointro")
+		# `?character=trixi`. Same reason: the race scene reads `--character=`
+		# where there is a command line, and there is none in a browser.
+		RaceScene.requested_character = str(_url_query().get("character", ""))
 	if first_run and _direct_race_requested():
 		_start_race(_requested_course_path())
 		return
@@ -64,16 +74,20 @@ func _ready() -> void:
 	_settings_button.text = tr("CONFIGURATION")
 	_quit_button.text = tr("QUIT")
 	_wait_label.text = tr("PLEASE_WAIT")
+	_refresh_character_button()
 	# The browser owns the tab; a quit button there does nothing useful.
 	_quit_button.visible = not OS.has_feature("web")
 	_loading.visible = false
 
 	_practice_button.pressed.connect(_open_course_menu)
+	_character_button.pressed.connect(_open_character_menu)
 	_settings_button.pressed.connect(_open_settings)
 	_quit_button.pressed.connect(func() -> void: Audio.quit_game(0))
 	_course_menu.course_chosen.connect(_on_course_chosen)
 	_course_menu.closed.connect(_show_root)
 	_course_menu.back_requested.connect(_show_root)
+	_character_menu.chosen.connect(_on_character_chosen)
+	_character_menu.closed.connect(_show_root)
 	_settings.closed.connect(_show_root)
 
 	Audio.play_menu_music()
@@ -95,9 +109,36 @@ func _open_course_menu() -> void:
 	# and the last course raced is only a highlight.
 	_course_menu.open(RaceScene.requested_course_path.get_base_dir().get_file(), false)
 
+func _open_character_menu() -> void:
+	_frame.visible = false
+	_character_menu.open(Config.character)
+
 func _open_settings() -> void:
 	_frame.visible = false
 	_settings.open()
+
+## The character screen picks; this writes. [SettingsMenu] saves its own page of
+## the same file the same way — the screens move values, [GameConfig] owns the
+## file.
+func _on_character_chosen(dir: String) -> void:
+	if dir != Config.character:
+		Config.character = dir
+		Config.save()
+	# A run started with `--character=`/`?character=` said "this run", and the
+	# player has now said something else. Clearing it is what makes the choice
+	# on screen the one the next race uses.
+	RaceScene.requested_character = ""
+	_refresh_character_button()
+	_show_root()
+
+## `Select a character:` with the current one after it. ETR's own string, colon
+## and all — the colon is there because the original draws this text as a label
+## above the framed name, and here the name is what follows it.
+func _refresh_character_button() -> void:
+	var catalog: CharacterCatalog = CharacterCatalog.load_default()
+	var listing: CharacterListing = catalog.find(Config.character)
+	var name: String = listing.title() if listing != null else Config.character
+	_character_button.text = "%s %s" % [tr("SELECT_A_CHARACTER"), name]
 
 func _on_course_chosen(listing: CourseListing) -> void:
 	# ETR's loading screen: the course in yellow, "please wait" in white under
@@ -129,8 +170,8 @@ func _start_race(course_scene_path: String) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action_pressed("menu"):
 		return
-	# The settings panel handles its own Esc and consumes it; this is the course
-	# list, which is driven from here.
+	# The settings and character panels handle their own Esc and consume it;
+	# this is the course list, which is driven from here.
 	if _course_menu.visible:
 		get_viewport().set_input_as_handled()
 		_course_menu.close()

@@ -336,9 +336,56 @@ Not migrated: the four corner ornaments and the title logo `DrawGUIFrame`/`DrawG
 paint over the blue, and the `param.ui_snow` particles that drift across every menu. All of it is
 `etr-0.8.4/data/textures` art and waits on the licence audit.
 
+The sixth slice: the other four characters. `char/characters.lst` is a five-record file — Tux,
+Trixi, Boris, Samuel, Beastie — and the importer has been walking all five since Phase 4, writing
+a rig and four baked clips for each. Nothing could pick one: `RaceScene.character_scene_path` was
+an `@export` hardcoded to `tux/tux.tscn` and four of the five were dead weight in the pack.
+
+What was missing was the same thing the course list needed, for the same reason. `DirAccess` over
+`res://` finds nothing in an exported build, so the importer now writes `resources/characters.tres`
+— a `CharacterCatalog` of `CharacterListing` rows, one per record, carrying the `[name]` the player
+reads, the scene path and the `preview.png` that ETR's registration screen draws in a white frame.
+The order is the file's, not alphabetical, because ETR's spinner opens on index 0 and index 0 has
+to be Tux for that to mean anything. `RaceScene._install_character` resolves through it, and the
+`@export` is now empty by default and means "a rig that is not in the catalog at all" — the hook
+authored glTF art drops into.
+
+The choice is `[game] character` in `penguinracer.cfg` and `character_menu.tscn` moves it: ETR's
+"Select a character:" over arrows flanking a framed name, the 128x128 preview in a `PictureFrame`
+below, Enter and Back. The spinner clamps rather than wrapping and greys out the end arrow, which
+is `TUpDown::Click` calling `SetActive(false)`. Left and right drive it from anywhere on the
+screen, handled in `_input` rather than `_unhandled_input` because horizontal focus traversal on
+a focused `Button` consumes the event before anything unhandled sees it.
+
+Two things had to be decided rather than migrated:
+
+- **Where the question goes.** ETR asks on `CRegist`, the first screen of a launch, beside a
+  player-profile spinner. There are no profiles here yet, so half that screen has nothing in it;
+  the character half is its own main-menu entry instead, labelled with ETR's own string and the
+  current name after it — `Select a character: Tux`.
+- **Whether the answer is kept.** ETR's is not: `g_game.character` is a pointer set from a spinner
+  that opens on index 0 every time, and `players.lst` has no column for it. Here it is written to
+  the settings file, because a menu entry that forgets what you told it a launch ago is worse than
+  no entry. `--character=<dir>` and `?character=<dir>` name one for a single run and do not write.
+
+The four others are not skins of Tux. Each has its own `shape.lst` and its own `start.lst`,
+`finish.lst`, `wonrace.lst` and `lostrace.lst`, and the data disagrees with itself between them:
+four of the five spell the left elbow `[joint] joint` — `[name] joint for left_elbow` beside it
+gives the slip away — and Samuel has no right leg, no hands and no tail at all. Both are faithful
+and neither is fixable, because `CCharShape::RotateNode` looks a name up and returns false when it
+is missing, so the original never rotates a joint the file does not name. The test suite grew a
+group that asserts the contract all five share (a skinned mesh, one root bone, parents before
+children, the five joints they all have, and a clip whose length matches its root motion) rather
+than Tux's sixteen-bone list, which is only Tux's. 3389 assertions, 0 failures.
+
+Verified end to end: all five race on Bunny Hill under `--character=`, natively on the GPU and in
+Chromium through `?character=beastie` against the `WebOneCourse` export. The previews are ETR data
+art and go into the licence audit with the rest of the imported assets.
+
 Not done, and none of it started: cups and events (the resources are imported and unused),
-medals from the migrated thresholds, and save profiles. Sound and music volumes and the language
-are ETR's `options.txt` keys that this file and this screen still do not carry.
+medals from the migrated thresholds, and save profiles — the player half of `CRegist` waits on the
+last of those. Sound and music volumes and the language are ETR's `options.txt` keys that this
+file and this screen still do not carry.
 
 ## Known gaps
 
@@ -368,10 +415,16 @@ are ETR's `options.txt` keys that this file and this screen still do not carry.
   how it looks, and that is a design call rather than a fidelity one.
 - **The game shell stops at free course selection** (Phase 5): no cup progression, medals or save
   profiles. The migrated event thresholds are sitting there ready; the translations are wired up.
-  The settings screen moves the five keys the file has and not the three ETR's own configuration
+  The settings screen moves the six keys the file has and not the three ETR's own configuration
   screen also has — sound volume, music volume and language. The screens carry the original's
   palette but none of its menu art — corner ornaments, title logo, drifting `ui_snow` — which is
   blocked on the licence audit below.
+- **All five characters are the importer's welded-sphere placeholders**, and only Tux's has been
+  looked at joint by joint. The other four render, animate and carry their own clips, and the
+  suite checks the contract they share; nobody has compared Trixi's start animation against the
+  original frame by frame. The procedural layer (`AdjustJoints`) is unwritten for all of them,
+  and every character has identical physics — which is true in ETR too, `characters.lst` carries
+  no per-character constants and `[type]` is a column nothing reads.
 - **The terrain slide sound is on or off**, because the original's speed-and-lean `SlideVolume`
   ships commented out (history §16), and 12 of the 43 terrains — `snow` among them — name no
   sound at all. Both are faithful and both are the obvious first thing to improve; the mapping is one

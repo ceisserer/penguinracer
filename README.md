@@ -25,20 +25,22 @@ game/                     Godot project
   scripts/course/         CourseData, TerrainLayer, prefabs, events, environments
   scripts/render/         terrain chunks, GPU snow field, spray
   scripts/camera/         chase camera
-  scripts/character/      the character rig and the migrated keyframe root motion
+  scripts/character/      the character rig, the migrated keyframe root motion, and
+                          the catalog of the five playable characters
   scripts/race/           the race scene: wires simulation to presentation
   scripts/shell/          HUD, main menu, course menu, settings screen
   scripts/audio/          the AudioDirector autoload and the sound/music banks
   scripts/config/         GameConfig: the settings file, read once at startup
   scenes/                 main_menu.tscn (the main scene), course_menu.tscn,
-                          settings_menu.tscn, race.tscn
+                          character_menu.tscn, settings_menu.tscn, race.tscn
   themes/                 etr_menu.tres — ETR's GUI palette as a Godot theme,
                           plus the two checkbox icons it needs
   addons/etr_import/      one-way, re-runnable importer from the ETR data tree
   courses/<name>/         generated: course.tres, course.tscn, heightmap.res, splat_*.png
   resources/              generated: terrain layers, object prefabs, environments, events,
-                          courses.tres (the course-menu index), the sound bank and
-                          music library
+                          courses.tres and characters.tres (the two menu indexes),
+                          characters/<name>/ (rig, animations, preview), the sound
+                          bank and music library
   assets/                 generated: textures, skyboxes and the migrated audio
   tests/                  headless suite (physics, surface, input, audio, terrain
                           library, settings, character rig) + ODE benchmark
@@ -74,6 +76,7 @@ carries a provenance flag and is skipped unless `--force` is given.
 ```bash
 godot --path game                                    # play — opens on the main menu
 godot --path game -- --course=wild_mountains         # ... straight into a course, no menu
+godot --path game -- --character=trixi               # ... as someone other than Tux
 godot --headless --path game --script res://tests/run_tests.gd   # test suite + benchmark
 godot --path game spikes/s1_pingpong/s1_spike.tscn   # snow render-target spike
 godot --path game res://scenes/key_log.tscn          # keyboard delivery probe
@@ -81,7 +84,8 @@ godot --path game -- --no-audio                      # play with the sound off
 godot --path game -- --no-intro                      # ... and without the start animation
 ```
 
-Every race opens with the original's start sequence: Tux is standing off to one side of the line,
+Every race opens with the original's start sequence: your character is standing off to one side of
+the line,
 waddles across to it, turns to face down the hill and drops onto his belly. Four and a half
 seconds, and **any key skips it**. `R` mid-race goes straight back to racing without replaying it,
 and a scripted run — anything passing `--auto-input=`, `--no-intro`, or `?nointro=1` in a browser
@@ -106,10 +110,11 @@ overlapping cues because ETR gives each sound a single voice, riding a terrain l
 original's quirks came along deliberately — the slide sound has no speed term (ETR wrote one and
 left it commented out) and 12 of its 43 terrains, `snow` included, name no sound at all.
 
-The game opens on a main menu with two entries, both of them ETR's own words for what they do:
+The game opens on a main menu with three entries, all of them ETR's own words for what they do:
 **Practice** is a single free race and opens the course list — all 44 courses with preview, author
-and description, arrows and Enter to pick one — and **Configuration** is the settings screen
-below. Picking a course draws a loading panel and then hands over to the race; `Esc` there brings
+and description, arrows and Enter to pick one — **Select a character** is the five of them from
+`char/characters.lst`, arrows over a framed name with the original's 128x128 preview under it, and
+**Configuration** is the settings screen below. Picking a course draws a loading panel and then hands over to the race; `Esc` there brings
 the course list back over the live slope, so the next course is one keypress away, and it comes up
 by itself a few seconds after the finish line with the time and herring count. Cups, medals and
 profiles are still to come — selection is free, and the events are imported and waiting.
@@ -140,6 +145,9 @@ render_scale = 1.00       ; fraction of the window the 3D scene renders at [0.25
 [fog]
 start_distance = 40.0     ; metres of clear air before fog starts to build
 distance_scale = 2.00     ; multiplies the range migrated from the environment's light.lst
+
+[game]
+character = "tux"         ; tux, trixi, boris, samuel or beastie
 ```
 
 Delete the file to get the defaults and the comments back. Godot's own `--resolution` and
@@ -150,6 +158,11 @@ data. ETR's sunny and night environments say `[fogstart] 0 [fogend] 75`, so its 
 at the camera; the defaults here hold it off to 40 m and stretch the range to 150. That haze is
 load-bearing for the way the original's snow reads — `start_distance = 0` with
 `distance_scale = 1` renders exactly what `light.lst` says, and is one edit away.
+
+The character is the one ETR does not keep: its registration screen asks once per launch and
+`players.lst` has no column for the answer. There are no player profiles here yet, so the question
+has its own menu entry and the answer sticks — `--character=<dir>` (or `?character=` in a browser)
+overrides it for one run without touching the file.
 
 Sound and music volumes are still ETR's defaults on the audio director and are in neither the file
 nor the settings screen yet.
@@ -199,7 +212,8 @@ export fails with an unhelpful console error.
 
 `?course=<dir>` is how a browser says what `--course=` says on a command line, since there is no
 command line in a page: it starts that course instead of the main menu, which is what lets the
-harness wait on `RACE_READY`. `?autostart` does the same for the default course.
+harness wait on `RACE_READY`. `?autostart` does the same for the default course, `?nointro=1`
+skips the start animation, and `?character=<dir>` races as one of the other four.
 
 Three export presets are defined: `Web` (everything), `WebOneCourse` (bunny_hill only — a
 6.6 MB pck, the shape per-course streaming needs) and `WebSpike` (the S1 render-target spike).
