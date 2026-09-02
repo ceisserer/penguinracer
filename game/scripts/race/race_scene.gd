@@ -13,7 +13,46 @@ signal race_completed(seconds: float, herring: int)
 ## finish deceleration is watchable instead of being cut off by a panel.
 const FINISH_MENU_DELAY := 3.0
 
+## The clip [CharacterRig] plays before the race starts. `char/<name>/start.lst`
+## in the original: Tux is standing off to one side of the start point, waddles
+## across to it, turns to face down the hill and drops onto his belly.
+const INTRO_CLIP := &"start"
+## What `CIntro::Enter` passes `CKeyframe::Init` as its height correction, and
+## the reason the standing pose sits into the snow rather than on top of it.
+const INTRO_HEIGHT_CORRECTION := -0.05
+## `SetCameraDistance(4.0)` in `CIntro::Enter`. Same number as the racing
+## default, named here because the intro is where the original says it.
+const INTRO_CAMERA_DISTANCE := 4.0
+## How far the body is dropped along its own up axis so the belly sits in the
+## contact patch instead of on top of it.
+##
+## DEVIATION: the original draws the character at `cpos.y + TUX_Y_CORR` and
+## nothing else. This used to be a local offset on the rig node, which is the
+## same thing while the body's up axis is the surface normal — but during the
+## intro it is not, and an offset along a standing penguin's local Y walked him
+## sideways out of his own footprints.
+const CHARACTER_SINK := 0.1
+
+## Where "back" goes. Spelled out rather than reached for through [MainMenu]:
+## that script already reaches in here for [member requested_course_path], and
+## one direction of coupling between the two is enough.
+const MAIN_MENU_SCENE := "res://scenes/main_menu.tscn"
+
 @export_file("*.tscn") var course_scene_path: String = "res://courses/bunny_hill/course.tscn"
+## What the shell asked for, and what it was last handed back.
+##
+## Static because a scene swap leaves nothing to set a property on: [MainMenu]
+## writes it just before [method SceneTree.change_scene_to_file], `_ready` reads
+## it, and [method load_course] keeps it current so the menu can highlight the
+## course that was actually raced. Empty means [member course_scene_path] — the
+## scene's own default, which is what opening `race.tscn` in the editor gets.
+static var requested_course_path: String = ""
+## Whether the shell was asked for a race without the start animation.
+##
+## Static for the same reason as [member requested_course_path]: a browser has no
+## command line, so `?nointro=1` is read where the rest of the URL is read — in
+## [MainMenu], one scene before this one exists.
+static var play_intro: bool = true
 @export var environment_preset: EnvironmentPreset
 ## Snow deformation costs a 1024² render target per frame; off on the lowest tier.
 @export var snow_deformation: bool = true
@@ -33,6 +72,10 @@ var spray: SprayEmitter
 var herring: int = 0
 var race_time: float = 0.0
 var running: bool = false
+## True while the start animation is playing. The simulation is not stepped —
+## the character is posed straight out of the migrated keyframe — but the course
+## is drawn and any key skips to the race, exactly as `CIntro` does it.
+var intro_running: bool = false
 ## True while the course menu is up. The simulation is not stepped and no
 ## player input is read, but the course stays loaded and on screen behind it.
 var paused: bool = false
@@ -50,7 +93,21 @@ var _input := RaceInput.new()
 var _keys := KeyHoldFilter.new(PackedStringArray(["steer_left", "steer_right",
 	"paddle", "brake", "jump", "trick_modifier"]))
 var _player_node: Node3D
+## The migrated character under [member _player_node], or null if none loaded.
+var _rig: CharacterRig
 var _sun: DirectionalLight3D
+
+## Root motion of the clip currently playing, sampled against [member _intro_time].
+var _intro_path: KeyframePath
+var _intro_time: float = 0.0
+## The camera framing the race wants back once the intro is over.
+var _camera_mode_before_intro: ChaseCamera.Mode = ChaseCamera.Mode.BEHIND
+var _camera_distance_before_intro: float = 4.0
+## Whether this run wants the start animation at all. A scripted run does not:
+## `--auto-input=` is a stand-in for a player, and four and a half seconds of Tux
+## waddling in front of a frame counter would move every reference capture.
+## `--no-intro` says the same thing explicitly.
+var _intro_enabled: bool = true
 
 ## The terrain slide effect currently looping, or empty. ETR keeps the same
 ## pair of "last"/"new" ids in `racing.cpp`.
@@ -70,6 +127,10 @@ func _ready() -> void:
 	_player_node = $Player
 	_install_character()
 	_sun = $Sun
+	if not requested_course_path.is_empty():
+		course_scene_path = requested_course_path
+	# A `--course=` on the command line outranks it: a capture run names the
+	# course it wants, and the shell only ever passes on what it was given.
 	for arg: String in OS.get_cmdline_user_args():
 		if arg.begins_with("--auto-input="):
 			_auto_input = arg.trim_prefix("--auto-input=")
@@ -80,18 +141,16 @@ func _ready() -> void:
 				camera.mode = ChaseCamera.Mode.TRAIL
 		elif arg == "--remote-keyboard":
 			_keys.compensate = true
+		elif arg == "--no-intro":
+			play_intro = false
 		elif arg.begins_with("--course="):
 			course_scene_path = "res://courses/%s/course.tscn" % arg.trim_prefix("--course=")
+	_intro_enabled = play_intro and _auto_input.is_empty()
 	menu = $CourseMenu
 	menu.course_chosen.connect(_on_course_chosen)
 	menu.closed.connect(_on_menu_closed)
+	menu.back_requested.connect(leave_to_main_menu)
 	load_course(course_scene_path)
-	# The course loads and renders first, then the menu opens over it: the
-	# player picks against a live slope rather than a black screen, and the
-	# browser harness still sees RACE_READY at the usual point. A scripted run
-	# (`--auto-input=`) is driving the race itself and wants no menu at all.
-	if _auto_input.is_empty():
-		open_menu()
 
 ## Replace the stand-in capsule with the migrated character, if one exists.
 func _install_character() -> void:
@@ -100,14 +159,16 @@ func _install_character() -> void:
 	for child: Node in _player_node.get_children():
 		child.queue_free()
 	var rig: Node3D = (load(character_scene_path) as PackedScene).instantiate()
-	# The point mass sits at the centre of the body. The rig arrives already in
-	# Godot's frame — the importer bakes ETR's +Y-forward / +Z-belly model axes
-	# out at the scene root (ETRImport.MODEL_TO_GODOT) — so all that is left
-	# here is to sit it down onto the contact patch along the surface normal.
-	# Limbs following the carve is the procedural layer's job (Phase 4); this is
-	# the rest pose from shape.lst.
-	rig.position = Vector3(0.0, -0.1, 0.0)
+	# The point mass sits at the centre of the body, and the rig arrives already
+	# in Godot's frame — the importer bakes ETR's +Y-forward / +Z-belly model axes
+	# out at the scene root (ETRImport.MODEL_TO_GODOT). So the rig sits at the
+	# origin of the node that carries the body transform, and sitting it down
+	# onto the contact patch is [constant CHARACTER_SINK], applied by whoever
+	# writes that transform. Limbs following the carve is the procedural layer's
+	# job (Phase 4); the canned keyframes are the other half of Phase 4 and go
+	# through [CharacterRig].
 	_player_node.add_child(rig)
+	_rig = rig as CharacterRig
 
 func load_course(path: String) -> void:
 	_stop_slide_sound()
@@ -120,6 +181,7 @@ func load_course(path: String) -> void:
 		terrain = null
 
 	current_course_dir = path.get_base_dir().get_file()
+	requested_course_path = path
 	var packed: PackedScene = load(path)
 	course_root = packed.instantiate()
 	add_child(course_root)
@@ -159,7 +221,10 @@ func load_course(path: String) -> void:
 
 	restart()
 
-func restart() -> void:
+## Put the race back at the start line. [param with_intro] is what separates the
+## two ways in: choosing a course runs the start animation, where `r` mid-race is
+## the original's Reset state and goes straight back to racing.
+func restart(with_intro: bool = true) -> void:
 	_run_id += 1
 	var course: CourseData = course_root.course_data
 	var start := Vector2(course.start_position.x, -course.start_position.y)
@@ -167,6 +232,7 @@ func restart() -> void:
 	herring = 0
 	race_time = 0.0
 	running = true
+	intro_running = false
 	snow_cpu = SnowField.new()
 	course_root.surface.snow_field = snow_cpu
 	if snow_gpu != null:
@@ -181,6 +247,86 @@ func restart() -> void:
 	# Marker for the browser harness: the course is loaded and the first frame
 	# of simulation has run.
 	print("RACE_READY %s %d chunks" % [course.display_name, terrain.chunk_count()])
+	if with_intro and _intro_enabled:
+		_begin_intro()
+
+# ------------------------------------------------------------------
+#                          the start animation
+# ------------------------------------------------------------------
+
+## `CIntro` in the original: the course is up and lit, the racing theme is
+## already playing, and the character walks itself to the start line before the
+## simulation is handed the controls.
+##
+## Nothing here touches [member physics]. The keyframe writes the body transform
+## directly — the original does the same thing, overwriting `ctrl->cpos` from
+## `CKeyframe::Update` every frame — and the simulation is stepped from the same
+## start point it was initialised at once the animation is done, so there is
+## nothing to hand over.
+func _begin_intro() -> void:
+	if _rig == null or not _rig.play_clip(INTRO_CLIP):
+		return
+	_intro_path = _rig.path_for(INTRO_CLIP)
+	if _intro_path == null:
+		_rig.stop_clip()
+		return
+	running = false
+	intro_running = true
+	_intro_time = 0.0
+	# `set_view_mode(ctrl, ABOVE)` — the one camera that does not need a
+	# direction of travel to point itself, which during the intro there is none of.
+	_camera_mode_before_intro = camera.mode
+	_camera_distance_before_intro = camera.distance
+	camera.mode = ChaseCamera.Mode.ABOVE
+	camera.distance = INTRO_CAMERA_DISTANCE
+	_apply_intro_pose(0.0)
+	camera.reset()
+	camera.track(_player_node.global_position, Vector3.ZERO, Vector3.UP, 0.0)
+
+func _step_intro(delta: float) -> void:
+	_intro_time += delta
+	if _intro_time >= _intro_path.duration():
+		_end_intro()
+		return
+	_apply_intro_pose(_intro_time)
+	_rig.seek_clip(_intro_time)
+	camera.track(_player_node.global_position, Vector3.ZERO, Vector3.UP, delta)
+	terrain.update_streaming(_player_node.global_position)
+
+## Place the body where the keyframe says, on the hill rather than in it.
+##
+## `CKeyframe::Update` reads the authored Y as a clearance above the terrain and
+## adds `Course.FindYCoord` to it, which is why a canned animation plays on any
+## course. The rotation is the same yaw/pitch/roll the original hands node 0,
+## turned into the frame this scene positions the character in — see
+## [method CharacterRig.parent_basis_for].
+func _apply_intro_pose(t: float) -> void:
+	var course: CourseData = course_root.course_data
+	var origin := Vector2(course.start_position.x, -course.start_position.y)
+	var offset: Vector3 = _intro_path.offset_at(t)
+	var x: float = origin.x + offset.x
+	var z: float = origin.y + offset.z
+	var basis: Basis = _rig.parent_basis_for(_intro_path.basis_at(t))
+	var y: float = course_root.surface.height_at(x, z) + offset.y \
+		+ PhysConst.TUX_Y_CORR + INTRO_HEIGHT_CORRECTION
+	_player_node.global_basis = basis
+	_player_node.global_position = Vector3(x, y, z) - basis.y * CHARACTER_SINK
+
+## Hand over to the simulation. Reached either by the animation running out or by
+## a key — the original aborts on any keypress too, and that is most of what the
+## intro is for: it is a four-and-a-half second pause you are meant to be able to
+## cut short.
+func _end_intro() -> void:
+	if not intro_running:
+		return
+	intro_running = false
+	_intro_path = null
+	if _rig != null:
+		_rig.stop_clip()
+	camera.mode = _camera_mode_before_intro
+	camera.distance = _camera_distance_before_intro
+	camera.reset()
+	running = true
 
 # ------------------------------------------------------------------
 #                           course menu
@@ -213,9 +359,23 @@ func _on_course_chosen(listing: CourseListing) -> void:
 	course_scene_path = listing.scene_path
 	load_course(course_scene_path)
 
-## Esc opens the menu mid-race and closes it again. It replaces the original's
-## "abort race": there is nowhere else to go back to yet.
+## Drop the race and go back to the shell — the original's "abort race", which
+## now has somewhere to go. The scene is replaced rather than kept around: a
+## loaded course is most of the memory in the game and the menu behind it does
+## not need a slope to draw over.
+func leave_to_main_menu() -> void:
+	_stop_slide_sound()
+	Audio.halt_all()
+	get_tree().change_scene_to_file(MAIN_MENU_SCENE)
+
+## Esc opens the menu mid-race and closes it again — except during the start
+## animation, where every key including that one skips to the race. That is
+## `CIntro::Keyb`, which takes any press at all and aborts.
 func _unhandled_input(event: InputEvent) -> void:
+	if intro_running and not paused and _is_skip_press(event):
+		get_viewport().set_input_as_handled()
+		_end_intro()
+		return
 	if not event.is_action_pressed("menu"):
 		return
 	get_viewport().set_input_as_handled()
@@ -224,6 +384,17 @@ func _unhandled_input(event: InputEvent) -> void:
 	else:
 		open_menu()
 
+## A real press of anything a player could press. Echoes are held keys repeating
+## and mouse motion is not a press, but a keyboard forwarded as zero-length
+## pulses still arrives here as an ordinary [InputEventKey] — this is edge
+## detection on the event itself, not on
+## [method Input.is_action_just_pressed], and so does not need [KeyHoldFilter].
+static func _is_skip_press(event: InputEvent) -> bool:
+	if event is InputEventKey:
+		return event.is_pressed() and not event.is_echo()
+	return event is InputEventMouseButton and event.is_pressed() \
+		or event is InputEventJoypadButton and event.is_pressed()
+
 ## What the menu shows above the list when it comes up after a finish.
 func _result_line() -> String:
 	return "%s   —   %s %.2f %s   %s %d" % [
@@ -231,11 +402,15 @@ func _result_line() -> String:
 
 func _apply_environment(preset: EnvironmentPreset) -> void:
 	var we: WorldEnvironment = $WorldEnvironment
-	we.environment = preset.to_environment()
+	var env: Environment = preset.to_environment()
+	# The preset knows what `light.lst` said; the settings file knows how far
+	# the player wants to see. Fog distance is the one place the two meet.
+	Config.apply_fog(env, preset)
+	we.environment = env
 	_sun.light_color = preset.sun_color
 	_sun.light_energy = preset.sun_energy
 	_sun.look_at_from_position(Vector3.ZERO, -preset.sun_direction, Vector3.UP)
-	_sun.directional_shadow_max_distance = _shadow_range_for(preset)
+	_sun.directional_shadow_max_distance = _shadow_range_for(env)
 	spray.particle_color = preset.particle_color
 	if terrain != null:
 		# What the ice reflects. The horizon end is the fog colour: at the
@@ -256,10 +431,13 @@ func _apply_environment(preset: EnvironmentPreset) -> void:
 ## Tying the range to where fog has already washed the terrain out puts the
 ## cutoff somewhere it cannot be read. Four PSSM splits with blending keep the
 ## near-field resolution the longer range would otherwise cost.
-func _shadow_range_for(preset: EnvironmentPreset) -> float:
-	if not preset.fog_enabled:
+##
+## Read off the built [Environment] rather than off the preset, so a range the
+## settings file has stretched carries the shadows out with it.
+func _shadow_range_for(env: Environment) -> float:
+	if not env.fog_enabled:
 		return camera.far
-	return clampf(preset.fog_end * preset.fog_distance_scale, 120.0, camera.far)
+	return clampf(env.fog_depth_end, 120.0, camera.far)
 
 func _read_input(delta: float) -> void:
 	if not _auto_input.is_empty():
@@ -293,7 +471,13 @@ func _process(delta: float) -> void:
 	if paused:
 		return
 	if Input.is_action_just_pressed("reset_race"):
-		restart()
+		# The original's Reset state re-enters Racing, not Intro: `r` is for
+		# getting back on the hill, not for watching the walk again.
+		restart(false)
+		return
+	if intro_running:
+		_step_intro(delta)
+		return
 	if not running:
 		return
 
@@ -303,8 +487,10 @@ func _process(delta: float) -> void:
 		race_time += delta
 
 	# Presentation follows the simulation; nothing here feeds back into it.
-	_player_node.global_position = physics.pos + Vector3(0.0, PhysConst.TUX_Y_CORR, 0.0)
-	_player_node.global_basis = Basis(physics.orientation)
+	var body := Basis(physics.orientation)
+	_player_node.global_basis = body
+	_player_node.global_position = physics.pos \
+		+ Vector3(0.0, PhysConst.TUX_Y_CORR, 0.0) - body.y * CHARACTER_SINK
 
 	_update_slide_sound()
 	spray.flush(delta)

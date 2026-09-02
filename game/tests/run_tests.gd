@@ -21,6 +21,8 @@ func _run() -> void:
 	TestSimulation.run(t)
 	TestSurface.run(t)
 	TestTerrainLibrary.run(t)
+	TestCharacter.run(t)
+	TestConfig.run(t)
 	TestInput.run(t)
 	TestAudio.run(t)
 

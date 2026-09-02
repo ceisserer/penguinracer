@@ -27,6 +27,14 @@ func _process(_delta: float) -> void:
 	visible = not race.paused
 	if not visible:
 		return
+	# DEVIATION: the original draws its ordinary HUD over the start animation and
+	# says nothing about the fact that any key skips it. The string is one of the
+	# migrated ones — it is what ETR puts under its splash screen — and a
+	# four-and-a-half second wait nobody knows they can cut short is worse than a
+	# line of text.
+	if race.intro_running:
+		_label.text = tr("PRESS_ANY_KEY_TO_START")
+		return
 	var speed_kmh: float = race.physics.vel.length() * 3.6
 	_label.text = "%.2f s   %5.1f km/h   herring %d%s" % [
 		race.race_time, speed_kmh, race.herring,

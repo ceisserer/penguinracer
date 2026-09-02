@@ -1,19 +1,28 @@
 ## Course selection screen — the first slice of the game shell (Phase 5).
 ##
-## Draws over the running race rather than replacing it: the course behind the
-## panel stays loaded and rendered, so opening the menu costs nothing and
-## closing it resumes exactly where the player was. Picking a course hands a
-## [CourseListing] back to [RaceScene], which swaps the course in place.
+## Shown from two places, and it is `resumable` on [method open] that tells them
+## apart:
+##
+## - from [MainMenu]'s single-player entry, with nothing loaded behind it. There
+##   is no race to continue, so that button is hidden and Back is the only exit.
+## - over the running race, on Esc or after the finish line. The course behind
+##   the panel stays loaded and rendered, so opening the menu costs nothing and
+##   dismissing it resumes exactly where the player was. Picking a course hands
+##   a [CourseListing] to [RaceScene], which swaps it in place rather than
+##   reloading the scene.
 ##
 ## Cups and events are imported and waiting in `res://resources/events/`; this
 ## screen only does free selection of a single course.
 class_name CourseMenu
 extends CanvasLayer
 
-## A course was picked. The race scene loads it and hides the menu.
+## A course was picked. The host loads it and hides the menu.
 signal course_chosen(listing: CourseListing)
-## The player dismissed the menu without choosing.
+## The player dismissed the menu without choosing — resume whatever is behind it.
 signal closed()
+## The player asked to leave: to the main menu from a race, out of the course
+## list from the main menu.
+signal back_requested()
 
 var _catalog: CourseCatalog
 ## The catalog rows that are actually present in this build. The `WebOneCourse`
@@ -30,7 +39,7 @@ var _entries: Array[CourseListing] = []
 @onready var _description: Label = %Description
 @onready var _race_button: Button = %RaceButton
 @onready var _continue_button: Button = %ContinueButton
-@onready var _quit_button: Button = %QuitButton
+@onready var _back_button: Button = %BackButton
 @onready var _hint: Label = %Hint
 
 func _ready() -> void:
@@ -38,16 +47,14 @@ func _ready() -> void:
 	_title.text = tr("SELECT_A_RACE")
 	_race_button.text = tr("RACE")
 	_continue_button.text = tr("CONTINUE")
-	_quit_button.text = tr("QUIT")
+	_back_button.text = tr("BACK")
 	_hint.text = "↑↓  •  Enter: %s  •  Esc: %s" % [tr("RACE"), tr("BACK")]
-	# The browser owns the tab; a quit button there does nothing useful.
-	_quit_button.visible = not OS.has_feature("web")
 
 	_list.item_selected.connect(_on_item_selected)
 	_list.item_activated.connect(_on_item_activated)
 	_race_button.pressed.connect(_race_selected)
 	_continue_button.pressed.connect(close)
-	_quit_button.pressed.connect(func() -> void: get_tree().quit(0))
+	_back_button.pressed.connect(_go_back)
 
 	_fill_list()
 	visible = false
@@ -85,6 +92,13 @@ func close() -> void:
 		return
 	visible = false
 	closed.emit()
+
+## Esc, or the Back button. From a race that means dropping out of the course
+## and back to the main menu; from the main menu it means folding the list away
+## again. Both are `back_requested` — what to do about it is the host's call.
+func _go_back() -> void:
+	visible = false
+	back_requested.emit()
 
 func _index_of(dir_name: String) -> int:
 	for i: int in _entries.size():

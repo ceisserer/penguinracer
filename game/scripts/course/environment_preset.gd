@@ -94,6 +94,9 @@ func to_environment() -> Environment:
 	env.fog_enabled = fog_enabled
 	env.fog_light_color = fog_color
 	env.fog_mode = Environment.FOG_MODE_DEPTH
+	# The migrated range. A race overwrites both distances through
+	# `GameConfig.apply_fog` — that is where the player's fog setting lives —
+	# so anything building an Environment straight off a preset gets the data.
 	env.fog_depth_begin = fog_start * fog_distance_scale
 	env.fog_depth_end = fog_end * fog_distance_scale
 	# `fog_density` is not exponential-mode-only: depth fog multiplies its

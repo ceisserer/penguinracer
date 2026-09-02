@@ -146,12 +146,12 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "Continue"
 
-[node name="QuitButton" type="Button" parent="Frame/Body/Columns/InfoPanel/Info/Buttons"]
+[node name="BackButton" type="Button" parent="Frame/Body/Columns/InfoPanel/Info/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(120, 42)
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Quit"
+text = "Back"
 
 [node name="Hint" type="Label" parent="Frame/Body"]
 unique_name_in_owner = true
