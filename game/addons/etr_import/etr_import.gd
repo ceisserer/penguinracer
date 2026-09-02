@@ -76,6 +76,38 @@ func _warn(msg: String) -> void:
 	warnings.push_back(msg)
 	print("  WARN: ", msg)
 
+## The resource already at [param path], if it has to be preserved rather than
+## overwritten — else null. Logs the decision; `--force` always returns null.
+##
+## Two ways to be protected. [CourseData] has an explicit `modified_in_editor`
+## a designer can tick. Both it and [TerrainLayer] then carry an
+## `import_fingerprint` of what was last written here plus an
+## `edited_since_import()` that recomputes it, which catches the edits nobody
+## remembered to flag — so this works for either without a shared base class.
+##
+## A file with no fingerprint — one written before the field existed — reads as
+## unedited, which is what let the first import after this change adopt the
+## whole tree instead of refusing to touch any of it.
+##
+## Returns the resource rather than a bool because a caller that keeps a file
+## still has to account for it: a course dropped from `catalog_entries` is a
+## course dropped from the menu.
+func _protected(path: String, label: String) -> Resource:
+	if force or not ResourceLoader.exists(path):
+		return null
+	var existing: Resource = load(path)
+	if existing == null:
+		return null
+	var why: String = ""
+	if "modified_in_editor" in existing and existing.modified_in_editor:
+		why = "flagged as edited in-editor"
+	elif existing.has_method("edited_since_import") and existing.edited_since_import():
+		why = "edited outside the importer"
+	if why.is_empty():
+		return null
+	_log("%s: kept, %s (use --force to overwrite)" % [label, why])
+	return existing
+
 static func ensure_dir(path: String) -> void:
 	DirAccess.make_dir_recursive_absolute(path)
 
@@ -175,6 +207,11 @@ func import_terrains(stage: String) -> Dictionary:
 		# Snow deforms, ice and rock do not. The original had no such concept —
 		# it only knew whether a terrain took a decal.
 		layer.is_deformable = layer.takes_trackmarks
+		# Roughness has no source in `terrains.lst` — ETR's terrain is flat
+		# textured diffuse. Seed the split the renderer used to hardcode, so the
+		# migrated library keeps the look it had, and leave it authorable.
+		# After `is_deformable`, because `is_ice()` reads it.
+		layer.roughness = 0.25 if layer.is_ice() else 0.85
 
 		# The original matches colours within ±30 per channel against a 45-entry
 		# list, so two terrains can silently collide (etracer.md §9). Report it
@@ -193,7 +230,23 @@ func import_terrains(stage: String) -> Dictionary:
 				var tex_path: String = ASSET_TERRAIN.path_join(tex_name)
 				if ResourceLoader.exists(tex_path):
 					layer.albedo = load(tex_path)
-			ResourceSaver.save(layer, OUT_TERRAIN.path_join("%s.tres" % id))
+			var out_path: String = OUT_TERRAIN.path_join("%s.tres" % id)
+			# The terrain library is the one place a designer can tune a
+			# material from the Inspector, and until now every import
+			# overwrote all 43 files unconditionally — an edit survived
+			# exactly until the next `import_all.sh`. Courses have had this
+			# guard from the start; layers deserve the same one.
+			var kept: Resource = _protected(out_path, "terrain layer '%s'" % id)
+			if kept != null:
+				by_id[id] = kept
+				order.push_back(id)
+				# The colour key stays the source file's either way: it is how
+				# `terrain.png` is decoded, not a rendering choice, and a course
+				# would repaint itself if an edit could move it.
+				colors.push_back(layer.legacy_color)
+				continue
+			layer.import_fingerprint = layer.fingerprint()
+			ResourceSaver.save(layer, out_path)
 
 		by_id[id] = layer
 		order.push_back(id)
@@ -716,11 +769,13 @@ func import_course(group: String, dir_name: String,
 	var out_dir: String = OUT_COURSES.path_join(dir_name)
 	var tres_path: String = out_dir.path_join("course.tres")
 
-	if not force and ResourceLoader.exists(tres_path):
-		var existing: CourseData = load(tres_path)
-		if existing != null and existing.modified_in_editor:
-			_log("%s: skipped, edited in-editor (use --force to overwrite)" % dir_name)
-			return false
+	var protected: Resource = _protected(tres_path, dir_name)
+	if protected != null:
+		# Still list it. The catalog is rebuilt from scratch every run, so a
+		# course that is merely left alone would otherwise vanish from the
+		# course menu — `DirAccess` cannot find it back in an exported build.
+		catalog_entries.push_back(_listing_for(protected, group, dir_name, out_dir))
+		return false
 
 	var dim: Array[Dictionary] = SPList.load_file(src.path_join("course.dim"))
 	if dim.is_empty():
@@ -849,6 +904,8 @@ func import_course(group: String, dir_name: String,
 	course.splat_maps = splat_maps
 	course.splat_size = hsize
 
+	# Last, so it covers everything above it.
+	course.import_fingerprint = course.fingerprint()
 	ResourceSaver.save(course, tres_path)
 
 	var objects: Array[Dictionary] = load_course_objects(src, nx, ny, world, object_types)
@@ -1286,16 +1343,22 @@ func build_object_prefabs(object_types: Array[Dictionary]) -> Dictionary[String,
 	_log("object prefabs: %d" % out.size())
 	return out
 
+
 # ====================================================================
 #                            characters
 # ====================================================================
 
-## `char/<name>/shape.lst` → a placeholder [ArrayMesh] plus a [Skeleton3D].
+## `char/<name>/shape.lst` → a skinned placeholder [ArrayMesh] on a [Skeleton3D],
+## plus the migrated keyframe animations that pose it.
 ##
 ## The original's character is a hierarchy of up to 256 ellipsoids — a unit
-## sphere per node with its own scale/rotation/translation. That representation
-## is discarded, but it is worth converting once: every node becomes a scaled UV
-## sphere welded into a single mesh, and the named joints become real bones.
+## sphere per node with its own scale/rotation/translation, drawn by walking the
+## tree and pushing a matrix per node. That representation is discarded, but it
+## is worth converting once: every visible node becomes a scaled UV sphere welded
+## into a single mesh, the named joints become real bones, and each sphere is
+## bound rigidly to the nearest joint above it. Rigid binding is not an
+## approximation here — it is what the original does, because a sphere is a leaf
+## under exactly one chain of matrices.
 ##
 ## The point is the [b]joint names[/b]. You get a recognisable, posable Tux on
 ## day one, and when authored skinned glTF art arrives it drops in against the
@@ -1317,20 +1380,27 @@ func import_characters(stage: String) -> void:
 			var out_dir: String = "res://resources/characters".path_join(dir_name)
 			ensure_dir(out_dir)
 			ResourceSaver.save(built["mesh"], out_dir.path_join("placeholder_mesh.res"))
-			_save_character_scene(out_dir, dir_name, built)
-			_import_keyframes(src, out_dir, built["joints"])
+			# Keyframes first: the scene carries both halves of them, and the
+			# joint rotations are baked against the same bone rests the scene
+			# is about to be given.
+			var clips: Dictionary = _import_keyframes(src, out_dir, built["bones"])
+			_save_character_scene(out_dir, dir_name, built, clips)
 		count += 1
 	_log("characters: %d" % count)
 
 ## Walk the ellipsoid hierarchy, accumulating each node's transform exactly as
 ## `CCharShape::Load` does — the `[order]` string is a list of which operations
 ## to apply and in what order, which is the one genuinely fiddly part.
+##
+## Returns the welded mesh, the bone table (see [method _build_bones]) and the
+## per-node bookkeeping the scene writer needs.
 func _build_character(src: String) -> Dictionary:
 	var recs: Array[Dictionary] = SPList.load_file(src.path_join("shape.lst"))
 	if recs.is_empty():
 		return {}
 
 	var transforms: Dictionary[int, Transform3D] = {0: Transform3D.IDENTITY}
+	var parents: Dictionary[int, int] = {0: -1}
 	var joints: Array[Dictionary] = []
 	var spheres: Array[Dictionary] = []
 	var colors: Dictionary[String, Color] = {}
@@ -1377,32 +1447,98 @@ func _build_character(src: String) -> Dictionary:
 						local = local.rotated_local(Vector3.UP, deg_to_rad(float(rot[2])))
 		var world: Transform3D = transforms[parent] * local
 		transforms[node] = world
+		parents[node] = parent
 
 		var joint_name: String = SPList.get_str(rec, "joint")
 		if not joint_name.is_empty():
 			joints.push_back({"name": joint_name, "node": node, "parent": parent,
 				"transform": world})
 		if SPList.get_float(rec, "vis", -1.0) > 0.0:
-			spheres.push_back({"transform": world,
+			spheres.push_back({"node": node, "transform": world,
 				"color": colors.get(SPList.get_str(rec, "mat"), Color(0.8, 0.8, 0.8))})
 
 	if spheres.is_empty():
 		return {}
-	return {"mesh": _weld_spheres(spheres), "joints": joints, "transforms": transforms}
+
+	var bones: Array[Dictionary] = _build_bones(joints, parents)
+	# Every sphere rides the nearest joint above it, and the ones with no joint
+	# above them — body, breast, and the geometry hung directly off node 1 —
+	# ride the root bone, which never moves.
+	var bone_of_node: Dictionary[int, int] = {}
+	for i: int in bones.size():
+		bone_of_node[int(bones[i]["node"])] = i
+	for s: Dictionary in spheres:
+		s["bone"] = _nearest_bone(int(s["node"]), parents, bone_of_node)
+
+	return {"mesh": _weld_spheres(spheres), "joints": joints, "transforms": transforms,
+		"parents": parents, "bones": bones}
+
+## The bone table: a synthetic `root` at index 0, then one bone per `[joint]`
+## node in file order.
+##
+## Each entry is `{name, node, parent, global, rest}`.
+##
+## [b]`rest` is relative to the parent bone, not global.[/b] Joints chain through
+## nodes that are not themselves joints — `left_shldr` hangs off the breast,
+## which hangs off the figure — and skipping those on the way up is what makes
+## the accumulated frame land on the parent bone rather than on the world. The
+## joint node's own transform is identity in every shipped `shape.lst` (a
+## `[joint]` record carries no `[trans]`/`[rot]`/`[scale]`), which is exactly why
+## the original can pose it by assigning `node->trans` outright: the rest of the
+## chain is baked above and below it.
+##
+## Bones come out parent-before-child, which the file order already guarantees
+## and [Skeleton3D] wants.
+static func _build_bones(joints: Array[Dictionary],
+		parents: Dictionary[int, int]) -> Array[Dictionary]:
+	var bones: Array[Dictionary] = [{
+		"name": "root", "node": 0, "parent": -1,
+		"global": Transform3D.IDENTITY, "rest": Transform3D.IDENTITY,
+	}]
+	var bone_of_node: Dictionary[int, int] = {0: 0}
+	for j: Dictionary in joints:
+		bone_of_node[int(j["node"])] = bones.size()
+		bones.push_back({"name": String(j["name"]), "node": int(j["node"]),
+			"parent": 0, "global": j["transform"] as Transform3D,
+			"rest": Transform3D.IDENTITY})
+	for i: int in range(1, bones.size()):
+		var parent_bone: int = _nearest_bone(
+			int(parents.get(int(bones[i]["node"]), 0)), parents, bone_of_node)
+		bones[i]["parent"] = parent_bone
+		bones[i]["rest"] = (bones[parent_bone]["global"] as Transform3D).affine_inverse() \
+			* (bones[i]["global"] as Transform3D)
+	return bones
+
+## Walk up the node hierarchy from [param node] to the first node that is a bone.
+## Node 0 always is, so this terminates on the root.
+static func _nearest_bone(node: int, parents: Dictionary[int, int],
+		bone_of_node: Dictionary[int, int]) -> int:
+	var guard: int = 0
+	while node >= 0 and guard < 256:
+		if bone_of_node.has(node):
+			return bone_of_node[node]
+		node = parents.get(node, -1)
+		guard += 1
+	return 0
 
 ## Each visible node is a unit sphere under its accumulated transform. Welding
-## them into one [ArrayMesh] turns 34 draw calls into one.
+## them into one [ArrayMesh] turns 34 draw calls into one, and binding each
+## sphere's vertices rigidly to one bone keeps the articulation the hierarchy
+## was there for.
 static func _weld_spheres(spheres: Array[Dictionary]) -> ArrayMesh:
 	const RINGS := 8
 	const SEGMENTS := 12
 	var verts := PackedVector3Array()
 	var normals := PackedVector3Array()
 	var colors := PackedColorArray()
+	var bones := PackedInt32Array()
+	var weights := PackedFloat32Array()
 	var indices := PackedInt32Array()
 
 	for s: Dictionary in spheres:
 		var xf: Transform3D = s["transform"]
 		var col: Color = s["color"]
+		var bone: int = int(s.get("bone", 0))
 		var base: int = verts.size()
 		# Degenerate scales exist in the source data (flattened ellipsoids), and
 		# inverting those is a divide by zero. Fall back to the rotation alone.
@@ -1416,6 +1552,8 @@ static func _weld_spheres(spheres: Array[Dictionary]) -> ArrayMesh:
 				verts.push_back(xf * p)
 				normals.push_back((normal_basis * p).normalized())
 				colors.push_back(col)
+				bones.append_array([bone, 0, 0, 0])
+				weights.append_array([1.0, 0.0, 0.0, 0.0])
 		for r: int in RINGS:
 			for c: int in SEGMENTS:
 				var a: int = base + r * (SEGMENTS + 1) + c
@@ -1429,6 +1567,8 @@ static func _weld_spheres(spheres: Array[Dictionary]) -> ArrayMesh:
 	arrays[Mesh.ARRAY_VERTEX] = verts
 	arrays[Mesh.ARRAY_NORMAL] = normals
 	arrays[Mesh.ARRAY_COLOR] = colors
+	arrays[Mesh.ARRAY_BONES] = bones
+	arrays[Mesh.ARRAY_WEIGHTS] = weights
 	arrays[Mesh.ARRAY_INDEX] = indices
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
@@ -1451,122 +1591,214 @@ static func _weld_spheres(spheres: Array[Dictionary]) -> ArrayMesh:
 ## The rotation between them maps +Y → −Z, +Z → −Y and +X → −X: a 180° turn
 ## about (0, 1, −1). It is baked into the generated scene root rather than
 ## applied by the race scene, because authored glTF art is already Y-up /
-## −Z-forward and must not need the same fixup (§3.4).
+## −Z-forward and must not need the same fixup (§3.4). [CharacterRig] is what
+## reads it back off the root for the one caller that does need it.
 const MODEL_TO_GODOT := Basis(
 	Vector3(-1.0, 0.0, 0.0),
 	Vector3(0.0, 0.0, -1.0),
 	Vector3(0.0, -1.0, 0.0))
 
-## Scene: `Skeleton3D` with the migrated joint names plus the placeholder mesh.
-## Authored art replaces the mesh; the bone names are the contract.
-func _save_character_scene(out_dir: String, dir_name: String, built: Dictionary) -> void:
+## Scene: a [CharacterRig] over a [Skeleton3D] with the migrated joint names, the
+## skinned placeholder mesh, and an [AnimationPlayer] holding the keyframes.
+## Authored art replaces the mesh; the bone names and this shape are the contract.
+func _save_character_scene(out_dir: String, dir_name: String, built: Dictionary,
+		clips: Dictionary) -> void:
 	var root := Node3D.new()
 	root.name = dir_name
+	root.set_script(load("res://scripts/character/character_rig.gd"))
 	root.basis = MODEL_TO_GODOT
+	var paths: Dictionary[StringName, KeyframePath] = {}
+	for clip: String in clips.get("paths", {}):
+		paths[StringName(clip)] = clips["paths"][clip]
+	root.set(&"keyframe_paths", paths)
 
 	var skeleton := Skeleton3D.new()
 	skeleton.name = "Skeleton3D"
 	root.add_child(skeleton)
 	skeleton.owner = root
 
-	var joints: Array = built["joints"]
-	var bone_of: Dictionary[int, int] = {}
-	for j: Dictionary in joints:
-		var idx: int = skeleton.add_bone(j["name"])
-		bone_of[j["node"]] = idx
-	for j: Dictionary in joints:
-		var idx: int = bone_of[j["node"]]
-		# Joints chain through non-joint nodes, so walk up to the nearest
-		# ancestor that is itself a joint.
-		var parent_node: int = j["parent"]
-		var guard: int = 0
-		while parent_node > 0 and not bone_of.has(parent_node) and guard < 256:
-			parent_node = _parent_of(joints, parent_node, built)
-			guard += 1
-		if bone_of.has(parent_node):
-			skeleton.set_bone_parent(idx, bone_of[parent_node])
-		skeleton.set_bone_rest(idx, j["transform"])
-		skeleton.set_bone_pose_position(idx, j["transform"].origin)
+	var bones: Array = built["bones"]
+	var skin := Skin.new()
+	for b: Dictionary in bones:
+		skeleton.add_bone(String(b["name"]))
+	for i: int in bones.size():
+		var rest: Transform3D = bones[i]["rest"]
+		skeleton.set_bone_parent(i, int(bones[i]["parent"]))
+		skeleton.set_bone_rest(i, rest)
+		# A bone's pose is built from its own position/rotation/scale, not from
+		# the rest plus an offset, so the rest has to be copied into the pose or
+		# an animation that keys rotation alone drops the other two to identity.
+		skeleton.set_bone_pose_position(i, rest.origin)
+		skeleton.set_bone_pose_rotation(i, rest.basis.get_rotation_quaternion())
+		skeleton.set_bone_pose_scale(i, rest.basis.get_scale())
+		# Bind index i is bone i, which is what `_weld_spheres` indexed against.
+		skin.add_bind(i, (bones[i]["global"] as Transform3D).affine_inverse())
 
 	var mi := MeshInstance3D.new()
 	mi.name = "Placeholder"
 	mi.mesh = built["mesh"]
+	mi.skin = skin
+	mi.skeleton = ^"../Skeleton3D"
 	root.add_child(mi)
 	mi.owner = root
+
+	var library: AnimationLibrary = clips.get("library", null)
+	if library != null:
+		var player := AnimationPlayer.new()
+		player.name = "AnimationPlayer"
+		player.add_animation_library(&"", library)
+		root.add_child(player)
+		player.owner = root
 
 	var packed := PackedScene.new()
 	if packed.pack(root) == OK:
 		ResourceSaver.save(packed, out_dir.path_join("%s.tscn" % dir_name))
 	root.free()
 
-static func _parent_of(joints: Array, node: int, built: Dictionary) -> int:
-	for j: Dictionary in joints:
-		if j["node"] == node:
-			return j["parent"]
-	# Non-joint nodes are not in the joint list; fall back to the transform map,
-	# which is keyed by node id and always has an entry.
-	var transforms: Dictionary = built["transforms"]
-	return -1 if not transforms.has(node) else 0
-
-## `start/finish/wonrace/lostrace.lst` → Godot [Animation] resources on the
-## migrated joint names.
-func _import_keyframes(src: String, out_dir: String, joints: Array) -> void:
+## `start/finish/wonrace/lostrace.lst` → an [AnimationLibrary] of joint poses on
+## the migrated bone names, plus a [KeyframePath] of root motion per clip.
+##
+## Returns `{"library": AnimationLibrary, "paths": {clip: KeyframePath}}`.
+##
+## Three things about the format are easy to get wrong and silent when you do:
+##
+## - [b]`[time]` is a duration, not a timestamp.[/b] `CKeyframe::Update` holds
+##   frame `i` for `frames[i].val[0]` seconds and then moves on, so the key times
+##   are a running sum. Read as timestamps they collapse the whole clip onto
+##   t = 0. The clip ends [i]on[/i] the last key rather than holding it, which is
+##   why the length is the sum over every frame but the last.
+## - [b]A missing tag is a zero, not "leave it alone".[/b] The original resets
+##   every joint each frame and then applies the file's values, and `SPFloatN`
+##   defaults to 0 — so `start.lst` dropping `[sh]` after the sixth frame is what
+##   brings the flippers back down. Keying only the tags that are present would
+##   hold the last pose instead.
+## - [b]Each tag names its own rotation axis[/b] in the joint's own frame, and
+##   they are not all the same one. `[sh]`, `[hip]`, `[knee]`, `[ankle]` and
+##   `[neck]` turn about Z; `[head]` and `[arm]` turn about Y. The joint frames
+##   are already twisted by `shape.lst` so that each of those comes out as the
+##   anatomical motion.
+##
+## A [Skeleton3D] rotation track is an absolute pose, not an offset from the
+## rest, so each key is `rest × R` — which also means the [Animation] is only
+## valid against the skeleton it was baked with.
+func _import_keyframes(src: String, out_dir: String, bones: Array) -> Dictionary:
 	const CLIPS: Array[String] = ["start", "finish", "wonrace", "lostrace"]
+	var rest_of: Dictionary[String, Quaternion] = {}
+	var bone_index: Dictionary[String, int] = {}
+	for i: int in bones.size():
+		var bname: String = String(bones[i]["name"])
+		bone_index[bname] = i
+		rest_of[bname] = (bones[i]["rest"] as Transform3D).basis.get_rotation_quaternion()
+
 	var library := AnimationLibrary.new()
+	var paths: Dictionary[String, KeyframePath] = {}
 	for clip: String in CLIPS:
 		var path: String = src.path_join("%s.lst" % clip)
 		if not FileAccess.file_exists(path):
 			continue
 		var frames: Array[Dictionary] = SPList.load_file(path)
-		if frames.is_empty():
+		if frames.size() < 2:
 			continue
+
 		var anim := Animation.new()
-		# Each record's [time] is a *duration*, not a timestamp — the original
-		# advances a cursor per keyframe. Getting this backwards silently
-		# collapses every animation onto t = 0.
-		var t: float = 0.0
-		var pos_track: int = anim.add_track(Animation.TYPE_POSITION_3D)
-		anim.track_set_path(pos_track, NodePath("Skeleton3D:root"))
-		var joint_tracks: Dictionary[String, int] = {}
-		for j: Dictionary in joints:
-			var jname: String = j["name"]
-			if joint_tracks.has(jname):
+		var tracks: Dictionary[String, int] = {}
+		for joint: String in ["neck", "head", "left_shldr", "right_shldr",
+				"left_hip", "right_hip", "left_knee", "right_knee",
+				"left_ankle", "right_ankle"]:
+			if not bone_index.has(joint):
 				continue
 			var tr: int = anim.add_track(Animation.TYPE_ROTATION_3D)
-			anim.track_set_path(tr, NodePath("Skeleton3D:%s" % jname))
-			joint_tracks[jname] = tr
+			anim.track_set_path(tr, NodePath("Skeleton3D:%s" % joint))
+			tracks[joint] = tr
 
+		# Built up locally and assigned once: reading a packed array back off a
+		# property hands out a copy, so appending through `route.times` would
+		# quietly throw every key away.
+		var times := PackedFloat32Array()
+		var offsets := PackedVector3Array()
+		var angles := PackedVector3Array()
+		var t: float = 0.0
 		for frame: Dictionary in frames:
 			var p: PackedFloat64Array = SPList.get_numbers(frame, "pos")
-			if p.size() >= 3:
-				anim.position_track_insert_key(pos_track, t,
-					Vector3(float(p[0]), float(p[1]), float(p[2])))
-			_insert_pair(anim, joint_tracks, "sh", "left_shldr", "right_shldr", frame, t)
-			_insert_pair(anim, joint_tracks, "hip", "left_hip", "right_hip", frame, t)
-			_insert_pair(anim, joint_tracks, "knee", "left_knee", "right_knee", frame, t)
-			_insert_pair(anim, joint_tracks, "ankle", "left_ankle", "right_ankle", frame, t)
-			var head: PackedFloat64Array = SPList.get_numbers(frame, "head")
-			if head.size() >= 1 and joint_tracks.has("head"):
-				anim.rotation_track_insert_key(joint_tracks["head"], t,
-					Quaternion(Vector3.RIGHT, deg_to_rad(float(head[0]))))
-			var neck: PackedFloat64Array = SPList.get_numbers(frame, "neck")
-			if neck.size() >= 1 and joint_tracks.has("neck"):
-				anim.rotation_track_insert_key(joint_tracks["neck"], t,
-					Quaternion(Vector3.RIGHT, deg_to_rad(float(neck[0]))))
+			times.push_back(t)
+			offsets.push_back(Vector3(
+				float(p[0]) if p.size() >= 3 else 0.0,
+				float(p[1]) if p.size() >= 3 else 0.0,
+				float(p[2]) if p.size() >= 3 else 0.0))
+			angles.push_back(Vector3(
+				SPList.get_float(frame, "yaw", 0.0),
+				SPList.get_float(frame, "pitch", 0.0),
+				SPList.get_float(frame, "roll", 0.0)))
+
+			_key_axis(anim, tracks, rest_of, "neck", Vector3.BACK,
+				SPList.get_float(frame, "neck", 0.0), t)
+			_key_axis(anim, tracks, rest_of, "head", Vector3.UP,
+				SPList.get_float(frame, "head", 0.0), t)
+			# The shoulders take two tags on two axes. `[sh]` is applied first,
+			# matching the order in `InterpolateKeyframe`.
+			var sh: Vector2 = _pair(frame, "sh")
+			var arm: Vector2 = _pair(frame, "arm")
+			_key_shoulder(anim, tracks, rest_of, "left_shldr", sh.x, arm.x, t)
+			_key_shoulder(anim, tracks, rest_of, "right_shldr", sh.y, arm.y, t)
+			var hip: Vector2 = _pair(frame, "hip")
+			_key_axis(anim, tracks, rest_of, "left_hip", Vector3.BACK, hip.x, t)
+			_key_axis(anim, tracks, rest_of, "right_hip", Vector3.BACK, hip.y, t)
+			var knee: Vector2 = _pair(frame, "knee")
+			_key_axis(anim, tracks, rest_of, "left_knee", Vector3.BACK, knee.x, t)
+			_key_axis(anim, tracks, rest_of, "right_knee", Vector3.BACK, knee.y, t)
+			var ankle: Vector2 = _pair(frame, "ankle")
+			_key_axis(anim, tracks, rest_of, "left_ankle", Vector3.BACK, ankle.x, t)
+			_key_axis(anim, tracks, rest_of, "right_ankle", Vector3.BACK, ankle.y, t)
+
 			t += maxf(0.01, SPList.get_float(frame, "time", 0.1))
 
-		anim.length = maxf(t, 0.1)
+		# The last frame's own `[time]` is never spent: the original goes
+		# inactive the moment its cursor reaches the last key.
+		var route := KeyframePath.new()
+		route.times = times
+		route.offsets = offsets
+		route.angles = angles
+		anim.length = maxf(route.duration(), 0.01)
 		library.add_animation(clip, anim)
-	if library.get_animation_list().size() > 0:
-		ResourceSaver.save(library, out_dir.path_join("animations.res"))
+		paths[clip] = route
 
-## Keyframe files give left and right in one tag, e.g. `[sh] -20 40`.
-static func _insert_pair(anim: Animation, tracks: Dictionary[String, int], tag: String,
-		left: String, right: String, frame: Dictionary, t: float) -> void:
+	if library.get_animation_list().is_empty():
+		return {}
+	var lib_path: String = out_dir.path_join("animations.res")
+	ResourceSaver.save(library, lib_path)
+	# So the scene stores the library as an external reference rather than
+	# embedding a second copy of it.
+	library.take_over_path(lib_path)
+	return {"library": library, "paths": paths}
+
+## Keyframe files give left and right in one tag, e.g. `[sh] -20 40`. A tag that
+## is absent is two zeroes — see [method _import_keyframes].
+static func _pair(frame: Dictionary, tag: String) -> Vector2:
 	var v: PackedFloat64Array = SPList.get_numbers(frame, tag)
-	if v.size() >= 1 and tracks.has(left):
-		anim.rotation_track_insert_key(tracks[left], t,
-			Quaternion(Vector3.RIGHT, deg_to_rad(float(v[0]))))
-	if v.size() >= 2 and tracks.has(right):
-		anim.rotation_track_insert_key(tracks[right], t,
-			Quaternion(Vector3.RIGHT, deg_to_rad(float(v[1]))))
+	return Vector2(
+		float(v[0]) if v.size() >= 1 else 0.0,
+		float(v[1]) if v.size() >= 2 else 0.0)
+
+static func _key_axis(anim: Animation, tracks: Dictionary[String, int],
+		rest_of: Dictionary[String, Quaternion], joint: String, axis: Vector3,
+		degrees: float, t: float) -> void:
+	if not tracks.has(joint):
+		return
+	anim.rotation_track_insert_key(tracks[joint], t,
+		rest_of[joint] * Quaternion(axis, deg_to_rad(degrees)))
+
+## DEVIATION: a shoulder carrying both `[sh]` and `[arm]` is keyed as one
+## quaternion and interpolated by slerp, where the original interpolates the two
+## angles separately and rebuilds the pair of matrices. The two agree exactly
+## whenever one of the angles is constant across a segment, which covers
+## `start.lst` (no `[arm]` at all) and every segment of `finish.lst` but the two
+## either side of its wave. Interpolating in Euler space instead would need one
+## track per axis, which a [Skeleton3D] rotation track does not offer.
+static func _key_shoulder(anim: Animation, tracks: Dictionary[String, int],
+		rest_of: Dictionary[String, Quaternion], joint: String,
+		sh_degrees: float, arm_degrees: float, t: float) -> void:
+	if not tracks.has(joint):
+		return
+	anim.rotation_track_insert_key(tracks[joint], t, rest_of[joint]
+		* Quaternion(Vector3.BACK, deg_to_rad(sh_degrees))
+		* Quaternion(Vector3.UP, deg_to_rad(arm_degrees)))
