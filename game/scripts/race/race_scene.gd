@@ -4,14 +4,21 @@
 ## of this. It is handed a [SurfaceProvider] and two [ObjectGrid]s and stepped;
 ## the presentation reads its state afterwards.
 ##
-## [b]There is more than one penguin on the hill.[/b] The scene owns a list of
-## [Racer]s rather than a player: one [SimulatedRacer] for the person at the
-## keyboard, up to nine more driven by an [AIInputSource], optionally a
-## [PlaybackRacer] replaying their best run as a ghost, and one more per
-## connected peer. The scene does not branch on which is which — it advances
-## them all on the same tick and draws them all from the same [RacerState]. See
-## [Racer] for the split, [AISkill] for the opponents and [RaceNetwork] for the
-## session.
+## [b]There is more than one penguin on the hill.[/b] [RacerRoster] owns the
+## list — one [SimulatedRacer] for the person at the keyboard, up to nine more
+## driven by an [AIInputSource], optionally a [PlaybackRacer] replaying their
+## best run as a ghost, and one more per connected peer. The scene does not
+## branch on which is which: it advances them all on the same tick and draws
+## them all from the same [RacerState]. See [Racer] for the split, [AISkill] for
+## the opponents and [RaceNetwork] for the session.
+##
+## [b]What this file is, and what it is not.[/b] It is the tick loop and the
+## course: loading one, lighting it, stepping the simulation against it, and
+## handing over to the shell. Three things it used to also be have their own
+## files now — [RacerRoster] (who is on the hill and who is winning),
+## [IntroSequence] (the start animation and the camera it borrows) and
+## [LaunchArgs] (what this run was asked for). Each was extracted whole, with no
+## behaviour change: the reference capture is byte-identical across all three.
 ##
 ## [b]Two modes, one scene.[/b] [RaceSetup] is the whole of the difference:
 ## zero opponents is Practice, which is what the game did before and what every
@@ -54,31 +61,9 @@ const MAX_TICKS_PER_FRAME := 8
 ## finish deceleration is watchable instead of being cut off by a panel.
 const FINISH_MENU_DELAY := 3.0
 
-## The clip [CharacterRig] plays before the race starts. `char/<name>/start.lst`
-## in the original: Tux is standing off to one side of the start point, waddles
-## across to it, turns to face down the hill and drops onto his belly.
-const INTRO_CLIP := &"start"
-## What `CIntro::Enter` passes `CKeyframe::Init` as its height correction, and
-## the reason the standing pose sits into the snow rather than on top of it.
-const INTRO_HEIGHT_CORRECTION := -0.05
-## `SetCameraDistance(4.0)` in `CIntro::Enter`. Same number as the racing
-## default, named here because the intro is where the original says it.
-const INTRO_CAMERA_DISTANCE := 4.0
-
-## Particles an opponent's spray may have in flight per side. A quarter of the
-## player's; see [member SimulatedRacer.spray_pool].
-const OPPONENT_SPRAY_POOL := 180
-
-## What a ghost is tinted. Cold and pale so it separates from a real racer at a
-## glance and from the snow at speed; see [method Racer.make_translucent].
-const GHOST_TINT := Color(0.55, 0.78, 1.0, 0.40)
-## What a ghost is called on the HUD.
-##
-## A literal rather than a `tr()` key. The original has no ghosts and so has no
-## word for one, and the string table here is exactly ETR's 111 imported strings
-## — a key that resolves to nothing would print `GHOST` in every language. When
-## the shell grows strings of its own this is the first one.
-const GHOST_LABEL := "ghost"
+## What a ghost is called on the HUD. Lives on [RacerRoster] with the rest of
+## the field; named here because [RaceHUD] has always asked the scene for it.
+const GHOST_LABEL := RacerRoster.GHOST_LABEL
 
 ## Where "back" goes. Spelled out rather than reached for through [MainMenu]:
 ## that script already reaches in here for [member requested_course_path], and
@@ -133,21 +118,12 @@ var snow_cpu: SnowField
 var snow_gpu: SnowFieldGPU
 var camera: ChaseCamera
 
-## Everyone on the hill, in the order they were added. The local player is
-## always the first entry.
-var racers: Array[Racer] = []
-## The person at the keyboard.
-var local: SimulatedRacer
-## The computer opponents, in start-line order. Empty in Practice.
-var opponents: Array[SimulatedRacer] = []
+## Everyone on the hill: the player, the field, the ghost and any peers. See
+## [RacerRoster], which owns building them and ordering them.
+var roster: RacerRoster
 ## How many opponents this race has and how well they drive. Never null once
 ## `_ready` has run.
 var setup: RaceSetup
-## The player's best recorded run on this course, or null.
-var ghost: PlaybackRacer
-## Who the camera, the snow window and the HUD are about. The local player
-## today; a spectator mode is this variable pointing somewhere else.
-var view_target: Racer
 
 var running: bool = false
 ## True while the start animation is playing. The simulation is not stepped —
@@ -183,20 +159,11 @@ var _run_id: int = 0
 ## is the live tick, bit for bit what the variable-timestep loop did.
 var _sim_lead: float = 0.0
 
-var _racers_root: Node3D
-## Where everyone who is a body on the hill is, rebuilt in place each tick and
-## shared by reference with every simulation and every opponent. See
-## [method _refresh_rivals].
-var _rivals := RacerField.new()
-var _remote: Dictionary[int, PlaybackRacer] = {}
 var _sun: DirectionalLight3D
 
-## Root motion of the clip currently playing, sampled against [member _intro_time].
-var _intro_path: KeyframePath
-var _intro_time: float = 0.0
-## The camera framing the race wants back once the intro is over.
-var _camera_mode_before_intro: ChaseCamera.Mode = ChaseCamera.Mode.BEHIND
-var _camera_distance_before_intro: float = 4.0
+## The start animation, when one is playing. See [IntroSequence] — it owns the
+## clip, the root motion and the camera it borrows.
+var _intro := IntroSequence.new()
 ## Whether this run wants the start animation at all. A scripted run does not:
 ## `--auto-input=` is a stand-in for a player, and four and a half seconds of Tux
 ## waddling in front of a frame counter would move every reference capture. A
@@ -228,15 +195,15 @@ var _compensate_keys: bool = false
 ## is still a meaningful thing to ask a race for — it is just one racer's now.
 var physics: RacePhysics:
 	get:
-		return local.physics if local != null else null
+		return roster.local.physics if roster.local != null else null
 
 var race_time: float:
 	get:
-		return local.race_time if local != null else 0.0
+		return roster.local.race_time if roster.local != null else 0.0
 
 var herring: int:
 	get:
-		return local.herring if local != null else 0
+		return roster.local.herring if roster.local != null else 0
 
 # ==================================================================
 #                              setup
@@ -245,33 +212,30 @@ var herring: int:
 func _ready() -> void:
 	camera = $ChaseCamera
 	snow_gpu = $SnowFieldGPU
-	_racers_root = $Racers
+	roster = $Racers
+	roster.racer_added.connect(_on_racer_added)
 	_sun = $Sun
 	if not requested_course_path.is_empty():
 		course_scene_path = requested_course_path
-	# A `--course=` on the command line outranks it: a capture run names the
-	# course it wants, and the shell only ever passes on what it was given.
-	for arg: String in OS.get_cmdline_user_args():
-		if arg.begins_with("--auto-input="):
-			_auto_input = arg.trim_prefix("--auto-input=")
-		elif arg.begins_with("--camera="):
-			if arg.ends_with("above"):
-				camera.mode = ChaseCamera.Mode.ABOVE
-			elif arg.ends_with("trail"):
-				camera.mode = ChaseCamera.Mode.TRAIL
-		elif arg == "--remote-keyboard":
-			_compensate_keys = true
-		elif arg == "--no-intro":
-			play_intro = false
-		elif arg.begins_with("--course="):
-			course_scene_path = "res://courses/%s/course.tscn" % arg.trim_prefix("--course=")
-		elif arg.begins_with("--character="):
-			requested_character = arg.trim_prefix("--character=")
-		elif arg.begins_with("--opponents="):
-			_cli_setup.opponents = clampi(
-				arg.trim_prefix("--opponents=").to_int(), 0, RaceSetup.MAX_OPPONENTS)
-		elif arg.begins_with("--difficulty="):
-			_cli_setup.skill = AISkill.parse(arg.trim_prefix("--difficulty="))
+	# A `--course=` on the way in outranks it: a capture run names the course it
+	# wants, and the shell only ever passes on what it was given.
+	var args: LaunchArgs = LaunchArgs.current()
+	_auto_input = args.auto_input
+	_compensate_keys = args.remote_keyboard
+	if args.no_intro:
+		play_intro = false
+	if args.camera == "above":
+		camera.mode = ChaseCamera.Mode.ABOVE
+	elif args.camera == "trail":
+		camera.mode = ChaseCamera.Mode.TRAIL
+	if not args.course.is_empty():
+		course_scene_path = args.course_scene_path()
+	if not args.character.is_empty():
+		requested_character = args.character
+	if args.opponents != LaunchArgs.NO_OPPONENTS:
+		_cli_setup.opponents = clampi(args.opponents, 0, RaceSetup.MAX_OPPONENTS)
+	if not args.difficulty.is_empty():
+		_cli_setup.skill = AISkill.parse(args.difficulty)
 	# The shell outranks the command line here, unlike `--course=`: the two flags
 	# are a way to start a race without a menu, not a way to keep overriding a
 	# choice the player has just made on one.
@@ -280,137 +244,56 @@ func _ready() -> void:
 	# where it has been read. The start animation is per character too — Trixi's
 	# `start.lst` is not Tux's — so the rig has to exist before the intro is set
 	# up on the course load below.
-	_create_local_racer()
-	_create_opponents()
+	roster.build_local(_local_character_dir(), character_scene_path,
+		Config.player_name, _auto_input, _compensate_keys)
+	roster.build_field(setup, _local_character_dir())
 	_intro_enabled = play_intro and _auto_input.is_empty()
 	menu = $CourseMenu
 	menu.course_chosen.connect(_on_course_chosen)
 	menu.closed.connect(_on_menu_closed)
 	menu.back_requested.connect(leave_to_main_menu)
 	Net.snapshot_received.connect(_on_snapshot_received)
-	Net.roster_changed.connect(_sync_remote_racers)
+	Net.roster_changed.connect(roster.sync_remote)
 	load_course(course_scene_path)
 
-## Build the player and put them on the hill.
+## Wire up a racer the roster has just built.
 ##
-## Which character is the player's choice — [member GameConfig.character], or a
-## `--character=`/`?character=` naming one for this run only. Anything the
-## catalog cannot resolve comes back as Tux rather than as an error; see
-## [method CharacterCatalog.scene_path_for].
-func _create_local_racer() -> void:
-	local = SimulatedRacer.new()
-	local.name = "LocalRacer"
-	local.kind = Racer.Kind.LOCAL
-	local.display_name = Config.player_name
-	if _auto_input.is_empty():
-		var keyboard := LocalInputSource.new()
-		keyboard.compensate = _compensate_keys
-		local.input_source = keyboard
-		local.recorder = RaceRecorder.new()
-	else:
-		# A scripted run is a stand-in for a player, not a player. It neither
-		# keeps a ghost nor races one — see [method _scripted_run].
-		local.input_source = ScriptedInputSource.new(_auto_input)
-	_add_racer(local, _local_character_dir(), character_scene_path)
-	view_target = local
-	local.item_collected.connect(_on_item_collected)
-	local.tree_hit.connect(_on_tree_hit)
-	local.racer_hit.connect(_on_racer_hit)
-	local.finished_race.connect(_on_racer_finished)
+## One place, and the only place, where a racer that appears on the hill gets
+## connected to the rest of the game — [RacerRoster] announces every one of
+## them through [signal RacerRoster.racer_added], whatever kind it is. It used
+## to be three blocks of `connect` calls beside three separate constructors.
+##
+## What is connected is not the same for everybody, and that is about audio
+## rather than about racers. The mixer has one voice per cue and no positional
+## audio (see [AudioDirector]), so a sound another racer causes is
+## indistinguishable from one the player caused: an opponent hitting a tree
+## three hundred metres up the hill would thud in your ears. Only collection is
+## connected for everyone, because [method _on_item_collected] hides the fish
+## for the whole field and plays the cue for the player alone.
+func _on_racer_added(racer: Racer) -> void:
+	var sim := racer as SimulatedRacer
+	if sim == null:
+		return
+	sim.item_collected.connect(_on_item_collected)
+	sim.finished_race.connect(_on_racer_finished)
+	if not sim.is_local():
+		return
+	sim.tree_hit.connect(_on_tree_hit)
+	# Only the player's end of a contact. A contact is resolved by both bodies,
+	# so connecting both ends would fire the cue twice for one bump.
+	sim.racer_hit.connect(_on_racer_hit)
 
 func _local_character_dir() -> String:
 	return requested_character if not requested_character.is_empty() else Config.character
 
-## Build the field.
-##
-## An opponent is not a special kind of racer — it is exactly what
-## [method _create_local_racer] builds, with an [AIInputSource] where the
-## keyboard goes and no recorder, because a ghost is the player's own best run
-## and a computer's is not a time anybody set. Everything downstream — the
-## simulation, the spray, the snow stamps, the herring grid, the rig, the
-## interpolated draw, the standings — is the same code path.
-##
-## Each opponent gets its own character where there are enough to go round, its
-## own seat in the start line and its own personality drawn from that seat, so a
-## field of nine is nine racers rather than one drawn nine times.
-func _create_opponents() -> void:
-	if setup == null or not setup.is_race():
-		return
-	var catalog: CharacterCatalog = CharacterCatalog.load_default()
-	# The player is already wearing one of the five, so the first opponent to
-	# reach it is the second of that character on the hill and is named as such.
-	var worn: Dictionary[String, int] = {_local_character_dir(): 1}
-	for i: int in setup.opponents:
-		var racer := SimulatedRacer.new()
-		racer.name = "Opponent%d" % (i + 1)
-		racer.kind = Racer.Kind.AI
-		racer.spray_pool = OPPONENT_SPRAY_POOL
-		racer.start_offset = RaceSetup.lane_offset(i)
-		racer.input_source = AIInputSource.new(AISkill.for_level(setup.skill), i, 0)
-		var listing: CharacterListing = _opponent_character(catalog, i)
-		var dir: String = listing.dir if listing != null else CharacterCatalog.DEFAULT_DIR
-		racer.display_name = _opponent_name(listing, dir, worn)
-		_add_racer(racer, dir)
-		# Only the collection matters here — [method _on_item_collected] hides
-		# the fish for everyone and plays the cue for the player alone. A tree an
-		# opponent hits is deliberately not connected: the mixer has one voice
-		# per cue and no positional audio, so it would sound like the player's.
-		racer.item_collected.connect(_on_item_collected)
-		racer.finished_race.connect(_on_racer_finished)
-		opponents.push_back(racer)
-	print("field: %s" % setup.describe())
-
 ## Replace the field with one built from the current [member setup]. Called when
 ## the in-race menu comes back with a different number of opponents.
 func _rebuild_opponents() -> void:
-	for racer: SimulatedRacer in opponents:
-		racers.erase(racer)
-		# Out of the tree before the free, not just queued for it: `queue_free`
-		# leaves the node a child until the end of the frame, and the
-		# replacements go in under the same names.
-		_racers_root.remove_child(racer)
-		racer.queue_free()
-	opponents.clear()
-	_create_opponents()
+	roster.clear_field()
+	roster.build_field(setup, _local_character_dir())
 	if course_root != null:
-		for racer: SimulatedRacer in opponents:
+		for racer: SimulatedRacer in roster.opponents:
 			_build_simulation(racer, course_root.course_data)
-
-## Which character an opponent races as. The catalog in order, starting after
-## the player's own, so the racer beside you is never wearing your suit until
-## there are more opponents than characters.
-func _opponent_character(catalog: CharacterCatalog, index: int) -> CharacterListing:
-	if catalog == null or catalog.entries.is_empty():
-		return null
-	var start: int = catalog.index_of(_local_character_dir())
-	return catalog.entries[(start + 1 + index) % catalog.entries.size()]
-
-## What the standings call an opponent. The character's own name, which is what
-## a player would call the penguin they can see — numbered from the second one
-## wearing it, because two racers called Trixi on one line is not a standing.
-##
-## [param worn] counts how many of each character are already on the hill and is
-## updated here. It starts with the player's own, so a field large enough to
-## come round the catalog produces "Tux 2" beside a player racing as Tux, rather
-## than a second plain Tux nobody can tell from the one they are steering.
-func _opponent_name(listing: CharacterListing, dir: String,
-		worn: Dictionary[String, int]) -> String:
-	var base: String = listing.title() if listing != null else "Racer"
-	var nth: int = worn.get(dir, 0) + 1
-	worn[dir] = nth
-	return base if nth == 1 else "%s %d" % [base, nth]
-
-## Put a racer in the tree, give it a rig and register it. [param scene_path]
-## overrides the catalog lookup; empty means "look [param character_dir] up".
-func _add_racer(racer: Racer, character_dir: String, scene_path: String = "") -> void:
-	racer.character_dir = character_dir
-	_racers_root.add_child(racer)
-	var path: String = scene_path
-	if path.is_empty():
-		path = CharacterCatalog.load_default().scene_path_for(character_dir)
-	if not racer.install_character(path):
-		racer.install_fallback_mesh()
-	racers.push_back(racer)
 
 # ==================================================================
 #                          loading a course
@@ -442,7 +325,7 @@ func load_course(path: String) -> void:
 	# same two object grids. Sharing the grids is what makes the herring a race
 	# rather than a pair of solitaires; sharing the surface is free, since a
 	# [SurfaceProvider] is read-only apart from the snow field.
-	for racer: Racer in racers:
+	for racer: Racer in roster.all:
 		if racer is SimulatedRacer:
 			_build_simulation(racer as SimulatedRacer, course)
 
@@ -476,7 +359,7 @@ func _build_simulation(racer: SimulatedRacer, course: CourseData) -> void:
 	# One 64 m GPU window exists and it follows the view target, so only that
 	# racer can usefully stamp it. Everyone else deforms the CPU mirror, which
 	# is what the physics reads and is course-wide.
-	racer.snow_gpu = snow_gpu if snow_deformation and racer == view_target else null
+	racer.snow_gpu = snow_gpu if snow_deformation and racer == roster.view_target else null
 
 ## Whether a stand-in is driving rather than a person.
 ##
@@ -493,31 +376,12 @@ func _scripted_run() -> bool:
 
 ## Load the best recorded run for this course, if the player wants one.
 ##
-## Not in a race against opponents. A ghost is a second penguin on your own line
-## and the HUD has one status line to say something on — with a field on the
-## hill that line is the standings, and the translucent copy of yourself is one
-## more thing to mistake for someone you are racing. The recording still happens
-## and a best time is still kept; only the drawing is dropped.
+## Two reasons not to: a scripted run (see [method _scripted_run]) and a race
+## against opponents. The rest of the reasoning, and the loading, is
+## [method RacerRoster.load_ghost].
 func _setup_ghost() -> void:
-	if ghost != null:
-		racers.erase(ghost)
-		ghost.queue_free()
-		ghost = null
-	if not Config.ghosts or _scripted_run() or setup.is_race():
-		return
-	var recording: RaceRecording = GhostStore.load_for(current_course_dir)
-	if recording == null:
-		return
-	var racer := PlaybackRacer.new()
-	racer.name = "Ghost"
-	racer.kind = Racer.Kind.GHOST
-	racer.display_name = GHOST_LABEL
-	if not racer.play_recording(recording):
-		racer.queue_free()
-		return
-	_add_racer(racer, recording.character_dir)
-	racer.make_translucent(GHOST_TINT)
-	ghost = racer
+	roster.load_ghost(current_course_dir,
+		Config.ghosts and not _scripted_run() and not setup.is_race())
 
 ## Put the race back at the start line. [param with_intro] is what separates the
 ## two ways in: choosing a course runs the start animation, where `r` mid-race is
@@ -538,7 +402,7 @@ func restart(with_intro: bool = true) -> void:
 	# left the course stripped of everything the last run picked up, which a
 	# ghost of that run makes obvious — it collects fish that are not there.
 	course_root.reset_items()
-	for racer: Racer in racers:
+	for racer: Racer in roster.all:
 		if racer is SimulatedRacer:
 			var sim: SimulatedRacer = racer
 			sim.snow_cpu = snow_cpu
@@ -556,7 +420,11 @@ func restart(with_intro: bool = true) -> void:
 		racer.present(1.0)
 	camera.reset()
 	herring_changed.emit(0)
-	terrain.update_streaming(local.state.position)
+	# The whole backlog, not a budgeted slice: the shell's loading panel is
+	# already on screen and the first drawn frame of the race should be a
+	# complete hillside. Every later call comes from [method _present] and is
+	# budgeted.
+	terrain.update_streaming(roster.local.state.position, true)
 	# Drop the authoring markers only once the batches and grids exist.
 	course_root.release_markers()
 	_stop_slide_sound()
@@ -593,7 +461,7 @@ func _process(delta: float) -> void:
 		_sim_lead = 0.0
 
 	var alpha: float = clampf(1.0 - _sim_lead / SIM_DT, 0.0, 1.0)
-	for racer: Racer in racers:
+	for racer: Racer in roster.all:
 		racer.present(alpha)
 	_present(delta)
 
@@ -601,78 +469,37 @@ func _process(delta: float) -> void:
 ## the picture.
 func _simulation_tick(dt: float) -> void:
 	if intro_running:
-		_step_intro(dt)
+		if not _intro.step(dt):
+			_end_intro()
 		return
 	if not running:
 		return
-	_refresh_rivals()
-	for racer: Racer in racers:
+	roster.refresh_rivals()
+	for racer: Racer in roster.all:
 		racer.advance(dt)
-	if Net.active() and local != null:
-		Net.publish(local.state)
+	if Net.active() and roster.local != null:
+		Net.publish(roster.local.state)
 	_update_slide_sound()
 	# The CPU mirror follows the local player, not the view target: it is what
 	# the physics reads under this machine's racer, and it is never drawn. The
 	# GPU window, which is only ever drawn, follows the view target instead.
-	snow_cpu.recenter(local.state.position.x, local.state.position.z)
+	snow_cpu.recenter(roster.local.state.position.x, roster.local.state.position.z)
 	snow_cpu.decay(dt)
-
-## Tell everyone where everybody else is.
-##
-## The one thing a racer cannot read out of its own [RacePhysics]: the trees and
-## the herring are course furniture that was loaded with the course, and another
-## penguin is a body being integrated somewhere else on the same tick. Two
-## consumers, one array:
-##
-## - [member RacePhysics.rivals], which bounces off it — a contact between two
-##   racers, resolved independently and symmetrically by each of them;
-## - [member AIInputSource.rivals], which steers around it, so an opponent
-##   plans a line that does not need the contact resolved in the first place.
-##
-## Read before anyone advances, so every racer resolves the tick against the
-## same instant — the previous one — rather than against however far down the
-## list it happens to sit. The field is written in place and shared by
-## reference; each index is written with it so that a peer disconnecting, which
-## renumbers the list, cannot leave a racer bouncing off where it used to be
-## itself.
-##
-## [b]The ghost is not in it[/b] — see [method Racer.collides], which is also
-## why this cannot simply publish [member racers].
-func _refresh_rivals() -> void:
-	var slot: int = 0
-	for racer: Racer in racers:
-		if racer.collides():
-			slot += 1
-	_rivals.resize(slot)
-	slot = 0
-	for racer: Racer in racers:
-		if not racer.collides():
-			continue
-		_rivals.set_state(slot, racer.state.position, racer.state.velocity)
-		var sim := racer as SimulatedRacer
-		if sim != null and sim.physics != null:
-			sim.physics.rivals = _rivals
-			sim.physics.rival_index = slot
-			if sim.input_source is AIInputSource:
-				var ai: AIInputSource = sim.input_source
-				ai.rivals = _rivals.positions
-				ai.rival_index = slot
-		slot += 1
 
 ## Everything that follows the simulation and is allowed to run at the screen's
 ## rate rather than the simulation's: the camera lag, the streaming window, the
 ## particle rates and the deformation render target.
 func _present(delta: float) -> void:
-	for racer: Racer in racers:
+	for racer: Racer in roster.all:
 		if racer is SimulatedRacer:
 			(racer as SimulatedRacer).spray.flush(delta)
-	if view_target == null:
+	if roster.view_target == null:
 		return
-	var view: RacerState = view_target.view_state()
+	var view: RacerState = roster.view_target.view_state()
 	if intro_running:
-		camera.track(local.global_position, Vector3.ZERO, Vector3.UP, delta)
+		camera.track(roster.local.global_position, Vector3.ZERO, Vector3.UP, delta)
 	else:
-		camera.track(view.position, view.velocity, view_target.surface_normal(), delta)
+		camera.track(view.position, view.velocity, roster.view_target.surface_normal(), delta)
 	terrain.update_streaming(view.position)
 	if snow_deformation and snow_gpu != null:
 		snow_gpu.update(view.position.x, view.position.z, delta)
@@ -683,164 +510,65 @@ func _present(delta: float) -> void:
 #                          the start animation
 # ==================================================================
 
-## `CIntro` in the original: the course is up and lit, the racing theme is
-## already playing, and the character walks itself to the start line before the
-## simulation is handed the controls.
-##
-## Nothing here touches the simulation. The keyframe writes the body transform
-## directly — the original does the same thing, overwriting `ctrl->cpos` from
-## `CKeyframe::Update` every frame — and the simulation is stepped from the same
-## start point it was initialised at once the animation is done, so there is
-## nothing to hand over.
+## Hand over to [IntroSequence], which is the whole of the start animation.
 ##
 ## Skipped in a networked race. Four and a half seconds of walking is fine when
 ## it is your own clock; between peers it is four and a half seconds of nobody
 ## agreeing when the race began, and a countdown everyone starts on is a
 ## different feature from the original's start animation.
 func _begin_intro() -> void:
-	if local.rig == null or not local.rig.play_clip(INTRO_CLIP):
-		return
-	_intro_path = local.rig.path_for(INTRO_CLIP)
-	if _intro_path == null:
-		local.rig.stop_clip()
+	var course: CourseData = course_root.course_data
+	var start := Vector2(course.start_position.x, -course.start_position.y)
+	if not _intro.begin(roster.local, camera, course_root.surface, start):
 		return
 	running = false
-	local.running = false
+	roster.local.running = false
 	intro_running = true
-	_intro_time = 0.0
-	# `set_view_mode(ctrl, ABOVE)` — the one camera that does not need a
-	# direction of travel to point itself, which during the intro there is none of.
-	_camera_mode_before_intro = camera.mode
-	_camera_distance_before_intro = camera.distance
-	camera.mode = ChaseCamera.Mode.ABOVE
-	camera.distance = INTRO_CAMERA_DISTANCE
-	_apply_intro_pose(0.0)
-	local.snap()
-	local.present(1.0)
-	camera.reset()
-	camera.track(local.global_position, Vector3.ZERO, Vector3.UP, 0.0)
 
-func _step_intro(dt: float) -> void:
-	_intro_time += dt
-	if _intro_time >= _intro_path.duration():
-		_end_intro()
-		return
-	_apply_intro_pose(_intro_time)
-	local.rig.seek_clip(_intro_time)
-
-## Place the body where the keyframe says, on the hill rather than in it.
-##
-## `CKeyframe::Update` reads the authored Y as a clearance above the terrain and
-## adds `Course.FindYCoord` to it, which is why a canned animation plays on any
-## course. The rotation is the same yaw/pitch/roll the original hands node 0,
-## turned into the frame this scene positions the character in — see
-## [method CharacterRig.parent_basis_for].
-##
-## Writes the racer's state rather than its transform: the drawing still goes
-## through [method Racer.present], so the walk is interpolated between ticks
-## like everything else.
-func _apply_intro_pose(t: float) -> void:
-	var course: CourseData = course_root.course_data
-	var origin := Vector2(course.start_position.x, -course.start_position.y)
-	var offset: Vector3 = _intro_path.offset_at(t)
-	var x: float = origin.x + offset.x
-	var z: float = origin.y + offset.z
-	var basis: Basis = local.rig.parent_basis_for(_intro_path.basis_at(t))
-	var y: float = course_root.surface.height_at(x, z) + offset.y \
-		+ PhysConst.TUX_Y_CORR + INTRO_HEIGHT_CORRECTION
-	local.apply_pose(Vector3(x, y, z), basis)
-
-## Hand over to the simulation. Reached either by the animation running out or by
-## a key — the original aborts on any keypress too, and that is most of what the
-## intro is for: it is a four-and-a-half second pause you are meant to be able to
-## cut short.
+## Give the controls back to the simulation. Reached either by the animation
+## running out or by a key — the original aborts on any keypress too.
 func _end_intro() -> void:
 	if not intro_running:
 		return
+	_intro.finish()
 	intro_running = false
-	_intro_path = null
-	if local.rig != null:
-		local.rig.stop_clip()
-	camera.mode = _camera_mode_before_intro
-	camera.distance = _camera_distance_before_intro
-	camera.reset()
 	running = true
-	local.running = true
+	roster.local.running = true
 	# The intro left the racer standing at the start point; the simulation is
 	# about to carry on from where `init_at` put it. Collapsing the window stops
 	# the first frame interpolating between the two.
-	local.state.capture(local.physics, 0.0, 0)
-	local.snap()
+	roster.local.state.capture(roster.local.physics, 0.0, 0)
+	roster.local.snap()
 
 # ==================================================================
 #                            multiplayer
 # ==================================================================
 
-## A snapshot arrived. The peer's racer is created on first contact rather than
-## from the roster, so a packet that beats its sender's introduction still lands
-## somewhere — the name catches up when [signal RaceNetwork.roster_changed]
-## fires.
+## A snapshot arrived. [method RacerRoster.remote_for] builds the racer on
+## first contact rather than from the roster, so a packet that beats its
+## sender's introduction still lands somewhere — the name catches up when
+## [signal RaceNetwork.roster_changed] fires.
 func _on_snapshot_received(peer_id: int, packet: PackedFloat32Array) -> void:
-	var racer: PlaybackRacer = _remote.get(peer_id, null)
-	if racer == null:
-		racer = _spawn_remote(peer_id)
+	var racer: PlaybackRacer = roster.remote_for(peer_id)
 	racer.push_snapshot(packet)
 	racer.trim_history()
 
-func _spawn_remote(peer_id: int) -> PlaybackRacer:
-	var racer := PlaybackRacer.new()
-	racer.name = "Peer%d" % peer_id
-	racer.kind = Racer.Kind.REMOTE
-	racer.peer_id = peer_id
-	racer.display_name = Net.name_of(peer_id)
-	racer.interpolation_delay = RaceNetwork.INTERPOLATION_DELAY
-	racer.running = true
-	_add_racer(racer, Net.character_of(peer_id))
-	_remote[peer_id] = racer
-	print("racer %d (%s) is on the hill" % [peer_id, racer.display_name])
-	return racer
-
-## Names arrived, or someone left. A racer whose peer has gone is removed
-## outright rather than left standing on the slope — a motionless penguin at the
-## point the connection dropped is worse than an empty hill.
-func _sync_remote_racers() -> void:
-	for peer_id: int in _remote.keys():
-		if Net.roster.has(peer_id):
-			_remote[peer_id].display_name = Net.name_of(peer_id)
-			continue
-		var racer: PlaybackRacer = _remote[peer_id]
-		print("racer %d (%s) left" % [peer_id, racer.display_name])
-		racers.erase(racer)
-		racer.queue_free()
-		_remote.erase(peer_id)
-
-## Everyone on the hill, best progress first. What a standings HUD draws and
-## what decides a finishing order.
+## Everyone on the hill, best progress first. Forwarded rather than reached for
+## through [member roster]: the HUD and the result line have always asked the
+## race who is winning, and that is a fair question to ask it.
 func standings() -> Array[Racer]:
-	var ordered: Array[Racer] = racers.duplicate()
-	ordered.sort_custom(func(a: Racer, b: Racer) -> bool:
-		if a.finished != b.finished:
-			return a.finished
-		if a.finished and b.finished:
-			return a.finish_time < b.finish_time
-		return a.state.progress > b.state.progress)
-	return ordered
+	return roster.standings()
 
 ## Seconds the player is behind their ghost at the point they have reached.
 ## Negative is ahead; [constant INF] means there is no ghost, or it never got
 ## this far.
 func ghost_delta() -> float:
-	if ghost == null or local == null:
-		return INF
-	var when: float = ghost.time_at_progress(local.state.progress)
-	if when < 0.0:
-		return INF
-	return local.race_time - when
+	return roster.ghost_delta()
 
 ## Where [param racer] is in the field, counting from 1. Zero if they are not on
 ## this hill at all.
 func place_of(racer: Racer) -> int:
-	return standings().find(racer) + 1
+	return roster.place_of(racer)
 
 ## `1st`..`10th` from the imported string table, which is exactly as far as it
 ## goes — and exactly as far as a field of ten needs it to.
@@ -949,7 +677,7 @@ func _result_line() -> String:
 		tr("RACE_OVER"), tr("TIME"), race_time, tr("SECONDS"), tr("HERRING"), herring]
 	if not setup.is_race():
 		return line
-	return "%s %s   —   %s" % [tr("POSITION"), place_label(place_of(local)), line]
+	return "%s %s   —   %s" % [tr("POSITION"), place_label(place_of(roster.local)), line]
 
 func _apply_environment(preset: EnvironmentPreset) -> void:
 	var we: WorldEnvironment = $WorldEnvironment
@@ -962,7 +690,7 @@ func _apply_environment(preset: EnvironmentPreset) -> void:
 	_sun.light_energy = preset.sun_energy
 	_sun.look_at_from_position(Vector3.ZERO, -preset.sun_direction, Vector3.UP)
 	_sun.directional_shadow_max_distance = _shadow_range_for(env)
-	for racer: Racer in racers:
+	for racer: Racer in roster.all:
 		if racer is SimulatedRacer:
 			(racer as SimulatedRacer).spray.particle_color = preset.particle_color
 	if terrain != null:
@@ -998,7 +726,7 @@ func _shadow_range_for(env: Environment) -> float:
 
 func _on_item_collected(racer: SimulatedRacer, index: int) -> void:
 	course_root.hide_item(index)
-	if racer != local:
+	if racer != roster.local:
 		return
 	herring_changed.emit(racer.herring)
 	# Three cues, fired together, deliberately: the original has one voice per
@@ -1012,7 +740,7 @@ func _on_tree_hit(racer: SimulatedRacer, _tree_pos: Vector3) -> void:
 	# sound this player should hear. A distance-attenuated version of it is a
 	# real improvement and needs positional audio, which the one-voice-per-cue
 	# mixer does not have.
-	if racer == local:
+	if racer == roster.local:
 		Audio.play(&"tree_hit")
 
 ## The player ran into somebody. Only the player's own contacts are connected,
@@ -1029,9 +757,9 @@ func _on_racer_hit(_racer: SimulatedRacer, _rival: int) -> void:
 	Audio.play(&"tree_hit")
 
 func _on_racer_finished(racer: Racer) -> void:
-	if racer != local:
+	if racer != roster.local:
 		return
-	race_completed.emit(local.race_time, local.herring)
+	race_completed.emit(roster.local.race_time, roster.local.herring)
 	_store_ghost()
 	_show_menu_after_finish(_run_id)
 
@@ -1040,10 +768,10 @@ func _on_racer_finished(racer: Racer) -> void:
 ## screen to announce itself on, and this is the phase that has no results
 ## screen yet.
 func _store_ghost() -> void:
-	if local.recorder == null:
+	if roster.local.recorder == null:
 		return
-	var recording: RaceRecording = local.recorder.finish(
-		local.race_time, local.herring, true)
+	var recording: RaceRecording = roster.local.recorder.finish(
+		roster.local.race_time, roster.local.herring, true)
 	GhostStore.save_if_best(recording)
 
 ## Bring the menu up once the finish deceleration has played out, unless the
@@ -1074,7 +802,7 @@ func _show_menu_after_finish(run_id: int) -> void:
 ## no blend of terrains is ever silent when both halves make a noise.
 func _update_slide_sound() -> void:
 	var cue: StringName = &""
-	var sim: RacePhysics = local.physics
+	var sim: RacePhysics = roster.local.physics
 	if sim != null and not sim.airborne:
 		course_root.surface.sample_into(sim.pos.x, sim.pos.z, _slide_sample)
 		var layers: Array[TerrainLayer] = course_root.course_data.terrain_layers

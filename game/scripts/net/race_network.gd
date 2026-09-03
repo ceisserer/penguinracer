@@ -285,21 +285,12 @@ func _snapshot(packet: PackedFloat32Array) -> void:
 ## Returns whether a session was asked for, so the shell knows to skip straight
 ## to a race. [param default_port] is what the settings file says.
 func start_from_cmdline(default_port: int = DEFAULT_PORT) -> bool:
-	var wants_host: bool = false
-	var join_address: String = ""
-	var port: int = default_port
-	for arg: String in OS.get_cmdline_user_args():
-		if arg == "--host":
-			wants_host = true
-		elif arg.begins_with("--host="):
-			wants_host = true
-			port = arg.trim_prefix("--host=").to_int()
-		elif arg.begins_with("--join="):
-			join_address = arg.trim_prefix("--join=")
-	if wants_host:
+	var args: LaunchArgs = LaunchArgs.current()
+	var port: int = args.host_port if args.host_port > 0 else default_port
+	if args.host:
 		host(port)
 		return true
-	if not join_address.is_empty():
-		join(join_address, port)
+	if not args.join_address.is_empty():
+		join(args.join_address, port)
 		return true
 	return false

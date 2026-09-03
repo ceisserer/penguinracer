@@ -137,9 +137,8 @@ func quit_game(code: int = 0) -> void:
 func setup() -> void:
 	if _music != null:
 		return
-	for arg: String in OS.get_cmdline_user_args():
-		if arg == "--no-audio":
-			enabled = false
+	if LaunchArgs.current().no_audio:
+		enabled = false
 	_ensure_buses()
 	bank = SoundBank.load_default()
 	library = MusicLibrary.load_default()

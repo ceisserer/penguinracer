@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/race/race_scene.gd" id="1_race"]
 [ext_resource type="Script" path="res://scripts/camera/chase_camera.gd" id="2_cam"]
 [ext_resource type="Script" path="res://scripts/render/snow_field_gpu.gd" id="3_snow"]
 [ext_resource type="Script" path="res://scripts/shell/race_hud.gd" id="5_hud"]
 [ext_resource type="PackedScene" path="res://scenes/course_menu.tscn" id="6_menu"]
+[ext_resource type="Script" path="res://scripts/race/racer_roster.gd" id="7_roster"]
 
 [node name="Race" type="Node3D"]
 script = ExtResource("1_race")
@@ -25,6 +26,7 @@ fov = 70.0
 script = ExtResource("2_cam")
 
 [node name="Racers" type="Node3D" parent="."]
+script = ExtResource("7_roster")
 
 [node name="SnowFieldGPU" type="Node" parent="."]
 script = ExtResource("3_snow")

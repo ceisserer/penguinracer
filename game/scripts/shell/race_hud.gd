@@ -70,7 +70,7 @@ func _update_status() -> void:
 		_status.add_theme_color_override("font_color",
 			BEHIND_COLOR if delta > 0.0 else AHEAD_COLOR)
 		return
-	if race.racers.size() < 2:
+	if race.roster.all.size() < 2:
 		_status.text = ""
 		return
 	_show_standings()
@@ -85,7 +85,7 @@ func _update_status() -> void:
 ## the thing that makes a ghost delta a different measurement from this one.
 func _show_standings() -> void:
 	var ordered: Array[Racer] = race.standings()
-	var place: int = ordered.find(race.local) + 1
+	var place: int = ordered.find(race.roster.local) + 1
 	if place < 1:
 		_status.text = ""
 		return
@@ -100,4 +100,4 @@ func _show_standings() -> void:
 
 func _gap_line(arrow: String, other: Racer) -> String:
 	return "%s %s %.0f m" % [arrow, other.display_name,
-		absf(other.state.progress - race.local.state.progress)]
+		absf(other.state.progress - race.roster.local.state.progress)]

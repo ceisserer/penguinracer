@@ -12,6 +12,7 @@ static func run(t: TestCase) -> void:
 	_parsing(t)
 	_round_trip(t)
 	_fog_range(t)
+	_launch_args(t)
 
 ## A [GameConfig] that has not read a file: what a fresh install renders at.
 static func _defaults(t: TestCase) -> void:
@@ -171,3 +172,88 @@ static func _fog_range(t: TestCase) -> void:
 	c.apply_fog(env, no_fog)
 	t.ok(not env.fog_enabled, "apply_fog does not switch fog on")
 	c.free()
+
+## [LaunchArgs] is where the command line and the URL query became one list.
+##
+## The point of the class is that the two transports agree, so that is what is
+## asserted: the same run described both ways has to come out the same object.
+## Before it, six scripts walked the command line for their own flags and the
+## URL was read in one of them for four keys, so `?opponents=5` was silently
+## nothing — which is the kind of gap only a table like this one catches.
+static func _launch_args(t: TestCase) -> void:
+	t.begin("launch arguments")
+	var cli := LaunchArgs.new()
+	cli.parse(PackedStringArray([
+		"--course=bunny_hill", "--character=trixi", "--auto-input=carve",
+		"--camera=above", "--opponents=5", "--difficulty=hard",
+		"--remote-keyboard", "--no-audio", "--no-intro",
+		"--capture=/tmp/a.png", "--capture-frames=200",
+	]), {})
+	t.ok(cli.course == "bunny_hill", "the course is read")
+	t.ok(cli.course_scene_path() == "res://courses/bunny_hill/course.tscn",
+		"and resolves to a scene path")
+	t.ok(cli.character == "trixi", "the character is read")
+	t.ok(cli.auto_input == "carve", "the scripted input is read")
+	t.ok(cli.is_scripted(), "which makes this a scripted run")
+	t.ok(cli.camera == "above", "the camera mode is read")
+	t.ok(cli.opponents == 5, "the field size is read")
+	t.ok(cli.difficulty == "hard", "the difficulty is read, unparsed")
+	t.ok(cli.remote_keyboard, "the remote-keyboard flag is read")
+	t.ok(cli.no_audio and cli.no_intro, "the two silencing flags are read")
+	t.ok(cli.capture_path == "/tmp/a.png" and cli.capture_frames == 200,
+		"the capture request is read")
+
+	# The same run, described the way a browser has to describe it.
+	var url := LaunchArgs.new()
+	url.parse(PackedStringArray(), {
+		"course": "bunny_hill", "character": "trixi", "auto-input": "carve",
+		"camera": "above", "opponents": "5", "difficulty": "hard",
+		"remotekeyboard": "", "noaudio": "", "nointro": "",
+		"capture": "/tmp/a.png", "capture-frames": "200",
+	})
+	t.ok(url.course == cli.course and url.character == cli.character,
+		"a URL names the same course and character")
+	t.ok(url.auto_input == cli.auto_input and url.camera == cli.camera,
+		"and the same scripted input and camera")
+	t.ok(url.opponents == cli.opponents and url.difficulty == cli.difficulty,
+		"and the same field — which the URL could not ask for at all before")
+	t.ok(url.no_audio == cli.no_audio and url.no_intro == cli.no_intro
+		and url.remote_keyboard == cli.remote_keyboard, "and the same flags")
+	t.ok(url.capture_path == cli.capture_path
+		and url.capture_frames == cli.capture_frames, "and the same capture")
+
+	t.begin("launch arguments: what skips the menu")
+	# `--auto-input=` alone is enough; a bare `--capture=` deliberately is not,
+	# because that is how the shell itself gets screenshotted.
+	var empty := LaunchArgs.new()
+	empty.parse(PackedStringArray(), {})
+	t.ok(not empty.wants_direct_race(), "a bare run opens the menu")
+	t.ok(empty.opponents == LaunchArgs.NO_OPPONENTS,
+		"an unset field is not zero, which is a real answer")
+	var shot := LaunchArgs.new()
+	shot.parse(PackedStringArray(["--capture=/tmp/menu.png"]), {})
+	t.ok(not shot.wants_direct_race(), "a bare capture screenshots the menu")
+	t.ok(not shot.is_scripted(), "and is not a scripted run")
+	for argv: PackedStringArray in [
+			PackedStringArray(["--course=bunny_hill"]),
+			PackedStringArray(["--auto-input=carve"]),
+			PackedStringArray(["--host"]),
+			PackedStringArray(["--join=127.0.0.1"])]:
+		var a := LaunchArgs.new()
+		a.parse(argv, {})
+		t.ok(a.wants_direct_race(), "%s hands straight over to a race" % argv[0])
+	var auto := LaunchArgs.new()
+	auto.parse(PackedStringArray(), {"autostart": ""})
+	t.ok(auto.wants_direct_race(), "?autostart does too, for a browser")
+
+	t.begin("launch arguments: sessions")
+	var host := LaunchArgs.new()
+	host.parse(PackedStringArray(["--host=27100"]), {})
+	t.ok(host.host and host.host_port == 27100, "a port on --host= is read")
+	var bare := LaunchArgs.new()
+	bare.parse(PackedStringArray(["--host"]), {})
+	t.ok(bare.host and bare.host_port == 0,
+		"a bare --host leaves the port to the settings file")
+	var join := LaunchArgs.new()
+	join.parse(PackedStringArray(["--join=10.0.0.4"]), {})
+	t.ok(join.join_address == "10.0.0.4" and not join.host, "--join= is read")

@@ -2,6 +2,9 @@
 ##
 ##     godot --path game -- --capture=/tmp/shot.png --capture-frames=180
 ##
+## `?capture=` and `?capture-frames=` say the same thing in a browser; see
+## [LaunchArgs].
+##
 ## Inert unless `--capture=` is passed, so it costs nothing in a shipped build.
 ## Used to verify the renderer from a headless container and, with the same
 ## flags, from a browser-driven web export.
@@ -13,12 +16,10 @@ var _count: int = 0
 var _armed: bool = false
 
 func _ready() -> void:
-	for arg: String in OS.get_cmdline_user_args():
-		if arg.begins_with("--capture="):
-			_path = arg.trim_prefix("--capture=")
-			_armed = true
-		elif arg.begins_with("--capture-frames="):
-			_frames = arg.trim_prefix("--capture-frames=").to_int()
+	var args: LaunchArgs = LaunchArgs.current()
+	_path = args.capture_path
+	_frames = args.capture_frames
+	_armed = not _path.is_empty()
 	set_process(_armed)
 
 func _process(_delta: float) -> void:

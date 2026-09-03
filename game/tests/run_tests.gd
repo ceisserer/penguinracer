@@ -17,6 +17,7 @@ func _run() -> void:
 	var t := TestCase.new()
 	var start: int = Time.get_ticks_msec()
 
+	TestScripts.run(t)
 	TestForces.run(t)
 	TestSimulation.run(t)
 	TestSurface.run(t)
@@ -48,5 +49,19 @@ func _run() -> void:
 		print("  %.2f net-force evaluations per frame" % b["evals_per_frame"])
 		print("  %.0fx real time on this machine" % b["realtime_factor"])
 		print("  final speed %.1f m/s over %.0f m" % [b["final_speed"], b["distance"]])
+
+		# The two numbers that actually predict a frame. S2 measured the ODE
+		# loop, which was never the problem; a field of ten and the snow
+		# mirror's own maintenance are where the milliseconds were.
+		print("")
+		print("=== a full hill ===")
+		var f: Dictionary = BenchPhysics.run_field()
+		print("  %d racers, %d planning lines, one snow field" % [
+			f["racers"], f["racers"] - 1])
+		print("  %.4f ms per frame  (%.2f%% of a 16.7 ms budget)" % [
+			f["per_frame_ms"], f["budget_fraction"] * 100.0])
+		var s: Dictionary = BenchPhysics.bench_snow()
+		print("  SnowField.decay %.4f ms/tick, recenter %.4f ms/tick" % [
+			s["decay_ms"], s["recenter_ms"]])
 
 	quit(0 if t.failed == 0 else 1)
