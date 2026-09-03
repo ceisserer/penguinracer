@@ -380,12 +380,18 @@ it. Nothing else is needed and nothing is reserved for it.
 
 > Built 2026-09-02, and the prediction held with one correction. `AIInputSource` needed nothing
 > added to `InputSource`, `SimulatedRacer` or the presentation — but it did need one thing the
-> `RacePhysics` genuinely does not contain: **where the other racers are.** Nobody on this hill
-> collides with anybody (see the network model below), so a second penguin never enters anyone's
-> simulation, and two opponents that both wanted the same herring converged on it and rode the
-> rest of the course as one blurred penguin. `RaceScene` therefore writes every racer's position
-> into one shared array each tick and hands it to each opponent. It is presentation-quality rather
-> than correctness: an opponent will still drive through another to miss a tree.
+> `RacePhysics` genuinely does not contain: **where the other racers are.** A second penguin is a
+> body being integrated somewhere else on the same tick, so it can only arrive from outside, and
+> two opponents that both wanted the same herring converged on it and rode the rest of the course
+> as one blurred penguin. `RaceScene` therefore publishes one `RacerField` each tick and hands it
+> to each opponent. It is presentation-quality rather than correctness: an opponent will still
+> drive through another to miss a tree.
+>
+> **Corrected 2026-09-03: racers collide.** The same field is now read by `RacePhysics` as well as
+> by the planner, and a contact between two racers is resolved by each of them independently — the
+> equal-mass impulse applied to yourself against the other's published state, so what one body is
+> paid the other pays without either writing to the other or any authority arbitrating. See
+> the network-model correction below; a ghost is excluded (`Racer.collides()`).
 >
 > The other correction is that a difficulty setting had nowhere obvious to live and should not
 > live in the physics. `AISkill` is a table of driving habits — lookahead, reaction, nerve, paddle
@@ -408,10 +414,17 @@ of the force model so a stale trace refuses rather than lying.
 
 **Network model: everyone simulates themselves, nobody simulates anybody else.** Each peer
 broadcasts a snapshot 20 times a second and shows everyone else 150 ms behind the local clock. No
-authority over positions, no rollback, no prediction. Legitimate here because racers do not
-collide with each other and the surface is identical on every machine; *not* legitimate for a game
-where players push each other, and this design would have to be replaced rather than extended if
-one ever wanted that.
+authority over positions, no rollback, no prediction. Legitimate here because the surface is
+identical on every machine and the only shared mutable state is the herring.
+
+> **Corrected 2026-09-03.** This section said the model was legitimate *because racers do not
+> collide*, and that pushing each other would need it replaced rather than extended. That was too
+> strong. Players do push each other now, and the model survived, because the contact is symmetric
+> and each body applies it to itself (`RacePhysics._adjust_racer_collision`) — nothing has to be
+> arbitrated and nothing is sent that was not already in the snapshot stream. What does not
+> survive is *agreement*: each end resolves against the other as it was 150 ms ago, so a bump is
+> felt slightly differently on the two machines. An authority is what buys exact agreement, and it
+> is still not worth its price here.
 
 **Transport is ENet and therefore desktop-only.** A browser has no UDP socket. WebRTC delivers the
 same `MultiplayerAPI` with the same RPCs behind one factory function, and additionally needs a

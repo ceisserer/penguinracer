@@ -138,7 +138,10 @@ drive — easy, medium or hard. Both are remembered, and both can be changed fro
 so being beaten and trying again at a different setting takes two keypresses.
 
 An opponent is not a special kind of racer. It runs the same physics you do, on the same tick, over
-the same terrain, and it collects the same herring — first one there takes it. The only thing a
+the same terrain, and it collects the same herring — first one there takes it. It is also solid:
+ride into one and you both get shoved, at the cost of the speed you were closing at. Your own
+ghost is the one racer on the hill you cannot touch, because it is a recording of a run that has
+already happened and cannot be shoved back. The only thing a
 difficulty setting moves is how well it drives: how far ahead it looks, how quickly it reacts, how
 much room it insists on round a tree, how long it keeps paddling and how readily it brakes. Nothing
 in the force model is scaled for it, because every character in the original has identical physics

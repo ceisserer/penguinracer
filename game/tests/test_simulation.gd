@@ -14,6 +14,7 @@ static func run(t: TestCase) -> void:
 	_finish(t)
 	_items(t)
 	_trees(t)
+	_racer_contact(t)
 	_determinism(t)
 	_adaptive_step(t)
 
@@ -233,6 +234,100 @@ static func _trees(t: TestCase) -> void:
 	t.ok(hits[0] > 0, "driving into a tree registers a hit")
 	t.ok(p.vel.length() < speed_before, "a tree impact costs speed")
 	t.ok(p.vel.length() >= PhysConst.MIN_TUX_SPEED - 1e-6, "you are never stopped dead by a tree")
+
+## Two racers, two simulations, one shared [RacerField] — the arrangement
+## [method RaceScene._refresh_rivals] builds, driven here without a scene.
+##
+## The load-bearing assertions are that they end up beside each other rather
+## than inside each other, that neither is launched off the hill by the contact,
+## and — the one a scene cannot check — that a solo racer with a field
+## containing only itself drives exactly the line it drove before any of this
+## existed. Every reference capture in the repository is that racer.
+static func _racer_contact(t: TestCase) -> void:
+	t.begin("racers collide with each other")
+	var field := RacerField.new()
+	field.resize(2)
+	var sims: Array[RacePhysics] = [_sim(22.0), _sim(22.0)]
+	for i: int in 2:
+		sims[i].rivals = field
+		sims[i].rival_index = i
+	# Half a metre apart across the fall line, which is inside the 0.6 m contact
+	# distance: they are already touching on the start line.
+	sims[0].init_at(45.0, -5.0)
+	sims[1].init_at(45.5, -5.0)
+
+	var hits: Array[int] = [0, 0]
+	# A one-element array per racer, not two ints: a GDScript lambda captures by
+	# value, so a counter incremented inside one never reaches the caller.
+	sims[0].racer_hit.connect(func(_rival: int) -> void: hits[0] += 1)
+	sims[1].racer_hit.connect(func(_rival: int) -> void: hits[1] += 1)
+
+	var input := RaceInput.new()
+	var closest: float = INF
+	for tick: int in 300:
+		for i: int in 2:
+			field.set_state(i, sims[i].pos, sims[i].vel)
+		for i: int in 2:
+			sims[i].step(input, 1.0 / 60.0)
+		closest = minf(closest, Vector2(sims[0].pos.x - sims[1].pos.x,
+			sims[0].pos.z - sims[1].pos.z).length())
+
+	var apart: float = Vector2(sims[0].pos.x - sims[1].pos.x,
+		sims[0].pos.z - sims[1].pos.z).length()
+	t.ok(hits[0] > 0 and hits[1] > 0, "both racers register the contact (%d / %d)"
+		% [hits[0], hits[1]])
+	# Two racers on identical lines is the pathological case: nothing steers them
+	# apart, so the contact is sustained and they settle at the distance where
+	# the overlap push balances the friction taking the sideways speed back out.
+	# Beside each other, not inside each other, is the whole assertion.
+	var contact: float = sims[0].character_radius * 2.0
+	t.ok(closest > contact * 0.6, "never deeply overlapping (closest %.2f m)" % closest)
+	t.ok(apart > contact * 0.9, "and riding beside each other, not inside (%.2f m of %.2f m)"
+		% [apart, contact])
+	# Symmetrically: the pair started level and neither is entitled to the line.
+	t.eq_f(sims[0].pos.x - 45.0, 45.5 - sims[1].pos.x, 0.05,
+		"the shove is symmetrical — neither racer wins the contact")
+	t.ok(sims[0].pos.y > sims[0].surface.height_at(sims[0].pos.x, sims[0].pos.z) - 1.0
+		and sims[0].vel.length() < 40.0,
+		"a contact does not launch anybody off the hill")
+
+	# A body running into one that is standing still is stopped by it rather than
+	# passing through it — the case with no symmetry to it at all, and the one a
+	# remote peer being played back from snapshots looks like.
+	var runner := _sim(22.0)
+	var still := RacerField.new()
+	still.resize(2)
+	runner.rivals = still
+	runner.rival_index = 0
+	# On the terrain, not at the runner's own height: the contact test rejects
+	# anything more than a body length above or below, and twelve metres down a
+	# 22° slope is nearly five metres of drop.
+	var parked_z: float = runner.pos.z - 12.0
+	var parked := Vector3(runner.pos.x, runner.surface.height_at(runner.pos.x, parked_z), parked_z)
+	still.set_state(1, parked, Vector3.ZERO)
+	var closed: float = INF
+	for tick: int in 600:
+		still.set_state(0, runner.pos, runner.vel)
+		runner.step(input, 1.0 / 60.0)
+		closed = minf(closed, Vector2(runner.pos.x - parked.x, runner.pos.z - parked.z).length())
+		if runner.pos.z < parked.z - 2.0:
+			break
+	t.ok(closed >= 0.3, "a racer does not drive through a stationary one (%.2f m)" % closed)
+
+	# And the regression that matters most: a field with nobody else in it must
+	# not move a single float. Practice is every reference capture.
+	var solo := _sim(22.0)
+	var alone := RacerField.new()
+	alone.resize(1)
+	solo.rivals = alone
+	solo.rival_index = 0
+	for tick: int in 600:
+		alone.set_state(0, solo.pos, solo.vel)
+		solo.step(input, 1.0 / 60.0)
+	var untouched := _sim(22.0)
+	_drive(untouched, 10.0, input)
+	t.eq_v(solo.pos, untouched.pos, 1e-12,
+		"a racer alone in the field drives exactly as one with no field at all")
 
 static func _determinism(t: TestCase) -> void:
 	t.begin("determinism")

@@ -7,12 +7,21 @@
 ## local clock. There is no host authority over positions, no rollback and no
 ## prediction.
 ##
-## That is a real choice and it is the right one [i]for this game[/i]: racers do
-## not collide with each other, the surface is identical on every machine, and
-## the only shared mutable state on the course is the herring — so the worst a
-## divergence can do is put two penguins on slightly different lines through the
-## same hill, which nobody can see. A game where players push each other would
-## need an authority and this design would not survive first contact with one.
+## That is a real choice and it is the right one [i]for this game[/i]: the
+## surface is identical on every machine and the only shared mutable state on
+## the course is the herring, so the worst a divergence can do is put two
+## penguins on slightly different lines through the same hill.
+##
+## [b]Racers do collide, and it is resolved twice.[/b] The contact is symmetric
+## and each body applies it to itself against the other's published position
+## (see [method RacePhysics._adjust_racer_collision]), so no arbiter is needed
+## and nothing is sent that is not already in the snapshot stream. What that
+## costs is agreement: each peer resolves against the other as it was
+## [constant INTERPOLATION_DELAY] ago, so a hard shoulder-to-shoulder bump is
+## felt slightly differently at each end, and a fast glancing one can be felt at
+## one end and not the other. That is the honest price of having no authority;
+## the alternative is a server that owns every position, and this transport
+## would not survive one.
 ##
 ## [b]Web.[/b] ENet is UDP and a browser has no UDP socket, so this transport
 ## does not work in the web build — which ships to half of this project's

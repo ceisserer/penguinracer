@@ -82,6 +82,22 @@ func is_simulated() -> bool:
 func is_local() -> bool:
 	return kind == Kind.LOCAL
 
+## Whether this racer is a body the others bounce off.
+##
+## Everyone actually on the hill is — the player, the computer opponents, and a
+## remote peer, who is played back here but is being simulated for real on the
+## machine that owns them, where the same contact is resolved from the other
+## side. A [constant Kind.GHOST] is not: it is a recording of a run that has
+## already happened, and a player shoved off their line by their own best time
+## would be losing to something that cannot lose back. It is also the one racer
+## on the hill that cannot be pushed, so a collision with it could only ever go
+## one way.
+##
+## Read by [method RaceScene._refresh_rivals] when it builds the [RacerField];
+## this is the whole of "no collisions in ghost mode".
+func collides() -> bool:
+	return kind != Kind.GHOST
+
 ## Advance by one simulation tick. Overridden; the base racer stands still.
 func advance(_dt: float) -> void:
 	pass

@@ -449,10 +449,11 @@ became.
 **The network scaffold is ENet, peer-to-peer, and desktop-only.** `Net` (`scripts/net/race_network.gd`)
 hosts or joins a session; each peer simulates only itself and broadcasts a snapshot 20 times a
 second, and every other peer draws it as a `PlaybackRacer` read 150 ms behind the local clock.
-No host authority over positions, no rollback, no prediction — racers do not collide with each
-other, the surface is identical on every machine, and the only shared mutable state is the
-herring. Verified with two processes on one machine: both see the other on the hill, spawned off
-the first snapshot to arrive.
+No host authority over positions, no rollback, no prediction — the surface is identical on every
+machine and the only shared mutable state is the herring. Racers *do* collide, and that fits
+under a design with no authority only because the contact is resolved twice, once by each body
+(see **Racers collide** below). Verified with two processes on one machine: both see the other on
+the hill, spawned off the first snapshot to arrive.
 
 ```bash
 godot --path game -- --host --course=bunny_hill
@@ -547,13 +548,15 @@ at least 25 m apart, and each has to actually get down the hill.
 Between plans it steers at the aim point it last chose, which is what makes the interval a
 reaction time and not merely a saving. Paddling, braking and the weave are decided every tick.
 
-**Why the other racers have to be told.** Nobody on this hill collides with anybody — that is the
-multiplayer design and it is deliberate — so another penguin never appears in anyone's
-`RacePhysics`. Left to themselves, two opponents that both wanted the same herring converged on it
-and rode the rest of the course as one blurred penguin. `RaceScene._refresh_rivals` writes every
-racer's position into one shared array once a tick, before anybody advances, and hands it to each
-opponent with its own index in it. It is a soft penalty on a line rather than a collision: an
-opponent will still drive through another to miss a tree, because the tree is the one that hurts.
+**Why the other racers have to be told.** The trees and the herring were loaded with the course
+and are in every `RacePhysics` already; another penguin is a body being integrated somewhere else
+on the same tick, so it can only arrive from outside. `RaceScene._refresh_rivals` publishes one
+`RacerField` before anybody advances and hands it to every racer with its own index in it — the
+simulation bounces off it and the planner steers around it, so the racer an opponent avoids is
+exactly the one it would hit. The steering term is a *soft* penalty and much weaker than the
+tree's: an opponent will still drive through another to miss a trunk, because the trunk is the one
+that costs a race. Left with neither, two opponents that both wanted the same herring converged on
+it and rode the rest of the course as one blurred penguin.
 
 **It is deterministic.** The only randomness is a per-seat personality — weave phase, and a few
 per cent either way on lookahead, nerve, paddle discipline and tree clearance — drawn once at
@@ -581,6 +584,53 @@ frame per racer, so a full field is under half a millisecond — about 3 % of a 
 native, 4 % in the browser. Opponents get a quarter of the player's spray particle pool. A capture
 of Bunny Hill in Practice is byte-identical to one from before this work, outside the
 `GPUParticles3D` plume that is not reproducible between any two runs.
+
+### Racers collide · **done**
+
+Everyone on the hill is a body: the player, the computer field, and a peer over the network. Two
+of them touching is a contact and no longer a coincidence of drawing.
+
+**One field, published once a tick.** `RaceScene._refresh_rivals` fills a `RacerField` — a
+position and a velocity per racer, an `Array` shared by reference and rewritten in place — before
+anybody advances, so every racer resolves the tick against the same instant. `RacePhysics.rivals`
+and `rival_index` are the whole of the plumbing on the simulation side; the planner reads the same
+array (`AIInputSource.rivals` *is* `RacerField.positions`), so the racer an opponent steers around
+is exactly the one it would hit.
+
+**The contact is resolved twice, once by each body.** `_adjust_racer_collision` runs where the
+tree collision runs, at the end of each accepted ODE substep, and applies the textbook equal-mass
+impulse to *itself*: remove the closing component of the relative velocity along the horizontal
+line between the two centres, hand back `RACER_RESTITUTION` (0.35) of it. The other body computes
+the mirror image in its own simulation, so what one is paid the other pays with neither of them
+ever writing to the other — symmetrical to the tick rather than to the bit, since each resolves
+against the other's velocity as published at the start of it and its own as it is mid-substep.
+That is what makes this survivable under a
+peer-to-peer network with no authority anywhere — and it is why it works unchanged when the other
+body is a remote peer being played back from snapshots and not simulated on this machine at all.
+
+On top of the impulse sits an overlap term, a position error corrected through the only channel
+the simulation has: two bodies inside each other have no closing velocity to remove, and without
+it a narrow course that clamps two start lanes together would run the whole race with two penguins
+in one place. It is capped at 1.2 m/s at full overlap, so being nudged never reads as being fired.
+Two racers exactly on top of each other separate along a normal chosen by index, not by anything
+measured, so a replay lands on the same bit.
+
+**A ghost is not in the field.** `Racer.collides()` is the predicate and `Kind.GHOST` is the one
+that answers no: a recording of a run that already happened cannot be pushed back, and a player
+shoved off their line by their own best time would be losing to something that cannot lose. It is
+also the only racer on the hill that no contact can move, so a collision with it could only ever
+go one way.
+
+**What it changes for the player.** Running into somebody costs the speed you were closing at and
+plays `tree_hit` — the only impact cue the original ships, since ETR has nobody on its hill to run
+into. Only the local player's contacts are audible and only their own end of them is connected,
+or one bump would fire the cue twice.
+
+Covered by `tests/test_simulation.gd::_racer_contact`: two racers started half a metre apart end
+up beside each other rather than inside each other, the shove is symmetrical to within 5 cm over
+five seconds, nobody is launched, a moving racer does not drive through a stationary one, and — the
+assertion that guards every reference capture in the repository — a racer alone in a field of one
+drives to within 1e-12 of one with no field at all.
 
 ## Known gaps
 
@@ -669,10 +719,22 @@ of Bunny Hill in Practice is byte-identical to one from before this work, outsid
   height field, so it cannot see that the fast line is over a roll rather than round it, and it
   cannot tell a drop from a slope. A terrain sample is taken for friction only. Adding relief to
   the score is the obvious next thing and needs no new machinery.
-- **Nobody collides, so a field can still overlap.** The rival penalty is soft and only looks
-  ahead; two racers converging from behind, or one overtaking through a gap it has to take, will
-  briefly share a square metre. Making that impossible means collisions between racers, which is a
-  different feature and one the peer-to-peer network design would not survive.
+- **A collision between two peers is agreed on only approximately.** Each end resolves the
+  contact against where the other was `INTERPOLATION_DELAY` (150 ms) ago, so a hard
+  shoulder-to-shoulder bump is felt slightly differently on the two machines and a fast glancing
+  one can be felt at one end and not the other. That is the honest price of having no authority
+  over positions; closing it means a server that owns every racer, which this transport would not
+  survive. Between local racers — the player and the computer field — there is no such gap and the
+  pair is exactly symmetrical.
+- **A contact is a velocity impulse and not a solver.** One pass per ODE substep, no position
+  correction and no simultaneous resolution of a pile-up, so ten racers shoved into the same
+  square metre resolve pairwise over a few ticks rather than at once. The overlap term is what
+  stops that reading as bodies inside each other; nothing stops a racer being squeezed against a
+  tree, which is a wall and does not move.
+- **Nobody can be knocked over, off their line hard, or out of a race.** The response is
+  horizontal, restitution 0.35, and the physics has no notion of a crash state — ETR's own tree
+  hit is the same shape, a velocity deflection and nothing else. Being barged is a lost second,
+  never a fall.
 - **A race is not a cup and there is no results screen.** The finishing place is one line on the
   panel that already comes up after the line. No podium, no per-racer times, no points table —
   those belong with the imported `EventSet` data and the profiles that are still to come.

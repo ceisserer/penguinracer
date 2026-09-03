@@ -144,8 +144,8 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 | 4 — character | rig + canned clips done for **all five characters**, procedural layer not started — welded ArrayMesh from `shape.lst` **skinned** to a Skeleton3D with ETR joint names, the four keyframe lists as an AnimationLibrary plus a `KeyframePath` of root motion each, and the pre-race start animation (`CIntro`) wired into the race. Tux, Trixi, Boris, Samuel and Beastie each carry their own shape and their own clips; `resources/characters.tres` indexes them and `GameConfig.character` picks one. No additive layer over racing (`AdjustJoints`); finish/wonrace/lostrace imported but not played. |
 | 5 — game shell | partial — `main_menu.tscn` is the main scene: Practice opens the course list, *Race the computer* opens the same list with a field of 1–9 opponents behind it, Configuration edits `penguinracer.cfg` graphically, and a race is a scene the shell hands over to and takes back. `character_menu.tscn` is the character half of `CRegist` — arrows over a framed name with the migrated 128x128 preview under it. Every screen wears `themes/etr_menu.tres`, so the shell reads as the original's: the flat `colBackgr` blue, white text, `colDYell` on whatever has focus, square white-outlined frames. Generated course and character catalogs, 13 languages wired to `tr()`, audio (10 effects + 10 pieces + 3 racing themes on an `AudioDirector` autoload that reproduces ETR's one-voice-per-cue mixer). No cups, medals or profiles (data is imported and waiting; the player half of `CRegist` waits on them); no volume or language controls on the settings screen; none of ETR's menu art (corner ornaments, title logo), which waits on the licence audit. |
 | 6 — polish/ship | not started. |
-| computer opponents | **done** — beyond the original, which has nobody on the hill. `RaceSetup` is the whole mode switch: 0 opponents is Practice and 1–9 is a race, chosen on the course screen and remembered in `penguinracer.cfg`. An opponent is a `SimulatedRacer` driven by an `AIInputSource` — the seam the racer layer was built for, used with no change to it. It plans an aim point every `AISkill.plan_interval` ticks by scoring nine candidate lines against trees, the play bounds, swerve cost, its own lane, the friction ahead, herring and the other racers. **The three levels move driving habits and never the physics**: lookahead, reaction, nerve, how long they paddle, how readily they brake. Measured over 30 s of a 22° slope: easy 231 m, medium 333 m, hard 422 m, a player holding the accelerator straight 413 m. Deterministic — the only randomness is a per-seat personality drawn once from a seed. No jumps, no tricks, no cups. |
-| multiplayer foundation | seams built, ghosts working, network scaffold desktop-only — beyond the original, plan §8.4. The simulation runs on a fixed 60 Hz tick with interpolated presentation; `RaceScene` owns a list of `Racer`s, split into `SimulatedRacer` (a `RacePhysics` fed by an `InputSource`) and `PlaybackRacer` (a `RacerStateStream` read by time). Ghosts are finished end to end: every run is recorded, a completed best is written to `user://ghosts/<course>.res`, and the next race draws it translucent with the gap in seconds on the HUD. `Net` hosts/joins an ENet session over `--host`/`--join=` and each peer broadcasts 20 snapshots a second. No lobby, no countdown, no web (ENet is UDP). |
+| computer opponents | **done** — beyond the original, which has nobody on the hill. `RaceSetup` is the whole mode switch: 0 opponents is Practice and 1–9 is a race, chosen on the course screen and remembered in `penguinracer.cfg`. An opponent is a `SimulatedRacer` driven by an `AIInputSource` — the seam the racer layer was built for, used with no change to it. It plans an aim point every `AISkill.plan_interval` ticks by scoring nine candidate lines against trees, the play bounds, swerve cost, its own lane, the friction ahead, herring and the other racers. **The three levels move driving habits and never the physics**: lookahead, reaction, nerve, how long they paddle, how readily they brake. Measured over 30 s of a 22° slope: easy 231 m, medium 333 m, hard 422 m, a player holding the accelerator straight 413 m. Deterministic — the only randomness is a per-seat personality drawn once from a seed. Opponents are solid: everyone on the hill bounces off everyone else through the shared `RacerField` (see the deviations), which is why the steering term only has to keep them out of each other's way rather than out of each other. No jumps, no tricks, no cups. |
+| multiplayer foundation | seams built, ghosts working, network scaffold desktop-only — beyond the original, plan §8.4. The simulation runs on a fixed 60 Hz tick with interpolated presentation; `RaceScene` owns a list of `Racer`s, split into `SimulatedRacer` (a `RacePhysics` fed by an `InputSource`) and `PlaybackRacer` (a `RacerStateStream` read by time). Ghosts are finished end to end: every run is recorded, a completed best is written to `user://ghosts/<course>.res`, and the next race draws it translucent with the gap in seconds on the HUD. `Net` hosts/joins an ENet session over `--host`/`--join=` and each peer broadcasts 20 snapshots a second. A peer is a body like any other — the local player collides with it against the snapshot stream, and the machine that owns it resolves the same contact from its side. No lobby, no countdown, no web (ENet is UDP). |
 
 ### Spikes
 
@@ -473,6 +473,13 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   leaves `hits` at zero — which in a test is worse than a crash, because the assertion that the
   opponent hit no trees passed on every run including the ones where it hit eleven. Capture a
   one-element `Array` instead; arrays are references.
+- **A contact resolved through velocity alone settles *inside* the contact distance, not at it.**
+  Two racers on identical lines are held apart by `_adjust_racer_collision`'s overlap term, which
+  is proportional to how far inside each other they are — so it necessarily balances somewhere
+  short of touching-and-no-further, at 0.57 m of a 0.6 m contact rather than at 0.6. That is the
+  correct behaviour of a spring with no position correction and not a bug to tune out; the
+  assertion to write is "beside each other rather than inside each other", against the contact
+  distance, not against a number typed into the test.
 - **An obstacle that moves with you is not scored like one that stands still.** The first cut of
   the AI's rival avoidance measured, for each candidate line, the distance from that line to the
   other racer — the same test it uses for a tree. Every candidate line starts at the racer's own
@@ -599,15 +606,29 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   that course would come out with a second penguin on the slope, differing between machines for
   no reason visible in the frame.
 - **Every peer simulates only itself and broadcasts snapshots.** No host authority over positions,
-  no rollback, no prediction — racers do not collide with each other, the surface is identical
-  everywhere, and the only shared mutable state on the course is the herring. A game where players
-  pushed each other would need an authority and this design would not survive one.
+  no rollback, no prediction — the surface is identical everywhere and the only shared mutable
+  state on the course is the herring. Collisions between racers fit under that without an
+  authority *because they are resolved twice*: see the next entry.
+- **Racers collide with each other, and it is resolved independently by each of them.** ETR has
+  nobody on its hill to hit, so there is nothing to port — `RacePhysics._adjust_racer_collision` is
+  the tree collision made symmetrical. Each body reads the others out of a `RacerField` the scene
+  publishes once a tick and applies the textbook equal-mass impulse to *itself* (restitution 0.35,
+  horizontal, plus an overlap term that separates two bodies with no closing velocity between
+  them). What one body is paid the other pays, with neither writing to the other, which is what
+  lets the other body be a remote peer that is not simulated on this machine at all. Symmetrical
+  to the tick, not to the bit: each resolves against the other's velocity as published at the
+  start of it. What it
+  costs is agreement: a peer is resolved against where it was `INTERPOLATION_DELAY` ago, so a hard
+  bump is felt slightly differently at each end. **A ghost is not in the field** — `Racer.collides()`
+  is the predicate — because a recording of a run that already happened cannot be pushed back.
 - **Herring are shared and first come, first served** between simulated racers, because
   `RacePhysics.items` is one `ObjectGrid`. A ghost cannot take one — it is not simulated and never
   touches the grid — and over the network each machine only removes what its own racers collected.
-- **Only the local player's slide and tree hits are audible.** The migrated mixer has one voice
+- **Only the local player's slide and impacts are audible.** The migrated mixer has one voice
   per cue and no positional audio, so another racer's collision three hundred metres up the hill
-  would be indistinguishable from your own.
+  would be indistinguishable from your own. Running into another racer plays `tree_hit`, the only
+  impact cue the original ships: a collision the player can feel in the steering and cannot hear
+  reads as the physics glitching.
 - **There are computer opponents, and the original has none.** ETR races the clock: `CRacing`
   simulates one `CControl` and the only other times on the hill are the highscore table's. A field
   of 1–9 is a second mode beside Practice, chosen on the course screen. What it deliberately is
@@ -616,10 +637,12 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   does this. `AISkill` moves habits only: lookahead, reaction, nerve, paddle discipline, tree
   clearance, weave.
 - **An opponent is told where the other racers are.** Everything else an `AIInputSource` reads is
-  in its own `RacePhysics`; the racers are not, because nobody on this hill collides with anybody
-  and so no racer ever enters another's simulation. Without it, two opponents that both want the
-  same herring converge on it and ride the rest of the course as one blurred penguin. It is a soft
-  penalty on a line, not a collision — an opponent will drive through another to miss a tree.
+  in its own `RacePhysics`; the racers are not, because they are bodies being integrated elsewhere
+  on the same tick. They arrive as the same `RacerField` the simulation bounces off, so the racer
+  an opponent steers around is exactly the one it would hit. The steering term is a *soft* penalty
+  and deliberately much weaker than the tree's — an opponent will drive through another to miss a
+  trunk, because the trunk is the one that costs a race. Without it, two opponents that both want
+  the same herring converge on it and spend the rest of the course shouldering each other.
 - **A race against opponents draws no ghost**, whatever `[game] ghosts` says. The HUD has one
   status line, and with a field on the hill that line is the standings; a translucent copy of
   yourself beside eight racers is one more thing to mistake for one of them. The run is still

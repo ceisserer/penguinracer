@@ -184,9 +184,10 @@ var _run_id: int = 0
 var _sim_lead: float = 0.0
 
 var _racers_root: Node3D
-## Every racer's position, rebuilt in place each tick and shared by reference
-## with the opponents. See [method _refresh_rivals].
-var _rival_positions: Array[Vector3] = []
+## Where everyone who is a body on the hill is, rebuilt in place each tick and
+## shared by reference with every simulation and every opponent. See
+## [method _refresh_rivals].
+var _rivals := RacerField.new()
 var _remote: Dictionary[int, PlaybackRacer] = {}
 var _sun: DirectionalLight3D
 
@@ -314,6 +315,7 @@ func _create_local_racer() -> void:
 	view_target = local
 	local.item_collected.connect(_on_item_collected)
 	local.tree_hit.connect(_on_tree_hit)
+	local.racer_hit.connect(_on_racer_hit)
 	local.finished_race.connect(_on_racer_finished)
 
 func _local_character_dir() -> String:
@@ -615,29 +617,47 @@ func _simulation_tick(dt: float) -> void:
 	snow_cpu.recenter(local.state.position.x, local.state.position.z)
 	snow_cpu.decay(dt)
 
-## Tell the opponents where everybody is.
+## Tell everyone where everybody else is.
 ##
-## The one thing an [AIInputSource] cannot read out of its own [RacePhysics],
-## because racers do not collide and so never enter one another's simulation.
-## Read before anyone advances, so every opponent plans against the same
-## instant — the previous tick — rather than against however far down the list
-## it happens to sit.
+## The one thing a racer cannot read out of its own [RacePhysics]: the trees and
+## the herring are course furniture that was loaded with the course, and another
+## penguin is a body being integrated somewhere else on the same tick. Two
+## consumers, one array:
 ##
-## The array is written in place and shared by reference; the index is written
-## with it so that a peer disconnecting, which renumbers the list, cannot leave
-## an opponent swerving to avoid itself.
+## - [member RacePhysics.rivals], which bounces off it — a contact between two
+##   racers, resolved independently and symmetrically by each of them;
+## - [member AIInputSource.rivals], which steers around it, so an opponent
+##   plans a line that does not need the contact resolved in the first place.
+##
+## Read before anyone advances, so every racer resolves the tick against the
+## same instant — the previous one — rather than against however far down the
+## list it happens to sit. The field is written in place and shared by
+## reference; each index is written with it so that a peer disconnecting, which
+## renumbers the list, cannot leave a racer bouncing off where it used to be
+## itself.
+##
+## [b]The ghost is not in it[/b] — see [method Racer.collides], which is also
+## why this cannot simply publish [member racers].
 func _refresh_rivals() -> void:
-	if opponents.is_empty():
-		return
-	_rival_positions.resize(racers.size())
-	for i: int in racers.size():
-		_rival_positions[i] = racers[i].state.position
-		var sim := racers[i] as SimulatedRacer
-		if sim == null or not (sim.input_source is AIInputSource):
+	var slot: int = 0
+	for racer: Racer in racers:
+		if racer.collides():
+			slot += 1
+	_rivals.resize(slot)
+	slot = 0
+	for racer: Racer in racers:
+		if not racer.collides():
 			continue
-		var ai: AIInputSource = sim.input_source
-		ai.rivals = _rival_positions
-		ai.rival_index = i
+		_rivals.set_state(slot, racer.state.position, racer.state.velocity)
+		var sim := racer as SimulatedRacer
+		if sim != null and sim.physics != null:
+			sim.physics.rivals = _rivals
+			sim.physics.rival_index = slot
+			if sim.input_source is AIInputSource:
+				var ai: AIInputSource = sim.input_source
+				ai.rivals = _rivals.positions
+				ai.rival_index = slot
+		slot += 1
 
 ## Everything that follows the simulation and is allowed to run at the screen's
 ## rate rather than the simulation's: the camera lag, the streaming window, the
@@ -994,6 +1014,19 @@ func _on_tree_hit(racer: SimulatedRacer, _tree_pos: Vector3) -> void:
 	# mixer does not have.
 	if racer == local:
 		Audio.play(&"tree_hit")
+
+## The player ran into somebody. Only the player's own contacts are connected,
+## for the reason above — and only the player's, not the opponents', because a
+## contact is resolved by both bodies and connecting both ends would fire the
+## cue twice for one bump.
+##
+## DEVIATION: `tree_hit` is the sound of hitting a tree, and it is the only
+## impact the original ships — there is nobody on its hill to run into, so there
+## is no cue for it. Reusing the thud is closer to right than silence: a
+## collision the player can feel in the steering and cannot hear reads as the
+## physics glitching.
+func _on_racer_hit(_racer: SimulatedRacer, _rival: int) -> void:
+	Audio.play(&"tree_hit")
 
 func _on_racer_finished(racer: Racer) -> void:
 	if racer != local:

@@ -18,6 +18,12 @@ signal substep_advanced(h: float, pos: Vector3, speed: float)
 signal item_collected(index: int)
 ## Emitted on each new tree impact (not re-emitted while still overlapping).
 signal tree_hit(tree_pos: Vector3)
+## Emitted on each new contact with another racer, carrying their slot in
+## [member rivals] (not re-emitted while the two are still touching).
+##
+## DEVIATION: the original has nobody else on the hill to hit. See
+## [method _adjust_racer_collision].
+signal racer_hit(rival: int)
 ## Emitted when the player crosses the finish line.
 signal race_finished()
 
@@ -41,6 +47,23 @@ var bounds_polygon: PackedVector2Array = PackedVector2Array()
 ## vs. polyhedron narrowphase (see godot-port-plan.md §3.3).
 var character_radius: float = 0.3
 var character_height: float = 0.6
+
+## Everyone on the hill this tick, or null when there is nobody to hit — a
+## practice run, a headless test, the racer being replayed from a trace.
+##
+## DEVIATION: the original races the clock, so a body never had a body to hit.
+## Set once a tick by [method RaceScene._refresh_rivals], before anybody
+## advances, so every racer resolves its contacts against the same instant. See
+## [RacerField] for why the ghost is not in it.
+var rivals: RacerField = null
+## This body's own slot in [member rivals], so it cannot collide with itself.
+## -1 when it is not in the list at all.
+##
+## Written alongside the positions rather than fixed at construction, because a
+## peer leaving the session renumbers everyone behind it — and an index left
+## pointing at the wrong racer is a body permanently colliding with a ghost of
+## where it used to be.
+var rival_index: int = -1
 
 # ---------------------------------------------------------------- state
 
@@ -110,6 +133,10 @@ var _last_collision: bool = false
 var _last_collision_tree: Vector3 = Vector3(-999, -999, -999)
 var _last_collision_pos: Vector3 = Vector3(-999, -999, -999)
 var _was_colliding: bool = false
+## Which rival this body was touching on the previous substep, so a contact is
+## announced when it begins rather than sixty times a second while it lasts.
+## -1 is "touching nobody".
+var _touching_rival: int = -1
 var _query_buf: PackedInt32Array = PackedInt32Array()
 
 ## Diagnostic counter: net-force evaluations since construction. The ODE inner
@@ -119,6 +146,18 @@ var force_evals: int = 0
 
 const MAX_JUMP_AMT := 1.0
 const ROLL_DECAY := 0.2
+
+# --- racer-against-racer contact (DEVIATION; see _adjust_racer_collision) ---
+
+## How bouncy a penguin is. Zero would have two racers ride along glued
+## together at the same speed; one would make the hill a snooker table. A third
+## is a shoulder-barge: you both get moved, and neither of you gets launched.
+const RACER_RESTITUTION := 0.35
+## Fastest the overlap term alone may push two bodies apart, m/s. This is a
+## position error being corrected through the velocity — the only channel this
+## simulation has — so it has to be small enough that being nudged never reads
+## as being fired.
+const RACER_PUSH_SPEED := 1.2
 const JUMP_MAX_START_HEIGHT := 0.30
 const FIN_AIR_BRAKE := 20.0
 
@@ -166,6 +205,7 @@ func init_at(start_x: float, start_z: float) -> void:
 	_last_collision = false
 	_last_collision_pos = Vector3(-999, -999, -999)
 	_was_colliding = false
+	_touching_rival = -1
 
 # ====================================================================
 #                              input
@@ -512,6 +552,10 @@ func _solve_ode_system(timestep: float) -> void:
 				h = 5.0 * h
 		h = adjust_time_step(h, new_vel)
 		new_vel = _adjust_tree_collision(new_pos, new_vel)
+		# After the tree, so a racer pinned between the two comes out of the
+		# contact going where the trunk allows: the tree is scenery and does not
+		# move, and the other racer can be shoved.
+		new_vel = _adjust_racer_collision(new_pos, new_vel)
 		_check_item_collection(new_pos)
 
 	_ode_time_step = h
@@ -579,6 +623,89 @@ func _adjust_tree_collision(p: Vector3, v: Vector3) -> Vector3:
 		var factor: float = 0.5 if airborne else 1.5
 		out_vel = (out_vel + (-factor * costheta) * tree_nml).normalized()
 	return out_vel * maxf(speed, min_speed)
+
+## Bounce off the other racers. Returns the velocity to carry on with.
+##
+## DEVIATION: ETR races the clock and has nobody on the hill to hit, so there is
+## nothing to port here — this is the same shape as the tree above, made
+## symmetrical.
+##
+## [b]Two equal masses, resolved twice.[/b] There is no arbiter of a collision
+## between two racers and deliberately no authority anywhere in this game (see
+## [RaceNetwork]): each body sees the other in its own [member rivals] and
+## applies the [i]same[/i] impulse to itself, with the normal reversed — so what
+## one body is paid the other pays, and neither ever writes to the other. That
+## is what keeps this working unchanged when the other body is a remote peer
+## being played back from snapshots and is not being simulated on this machine
+## at all.
+##
+## It is symmetrical to the tick and not to the bit: each body resolves against
+## the other's velocity as it was published at the start of the tick and its own
+## as it is right now, mid-substep, so the two halves are computed from slightly
+## different instants. Two racers shoved apart from rest come out even to within
+## a few centimetres over five seconds, which is the accuracy this needs.
+##
+## The impulse is the textbook equal-mass one — remove the closing component of
+## the relative velocity and give back [constant RACER_RESTITUTION] of it — and
+## it is horizontal, because a shoulder-barge should move you across the hill
+## and not into the air. On top of it sits an overlap term, which is a position
+## error being corrected through the only channel this simulation has: without
+## it two bodies that start inside each other (a narrow course clamps its start
+## lanes together) have no closing velocity to remove and stay inside each other
+## for the whole run.
+func _adjust_racer_collision(p: Vector3, v: Vector3) -> Vector3:
+	if rivals == null or rivals.is_empty():
+		_touching_rival = -1
+		return v
+	var contact: float = character_radius * 2.0
+	var out_vel: Vector3 = v
+	var hit: int = -1
+	for i: int in rivals.size():
+		if i == rival_index:
+			continue
+		var other: Vector3 = rivals.position_of(i)
+		# A body height apart vertically is a miss: somebody landing a jump on
+		# top of you is a contact, somebody sailing over you is not. Same
+		# measure the tree test uses, and the same one for both bodies.
+		if absf(other.y - p.y) > character_height:
+			continue
+		var dx: float = p.x - other.x
+		var dz: float = p.z - other.z
+		var d2: float = dx * dx + dz * dz
+		if d2 > contact * contact:
+			continue
+
+		# Two racers exactly on top of each other have no normal to separate
+		# along. Break the tie by index rather than by anything measured, so the
+		# result is the same on every machine and in every replay.
+		var n: Vector3
+		var dist: float
+		if d2 < 1e-8:
+			n = Vector3.RIGHT if rival_index < i else Vector3.LEFT
+			dist = 0.0
+		else:
+			dist = sqrt(d2)
+			n = Vector3(dx / dist, 0.0, dz / dist)
+
+		var relative: Vector3 = out_vel - rivals.velocity_of(i)
+		var closing: float = relative.dot(n)
+		if closing < 0.0:
+			out_vel += n * (-(1.0 + RACER_RESTITUTION) * 0.5 * closing)
+		# Whatever the impulse did, leave the pair separating at a rate that
+		# scales with how far inside each other they are.
+		var push: float = RACER_PUSH_SPEED * clampf((contact - dist) / contact, 0.0, 1.0)
+		var outward: float = out_vel.dot(n)
+		if outward < push:
+			out_vel += n * (push - outward)
+		hit = i
+
+	# Announced once per contact spell, not once per rival: a racer squeezed
+	# between two others alternates between them substep by substep, and a cue
+	# per alternation is a machine gun rather than a bump.
+	if hit >= 0 and _touching_rival < 0:
+		racer_hit.emit(hit)
+	_touching_rival = hit
+	return out_vel
 
 func _check_item_collection(p: Vector3) -> void:
 	if items == null or items.size() == 0:

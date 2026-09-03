@@ -25,6 +25,7 @@ static func run(t: TestCase) -> void:
 	_ghost_store(t)
 	_playback_racer(t)
 	_remote_racer(t)
+	_who_collides(t)
 
 # ------------------------------------------------------------------
 
@@ -410,3 +411,36 @@ static func _remote_racer(t: TestCase) -> void:
 		racer.advance(DT)
 	t.eq_v(racer.state.position, held, 1e-6, "a peer that goes quiet holds its last pose")
 	racer.free()
+
+## Who is a body and who is a picture. A ghost is the whole reason this
+## predicate exists — everything else on the hill is being simulated somewhere,
+## even a remote peer, who is a [PlaybackRacer] here and a [SimulatedRacer] on
+## the machine that owns them.
+static func _who_collides(t: TestCase) -> void:
+	t.begin("what a racer collides with")
+	var expected: Dictionary[Racer.Kind, bool] = {
+		Racer.Kind.LOCAL: true,
+		Racer.Kind.AI: true,
+		Racer.Kind.REMOTE: true,
+		Racer.Kind.GHOST: false,
+	}
+	for kind: Racer.Kind in expected:
+		var racer := Racer.new()
+		racer.kind = kind
+		t.ok(racer.collides() == expected[kind],
+			"kind %d %s a body on the hill" % [kind, "is" if expected[kind] else "is not"])
+		racer.free()
+
+	# And the field the scene publishes keeps the two arrays in step, because a
+	# position read against somebody else's velocity is a contact resolved
+	# against a racer who is not there.
+	var field := RacerField.new()
+	field.resize(3)
+	t.ok(field.size() == 3 and field.velocities.size() == 3, "a field sizes both columns")
+	field.set_state(1, Vector3(1.0, 2.0, 3.0), Vector3(4.0, 5.0, 6.0))
+	t.eq_v(field.position_of(1), Vector3(1.0, 2.0, 3.0), 1e-9, "and stores a position")
+	t.eq_v(field.velocity_of(1), Vector3(4.0, 5.0, 6.0), 1e-9, "and the velocity beside it")
+	# Shared by reference, not by value: nine opponents hold this very array.
+	var shared: Array[Vector3] = field.positions
+	field.set_state(0, Vector3(9.0, 0.0, 0.0), Vector3.ZERO)
+	t.eq_v(shared[0], Vector3(9.0, 0.0, 0.0), 1e-9, "and is shared by reference")

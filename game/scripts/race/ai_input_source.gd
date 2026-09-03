@@ -30,14 +30,18 @@
 ## Paddling, braking and the weave are decided every tick from the skill.
 ##
 ## [b]The one thing it is told rather than shown[/b] is where the other racers
-## are ([member rivals]). Everything else on this list is in the simulation
-## already, but the racers are not: nobody on this hill collides with anybody, by
-## design (see [RaceNetwork]), so another penguin never appears in anyone's
-## [RacePhysics]. Without this, two opponents that both want the same herring
-## converge on it and ride the rest of the course as one blurred penguin —
-## which is not a physical problem and is very much a visible one. It is a soft
-## penalty on a line, not a collision: an opponent will still drive through
-## another to avoid a tree, because the tree is the one that actually hurts.
+## are ([member rivals]). Everything else on this list is course furniture that
+## was loaded with the course; another penguin is a body being integrated
+## somewhere else on the same tick, and it reaches a racer through the
+## [RacerField] the scene publishes. The simulation reads that field too, and
+## bounces off it — so unlike a tree, a rival is something an opponent can
+## survive hitting.
+##
+## What is scored here is therefore a [i]soft[/i] penalty, and deliberately much
+## weaker than the tree's: an opponent will drive through another to avoid a
+## trunk, because the trunk is the one that actually costs a race. Without any
+## penalty at all, two opponents that both want the same herring converge on it
+## and spend the rest of the course shouldering each other down the hill.
 ##
 ## [b]It is deterministic.[/b] The only randomness is a per-opponent personality
 ## drawn once from a seeded [RandomNumberGenerator] at construction; nothing is
@@ -48,9 +52,9 @@
 ## [b]What it does not do.[/b] It never jumps, never charges a jump and never
 ## does a trick: the jump force is a fixed 294 N impulse that costs contact with
 ## the snow, and nothing in this force model makes leaving the ground faster.
-## Nor does it avoid the other racers — nobody on this hill collides with
-## anybody, by design (see [RaceNetwork]), so a line through another penguin is
-## only a line.
+## Nor does it race anybody as opposed to avoiding them: it will not block a
+## line, will not lean on a racer alongside it, and does not know it has been
+## leaned on — a contact reaches it only as the position it ends up in.
 class_name AIInputSource
 extends InputSource
 
@@ -128,12 +132,16 @@ var target_x: float = 0.0
 ## the racer is still on the start line, which is exactly the answer.
 var preferred_x: float = 0.0
 
-## Where everyone on the hill is, refreshed once a tick by
-## [method RaceScene._refresh_rivals]. Deliberately an [Array] and not a
-## [PackedVector3Array]: a packed array is copy-on-write, so handing one to nine
-## opponents would hand out nine snapshots that stop tracking the moment the
-## scene writes to its own. An [Array] is shared by reference and this one is
-## written in place.
+## Where every body on the hill is, refreshed once a tick by
+## [method RaceScene._refresh_rivals] — [member RacerField.positions] itself,
+## which the simulation resolves its contacts against, so the racer this
+## opponent steers around is exactly the one it would bounce off. Ghosts are not
+## in it; see [method Racer.collides].
+##
+## Deliberately an [Array] and not a [PackedVector3Array]: a packed array is
+## copy-on-write, so handing one to nine opponents would hand out nine snapshots
+## that stop tracking the moment the scene writes to its own. An [Array] is
+## shared by reference and this one is written in place.
 ##
 ## Empty is a valid answer and is what a headless test and a solo race both get.
 var rivals: Array[Vector3] = []

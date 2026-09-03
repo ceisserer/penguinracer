@@ -27,6 +27,10 @@ extends Racer
 ## count to show and, for the local player, whether to play the pickup cue.
 signal item_collected(racer: SimulatedRacer, index: int)
 signal tree_hit(racer: SimulatedRacer, tree_pos: Vector3)
+## This racer ran into another one. [param rival] is a slot in the
+## [RacerField] the scene published, not an index into its racer list — they
+## are the same list today and the scene is the only thing that knows that.
+signal racer_hit(racer: SimulatedRacer, rival: int)
 
 var physics: RacePhysics
 var input_source: InputSource = InputSource.new()
@@ -93,6 +97,7 @@ func attach_physics(p: RacePhysics) -> void:
 	physics.substep_advanced.connect(_on_substep)
 	physics.item_collected.connect(_on_item_collected)
 	physics.tree_hit.connect(func(pos: Vector3) -> void: tree_hit.emit(self, pos))
+	physics.racer_hit.connect(func(rival: int) -> void: racer_hit.emit(self, rival))
 	physics.race_finished.connect(_on_race_finished)
 
 ## Put the racer back on the start line and start a fresh recording.
