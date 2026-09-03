@@ -32,7 +32,10 @@ game/                     Godot project (project.godot, gl_compatibility)
   scripts/render/         terrain chunks, GPU snow field, spray
   scripts/camera/         chase camera        scripts/shell/  main menu, course menu,
                                                               settings screen, HUD
-  scripts/race/           RaceScene and the racer layer: Racer + SimulatedRacer +
+  scripts/race/           RaceScene (the tick loop and the course) + RacerRoster
+                          (who is on the hill, and who is winning) +
+                          IntroSequence (the start animation) + the racer
+                          layer: Racer + SimulatedRacer +
                           PlaybackRacer, RacerState (the 14-float snapshot that is
                           also the ghost file format and the wire format),
                           RacerStateStream, InputSource and its kinds — including
@@ -45,7 +48,9 @@ game/                     Godot project (project.godot, gl_compatibility)
                           plus CharacterCatalog/CharacterListing, the generated
                           index of the five playable characters
   scripts/audio/          AudioDirector autoload + generated sound/music banks
-  scripts/config/         GameConfig autoload — the player's settings file
+  scripts/config/         GameConfig autoload — the player's settings file —
+                          plus LaunchArgs, the command line and the URL query
+                          parsed once into one list
   scripts/debug/          DebugCapture autoload (headless screenshots / scripted input),
                           key_log (what a remote desktop is doing to the keyboard)
   shaders/                terrain (splat + snow/ice shading), etr_skybox,
@@ -459,6 +464,69 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   `String.join(array)`, the other way round. Both are silent-ish: the first prints *"unsupported
   format character"* per call from inside whatever loop you put it in, the second is a parse error
   that takes every depending script down with it.
+- **`int(float(x) / float(n) * float(n))` is not `x`.** `178 / 179.0 * 179.0` is
+  177.99999999999997 in double and the truncation takes it to 177. `_decode_splat` resampled the
+  splat map onto the heightmap grid with exactly that expression, and the two are the same size
+  for all 44 shipped courses — so what should have been an identity was off by one on eleven of
+  bunny_hill's 179 columns and eight of its 519 rows. Whole 50 cm stripes of every course ran on
+  the neighbouring terrain's friction. Nothing looked wrong, because the *shading* comes from the
+  splat texture directly on the GPU and only the physics goes through the resample; the two
+  disagreed for as long as the function existed. Index maps are integer arithmetic:
+  `x * sw / target.x`. `TestSurface._splat_resample` asserts the identity on the six widths that
+  actually ship.
+- **A per-element loop that applies the same scalar to every element is a scalar.** `SnowField.decay`
+  multiplied 16 384 floats by 0.99982 sixty times a second — 0.74 ms a tick, fifteen times the cost
+  of the entire physics simulation, to change the field by two parts in ten thousand. It is now a
+  scale factor the readers multiply through, renormalised into the arrays about once a quarter of
+  an hour, and it costs 0.0002 ms. The general shape: before optimising a loop, check whether it
+  has to be a loop.
+- **A chunk vertex sits exactly on a heightmap texel, so `sample_into` there is a bilinear filter
+  between a texel and itself.** `TerrainRenderer._build_chunk` paid four lerps over five arrays and
+  a `normalized()`, 4096 times a chunk, to read values it could have indexed: 6.8 ms a chunk, and a
+  row of them entering the stream radius at once was a 26 ms frame every second and a half. Reading
+  `surface.heights` and `surface.normals` directly is 1.4 ms. It also stopped the CPU snow mirror
+  being baked into the mesh — `sample_into` subtracts the live trench, so a chunk built while the
+  player was carving nearby froze a dent into the terrain for the rest of the race.
+- **Streaming work has to be budgeted, not just gated.** `update_streaming` returned early unless
+  the camera had moved 5 m and then built *every* newly-in-range chunk in that one frame. The gate
+  makes the average cheap and does nothing at all about the peak. It now queues nearest-first and
+  drains under [constant TerrainRenderer.BUILD_BUDGET_MS], with an `immediate` flag for the course
+  load, where the shell's "please wait" panel is already up. Threads are not an option: all three
+  web presets ship `variant/thread_support=false`.
+- **A new `class_name` does not exist until the editor has scanned for it.**
+  `.godot/global_script_class_cache.cfg` is gitignored and only rewritten by an editor pass, so
+  every headless run after adding a class fails with *"Could not find type X in the current
+  scope"* — including the test suite, which then reports a compile error in a file you did not
+  touch. `godot --headless --path game --editor --quit` first. This bites twice per new class,
+  because the second symptom is a scene that silently keeps the old script.
+- **The test suite did not compile the shell, and a parse error there passed 3638 assertions.**
+  Everything under `scripts/shell/`, plus `race_scene.gd` itself, is reachable only from scenes,
+  and the suite is written against the node-free simulation — so nothing loaded them. A broken
+  `race_hud.gd` was found by taking a screenshot. `TestScripts` now walks every `.gd` and loads
+  every scene. Note that **`ResourceLoader.load` returns a real `GDScript` object for a file that
+  failed to parse** — it prints the error and carries on, so `load() != null` passes; check
+  `can_instantiate()`. And do not pass `CACHE_MODE_IGNORE` to force a recompile: that replaces the
+  script object under every live instance, including the autoloads and the script running the
+  loop, and segfaults the engine.
+- **Count the magnitude of a capture diff, not the pixels.** Fixing the splat resample below moved
+  6.2 % of a Bunny Hill `carve` frame, which reads like a visual regression and is not one: the
+  mean absolute channel delta over the whole frame is 0.068/255 and only 35 pixels of 553 536 move
+  by more than 32/255. Any change to the surface perturbs the run at the 1e-7 level, the adaptive
+  ODE has a discrete accept/reject branch that amplifies it, and the procedural snow relief is
+  view-dependent — so a centimetre of camera shift redithers a sixth of the frame by one level.
+  A real regression is a small number of large deltas; chaotic divergence is a large number of
+  ±1s. Measure both before concluding anything, and bisect by reverting one file at a time rather
+  than by looking at the picture.
+- **`git stash push -- game` leaves untracked files alone**, which is what makes an A/B bisect
+  possible at all: put the probe script at `game/tests/_probe.gd`, never `git add` it, and it
+  survives the stash that takes the change under test away. That is the counterpart to the stash
+  trap above — the danger is stashing your *tooling*, and an untracked probe is by construction
+  not stashable.
+- **Static typing does not save you across a scene-level cycle.** `race_hud.gd` declares
+  `@export var race: RaceScene` and calls `race.racers`; after that member was moved to
+  [RacerRoster] the call was still not a parse error, only a runtime *"Invalid access to property
+  or key"* once a frame. `TestScripts` compiles the file happily. Renaming a member that a
+  sibling script reaches through an `@export` typed reference needs a grep, not a compiler.
 - **`RacePhysics` ignores an analogue stick under 0.2, and there is no warning of any kind.**
   `_calc_steering_controls` takes the stick only when `absf(stick_turn) > 0.2` — the deadzone a
   real thumbstick needs — and otherwise falls through to the digital `left_turn`/`right_turn`

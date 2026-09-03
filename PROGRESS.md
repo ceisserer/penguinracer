@@ -14,7 +14,7 @@ worth reading before touching the code, is the trap list in [`AGENTS.md`](./AGEN
 | Risk | State |
 |---|---|
 | **S1** ping-pong `SubViewport` render targets on web | **PASS** — verified numerically, native and Chromium/WebGL2. Firefox untested: no GPU here. |
-| **S2** GDScript ODE23 substep loop | **PASS with margin** — 0.045 ms/frame native, 0.073 ms in-browser (0.44 % of a 16.7 ms budget). The godot-rust GDExtension contingency should not be built. |
+| **S2** GDScript ODE23 substep loop | **PASS with margin** — 0.045 ms/frame native, 0.073 ms in-browser (0.44 % of a 16.7 ms budget). The godot-rust GDExtension contingency should not be built. But it measured the loop the plan was afraid of and not the frame: see the profiling pass below for the two costs that were actually dropping frames. |
 | **S3** heightmap dequantization per course | open — see Known gaps |
 | **S4** RGBA8 snow trail banding | open |
 | **S5** asset licence audit | open — see Known gaps |
@@ -631,6 +631,57 @@ up beside each other rather than inside each other, the shove is symmetrical to 
 five seconds, nobody is launched, a moving racer does not drive through a stationary one, and — the
 assertion that guards every reference capture in the repository — a racer alone in a field of one
 drives to within 1e-12 of one with no field at all.
+
+### Frame time, course load, and three files out of `RaceScene` · **done**
+
+A profiling pass over the whole tree, written up in [`REVIEW.md`](./REVIEW.md). The headline is
+that **risk S2 measured the right loop and the wrong thing**: the ODE substep loop is 0.046 ms a
+frame and was never the problem, and the two costs that actually dropped frames had nothing
+measuring them at all.
+
+| | before | after |
+|---|---|---|
+| `SnowField.decay` | 0.744 ms/tick | **0.0002 ms/tick** |
+| `TerrainRenderer._build_chunk` | 6.8 ms | **1.4 ms** |
+| worst in-race frame, `wild_mountains` over 30 s | 26.1 ms, 11 frames over 8 ms | **1.9 ms, none** |
+| `HeightmapSurface.from_course`, `the_long_ride` | 1816 ms | **1055 ms** |
+| `HeightmapSurface.from_course`, `bunny_hill` | 127 ms | **74 ms** |
+
+All four fixes are algorithmic and all four stay in GDScript. The decay applied one exponential to
+16 384 texels sixty times a second and is now a scale factor readers multiply through. A chunk
+vertex sits exactly on a heightmap texel, so `sample_into` was bilinear-filtering a texel against
+itself 4096 times a chunk; it indexes `surface.heights`/`normals` instead, which also stopped the
+CPU snow mirror being baked into a mesh depending on when it happened to be built. Streaming is
+queued nearest-first and drained under a millisecond budget, with an `immediate` flag for the
+course load. `_decode_splat` recognises the shipped case — one RGBA8 splat map at exactly the
+heightmap's resolution — as a copy.
+
+**A bug came out of the last one.** `int(float(x) / float(target.x) * float(sw))` is not an
+identity when the sizes are equal: eleven of bunny_hill's 179 columns and eight of its 519 rows
+were reading the neighbouring texel's terrain, so whole 50 cm stripes of every shipped course ran
+on the wrong friction. It was invisible because the shading comes from the splat texture directly
+on the GPU and only the physics goes through the resample. Index maps are integer arithmetic now,
+and `TestSurface._splat_resample` asserts the identity on the six widths that ship.
+
+Structurally, `race_scene.gd` is 1094 → 815 lines. `RacerRoster` owns who is on the hill and who
+is winning (and is the `Racers` node); `IntroSequence` owns the start animation and the camera it
+borrows; `LaunchArgs` parses the command line and the URL query once into one list, which closed a
+gap nobody had written down — `?opponents=5&difficulty=hard` did nothing in a browser. Each was
+extracted with the Bunny Hill reference capture byte-identical either side.
+
+`TestScripts` is new and covers a real hole: the suite is written against the node-free
+simulation, so it never loaded `race_scene.gd` or anything under `scripts/shell/`, and a parse
+error there passed 3638 assertions. The benchmark now also reports ten racers on one snow field
+(1.64 ms/frame, 9.8 % of budget) and `SnowField.decay`, so neither cost can quietly come back.
+
+3646 assertions, 0 failures.
+
+**Not done:** the importer is still one 1849-line class. `REVIEW.md` §4 proposed splitting it and
+the outcome section explains why that was stopped — every domain threads `_log`/`_warn`/
+`_protected`/`source_dir` through `self`, so there is no cheap composition seam, and verifying it
+needs a full 44-course re-import whose diff is ~116 000 lines by design.
+
+---
 
 ## Known gaps
 
