@@ -15,6 +15,10 @@ extends Node3D
 ## Vertices per chunk edge. 64 keeps each chunk under the 16-bit index limit
 ## and small enough that culling is meaningful.
 const CHUNK_VERTS := 64
+## Milliseconds of chunk building a single frame may do once a race is running.
+## Under one chunk, so the usual frame builds exactly one; see
+## [method update_streaming].
+const BUILD_BUDGET_MS := 1.0
 
 var course: CourseData
 var surface: HeightmapSurface
@@ -27,6 +31,9 @@ var _chunk_world: Dictionary[Vector2i, AABB] = {}
 var _chunks_x: int = 0
 var _chunks_z: int = 0
 var _last_center: Vector3 = Vector3(INF, INF, INF)
+## Chunks that should exist and do not yet, nearest first. Drained under a
+## budget by [method _build_pending].
+var _pending: Array[Vector2i] = []
 
 func setup(p_course: CourseData, p_surface: HeightmapSurface) -> void:
 	course = p_course
@@ -249,21 +256,57 @@ func set_trail_map(tex: Texture2D, origin: Vector2, extent: float, depth_scale: 
 	_material.set_shader_parameter("trail_depth_scale", depth_scale)
 
 ## Instantiate chunks near `center` and drop the ones that fell behind.
-func update_streaming(center: Vector3) -> void:
-	if center.distance_squared_to(_last_center) < 25.0:
-		return
-	_last_center = center
+##
+## [param immediate] builds the whole backlog before returning, which is what a
+## course load wants — the shell has already drawn its "please wait" panel and
+## nothing is on screen to stutter. Every later call is budgeted: a chunk costs
+## about 1.4 ms and a row of them entering the stream radius at once was a
+## 26 ms frame every second and a half, at a cadence regular enough to read as
+## the game hitching rather than as the machine being busy.
+##
+## Arriving late is free. `stream_radius` is 400 m and the camera's far plane is
+## fog-limited to 70–150 m, so a chunk has hundreds of metres in which to be
+## built and cannot be seen arriving.
+func update_streaming(center: Vector3, immediate: bool = false) -> void:
+	if immediate or center.distance_squared_to(_last_center) >= 25.0:
+		_last_center = center
+		_rescan(center)
+	_build_pending(immediate)
+
+## Work out what should exist. Chunks that fell out of range go now — freeing is
+## cheap and holding them is memory — and what is missing is queued.
+func _rescan(center: Vector3) -> void:
 	var r2: float = stream_radius * stream_radius
+	_pending.clear()
 	for cz: int in _chunks_z:
 		for cx: int in _chunks_x:
 			var key := Vector2i(cx, cz)
 			var bounds: AABB = _chunk_world[key]
 			var near: bool = _distance_squared_to_aabb_xz(center, bounds) <= r2
 			if near and not _chunks.has(key):
-				_build_chunk(key)
+				_pending.push_back(key)
 			elif not near and _chunks.has(key):
 				_chunks[key].queue_free()
 				_chunks.erase(key)
+	# Nearest first: what the player is about to ride onto is worth more than
+	# what is 400 m down the hill, and on a long course the queue is long enough
+	# for the difference to matter.
+	if _pending.size() > 1:
+		_pending.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+			return _distance_squared_to_aabb_xz(center, _chunk_world[a]) \
+				< _distance_squared_to_aabb_xz(center, _chunk_world[b]))
+
+## Build from the queue, at least one and then until the budget is spent. One
+## chunk always goes over the budget, deliberately — a queue that can refuse to
+## make progress is a queue that never empties.
+func _build_pending(immediate: bool) -> void:
+	if _pending.is_empty():
+		return
+	var deadline: int = Time.get_ticks_usec() + int(BUILD_BUDGET_MS * 1000.0)
+	while not _pending.is_empty():
+		_build_chunk(_pending.pop_front())
+		if not immediate and Time.get_ticks_usec() >= deadline:
+			return
 
 static func _distance_squared_to_aabb_xz(p: Vector3, box: AABB) -> float:
 	var dx: float = maxf(maxf(box.position.x - p.x, 0.0), p.x - box.end.x)
@@ -304,18 +347,37 @@ func _build_chunk(key: Vector2i) -> void:
 
 	var min_y: float = INF
 	var max_y: float = -INF
-	var sample := SurfaceSample.new()
+	# A chunk vertex sits exactly on a heightmap texel — `step` is the surface's
+	# own texel pitch — so `sample_into` would run a bilinear filter between a
+	# texel and itself, four times over five arrays, 4096 times a chunk. Read
+	# the grid. That is the whole of the 13x here (6.8 ms a chunk to 0.5 ms).
+	#
+	# It also stops the CPU snow mirror being baked into the mesh. `sample_into`
+	# subtracts the live trench, so a chunk built while the player was carving
+	# nearby froze a 50 cm-resolution dent into the terrain for the rest of the
+	# race — invisible in practice, since chunks stream in ahead of the player
+	# and the deformation window trails behind, but it made a mesh depend on
+	# when it happened to be built. The trench belongs to the trail map and the
+	# vertex shader.
+	var grid_heights: PackedFloat32Array = surface.heights
+	var grid_normals: PackedVector3Array = surface.normals
+	var slope: float = surface.slope
+	var inv_world_x: float = 1.0 / course.world_size.x
+	var inv_world_z: float = 1.0 / course.world_size.y
 	for j: int in nz:
+		var row: int = (z_start + j) * w + x_start
+		var wz: float = -float(z_start + j) * step.y
+		var base_y: float = slope * wz
+		var v: float = -wz * inv_world_z
 		for i: int in nx:
+			var y: float = grid_heights[row + i] + base_y
 			var wx: float = float(x_start + i) * step.x
-			var wz: float = -float(z_start + j) * step.y
-			surface.sample_into(wx, wz, sample)
 			var idx: int = j * nx + i
-			verts[idx] = Vector3(wx, sample.height, wz)
-			normals[idx] = sample.normal
-			uvs[idx] = Vector2(wx / course.world_size.x, -wz / course.world_size.y)
-			min_y = minf(min_y, sample.height)
-			max_y = maxf(max_y, sample.height)
+			verts[idx] = Vector3(wx, y, wz)
+			normals[idx] = grid_normals[row + i]
+			uvs[idx] = Vector2(wx * inv_world_x, v)
+			min_y = minf(min_y, y)
+			max_y = maxf(max_y, y)
 
 	var indices := PackedInt32Array()
 	indices.resize((nx - 1) * (nz - 1) * 6)

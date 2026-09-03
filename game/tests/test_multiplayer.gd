@@ -175,6 +175,24 @@ static func _stream_progress(t: TestCase) -> void:
 	t.eq_f(stream.time_at_progress(999.0), -1.0, 1e-6,
 		"a progress the racer never reached says so")
 
+	# The lookup keeps a cursor, because the HUD asks once a frame about a
+	# player going down the hill and a scan from sample zero grew with the
+	# course. Walking forward has to give the same answers as scanning, and the
+	# cursor has to reset when the question goes backwards — a restart, or a
+	# racer knocked back up the hill by a tree.
+	var walked := RacerStateStream.new()
+	walked.from_floats(stream.to_floats())
+	for metres: float in [0.0, 5.0, 12.0, 25.0, 44.0, 50.0]:
+		t.eq_f(walked.time_at_progress(metres), metres / 10.0, 1e-4,
+			"walking forward to %.0f m gives the scanned answer" % metres)
+	for metres: float in [3.0, 41.0, 8.0, 50.0, 0.0, 22.0]:
+		t.eq_f(walked.time_at_progress(metres), metres / 10.0, 1e-4,
+			"and a jump back to %.0f m resets the cursor" % metres)
+	# Past the end and then back inside it: the "never got there" answer must
+	# not leave the cursor somewhere that hides the samples.
+	t.eq_f(walked.time_at_progress(999.0), -1.0, 1e-6, "still says so after a walk")
+	t.eq_f(walked.time_at_progress(25.0), 2.5, 1e-4, "and can be asked again after it")
+
 static func _stream_trimming(t: TestCase) -> void:
 	t.begin("state stream trimming")
 	var stream: RacerStateStream = _ramp(10)

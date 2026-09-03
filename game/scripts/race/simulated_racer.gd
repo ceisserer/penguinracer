@@ -93,7 +93,6 @@ func _ready() -> void:
 ## call and cannot forget one.
 func attach_physics(p: RacePhysics) -> void:
 	physics = p
-	spray.surface = p.surface
 	physics.substep_advanced.connect(_on_substep)
 	physics.item_collected.connect(_on_item_collected)
 	physics.tree_hit.connect(func(pos: Vector3) -> void: tree_hit.emit(self, pos))
@@ -145,10 +144,12 @@ func last_input() -> RaceInput:
 ## Stamp the deformation field from inside the substep loop, so a fast pass
 ## leaves a continuous trench instead of a dotted line at frame boundaries.
 func _on_substep(h: float, pos: Vector3, speed: float) -> void:
-	spray.emit_for_substep(physics, h, pos, speed)
+	# One query, two consumers. The spray used to make its own — a fresh
+	# [SurfaceSample] per substep, of the point being sampled on the next line.
+	physics.surface.sample_into(pos.x, pos.z, _sample)
+	spray.emit_for_substep(physics, h, pos, speed, _sample)
 	if physics.airborne or not deforms_snow:
 		return
-	physics.surface.sample_into(pos.x, pos.z, _sample)
 	# `[trackmarks]`, not `[part]`: ETR keeps the two separate, and `strike_snow`
 	# is the terrain where they disagree — it sprays but holds no track.
 	if not _sample.takes_trackmarks:

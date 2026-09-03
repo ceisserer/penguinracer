@@ -8,11 +8,88 @@
 class_name BenchPhysics
 extends RefCounted
 
-static func run() -> Dictionary:
-	# A fast, bumpy 35° run: high speed drives the substep count up (the solver
-	# caps travel at MAX_STEP_DIST = 0.20 m per step) and the bumps force
-	# error-control retries. Occasional carving, so the trajectory is a race
-	# line rather than a slalom that scrubs all the speed off.
+## The load a frame of a full race actually is: ten simulated racers on one
+## hill, nine of them planning lines, all against a live snow field.
+##
+## Reported alongside the single-racer number because that one stopped
+## predicting a frame the moment there was a field on the hill — and because the
+## thing S2 was afraid of turned out not to be the thing that costs. See
+## [method bench_snow].
+static func run_field(count: int = 10) -> Dictionary:
+	var field := RacerField.new()
+	field.resize(count)
+	var sims: Array[RacePhysics] = []
+	var brains: Array[AIInputSource] = []
+	var snow := SnowField.new()
+	for seat: int in count:
+		var p := _fixture()
+		(p.surface as HeightmapSurface).snow_field = snow
+		var ai := AIInputSource.new(AISkill.for_level(AISkill.Level.HARD), seat, 0)
+		ai.rivals = field.positions
+		ai.rival_index = seat
+		p.rivals = field
+		p.rival_index = seat
+		sims.push_back(p)
+		brains.push_back(ai)
+
+	var input := RaceInput.new()
+	var dt: float = 1.0 / 60.0
+	var frames: int = 900
+	for i: int in 60:
+		for seat: int in count:
+			brains[seat].poll(input, sims[seat], dt)
+			sims[seat].step(input, dt)
+
+	var start: int = Time.get_ticks_usec()
+	for i: int in frames:
+		# The order [method RaceScene._simulation_tick] uses: everyone is
+		# published before anyone advances, so every racer resolves the tick
+		# against the same instant.
+		for seat: int in count:
+			field.set_state(seat, sims[seat].pos, sims[seat].vel)
+		for seat: int in count:
+			brains[seat].poll(input, sims[seat], dt)
+			sims[seat].step(input, dt)
+		snow.recenter(sims[0].pos.x, sims[0].pos.z)
+		snow.decay(dt)
+	var elapsed_us: int = Time.get_ticks_usec() - start
+	var per_frame_ms: float = float(elapsed_us) / float(frames) / 1000.0
+	return {
+		"racers": count,
+		"per_frame_ms": per_frame_ms,
+		"budget_fraction": per_frame_ms / 16.667,
+	}
+
+## The CPU snow mirror's per-tick maintenance, on its own.
+##
+## Here because it was for a long time the most expensive thing in a frame and
+## nothing measured it: a 16 384-texel loop decaying the field by 0.018 % cost
+## 0.74 ms a tick, fifteen times the whole simulation. It is a scalar now, and
+## this is the line that stops it quietly becoming a loop again.
+static func bench_snow() -> Dictionary:
+	var f := SnowField.new()
+	f.recenter(0.0, 0.0)
+	var dt: float = 1.0 / 60.0
+	var ticks: int = 3600
+	for i: int in 60:
+		f.decay(dt)
+	var start: int = Time.get_ticks_usec()
+	for i: int in ticks:
+		f.decay(dt)
+	var decay_us: int = Time.get_ticks_usec() - start
+	start = Time.get_ticks_usec()
+	for i: int in ticks:
+		f.recenter(float(i) * 0.2, -float(i) * 0.4)
+	var recenter_us: int = Time.get_ticks_usec() - start
+	return {
+		"decay_ms": float(decay_us) / float(ticks) / 1000.0,
+		"recenter_ms": float(recenter_us) / float(ticks) / 1000.0,
+	}
+
+## The fixture both benchmarks race on: a fast, bumpy 35° run with trees and
+## herring spread over it, so the collision queries are exercised rather than
+## short-circuited.
+static func _fixture() -> RacePhysics:
 	var p := RacePhysics.new()
 	p.surface = SlopeFixture.rolling_slope(35.0, 1.2)
 	p.play_min_x = 2.5
@@ -20,8 +97,6 @@ static func run() -> Dictionary:
 	p.play_length = 100000.0
 	p.init_at(45.0, -5.0)
 
-	# A realistic load: trees and herring spread over the course, so the
-	# collision queries are exercised rather than short-circuited.
 	var trees := ObjectGrid.new()
 	var items := ObjectGrid.new()
 	var rng := RandomNumberGenerator.new()
@@ -38,6 +113,19 @@ static func run() -> Dictionary:
 	items.build()
 	p.trees = trees
 	p.items = items
+	return p
+
+## One racer, no snow field. The original S2 measurement, kept exactly as it
+## was so the number stays comparable to every one recorded in the docs — but
+## no longer the number that predicts a frame. See [method run_field].
+static func run() -> Dictionary:
+	# A fast, bumpy 35° run: high speed drives the substep count up (the solver
+	# caps travel at MAX_STEP_DIST = 0.20 m per step) and the bumps force
+	# error-control retries. Occasional carving, so the trajectory is a race
+	# line rather than a slalom that scrubs all the speed off. Trees and herring
+	# are spread over it, so the collision queries are exercised rather than
+	# short-circuited.
+	var p := _fixture()
 
 	var substeps: Array[int] = [0]
 	p.substep_advanced.connect(func(_h: float, _pos: Vector3, _speed: float) -> void:

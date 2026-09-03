@@ -22,6 +22,10 @@ var _data: PackedFloat32Array = PackedFloat32Array()
 ## Where the last [method sample_into] found itself. Playback walks forward, so
 ## the common case is "the same pair of samples as last frame, or the next".
 var _cursor: int = 0
+## Where [method time_at_progress] last found itself. Separate from
+## [member _cursor] because the two walk the same buffer on different keys —
+## one by time, one by distance — and a frame asks both.
+var _progress_cursor: int = 0
 ## Scratch for the bracketing samples, so sampling every frame for every racer
 ## does not allocate.
 var _a := RacerState.new()
@@ -30,6 +34,7 @@ var _b := RacerState.new()
 func clear() -> void:
 	_data.clear()
 	_cursor = 0
+	_progress_cursor = 0
 
 func is_empty() -> bool:
 	return _data.is_empty()
@@ -85,6 +90,7 @@ func trim_before(t: float) -> void:
 		return
 	_data = _data.slice(keep * RacerState.FLOATS)
 	_cursor = maxi(0, _cursor - keep)
+	_progress_cursor = maxi(0, _progress_cursor - keep)
 
 ## Fill [param out] with the racer's state at [param t]. Returns false only for
 ## an empty stream.
@@ -124,20 +130,36 @@ func sample_into(t: float, out: RacerState) -> bool:
 ## Progress is assumed to increase. It very nearly does — a racer only moves
 ## back up the hill after a tree — and where it does not, the first crossing is
 ## the honest answer to "when did they reach here".
+##
+## Walked forward from the last answer for the same reason [method _bracket] is:
+## the caller is the HUD, asking once a frame about a player who is going down
+## the hill, so the next answer is the same sample or the one after it. Scanning
+## from zero made this the only per-frame cost in the game that grew with course
+## length — a two-minute ghost is 2400 samples and a long one is three times
+## that. The cursor is reset whenever the question goes backwards, which is a
+## restart, or a racer pushed back up the hill by a tree.
 func time_at_progress(metres: float) -> float:
 	var n: int = sample_count()
 	if n == 0:
 		return -1.0
-	for i: int in n:
+	var i: int = _progress_cursor
+	if i >= n or _progress_of(i) >= metres:
+		i = 0
+	while i < n:
 		var p: float = _progress_of(i)
 		if p < metres:
+			i += 1
 			continue
+		# One short of the answer, so the next frame's slightly larger question
+		# starts on the sample below it and steps once.
+		_progress_cursor = maxi(0, i - 1)
 		if i == 0:
 			return _time_of(0)
 		var prev: float = _progress_of(i - 1)
 		var span: float = p - prev
 		var k: float = 1.0 if span <= 0.0 else (metres - prev) / span
 		return lerpf(_time_of(i - 1), _time_of(i), k)
+	_progress_cursor = maxi(0, n - 1)
 	return -1.0
 
 # ------------------------------------------------------------------
@@ -156,6 +178,7 @@ func from_floats(floats: PackedFloat32Array) -> void:
 	var whole: int = (floats.size() / RacerState.FLOATS) * RacerState.FLOATS
 	_data = floats.slice(0, whole)
 	_cursor = 0
+	_progress_cursor = 0
 
 # ------------------------------------------------------------------
 

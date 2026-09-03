@@ -36,18 +36,23 @@ func add(pos: Vector3, diam: float, height: float, type_index: int) -> int:
 	return idx
 
 ## Build the buckets. Call once after all objects are added.
+##
+## Accumulated in plain [Array]s and converted once. Appending straight into the
+## dictionary's [PackedInt32Array] read the value back out first, which is a
+## copy-on-write share — so `push_back` copied the whole cell, per insertion.
 func build(p_cell_size: float = DEFAULT_CELL_SIZE) -> void:
 	cell_size = p_cell_size
 	_cells.clear()
+	var buckets: Dictionary[int, Array] = {}
 	for i: int in positions.size():
 		var p: Vector3 = positions[i]
 		var k: int = _key(floori(p.x / cell_size), floori(p.z / cell_size))
-		if _cells.has(k):
-			var arr: PackedInt32Array = _cells[k]
-			arr.push_back(i)
-			_cells[k] = arr
+		if buckets.has(k):
+			buckets[k].push_back(i)
 		else:
-			_cells[k] = PackedInt32Array([i])
+			buckets[k] = [i]
+	for k: int in buckets:
+		_cells[k] = PackedInt32Array(buckets[k])
 
 func size() -> int:
 	return positions.size()

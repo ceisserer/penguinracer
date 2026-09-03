@@ -17,9 +17,13 @@ extends Node3D
 var surface: HeightmapSurface
 var trees: ObjectGrid
 var items: ObjectGrid
-## Index into [member items] → the MultiMesh instance slot, so collected herring
-## can be hidden without rebuilding the batch.
+## Index into [member items] → `[type_name, MultiMesh instance slot]`, so a
+## collected herring can be hidden without rebuilding the batch.
 var _item_instances: Dictionary[int, Array] = {}
+## The instanced batch per object type, so hiding a herring is a dictionary
+## lookup rather than a string format and a `get_node_or_null` down the scene
+## tree — which a restart on a fish-heavy course paid once per collected item.
+var _batches: Dictionary[String, MultiMeshInstance3D] = {}
 ## The transform each of those slots was built with, so a restart can put a
 ## collected herring back. Kept here rather than re-read off the MultiMesh
 ## because [method hide_item] has already overwritten it by then.
@@ -79,13 +83,14 @@ func _add_batch(type_name: String, prefab: ObjectPrefab, transforms: Array[Trans
 	mmi.material_override = prefab.material
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mmi)
+	_batches[type_name] = mmi
 
 ## Hide a collected herring by collapsing its instance transform.
 func hide_item(index: int) -> void:
 	if not _item_instances.has(index):
 		return
 	var entry: Array = _item_instances[index]
-	var mmi: MultiMeshInstance3D = get_node_or_null("Batch_%s" % entry[0])
+	var mmi: MultiMeshInstance3D = _batches.get(entry[0], null)
 	if mmi == null:
 		return
 	mmi.multimesh.set_instance_transform(entry[1], Transform3D().scaled(Vector3.ZERO))
@@ -102,7 +107,7 @@ func reset_items() -> void:
 	items.reset_collectables()
 	for index: int in _item_transforms:
 		var entry: Array = _item_instances[index]
-		var mmi: MultiMeshInstance3D = get_node_or_null("Batch_%s" % entry[0])
+		var mmi: MultiMeshInstance3D = _batches.get(entry[0], null)
 		if mmi != null:
 			mmi.multimesh.set_instance_transform(entry[1], _item_transforms[index])
 

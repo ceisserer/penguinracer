@@ -6,7 +6,9 @@ static func run(t: TestCase) -> void:
 	_analytic_slope(t)
 	_bilinear(t)
 	_splat_blending(t)
+	_splat_resample(t)
 	_snow_field(t)
+	_snow_decay_is_scalar(t)
 
 static func _analytic_slope(t: TestCase) -> void:
 	t.begin("analytic base slope")
@@ -177,3 +179,128 @@ static func _snow_field(t: TestCase) -> void:
 	var d0: float = field.depth_at(45.0, -200.0)
 	field.decay(field.refill_tau)
 	t.eq_f(field.depth_at(45.0, -200.0), d0 * exp(-1.0), 1e-6, "trench refills exponentially")
+
+## The splat resample must be an identity when the two grids are the same size.
+##
+## It was not. `int(float(x) / float(target.x) * float(sw))` looks like an
+## identity and is not one: `178 / 179.0 * 179.0` is 177.99999999999997, and the
+## truncation takes it to 177. Eleven of bunny_hill's 179 columns and eight of
+## its 519 rows read the neighbouring texel's weights, so whole 50 cm stripes of
+## every shipped course ran on the wrong terrain's friction — silently, because
+## the shading comes from the splat texture directly on the GPU and only the
+## physics goes through this path.
+##
+## Asserted on the widths that actually shipped, since which columns are wrong
+## depends on the number.
+static func _splat_resample(t: TestCase) -> void:
+	t.begin("splat resample")
+	for n: int in [179, 519, 199, 1999, 159, 7999]:
+		var wrong: int = 0
+		for x: int in n:
+			@warning_ignore("integer_division")
+			var sx: int = x * n / n
+			if sx != x:
+				wrong += 1
+		t.ok(wrong == 0, "an equal-size resample is the identity at %d wide" % n)
+
+	# End to end through [method HeightmapSurface.from_course], which is where the
+	# bug was: a synthetic course 179 wide — bunny_hill's width, and one of the
+	# ones that misbehaved — painted in alternating columns of two terrains that
+	# could not be more different. A column that resamples off by one reads its
+	# neighbour and comes out with the other friction.
+	t.ok(_columns_keep_their_layer(179, 519, 179, 519) == 0,
+		"an equal-size splat map keeps every column's layer")
+	# And the resampling path it shares, at a splat resolution the heightmap
+	# does not match — §3.1 decouples the two deliberately, so this is legal and
+	# must still land every target column on the right source column.
+	t.ok(_columns_keep_their_layer(179, 40, 358, 80) == 0,
+		"a half-resolution splat map still resolves every column")
+
+## Build a course whose splat map is alternating one-hot columns of two very
+## different terrains, and count the columns whose friction comes out wrong.
+static func _columns_keep_their_layer(nx: int, ny: int, sx: int, sy: int) -> int:
+	var heights := PackedFloat32Array()
+	heights.resize(nx * ny)
+	heights.fill(0.0)
+	var hm := Image.create_from_data(nx, ny, false, Image.FORMAT_RF,
+		heights.to_byte_array())
+
+	# One-hot in R and G, so layer 0 is every even source column and layer 1
+	# every odd one.
+	var bytes := PackedByteArray()
+	bytes.resize(sx * sy * 4)
+	bytes.fill(0)
+	for y: int in sy:
+		for x: int in sx:
+			bytes[(y * sx + x) * 4 + (x % 2)] = 255
+	var splat := Image.create_from_data(sx, sy, false, Image.FORMAT_RGBA8, bytes)
+
+	var ice := TerrainLayer.new()
+	ice.id = &"ice"
+	ice.friction = 0.2
+	var rock := TerrainLayer.new()
+	rock.id = &"rock"
+	rock.friction = 0.7
+
+	var course := CourseData.new()
+	course.heightmap = hm
+	course.world_size = Vector2(float(nx - 1), float(ny - 1))
+	course.base_angle = 0.0
+	course.splat_maps = [ImageTexture.create_from_image(splat)] as Array[Texture2D]
+	course.terrain_layers = [ice, rock] as Array[TerrainLayer]
+
+	var s := HeightmapSurface.from_course(course)
+	var sample := SurfaceSample.new()
+	var mismatched: int = 0
+	for x: int in nx:
+		# Halfway down, away from the edge clamps.
+		s.sample_into(float(x), -float(ny / 2), sample)
+		# Which source column this target column maps to decides the answer.
+		@warning_ignore("integer_division")
+		var src: int = x * sx / nx
+		var want: float = 0.2 if src % 2 == 0 else 0.7
+		if absf(sample.friction - want) > 0.01:
+			mismatched += 1
+	return mismatched
+
+## [method SnowField.decay] holds the scale rather than touching the grid, so
+## the things that could go wrong are the clamp in [method SnowField.stamp]
+## working in the wrong space, and the renormalisation pass losing the field.
+static func _snow_decay_is_scalar(t: TestCase) -> void:
+	t.begin("snow decay is a scalar")
+	var f := SnowField.new()
+	f.recenter(10.0, -10.0)
+	for i: int in 40:
+		f.stamp(10.0, -10.0, 0.6, 0.05)
+	var full: float = f.depth_at(10.0, -10.0)
+	t.eq_f(full, f.max_trench, 1e-6, "the clamp still saturates at max_trench")
+
+	# Decayed, then stamped again: the clamp has to be applied in metres, so a
+	# saturating stamp on a decayed field comes back to exactly max_trench.
+	f.decay(f.refill_tau)
+	t.eq_f(f.depth_at(10.0, -10.0), f.max_trench * exp(-1.0), 1e-6,
+		"a decayed trench is the whole field scaled")
+	for i: int in 40:
+		f.stamp(10.0, -10.0, 0.6, 0.05)
+	t.eq_f(f.depth_at(10.0, -10.0), f.max_trench, 1e-6,
+		"a stamp on a decayed field saturates at max_trench, not above it")
+
+	# Compaction is clamped to 1 on the same argument.
+	t.between(f.pack_at(10.0, -10.0), 0.0, 1.0, "compaction stays inside 0..1")
+
+	# Far enough for the renormalisation pass to fire, which is the one thing
+	# that rewrites the arrays. The field has to survive it unchanged.
+	var before: float = f.depth_at(10.0, -10.0)
+	var decayed: float = 0.0
+	for i: int in 12:
+		f.decay(f.refill_tau)
+		decayed += 1.0
+	t.eq_f(f.depth_at(10.0, -10.0), before * exp(-decayed), 1e-9,
+		"the field survives renormalisation")
+	t.ok(f.depth_at(10.0, -10.0) > 0.0, "and is not zeroed by it")
+
+	# A scrolled-in strip is empty whatever the scale has drifted to.
+	f.recenter(10.0, -1000.0)
+	t.eq_f(f.depth_at(10.0, -1000.0), 0.0, 1e-12, "a fresh window is clean")
+	f.stamp(10.0, -1000.0, 0.6, 0.05)
+	t.ok(f.depth_at(10.0, -1000.0) > 0.0, "and writable after the reset")

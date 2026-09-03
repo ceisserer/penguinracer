@@ -33,8 +33,6 @@ const VARIANCE_FACTOR := 0.8
 @export var particle_lifetime: float = 1.1
 @export var particle_color: Color = Color(0.92, 0.95, 1.0)
 
-var surface: SurfaceProvider
-
 var _left: GPUParticles3D
 var _right: GPUParticles3D
 var _left_mat: ParticleProcessMaterial
@@ -105,11 +103,18 @@ func _make_mesh() -> Mesh:
 
 ## Called once per accepted ODE substep, exactly where ETR called this.
 ## Accumulates; nothing is pushed to the renderer until [method flush].
-func emit_for_substep(physics: RacePhysics, dt: float, pos: Vector3, speed: float) -> void:
-	if surface == null:
+##
+## [param sample] is the terrain under [param pos], sampled by the caller. It
+## used to be sampled here, into a freshly allocated [SurfaceSample] — which
+## meant one allocation and one full surface query per substep for a point
+## [method SimulatedRacer._on_substep] had just queried into a reused member two
+## lines earlier. Taking it as an argument removes both, and makes the spray and
+## the deformation stamp agree about the terrain by construction rather than by
+## having asked the same question twice.
+func emit_for_substep(physics: RacePhysics, dt: float, pos: Vector3, speed: float,
+		sample: SurfaceSample) -> void:
+	if sample == null:
 		return
-	var sample := SurfaceSample.new()
-	surface.sample_into(pos.x, pos.z, sample)
 	# Only when the terrain throws spray and the player is actually in the snow.
 	if not sample.emits_particles or pos.y >= sample.height:
 		return

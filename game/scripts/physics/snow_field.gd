@@ -24,10 +24,30 @@ const RESOLUTION := 128
 const WINDOW_SIZE := 64.0
 const TEXEL := WINDOW_SIZE / float(RESOLUTION)
 
-## Metres of snow displaced downward, per texel.
-var depth: PackedFloat32Array = PackedFloat32Array()
-## Compaction 0..1, per texel. Persists after the trench refills.
-var pack: PackedFloat32Array = PackedFloat32Array()
+## Metres of snow displaced downward, per texel — [b]divided by
+## [member _depth_scale][/b]. Private because a raw read is not a depth; go
+## through [method depth_at], or [method decay] is a lie.
+var _depth: PackedFloat32Array = PackedFloat32Array()
+## Compaction 0..1, per texel, over [member _pack_scale]. Persists after the
+## trench refills.
+var _pack: PackedFloat32Array = PackedFloat32Array()
+
+## What a stored texel has to be multiplied by to be metres, and 0..1.
+##
+## [b]This is the whole of [method decay].[/b] Both fields decay by a single
+## exponential that is the same for every texel, so scaling 16 384 floats and
+## scaling one number are the same field — and the loop was costing 0.74 ms of
+## every tick, fifteen times the entire physics simulation, to multiply a 128²
+## grid by 0.99982. The scale is folded back into the arrays by
+## [method _renormalise] when it has drifted far enough to be worth a pass,
+## which at these time constants is about once every quarter of an hour.
+var _depth_scale: float = 1.0
+var _pack_scale: float = 1.0
+## How small a scale may get before the arrays are rescaled and it is reset.
+## Nothing numerical forces a bound this loose — a float32 texel holds the ratio
+## happily for hours — so this is only about the divisions in [method stamp]
+## staying in a sane range.
+const RENORMALISE_BELOW := 1e-4
 
 ## Friction offset at full compaction. Negative: a packed trench runs faster.
 var packed_friction_delta: float = -0.10
@@ -44,10 +64,10 @@ var _origin: Vector2i = Vector2i(0, 0)   ## window corner, in global texel units
 var _initialized: bool = false
 
 func _init() -> void:
-	depth.resize(RESOLUTION * RESOLUTION)
-	pack.resize(RESOLUTION * RESOLUTION)
-	depth.fill(0.0)
-	pack.fill(0.0)
+	_depth.resize(RESOLUTION * RESOLUTION)
+	_pack.resize(RESOLUTION * RESOLUTION)
+	_depth.fill(0.0)
+	_pack.fill(0.0)
 
 func _wrap(v: int) -> int:
 	return ((v % RESOLUTION) + RESOLUTION) % RESOLUTION
@@ -70,16 +90,14 @@ func recenter(center_x: float, center_z: float) -> void:
 	if not _initialized:
 		_origin = target
 		_initialized = true
-		depth.fill(0.0)
-		pack.fill(0.0)
+		_reset_arrays()
 		return
 	var d: Vector2i = target - _origin
 	if d == Vector2i.ZERO:
 		return
 	if absi(d.x) >= RESOLUTION or absi(d.y) >= RESOLUTION:
 		_origin = target
-		depth.fill(0.0)
-		pack.fill(0.0)
+		_reset_arrays()
 		return
 
 	# Columns scrolled in along X.
@@ -89,8 +107,8 @@ func recenter(center_x: float, center_z: float) -> void:
 			var gx: int = from_x + i
 			for gy: int in range(_origin.y, _origin.y + RESOLUTION):
 				var idx: int = _index(gx, gy)
-				depth[idx] = 0.0
-				pack[idx] = 0.0
+				_depth[idx] = 0.0
+				_pack[idx] = 0.0
 	# Rows scrolled in along Z, over the already-updated X extent.
 	if d.y != 0:
 		var from_y: int = _origin.y + RESOLUTION if d.y > 0 else target.y
@@ -98,8 +116,8 @@ func recenter(center_x: float, center_z: float) -> void:
 			var gy: int = from_y + i
 			for gx: int in range(target.x, target.x + RESOLUTION):
 				var idx: int = _index(gx, gy)
-				depth[idx] = 0.0
-				pack[idx] = 0.0
+				_depth[idx] = 0.0
+				_pack[idx] = 0.0
 	_origin = target
 
 ## Stamp a contact footprint as an antialiased disc: texels inside `radius` take
@@ -128,18 +146,44 @@ func stamp(x: float, z: float, radius: float, amount: float) -> void:
 				continue
 			var falloff: float = clampf(r + 0.5 - dist, 0.0, 1.0)
 			var idx: int = _index(gx, gy)
-			depth[idx] = minf(max_trench, depth[idx] + amount * falloff)
-			pack[idx] = minf(1.0, pack[idx] + falloff * 0.5)
+			# Both clamps are on the true value, so they have to be applied in
+			# metres and in 0..1 and stored back scaled. Two extra flops per
+			# texel of a footprint that is a few dozen texels across.
+			_depth[idx] = minf(max_trench, _depth[idx] * _depth_scale
+				+ amount * falloff) / _depth_scale
+			_pack[idx] = minf(1.0, _pack[idx] * _pack_scale
+				+ falloff * 0.5) / _pack_scale
 
-## Refill and settle. Cheap: two multiplies over 16 k texels.
+## Refill and settle.
+##
+## [b]O(1).[/b] The decay is a single exponential applied to every texel alike,
+## so it lives in [member _depth_scale] rather than in 16 384 multiplies — see
+## that member for what the loop this replaced was costing.
 func decay(dt: float) -> void:
 	if dt <= 0.0:
 		return
-	var kd: float = exp(-dt / refill_tau)
-	var kp: float = exp(-dt / pack_tau)
-	for i: int in depth.size():
-		depth[i] *= kd
-		pack[i] *= kp
+	_depth_scale *= exp(-dt / refill_tau)
+	_pack_scale *= exp(-dt / pack_tau)
+	if _depth_scale < RENORMALISE_BELOW or _pack_scale < RENORMALISE_BELOW:
+		_renormalise()
+
+## Fold the scales back into the arrays. The one full pass this class makes, and
+## it makes it about once a quarter of an hour.
+func _renormalise() -> void:
+	for i: int in _depth.size():
+		_depth[i] *= _depth_scale
+		_pack[i] *= _pack_scale
+	_depth_scale = 1.0
+	_pack_scale = 1.0
+
+## Clear both fields. The scales go back to 1 with them: an empty field times
+## any scale is still empty, but leaving a drifted scale behind would make the
+## next stamp divide by it.
+func _reset_arrays() -> void:
+	_depth.fill(0.0)
+	_pack.fill(0.0)
+	_depth_scale = 1.0
+	_pack_scale = 1.0
 
 func _bilinear(arr: PackedFloat32Array, x: float, z: float) -> float:
 	if not _initialized:
@@ -160,15 +204,15 @@ func _bilinear(arr: PackedFloat32Array, x: float, z: float) -> float:
 
 ## Metres the surface has been pushed down at this point.
 func depth_at(x: float, z: float) -> float:
-	return _bilinear(depth, x, z)
+	return _bilinear(_depth, x, z) * _depth_scale
 
 func pack_at(x: float, z: float) -> float:
-	return _bilinear(pack, x, z)
+	return _bilinear(_pack, x, z) * _pack_scale
 
 ## Apply compaction to a surface query. Called from [HeightmapSurface].
 func apply_to_sample(x: float, z: float, out: SurfaceSample) -> void:
-	out.height -= _bilinear(depth, x, z)
-	var p: float = _bilinear(pack, x, z)
+	out.height -= _bilinear(_depth, x, z) * _depth_scale
+	var p: float = _bilinear(_pack, x, z) * _pack_scale
 	if p <= 0.0:
 		return
 	out.friction = maxf(0.05, out.friction + packed_friction_delta * p)
