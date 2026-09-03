@@ -103,10 +103,18 @@ func configure(new_name: String, new_character: String) -> void:
 ## Whether a session is up. Everything else in the game checks this and nothing
 ## else — with no session there are no remote racers and no snapshots to send,
 ## and the race scene is exactly what it was before this file existed.
+##
+## [b]A `MultiplayerAPI` with no session is not a `MultiplayerAPI` with no
+## peer.[/b] Godot hands every `SceneTree` an [OfflineMultiplayerPeer] at
+## startup — unique id 1, and a connection status of
+## [constant MultiplayerPeer.CONNECTION_CONNECTED] — so a null check plus a
+## status check says "connected" in a game that has never touched the network.
+## Naming the class is safe where naming `ENetMultiplayerPeer` is not: the
+## offline peer is core and ships in the web templates too.
 func active() -> bool:
-	return multiplayer.multiplayer_peer != null \
-		and multiplayer.multiplayer_peer.get_connection_status() \
-			== MultiplayerPeer.CONNECTION_CONNECTED
+	var peer: MultiplayerPeer = multiplayer.multiplayer_peer
+	return peer != null and not (peer is OfflineMultiplayerPeer) \
+		and peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED
 
 func is_host() -> bool:
 	return _hosting

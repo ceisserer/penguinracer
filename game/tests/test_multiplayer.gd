@@ -26,6 +26,7 @@ static func run(t: TestCase) -> void:
 	_playback_racer(t)
 	_remote_racer(t)
 	_who_collides(t)
+	_no_session(t)
 
 # ------------------------------------------------------------------
 
@@ -462,3 +463,25 @@ static func _who_collides(t: TestCase) -> void:
 	var shared: Array[Vector3] = field.positions
 	field.set_state(0, Vector3(9.0, 0.0, 0.0), Vector3.ZERO)
 	t.eq_v(shared[0], Vector3(9.0, 0.0, 0.0), 1e-9, "and is shared by reference")
+
+## A game that has never touched the network is not in a session.
+##
+## [method RaceNetwork.active] is the switch every network-aware branch in the
+## race reads, and one of them is whether the start animation plays. Godot gives
+## every `SceneTree` an [OfflineMultiplayerPeer] at startup, so a peer that is
+## non-null and reports [constant MultiplayerPeer.CONNECTION_CONNECTED] is the
+## *default* state rather than evidence of a session — which is what silently
+## turned the intro off for every single-player race.
+static func _no_session(t: TestCase) -> void:
+	t.begin("no session is not a session")
+	var tree: SceneTree = Engine.get_main_loop() as SceneTree
+	var net := RaceNetwork.new()
+	net.name = "TestNet"
+	tree.root.add_child(net)
+	var peer: MultiplayerPeer = net.multiplayer.multiplayer_peer
+	t.ok(peer != null and peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED,
+		"the default peer is present and calls itself connected")
+	t.ok(not net.active(), "and a race started from the menu is still offline")
+	t.ok(net.local_id() == 0, "with no id to publish snapshots under")
+	tree.root.remove_child(net)
+	net.free()

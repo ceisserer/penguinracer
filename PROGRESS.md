@@ -143,6 +143,16 @@ original's Reset state re-enters Racing, not Intro. Scripted runs (`--auto-input
 passing `--no-intro` or `?nointro=1`) never see it, which is what keeps every reference capture
 where it was.
 
+A networked race skips it too — four and a half seconds of walking is fine on your own clock and
+is four and a half seconds of nobody agreeing when the race began between peers — and for one
+phase *every* race counted as networked. `RaceNetwork.active()` asked whether
+`multiplayer.multiplayer_peer` was non-null and reported `CONNECTION_CONNECTED`, which Godot's
+default `OfflineMultiplayerPeer` does before anything has touched the network. So from the
+opponents work until now the start animation never played: the race opened already at
+`INIT_TUX_SPEED`, with no error and nothing in the log. `active()` now asks whether the peer is
+the offline one, and `TestMultiplayer._no_session` asserts both halves — that the default peer
+really does call itself connected, and that the game is not in a session anyway.
+
 Four things had to be fixed before any of that could show:
 
 - **The mesh was not skinned to the skeleton it shipped with.** Vertices carried no bone indices

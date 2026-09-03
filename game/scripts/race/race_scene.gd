@@ -390,8 +390,12 @@ func restart(with_intro: bool = true) -> void:
 	_run_id += 1
 	var course: CourseData = course_root.course_data
 	var start := Vector2(course.start_position.x, -course.start_position.y)
+	# Not just `intro_running = false`: an animation still up owns the camera
+	# mode and the rig's clip, and dropping the flag leaves both where the intro
+	# put them — a race framed from ABOVE for good, and the next `begin` saving
+	# that framing as the one to restore.
+	_end_intro()
 	running = true
-	intro_running = false
 	_sim_lead = 0.0
 	snow_cpu = SnowField.new()
 	course_root.surface.snow_field = snow_cpu

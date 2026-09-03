@@ -560,6 +560,16 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   `.godot/global_script_class_cache.cfg` and every reference to it is *"Could not find type X in
   the current scope"* — including from scripts that were fine a moment ago. Run
   `godot --headless --path game --import` after adding one.
+- **Every `SceneTree` is already "connected".** Godot installs an
+  `OfflineMultiplayerPeer` at startup, so `multiplayer.multiplayer_peer` is non-null and its
+  `get_connection_status()` is `CONNECTION_CONNECTED` in a game that has never opened a socket.
+  `RaceNetwork.active()` was written as that pair of checks and therefore answered *yes* to every
+  single-player race — which silently turned the start animation off for all of them, because
+  `restart()` skips the intro in a networked race on purpose. Nothing failed and nothing was
+  logged; the race simply began already moving, which is what a race looks like after an intro
+  you did not see. Ask whether the peer is the offline one, not whether there is a peer.
+  `OfflineMultiplayerPeer` is core and safe to name in a script that ships to web, unlike
+  `ENetMultiplayerPeer`.
 
 ## Deliberate deviations from ETR
 
