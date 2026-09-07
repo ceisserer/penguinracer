@@ -60,10 +60,9 @@ var spray_pool: int = 700
 ## whose start point is the one the course authored — which is what keeps a
 ## practice run byte-identical to one from before there were opponents.
 var start_offset: float = 0.0
-## The CPU deformation mirror this racer stamps, and the GPU one. Both may be
-## null — the GPU field is a single 64 m window that follows the view target, so
-## a racer outside it stamps the CPU mirror only.
-var snow_cpu: SnowField
+## The GPU deformation field this racer stamps, or null — it is a single 64 m
+## window that follows the view target, so everyone else stamps the CPU mirror
+## ([member Racer.snow_cpu]) alone.
 var snow_gpu: SnowFieldGPU
 ## Whether this racer's passage deforms the snow at all. On for everyone today;
 ## the knob exists because eight racers stamping one 1024² render target is the

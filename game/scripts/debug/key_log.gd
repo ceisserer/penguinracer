@@ -9,7 +9,7 @@
 ## landed in). Godot latches the edge even when the release arrives in the same
 ## inter-frame gap, so a remote desktop that forwards a key as a zero-length
 ## down/up pulse — RustDesk's translate/legacy keyboard mode does exactly that —
-## leaves `r` working and WASD/space doing nothing at all. This prints both
+## leaves `r` working and the arrow keys/space doing nothing at all. This prints both
 ## views side by side so that guess can be settled by looking.
 extends Node
 
@@ -25,7 +25,7 @@ var _lines: PackedStringArray = []
 var _label: Label
 
 const WATCHED := ["steer_left", "steer_right", "paddle", "brake", "jump",
-	"trick_modifier", "reset_race", "menu"]
+	"trick_modifier", "reset_race", "menu", "pause"]
 
 func _ready() -> void:
 	var layer := CanvasLayer.new()
@@ -36,7 +36,7 @@ func _ready() -> void:
 	_label.offset_left = 12.0
 	_label.offset_top = 8.0
 	layer.add_child(_label)
-	_say("PenguinRacer keyboard probe — hold W, A, S, D and space for a second each, then tap r.")
+	_say("PenguinRacer keyboard probe — hold the arrow keys and space for a second each, then tap r.")
 	_say("")
 
 func _input(event: InputEvent) -> void:
@@ -92,7 +92,7 @@ func _verdict(held: PackedStringArray) -> String:
 	if _pulses > 0 and _holds == 0:
 		lines.append("")
 		lines.append("VERDICT: no press ever survived to the next frame. The keyboard is being")
-		lines.append("forwarded as down/up pulses, so every held control (WASD, space, ctrl) is dead")
+		lines.append("forwarded as down/up pulses, so every held control (arrow keys, space, ctrl) is dead")
 		lines.append("while every edge-triggered one (r, Esc, menu keys) works. In RustDesk this is")
 		lines.append("the keyboard mode: switch the session from Legacy/Translate to Map mode. If that")
 		lines.append("is not available, `godot --path game -- --remote-keyboard` bridges the pulses.")

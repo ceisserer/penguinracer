@@ -583,6 +583,16 @@ save/profiles, settings, 15-language i18n, audio mixing.
 > 190 m apart over 30 s; an opponent goes through a gap in a stand of trees a straight-line racer
 > drives into; a field replays identically; a Practice capture is unchanged.
 
+> **Correction, 2026-09-07.** "Closing it is still a resume" (2026-09-01, above) no longer holds:
+> the course menu's Continue button is gone, so Esc mid-race only ever drops back to the course
+> list — an abandon, not a toggle — and there is no keypress that reopens the same panel and
+> returns to where the player was. That gap is filled by a new, unrelated key: `P` freezes the
+> race in place behind a `PAUSED` label, with no panel and no course list, and unfreezes it again.
+> The two are mutually exclusive on purpose, so a stray key cannot leave the freeze up with
+> nothing on screen saying so. Steering, paddling and braking moved with it, off `A`/`D`/`W`/`S`
+> and onto the arrow keys, freeing the letters for nothing in particular — there was no second use
+> waiting for them, just a request that the two schemes not overlap.
+
 ### Phase 6 — Polish + ship — **M**
 Quality tiers replacing `perf_level`, WASM size budget, loading/streaming, redesigned finish sequence
 (no gravity hack), input remapping, gamepad, touch.

@@ -28,8 +28,9 @@ const FLAG_JUMPING := 1 << 4
 ## screen, and so that a peer running at another framerate still lines up.
 var time: float = 0.0
 ## The point mass, exactly as [member RacePhysics.pos] holds it — the body
-## centre, before [constant Racer.CHARACTER_SINK] and [constant
-## PhysConst.TUX_Y_CORR] put the belly in the snow.
+## centre, before [constant PhysConst.TUX_Y_CORR] lifts it to where the model
+## is drawn. How deep the belly rides is the terrain's `[depth]` and the spring
+## under it, both of which are already in here.
 var position: Vector3 = Vector3.ZERO
 var orientation: Quaternion = Quaternion.IDENTITY
 ## Carried because the presentation wants it (spray, camera lag, the HUD's

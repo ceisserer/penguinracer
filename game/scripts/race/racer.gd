@@ -25,17 +25,6 @@
 class_name Racer
 extends Node3D
 
-## How far the body is dropped along its own up axis so the belly sits in the
-## contact patch instead of on top of it.
-##
-## DEVIATION: the original draws the character at `cpos.y + TUX_Y_CORR` and
-## nothing else. This used to be a local offset on the rig node, which is the
-## same thing while the body's up axis is the surface normal — but during the
-## start animation it is not, and an offset along a standing penguin's local Y
-## walked him sideways out of his own footprints. Applied here, by the node that
-## writes the body transform, which is now the only place that does.
-const CHARACTER_SINK := 0.1
-
 enum Kind {
 	## The player, simulated from the keyboard.
 	LOCAL,
@@ -72,9 +61,20 @@ var herring: int = 0
 var finished: bool = false
 var finish_time: float = 0.0
 
+## The CPU snow mirror the simulation reads, or `null` off a course. Read here
+## for one reason only — see [method _drawn_snow_lift].
+var snow_cpu: SnowField
+
 ## The interpolated pose [method present] draws. A member so that drawing eight
 ## racers costs no allocation.
 var _view := RacerState.new()
+
+## The snow lift at this tick and at the one before it, the two ends
+## [method present] interpolates between. See [method _drawn_snow_lift] for
+## what the lift is and [method sample_snow_lift] for why it is a pair of
+## numbers rather than a call.
+var _lift: float = 0.0
+var _lift_previous: float = 0.0
 
 func is_simulated() -> bool:
 	return false
@@ -111,25 +111,81 @@ func advance(_dt: float) -> void:
 ## at any rate that is not a multiple of 60.
 func present(alpha: float) -> void:
 	_view.interpolate(previous, state, alpha)
-	var body := Basis(_view.orientation)
-	global_basis = body
-	global_position = _view.position \
-		+ Vector3(0.0, PhysConst.TUX_Y_CORR, 0.0) - body.y * CHARACTER_SINK
+	global_basis = Basis(_view.orientation)
+	global_position = _view.position + Vector3(0.0,
+		PhysConst.TUX_Y_CORR + lerpf(_lift_previous, _lift, alpha), 0.0)
 
 ## Put the racer somewhere without interpolating through where it used to be.
 ## Used by a restart, and by the start animation, which writes the body
 ## transform itself rather than going through the simulation.
+##
+## [param position] is where the body is to be drawn, i.e. it already carries
+## [constant PhysConst.TUX_Y_CORR] — the caller took it off a keyframe rather
+## than out of a simulation. The snow lift is added on the same terms as in
+## [method present], so the two agree about a hill with a trench in it.
 func apply_pose(position: Vector3, basis: Basis) -> void:
 	global_basis = basis
-	global_position = position - basis.y * CHARACTER_SINK
 	state.position = position - Vector3(0.0, PhysConst.TUX_Y_CORR, 0.0)
+	_lift = _drawn_snow_lift(state.position)
+	_lift_previous = _lift
+	global_position = position + Vector3(0.0, _lift, 0.0)
 	state.orientation = basis.get_rotation_quaternion()
 	previous.copy_from(state)
 
+## Read the trench under the racer, once, on the tick.
+##
+## [b]The lift cannot be sampled at frame time.[/b] [SnowField] is simulation
+## state and it is written from inside the substep loop, so a live read from
+## [method present] mixes two clocks: on a frame where a tick ran, the depth has
+## just jumped by everything that tick stamped; on the frames between, the
+## interpolated body slides forward onto texels its own stamp has not reached
+## yet and the depth falls back. Measured on Bunny Hill at 145 fps that is a
+## 60 Hz sawtooth of about 4 mm — twenty to seventy times the frame-to-frame
+## curvature of the simulated position it is added to, and the whole of the
+## nervous shiver it produced. The [i]physics[/i] never showed it: the same
+## steps arrive under a 1500 N/m spring whose natural frequency is about
+## 1.4 Hz, which filters them out. Drawing added them back unfiltered.
+##
+## So it obeys architecture rule 7 like every other quantity that affects what
+## the race looks like: sampled on the tick at the tick's position, kept as two
+## ends, and interpolated by [method present]. Called for every racer, not just
+## the ones that stamp — a ghost and a peer are drawn against the same trench.
+func sample_snow_lift() -> void:
+	_lift_previous = _lift
+	_lift = _drawn_snow_lift(state.position)
+
+## Metres to lift the drawn body by so that it rides on the snow that is drawn.
+##
+## DEVIATION: the original has no snow deformation, so there is nothing here to
+## port — this exists because ours is deliberately two fields that do not match
+## (architecture rule 3). [SnowField] subtracts the trench from the height the
+## simulation stands on, so a carving racer really does sit up to
+## [member SnowField.max_trench] lower than the bare heightmap. The [i]drawn[/i]
+## surface does not go down with it: the terrain mesh is displaced from the GPU
+## field instead, on ~0.5 m vertices that cannot resolve a 0.45 m contact patch,
+## so the trench reads in lighting and not in silhouette. Draw the body against
+## the physics height and it sinks into snow that was never dug out — half the
+## penguin, at a 0.1 m trench.
+##
+## This is the exact inverse of what [method SnowField.apply_to_sample] took
+## off, sampled where the body is: outside the 64 m window both are zero, so the
+## two stay in step wherever the racer is. It goes away the day the near-field
+## mesh is dense enough to carry the trench in geometry — that is the whole of
+## the "reads in lighting but not in silhouette" gap, and the day it closes this
+## should be deleted rather than retuned.
+func _drawn_snow_lift(at: Vector3) -> float:
+	return 0.0 if snow_cpu == null else snow_cpu.depth_at(at.x, at.z)
+
 ## Collapse the interpolation window onto the current state, so the next frame
 ## draws where the racer is rather than sliding there from where it was.
+##
+## The lift is re-read rather than carried over: a restart hands out a fresh
+## [SnowField], so the pair kept from the last race is a trench on a hill that
+## no longer has one.
 func snap() -> void:
 	previous.copy_from(state)
+	_lift = _drawn_snow_lift(state.position)
+	_lift_previous = _lift
 
 ## The pose the last [method present] drew — the interpolated one, not the
 ## simulation's. What the camera and the streaming window follow, so that they

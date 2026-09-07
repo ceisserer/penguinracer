@@ -120,17 +120,66 @@ func recenter(center_x: float, center_z: float) -> void:
 				_pack[idx] = 0.0
 	_origin = target
 
+## The narrowest footprint this grid can carry, in texels.
+##
+## [b]A deposit narrower than this reads back as a function of where in the
+## texel it was laid, not of how deep it was.[/b] [method depth_at] reconstructs
+## bilinearly, so a read at the point of the deposit weights the four texels
+## around it — and a footprint that fits inside one texel lands entirely in that
+## texel when the racer is on its centre and splits four ways when it is on a
+## corner. Measured on a single 0.10 m stamp swept across a texel, the readback
+## ran 0.024 .. 0.095 m: a [b]3.9× swing[/b] with the sub-texel phase, at the
+## texel-crossing rate, which in deep snow on `challenge_one` was 50 mm of the
+## drawn body bobbing at 12 Hz with nothing in the physics to explain it.
+##
+## The fix is the sampling theorem, not a tuning constant. The weights
+## [method _bilinear] applies sum to 1, so a footprint whose flat top covers
+## every texel those weights can reach reads back as exactly what was laid,
+## wherever it was laid. The flat top runs to `r - 0.5` texels, so `r` of 1.5
+## covers a full texel around the sample point and takes the swing to 1.01×
+## (0.5 mm on the same 0.10 m stamp); 1.75 makes it exact. 1.5 is where the
+## residual goes under the frame-to-frame curvature of the simulated position
+## it is added to, which is the thing it has to disappear beneath.
+##
+## DEVIATION, and the cost of the fix: this grid is 50 cm/texel and the contact
+## patch is 45 cm, so a trench the true width of the penguin is below what it
+## can represent at all — the choice is not "sharp or blurred" but "aliased or
+## band-limited". The trench it stores is therefore about 1.5 m wide rather than
+## 0.45 m, and it is [b]this grid's[/b] trench, not the one anybody sees: the
+## GPU field carries the drawn one at 6.25 cm/texel, where the same 0.225 m
+## radius is 3.6 texels and needs none of this.
+const MIN_FOOTPRINT := 1.5
+
 ## Stamp a contact footprint as an antialiased disc: texels inside `radius` take
 ## the full `amount` in metres, texels within one texel of the edge feather.
-## The flat-bottomed profile is deliberate — this grid is 50 cm/texel and the
-## contact patch is 45 cm wide, so a dome would quantise a carve away entirely.
-## Ridge formation at the trench edges is the GPU field's job, not this one's.
+## The flat-bottomed profile is deliberate — a dome would quantise a carve away
+## entirely on a grid this coarse. Ridge formation at the trench edges is the
+## GPU field's job, not this one's.
+##
+## [param radius] is widened to [constant MIN_FOOTPRINT] texels if it is
+## narrower than that, and [param amount] is scaled down by exactly the
+## widening. See there for the first half; the second half is that widening the
+## footprint must not deepen the trench. A texel lies under the disc for as long
+## as the disc is wide, so a caller stamping every substep along a path
+## accumulates in proportion to the width — and the along-track integral of this
+## profile is very nearly linear in `r`, so dividing by the same factor holds
+## the depth a pass reaches where it was. Without it a widening that is supposed
+## to be a change of representation deepens every trench about fourfold and
+## bottoms them out on [member max_trench].
 func stamp(x: float, z: float, radius: float, amount: float) -> void:
 	if not _initialized:
 		recenter(x, z)
 	var cx: float = x / TEXEL
 	var cz: float = z / TEXEL
-	var r: float = radius / TEXEL
+	var requested: float = radius / TEXEL
+	var r: float = maxf(requested, MIN_FOOTPRINT)
+	var rate: float = amount * minf(1.0, requested / r)
+	# `max_trench` is a divisor below and it is settable, so a course or a test
+	# that turns the trench off entirely must fall out here rather than through
+	# a division by zero. It used to be the right-hand side of a `min()`, where
+	# zero needed no thought.
+	if max_trench <= 0.0:
+		return
 	var x0: int = floori(cx - r - 1.0)
 	var x1: int = ceili(cx + r + 1.0)
 	var y0: int = floori(cz - r - 1.0)
@@ -146,13 +195,26 @@ func stamp(x: float, z: float, radius: float, amount: float) -> void:
 				continue
 			var falloff: float = clampf(r + 0.5 - dist, 0.0, 1.0)
 			var idx: int = _index(gx, gy)
-			# Both clamps are on the true value, so they have to be applied in
+			# Both ceilings are on the true value, so they have to be applied in
 			# metres and in 0..1 and stored back scaled. Two extra flops per
 			# texel of a footprint that is a few dozen texels across.
-			_depth[idx] = minf(max_trench, _depth[idx] * _depth_scale
-				+ amount * falloff) / _depth_scale
-			_pack[idx] = minf(1.0, _pack[idx] * _pack_scale
-				+ falloff * 0.5) / _pack_scale
+			#
+			# [b]Approached, not clamped.[/b] `min()` against the ceiling is a
+			# corner, and a corner is the aliasing of [constant MIN_FOOTPRINT]
+			# all over again one level up: in deep snow the texels under the
+			# racer reach `max_trench` while the ones a texel out do not, so the
+			# bilinear read across that kink goes back to depending on where in
+			# the texel the racer is standing — 15 mm of it, at the
+			# texel-crossing rate, on exactly the terrains whose `[depth]` is
+			# generous. Fading the increment out as the floor is approached
+			# leaves no kink to sample across, and says the same thing about the
+			# snow: the deeper the trench, the less there is left to plough.
+			var d: float = _depth[idx] * _depth_scale
+			d += rate * falloff * (1.0 - d / max_trench)
+			_depth[idx] = clampf(d, 0.0, max_trench) / _depth_scale
+			var pk: float = _pack[idx] * _pack_scale
+			pk += falloff * 0.5 * (1.0 - pk)
+			_pack[idx] = clampf(pk, 0.0, 1.0) / _pack_scale
 
 ## Refill and settle.
 ##

@@ -145,13 +145,6 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Race!"
 
-[node name="ContinueButton" type="Button" parent="Frame/Body/Columns/InfoPanel/Info/Buttons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 42)
-layout_mode = 2
-theme_override_font_sizes/font_size = 22
-text = "Continue"
-
 [node name="BackButton" type="Button" parent="Frame/Body/Columns/InfoPanel/Info/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 42)

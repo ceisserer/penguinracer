@@ -97,9 +97,10 @@ seconds, and **any key skips it**. `R` mid-race goes straight back to racing wit
 and a scripted run — anything passing `--auto-input=`, `--no-intro`, or `?nointro=1` in a browser
 — never sees it at all, which is what keeps screenshot comparisons comparable.
 
-Controls: `A`/`D` steer, `W` paddles, `S` brakes, space charges a jump, `Ctrl` plus a direction
-turns an air into a trick, `R` restarts, `Esc` opens the course menu — and Back from there drops
-the race and returns to the main menu. A gamepad's left stick steers.
+Controls: arrow keys steer/paddle/brake, space charges a jump, `Ctrl` plus a direction turns an
+air into a trick, `R` restarts, `P` freezes the race in place with a `PAUSED` banner and unfreezes
+it again, `Esc` drops straight back to the course list — a race left this way is abandoned rather
+than resumed, and Back from the list returns to the main menu. A gamepad's left stick steers.
 
 Playing over a remote desktop, set its keyboard to a raw/map mode rather than a character
 translating one — a translating mode sends held keys as zero-length pulses, and steering, paddling

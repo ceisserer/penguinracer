@@ -165,6 +165,7 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 
 - Near-field terrain mesh too coarse (~0.5 m vertices vs a 0.45 m contact patch) — the trench reads
   in lighting but not in silhouette. Fix: denser mesh for chunks inside the deformation window.
+  `Racer._drawn_snow_lift` is the standing compensation for it and comes out when it is fixed.
 - Web cold load 161 MB (128 MB pck) — all 44 courses bundled, plus 18 MB of audio. Needs
   per-course streaming (Phase 6); the 14 MB of music is the easiest part to load on demand.
 - The terrain slide sound is on/off with no speed term, and 12 of the 43 terrains (including
@@ -560,6 +561,19 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   `.godot/global_script_class_cache.cfg` and every reference to it is *"Could not find type X in
   the current scope"* — including from scripts that were fine a moment ago. Run
   `godot --headless --path game --import` after adding one.
+- **`TUX_Y_CORR` is the whole of how deep the penguin rides, and a second offset under it sinks
+  him twice.** ETR draws node 0 at `cpos.y + TUX_Y_CORR` and stops: how far into the snow the belly
+  goes is already in the point mass, as the terrain's `[depth]` (0.11 m for `snow`) plus about
+  0.065 m of spring compression under 20 kg — the body centre sits ~0.175 m *below* the surface
+  plane and is drawn 0.36 m above that, i.e. 0.185 m clear, and the model reaches 0.292 m down from
+  its origin. A `CHARACTER_SINK` of 0.1 m was added on top of that "so the belly sits in the
+  contact patch", which it already did, and the snow field took another 0.04–0.10 m off the height
+  underneath: 0.185 m of clearance became 0.014–0.067 m, and two fifths of a 0.6 m penguin went
+  under the snow — the belly, the feet and the bottom of the back. Nothing looked broken, because
+  a penguin sliding on his belly is *supposed* to be partly buried and there is no line in the
+  frame that says how much. Measure it — the number to
+  compare against ETR is the model origin's clearance over the **bare** heightmap, and it is
+  0.185 m. `TestMultiplayer._where_the_body_is_drawn` asserts it.
 - **Every `SceneTree` is already "connected".** Godot installs an
   `OfflineMultiplayerPeer` at startup, so `multiplayer.multiplayer_peer` is non-null and its
   `get_connection_status()` is `CONNECTION_CONNECTED` in a game that has never opened a socket.
@@ -570,6 +584,42 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   you did not see. Ask whether the peer is the offline one, not whether there is a peer.
   `OfflineMultiplayerPeer` is core and safe to name in a script that ships to web, unlike
   `ENetMultiplayerPeer`.
+- **Simulation state read at frame time is a sawtooth, however smooth the field is.** The snow
+  lift that draws the body against the bare hill (`Racer._drawn_snow_lift`) was read live from
+  `present()`, which puts two clocks in one expression: `SnowField` is written from inside the
+  substep loop, so a frame on which a tick ran saw the depth jump by everything that tick had
+  stamped, while the frames between saw the interpolated body slide forward onto texels its own
+  stamp had not reached yet and the depth fall back. Bunny Hill at 145 fps: a 60 Hz sawtooth of
+  about 4 mm on the drawn Y, mean |Δ²| of 2–6 mm against 0.1–0.3 mm for the simulated position
+  under it — a penguin that visibly shivered a few seconds into every run, on exactly the
+  terrains that take trackmarks. Nothing in the physics showed it, and that is the tell rather
+  than the reassurance: the same steps arrive under a 1500 N/m spring at about 1.4 Hz, which
+  filters them out, and drawing added them back unfiltered. **`depth_at` being bilinear does not
+  help** — the field is smooth in space and a step function in time, and it was time that was
+  being resampled. The fix is architecture rule 7 applied to one more quantity: sample on the
+  tick at the tick's position, keep two ends, interpolate with the same `alpha` as the pose
+  (`Racer.sample_snow_lift`, called last in `RaceScene._simulation_tick`). Median |Δ²| after:
+  0.2 mm. `TestMultiplayer._the_lift_runs_on_the_tick` asserts the property rather than the
+  number — between two ticks the drawn lift depends on nothing but `alpha`.
+- **A deposit narrower than a texel reads back as a phase, not a value.** With the lift moved
+  onto the tick, `challenge_one` still bobbed — 50 mm at 12 Hz over a simulated position smooth
+  to a tenth of a millimetre. `SnowField` is 50 cm/texel and the contact patch is 45 cm, so the
+  stamp footprint fitted *inside one texel*: it landed wholly in that texel when the racer was on
+  its centre and split four ways when it was on a corner, and `depth_at` reconstructs bilinearly.
+  Swept across one texel, a single 0.10 m stamp read back **0.024 m to 0.095 m — a 3.9× swing**,
+  at the texel-crossing rate. Nothing looked wrong: every number was a plausible depth, and the
+  physics filtered the ripple out through the spring, so it was visible only in the one consumer
+  that takes the trench back undivided. **A trench the true width of the penguin is not
+  representable on this grid at all** — the choice is aliased or band-limited, not sharp or
+  blurred. `SnowField.MIN_FOOTPRINT` widens the deposit to 1.5 texels, which is where the flat
+  top covers every texel a bilinear read can reach and the swing goes to 1.01×; the rate is
+  divided by exactly the widening, or a change of representation deepens every trench fourfold.
+  Then the **`min()` against `max_trench` turned out to be the same bug one level up** — in deep
+  snow the texels under the racer met the ceiling while the ones a texel out did not, and the
+  read across that kink went back to depending on the phase, worth 15 mm on its own. Approach a
+  ceiling, do not clamp to it. `TestSurface._snow_is_band_limited` asserts the property over the
+  whole phase square rather than the constants. The GPU field needs none of this: at 6.25 cm/texel
+  the same 0.225 m radius is 3.6 texels.
 
 ## Deliberate deviations from ETR
 
@@ -636,12 +686,16 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 - **The HUD says `PRESS ANY KEY TO START` over the start animation.** The original draws its
   ordinary HUD there and never mentions that any key skips it. The string is a migrated one — it is
   what ETR puts under its splash screen.
-- **The character sinks 0.1 m along its own up axis**, which the original does not do at all: it
-  draws at `cpos.y + TUX_Y_CORR` and stops. This used to be a local offset on the rig node, which
-  is the same thing while the body's up axis is the surface normal — during the start animation it
-  is not, and an offset along a standing penguin's local Y walked him sideways out of his own
-  footprints. It is `Racer.CHARACTER_SINK` now, applied by `Racer.present` — which is the only
-  place a body transform is written, for every racer, whoever is driving it.
+- **The drawn body is lifted by the trench it is standing in.** ETR has no snow deformation, so
+  there is nothing here to port; ours is deliberately two fields that do not match (rule 3).
+  `SnowField` takes the trench off the height the simulation stands on, so a carving racer really
+  does ride up to `max_trench` lower than the bare heightmap — but the *drawn* surface does not go
+  down with it, because the terrain mesh is displaced from the GPU field on vertices too coarse to
+  carve. `Racer._drawn_snow_lift` adds back exactly what `SnowField.apply_to_sample` took off, at
+  the body's own position, so the penguin rides on the snow that is actually drawn. Both are zero
+  outside the 64 m window, so the two stay in step wherever the racer is. **Delete it, do not
+  retune it, the day the near-field mesh carries the trench in geometry** — that is the whole of
+  the known gap it exists for.
 - **A shoulder carrying both `[sh]` and `[arm]` is one quaternion key interpolated by slerp**, where
   the original interpolates the two angles separately and rebuilds both matrices. The two agree
   exactly whenever one angle is constant across a segment, which covers all of `start.lst` (no

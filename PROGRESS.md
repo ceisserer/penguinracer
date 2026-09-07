@@ -110,6 +110,14 @@ Both halves of the dual representation exist and are wired in:
 - `SnowFieldGPU` — ping-pong `SubViewport`s, 1024² over a 64 m toroidally-scrolled window,
   stamped and decayed by one fragment pass per frame. Verified by S1.
 - `SnowField` — the CPU mirror, 128² over the same window, read by `HeightmapSurface.sample()`.
+  Its trench is **about 1.5 m wide, not 0.45 m**, and deliberately so: at 50 cm/texel a trench the
+  width of the penguin is below what the grid can represent, and storing it anyway made the depth
+  read back a function of where in the texel the racer stood rather than of how deep it was — a
+  3.9× swing that put 50 mm of bob on the drawn body at the texel-crossing rate. The deposit is
+  band-limited to 1.5 texels (`SnowField.MIN_FOOTPRINT`) with the rate divided by the same
+  widening, so a pass still reaches the depth it used to; the ceilings on depth and compaction are
+  approached rather than clamped, because a clamp is the same kink one level up. The drawn trench
+  is the GPU field's, at 6.25 cm/texel, and is unaffected. See the trap list.
 
 The terrain shader displaces from the trail map, raises ridges at the trench lip from the
 Laplacian of the depth field, and reconstructs normals from it. A carve leaves a visible track
@@ -190,8 +198,11 @@ imported and playable but not wired to anything; they belong with cups and the g
 
 The first slice: picking what to race next. `scenes/course_menu.tscn` + `scripts/shell/course_menu.gd`
 list all 44 courses with preview, author, length, slope and description, and hand the choice to
-whoever is showing them. Esc opens and closes it mid-race; it comes back up 3 s after the finish
-line with the time and herring count, so the next course is one keypress away.
+whoever is showing them. Esc opens it mid-race and drops back to it — there is no Continue button,
+so that is a way to abandon the run for another course, not a pause — and it comes back up 3 s
+after the finish line with the time and herring count, so the next course is one keypress away. `P`
+is the pause: a plain freeze with a `PAUSED` label and no course list, toggled back off by the same
+key.
 
 Three decisions worth keeping:
 
@@ -334,9 +345,9 @@ Three things followed from reading the original rather than guessing at it:
   in the theme is `StyleBoxEmpty` in all five states with the colour doing the work, and the main
   menu's column is centred under the title the way `CGameTypeSelect::Enter` centres its seven.
 - **The blue is the screen, not a scrim.** The course list opened from the main menu is an opaque
-  `colBackgr` screen; opened over a running race, where dismissing it resumes the course behind
-  it, the same rectangle is a translucent `colDBackgr` wash. That is `resumable` — the flag the
-  menu already took to decide whether to offer Continue — deciding one more thing.
+  `colBackgr` screen; opened over a running race, where the course stays loaded and rendered
+  behind the panel, the same rectangle is a translucent `colDBackgr` wash instead. That is
+  `over_race`, the flag `CourseMenu.open` takes to decide which.
 - **The checkbox had to be redrawn.** ETR's is a ring with a cream tick (`checkbox.png` +
   `checkmark_small.png`, and the tick really is 255, 250, 208), not a box; Godot's default
   `CheckButton` is a dark slab that vanishes against blue and cannot be modulated lighter.
@@ -699,7 +710,15 @@ needs a full 44-course re-import whose diff is ~116 000 lines by design.
   vertices sit ~0.5 m apart; the contact patch is 0.45 m wide. Lighting sells the trench
   (normals are reconstructed per fragment from the trail map) but the silhouette does not move.
   Plan §4.4 already anticipates this — "only chunks inside the deformation window need the
-  displacement path" — so the fix is a denser mesh for those chunks.
+  displacement path" — so the fix is a denser mesh for those chunks. Until then the racer is
+  drawn against the bare heightmap rather than against the trench it is standing in
+  (`Racer._drawn_snow_lift`), because the alternative is a penguin sunk into snow that was never
+  dug out. That compensation comes out when this gap closes. It is sampled **on the tick** and
+  interpolated with the pose (`Racer.sample_snow_lift`): read live from `present()` it was a
+  60 Hz, ~4 mm sawtooth on the drawn body — the field is smooth in space but a step function in
+  time, and frame time was resampling the steps. It is also the one consumer that takes the
+  trench back undivided, which is why it — and not the physics, which filters through the spring —
+  is where the grid's aliasing showed up as a visible 12 Hz bob. Both are fixed; see the trap list.
 - **Web cold load is 161 MB** (128 MB pck), because the export bundles all 44 courses. Risk S6,
   Phase 6: stream per course, compress, load music on demand.
 - **The snow is a channel too cyan.** Red matches the original within two levels at both ends,

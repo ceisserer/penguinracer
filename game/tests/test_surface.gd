@@ -8,6 +8,7 @@ static func run(t: TestCase) -> void:
 	_splat_blending(t)
 	_splat_resample(t)
 	_snow_field(t)
+	_snow_is_band_limited(t)
 	_snow_decay_is_scalar(t)
 
 static func _analytic_slope(t: TestCase) -> void:
@@ -179,6 +180,86 @@ static func _snow_field(t: TestCase) -> void:
 	var d0: float = field.depth_at(45.0, -200.0)
 	field.decay(field.refill_tau)
 	t.eq_f(field.depth_at(45.0, -200.0), d0 * exp(-1.0), 1e-6, "trench refills exponentially")
+
+## What a stamp reads back as must be a depth, not a phase.
+##
+## This grid is 50 cm/texel and the contact patch is 45 cm, so the trench a
+## racer actually cuts is below what the grid can represent — and for a phase
+## the field stored it anyway. [method SnowField.depth_at] reconstructs
+## bilinearly, so a sub-texel deposit landed wholly in one texel when the racer
+## was on its centre and split four ways when it was on a corner: swept across
+## one texel, a single 0.10 m stamp read back anywhere from 0.024 m to 0.095 m.
+## Nothing in the field looked wrong — every individual number was a plausible
+## depth — and the physics did not show it either, because the spring under the
+## body filters a 12 Hz surface ripple out. What showed it was the drawn body,
+## which takes the trench back undivided ([method Racer._drawn_snow_lift]):
+## 50 mm of vertical bob at the texel-crossing rate on `challenge_one`, over
+## a simulated position that was smooth to a tenth of a millimetre.
+##
+## Two things had to give and both are the sampling theorem rather than taste.
+## [constant SnowField.MIN_FOOTPRINT] band-limits the deposit to what the grid
+## carries, with the rate divided by the same widening so a pass still reaches
+## the depth it used to. And the ceilings are approached rather than clamped:
+## `min()` against `max_trench` is a corner, and in deep snow the texels under
+## the racer met it while the ones a texel out did not, which is the same
+## aliasing one level up and was worth 15 mm on its own.
+##
+## Asserted as the property, over the whole phase square, at both ends of the
+## depth range — not as the constants, which are free to move as long as this
+## holds.
+static func _snow_is_band_limited(t: TestCase) -> void:
+	t.begin("snow field is band-limited to its grid")
+	for amount: float in [0.02, 0.10]:
+		var lo: float = INF
+		var hi: float = -INF
+		var n: int = 12
+		for iy: int in n:
+			for ix: int in n:
+				var field := SnowField.new()
+				var x: float = 100.0 + float(ix) / float(n) * SnowField.TEXEL
+				var z: float = -60.0 + float(iy) / float(n) * SnowField.TEXEL
+				field.recenter(x, z)
+				field.stamp(x, z, PhysConst.TUX_WIDTH * 0.5, amount)
+				var d: float = field.depth_at(x, z)
+				lo = minf(lo, d)
+				hi = maxf(hi, d)
+		# 3.9x before, on the 0.10 m stamp.
+		t.between(hi / maxf(lo, 1e-9), 1.0, 1.02,
+			"a %.2f m stamp reads back the same wherever in the texel it lands" % amount)
+		# Not the amount itself: the widening comes with the matching division,
+		# so one stamp lays a fraction of what it asks for and a pass of them
+		# adds up to what it used to. That is the sweep below.
+		t.eq_f(hi, amount * PhysConst.TUX_WIDTH * 0.5
+			/ (SnowField.TEXEL * SnowField.MIN_FOOTPRINT), amount * 0.02,
+			"laid at the rate the widening was paid for with")
+
+	# A pass in deep snow rides the ceiling, which is where clamping used to
+	# put the kink back. Sweep the sub-texel phase along a straight line and
+	# the depth under the racer must not oscillate with it.
+	var field := SnowField.new()
+	field.recenter(0.0, 0.0)
+	var dt: float = 1.0 / 240.0
+	var speed: float = 6.0
+	var x: float = -6.0
+	var settled: Array[float] = []
+	while x < 6.0:
+		field.stamp(x, 0.0, PhysConst.TUX_WIDTH * 0.5, 0.20 * dt * 20.0)
+		field.recenter(x, 0.0)
+		if x > 0.0:
+			settled.push_back(field.depth_at(x, 0.0))
+		x += speed * dt
+	var lo2: float = INF
+	var hi2: float = -INF
+	for d: float in settled:
+		lo2 = minf(lo2, d)
+		hi2 = maxf(hi2, d)
+	# The feel this has to preserve: the same pass read 0.061 .. 0.086 m with
+	# the narrow footprint, which is the number the trench depths and the
+	# packed-friction bonus were left sitting at.
+	t.between(hi2, 0.06, 0.10, "a pass digs about as deep as it did before the widening")
+	# 24.9 mm before, at 12 Hz.
+	t.between((hi2 - lo2) * 1000.0, 0.0, 5.0,
+		"and the depth under a racer crossing texels varies by under 5 mm")
 
 ## The splat resample must be an identity when the two grids are the same size.
 ##

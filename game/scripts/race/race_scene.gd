@@ -130,9 +130,15 @@ var running: bool = false
 ## the character is posed straight out of the migrated keyframe — but the course
 ## is drawn and any key skips to the race, exactly as `CIntro` does it.
 var intro_running: bool = false
-## True while the course menu is up. The simulation is not stepped and no
-## player input is read, but the course stays loaded and on screen behind it.
+## True while the course menu is up, or while `P` has frozen the race on its
+## own. Either way the simulation is not stepped and no player input is read,
+## but the course stays loaded and on screen behind it.
 var paused: bool = false
+## True while the freeze is `P`'s rather than the course menu's — the two are
+## mutually exclusive so a stray key cannot leave the game paused with nothing
+## on screen saying so.
+var _key_paused: bool = false
+var _paused_label: Label
 
 var menu: CourseMenu
 ## Directory name of the loaded course, so the menu can highlight it.
@@ -250,11 +256,33 @@ func _ready() -> void:
 	_intro_enabled = play_intro and _auto_input.is_empty()
 	menu = $CourseMenu
 	menu.course_chosen.connect(_on_course_chosen)
-	menu.closed.connect(_on_menu_closed)
 	menu.back_requested.connect(leave_to_main_menu)
 	Net.snapshot_received.connect(_on_snapshot_received)
 	Net.roster_changed.connect(roster.sync_remote)
+	_paused_label = _make_paused_label()
 	load_course(course_scene_path)
+
+## `P`'s freeze has no panel of its own, so it needs its own text — nothing
+## else on screen would otherwise say the race stopped moving rather than
+## hung. A full-rect [Label] on its own [CanvasLayer] rather than a child of
+## [RaceHUD]: that layer hides itself whenever [member paused] is true, which
+## is exactly the frame this has to remain visible.
+func _make_paused_label() -> Label:
+	var layer := CanvasLayer.new()
+	add_child(layer)
+	var label := Label.new()
+	label.text = "PAUSED"
+	label.add_theme_font_size_override("font_size", 48)
+	label.add_theme_color_override("font_color", Color.WHITE)
+	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
+	label.add_theme_constant_override("shadow_offset_x", 2)
+	label.add_theme_constant_override("shadow_offset_y", 2)
+	label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	label.visible = false
+	layer.add_child(label)
+	return label
 
 ## Wire up a racer the roster has just built.
 ##
@@ -271,6 +299,10 @@ func _ready() -> void:
 ## connected for everyone, because [method _on_item_collected] hides the fish
 ## for the whole field and plays the cue for the player alone.
 func _on_racer_added(racer: Racer) -> void:
+	# Null until the course is loaded, and set for everyone by `_use_snow_field`
+	# when it is. This is the other order: a ghost, a peer joining mid-session or
+	# a rebuilt field arrives on a hill that already has a trench in it.
+	racer.snow_cpu = snow_cpu
 	var sim := racer as SimulatedRacer
 	if sim == null:
 		return
@@ -318,8 +350,7 @@ func load_course(path: String) -> void:
 
 	var course: CourseData = course_root.course_data
 
-	snow_cpu = SnowField.new()
-	course_root.surface.snow_field = snow_cpu
+	_use_snow_field(SnowField.new())
 
 	# One simulation per simulated racer, all against the same surface and the
 	# same two object grids. Sharing the grids is what makes the herring a race
@@ -355,11 +386,22 @@ func _build_simulation(racer: SimulatedRacer, course: CourseData) -> void:
 	sim.play_length = course.play_size.y
 	sim.finish_brake = course.finish_brake
 	racer.attach_physics(sim)
-	racer.snow_cpu = snow_cpu
 	# One 64 m GPU window exists and it follows the view target, so only that
 	# racer can usefully stamp it. Everyone else deforms the CPU mirror, which
 	# is what the physics reads and is course-wide.
 	racer.snow_gpu = snow_gpu if snow_deformation and racer == roster.view_target else null
+
+## Point the course, and everyone on it, at [param field].
+##
+## The mirror is replaced rather than cleared on a restart, so there is a second
+## caller and this is worth naming. Every racer holds it, not just the simulated
+## ones: a ghost and a remote peer are drawn against the same trench even though
+## neither is stamping it — see [method Racer._drawn_snow_lift].
+func _use_snow_field(field: SnowField) -> void:
+	snow_cpu = field
+	course_root.surface.snow_field = field
+	for racer: Racer in roster.all:
+		racer.snow_cpu = field
 
 ## Whether a stand-in is driving rather than a person.
 ##
@@ -397,8 +439,7 @@ func restart(with_intro: bool = true) -> void:
 	_end_intro()
 	running = true
 	_sim_lead = 0.0
-	snow_cpu = SnowField.new()
-	course_root.surface.snow_field = snow_cpu
+	_use_snow_field(SnowField.new())
 	if snow_gpu != null:
 		snow_gpu.reset()
 	# The herring are back. `hide_item` collapsed their instance transforms and
@@ -409,7 +450,6 @@ func restart(with_intro: bool = true) -> void:
 	for racer: Racer in roster.all:
 		if racer is SimulatedRacer:
 			var sim: SimulatedRacer = racer
-			sim.snow_cpu = snow_cpu
 			# The player has no offset and is not put through the clamp at all:
 			# their start point is the course's own, whoever else is on the line.
 			# A course whose start sits inside [constant RaceSetup.LANE_MARGIN]
@@ -489,6 +529,13 @@ func _simulation_tick(dt: float) -> void:
 	# GPU window, which is only ever drawn, follows the view target instead.
 	snow_cpu.recenter(roster.local.state.position.x, roster.local.state.position.z)
 	snow_cpu.decay(dt)
+	# Last, because it reads the field: every stamp this tick has landed, the
+	# window has moved and the decay has been applied, so what each racer reads
+	# is the trench the next tick's physics will stand on. Sampling here rather
+	# than from `present` is what keeps the drawn body off the 60 Hz sawtooth —
+	# see [method Racer.sample_snow_lift].
+	for racer: Racer in roster.all:
+		racer.sample_snow_lift()
 
 ## Everything that follows the simulation and is allowed to run at the screen's
 ## rate rather than the simulation's: the camera lag, the streaming window, the
@@ -602,14 +649,25 @@ func open_menu(result_text: String = "") -> void:
 		Audio.play_theme(course_root.course_data.music_theme, MusicTheme.Situation.WON)
 	menu.open(current_course_dir, running, setup, result_text)
 
-func _on_menu_closed() -> void:
-	paused = false
-	# A pause is not simulated time. Without this the first frame after the menu
-	# closes owes the simulation the whole time it was up, and the race either
-	# catches up in one lurch or — past the tick cap — drops it and looks right
-	# by accident.
-	_sim_lead = 0.0
-	Audio.play_theme(course_root.course_data.music_theme, MusicTheme.Situation.RACE)
+## `P`, toggled. Unlike the course menu this has nowhere to go but back to the
+## same race — no course list, no Back button — so it is a plain freeze with
+## [member _paused_label] as the only sign anything happened. Ignored while
+## the course menu owns the freeze already, or during the start animation,
+## where every key is spoken for.
+func _toggle_key_pause() -> void:
+	if (menu != null and menu.visible) or intro_running:
+		return
+	_key_paused = not _key_paused
+	paused = _key_paused
+	if paused:
+		_stop_slide_sound()
+	else:
+		# A pause is not simulated time. Without this the first frame after the
+		# freeze lifts owes the simulation the whole time it was down, and the
+		# race either catches up in one lurch or — past the tick cap — drops it
+		# and looks right by accident.
+		_sim_lead = 0.0
+	_paused_label.visible = _key_paused
 
 ## The menu came back with a course and — since it is the same panel that offers
 ## the field — possibly a different one of those too. A changed field is rebuilt
@@ -642,20 +700,26 @@ func leave_to_main_menu() -> void:
 	Audio.halt_all()
 	get_tree().change_scene_to_file(MAIN_MENU_SCENE)
 
-## Esc opens the menu mid-race and closes it again — except during the start
-## animation, where every key including that one skips to the race. That is
-## `CIntro::Keyb`, which takes any press at all and aborts.
+## Esc drops back to the course list mid-race — the original's "abort race",
+## not a toggle: there is no Continue button to resume from, so a second press
+## does nothing new rather than closing the panel again. That is deliberate:
+## `P` (below) is the way to freeze the race and come straight back to it;
+## Esc is the way to leave it for another course. Neither fires during the
+## start animation, where every key including these skips to the race instead —
+## that is `CIntro::Keyb`, which takes any press at all and aborts.
 func _unhandled_input(event: InputEvent) -> void:
 	if intro_running and not paused and _is_skip_press(event):
 		get_viewport().set_input_as_handled()
 		_end_intro()
 		return
+	if event.is_action_pressed("pause"):
+		get_viewport().set_input_as_handled()
+		_toggle_key_pause()
+		return
 	if not event.is_action_pressed("menu"):
 		return
 	get_viewport().set_input_as_handled()
-	if menu != null and menu.visible:
-		menu.close()
-	else:
+	if not _key_paused:
 		open_menu()
 
 ## A real press of anything a player could press. Echoes are held keys repeating

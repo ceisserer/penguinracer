@@ -26,6 +26,8 @@ static func run(t: TestCase) -> void:
 	_playback_racer(t)
 	_remote_racer(t)
 	_who_collides(t)
+	_where_the_body_is_drawn(t)
+	_the_lift_runs_on_the_tick(t)
 	_no_session(t)
 
 # ------------------------------------------------------------------
@@ -485,3 +487,138 @@ static func _no_session(t: TestCase) -> void:
 	t.ok(net.local_id() == 0, "with no id to publish snapshots under")
 	tree.root.remove_child(net)
 	net.free()
+
+## Where the drawn body sits, which is not where the point mass is.
+##
+## ETR draws node 0 at `cpos.y + TUX_Y_CORR` and stops. How deep the belly
+## rides is the terrain's `[depth]` and the spring standing on it, and both are
+## already in the point mass — so anything this layer takes off on top of that
+## is the penguin sinking twice. It did, for a phase: a 0.1 m `CHARACTER_SINK`
+## put a third of him under the snow.
+##
+## The one term that does belong here is the snow lift, and the assertion worth
+## making about it is not its value but what it is measured against: the bare
+## heightmap, because the bare heightmap is what the terrain mesh draws.
+static func _where_the_body_is_drawn(t: TestCase) -> void:
+	t.begin("where the body is drawn")
+	var tree: SceneTree = Engine.get_main_loop() as SceneTree
+	var racer := Racer.new()
+	tree.root.add_child(racer)
+
+	racer.state.position = Vector3(40.0, -18.0, -60.0)
+	racer.snap()
+	racer.present(1.0)
+	t.eq_f(racer.global_position.y - racer.state.position.y, PhysConst.TUX_Y_CORR, 1e-5,
+		"off a course the body is drawn TUX_Y_CORR above the point mass, as ETR draws it")
+
+	# The offset is along world Y and not along the body's own up axis. During
+	# the start animation those are different vectors — an offset in the rig's
+	# frame walked a standing penguin sideways out of his own footprints.
+	racer.state.orientation = Quaternion(Vector3(0.0, 0.0, 1.0), 0.7)
+	racer.snap()
+	var upright: Vector3 = racer.global_position
+	racer.present(1.0)
+	t.eq_v(racer.global_position, upright, 1e-6, "and does not turn with the body")
+
+	# Now dig a trench under him. The simulation drops into it, because
+	# `apply_to_sample` takes the depth off the height it stands on. The terrain
+	# mesh does not go down with it — it is built from the bare heightmap and
+	# displaced from the *GPU* field, on vertices too coarse to carve — so the
+	# drawn body has to be given the trench back or it sinks into snow that was
+	# never dug out.
+	var x: float = 40.0
+	var z: float = -60.0
+	var field := SnowField.new()
+	field.recenter(x, z)
+	field.stamp(x, z, PhysConst.TUX_WIDTH * 0.5, 0.09)
+	# Two fixtures rather than one: `height_at` caches its last query point, so
+	# a before-and-after on one surface would answer out of the cache.
+	var bare: HeightmapSurface = SlopeFixture.flat_slope(20.0)
+	var dug: HeightmapSurface = SlopeFixture.flat_slope(20.0)
+	dug.snow_field = field
+	var trench: float = bare.height_at(x, z) - dug.height_at(x, z)
+	t.eq_f(trench, field.depth_at(x, z), 1e-6, "the trench is what the simulation stands in")
+	t.between(trench, 0.02, SnowField.new().max_trench, "and it is a carve worth seeing")
+
+	# Ride it at a fixed clearance and the drawn body should come out at that
+	# same clearance under the *bare* surface, trench or no trench.
+	const RIDE := 0.17
+	racer.snow_cpu = field
+	racer.state.orientation = Quaternion.IDENTITY
+	racer.state.position = Vector3(x, dug.height_at(x, z) - RIDE, z)
+	racer.snap()
+	racer.present(1.0)
+	t.eq_f(racer.global_position.y, bare.height_at(x, z) - RIDE + PhysConst.TUX_Y_CORR, 1e-5,
+		"a racer riding in its own trench is drawn against the snow the mesh draws")
+
+	# A ghost and a peer are drawn by the same method and are given the same
+	# field, so a recorded run does not float over a hill the player has carved.
+	var drawn := Vector3(x, bare.height_at(x, z) + PhysConst.TUX_Y_CORR, z)
+	racer.apply_pose(drawn, Basis())
+	t.eq_f(racer.global_position.y, drawn.y + trench, 1e-5,
+		"a pose written straight in gets the same lift")
+	t.eq_f(racer.state.position.y, drawn.y - PhysConst.TUX_Y_CORR, 1e-5,
+		"and leaves the point mass where the simulation would have it")
+
+	tree.root.remove_child(racer)
+	racer.free()
+
+## The snow lift is simulation state, so it may only enter the picture on the
+## tick — architecture rule 7, for the same reason as everything else there.
+##
+## It was a live read from [method Racer.present] for one branch, and that is
+## two clocks in one expression: [SnowField] is written from inside the substep
+## loop, so a frame on which a tick ran saw the depth jump by everything that
+## tick had stamped, and the frames between saw the interpolated body slide
+## forward onto texels its own stamp had not reached yet. On Bunny Hill at
+## 145 fps the drawn body carried a 60 Hz sawtooth of about 4 mm — twenty to
+## seventy times the frame-to-frame curvature of the simulated position under
+## it, and a penguin that visibly shivered a few seconds into every run. The
+## physics never showed it, because the same steps arrive under a 1500 N/m
+## spring and it filters them out; drawing added them back unfiltered.
+##
+## What this asserts is the property that makes that impossible: between two
+## ticks the drawn lift depends on nothing but [param alpha]. Stamping the
+## field mid-frame — which is exactly what a substep does — must not move the
+## body until somebody calls [method Racer.sample_snow_lift].
+static func _the_lift_runs_on_the_tick(t: TestCase) -> void:
+	t.begin("the snow lift runs on the tick")
+	var tree: SceneTree = Engine.get_main_loop() as SceneTree
+	var racer := Racer.new()
+	tree.root.add_child(racer)
+
+	var x: float = 40.0
+	var z: float = -60.0
+	var field := SnowField.new()
+	field.recenter(x, z)
+	racer.snow_cpu = field
+	racer.state.position = Vector3(x, -18.0, z)
+	racer.snap()
+
+	racer.present(1.0)
+	var before: float = racer.global_position.y
+	# A substep's worth of carve, laid down between two frames.
+	field.stamp(x, z, PhysConst.TUX_WIDTH * 0.5, 0.06)
+	t.between(field.depth_at(x, z), 0.01, SnowField.new().max_trench,
+		"the stamp really did dig a trench worth seeing")
+	racer.present(1.0)
+	t.eq_f(racer.global_position.y, before, 1e-9,
+		"a stamp between two frames does not move the drawn body")
+
+	# The tick picks it up, and then it is there.
+	racer.sample_snow_lift()
+	racer.present(1.0)
+	t.eq_f(racer.global_position.y, before + field.depth_at(x, z), 1e-5,
+		"and the tick that samples it hands the whole trench to the next frame")
+
+	# ... arriving over the tick rather than on its first frame: `previous` is
+	# still the flat hill, so alpha walks the body up from one to the other.
+	racer.present(0.0)
+	t.eq_f(racer.global_position.y, before, 1e-9,
+		"the start of the tick is still the lift the tick before it had")
+	racer.present(0.5)
+	t.eq_f(racer.global_position.y, before + field.depth_at(x, z) * 0.5, 1e-5,
+		"and the frames inside it interpolate, as the position does")
+
+	tree.root.remove_child(racer)
+	racer.free()

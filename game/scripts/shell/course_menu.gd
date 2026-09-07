@@ -58,7 +58,6 @@ var _entries: Array[CourseListing] = []
 @onready var _meta: Label = %Meta
 @onready var _description: Label = %Description
 @onready var _race_button: Button = %RaceButton
-@onready var _continue_button: Button = %ContinueButton
 @onready var _back_button: Button = %BackButton
 @onready var _hint: Label = %Hint
 @onready var _field_row: Control = %FieldRow
@@ -76,7 +75,6 @@ func _ready() -> void:
 	_catalog = CourseCatalog.load_default()
 	_title.text = tr("SELECT_A_RACE")
 	_race_button.text = tr("RACE")
-	_continue_button.text = tr("CONTINUE")
 	_back_button.text = tr("BACK")
 	_hint.text = "↑↓  •  Enter: %s  •  Esc: %s" % [tr("RACE"), tr("BACK")]
 	# Neither of these is a migrated string: ETR has no computer opponents, so
@@ -89,7 +87,6 @@ func _ready() -> void:
 	_list.item_selected.connect(_on_item_selected)
 	_list.item_activated.connect(_on_item_activated)
 	_race_button.pressed.connect(_race_selected)
-	_continue_button.pressed.connect(close)
 	_back_button.pressed.connect(_go_back)
 
 	_fill_list()
@@ -119,17 +116,18 @@ func _fill_field_options() -> void:
 	for index: int in AISkill.LABELS.size():
 		_skill.add_item(AISkill.label_of(AISkill.level_at(index)), index)
 
-## Show the menu. `current_dir` is highlighted, `resumable` controls whether
-## there is a race worth going back to, `setup` is the field to offer — an empty
-## one hides the two spinners and makes this the Practice screen — and
-## `result_text` carries the summary of the race that just ended.
-func open(current_dir: String, resumable: bool, setup: RaceSetup,
+## Show the menu. `current_dir` is highlighted, `over_race` says whether there
+## is a course loaded and rendered behind this panel — which is only true from
+## [RaceScene], since this screen has no way back to a race once it is open —
+## `setup` is the field to offer — an empty one hides the two spinners and
+## makes this the Practice screen — and `result_text` carries the summary of
+## the race that just ended.
+func open(current_dir: String, over_race: bool, setup: RaceSetup,
 		result_text: String = "") -> void:
 	_setup = setup.copy() if setup != null else RaceSetup.new()
 	_result.text = result_text
 	_result.visible = not result_text.is_empty()
-	_continue_button.visible = resumable
-	_dim.color = OVER_RACE_COLOR if resumable else SCREEN_COLOR
+	_dim.color = OVER_RACE_COLOR if over_race else SCREEN_COLOR
 	_field_row.visible = _setup.is_race()
 	if _setup.is_race():
 		_opponents.select(_opponents.get_item_index(_setup.opponents))
