@@ -22,12 +22,15 @@ func _run() -> void:
 	TestSimulation.run(t)
 	TestSurface.run(t)
 	TestTerrainLibrary.run(t)
+	TestEnvironments.run(t)
+	TestObjects.run(t)
 	TestCharacter.run(t)
 	TestConfig.run(t)
 	TestInput.run(t)
 	TestMultiplayer.run(t)
 	TestAI.run(t)
 	TestAudio.run(t)
+	TestPackStream.run(t)
 
 	var elapsed: int = Time.get_ticks_msec() - start
 	print("")

@@ -17,6 +17,7 @@ static func run(t: TestCase) -> void:
 	_racer_contact(t)
 	_determinism(t)
 	_adaptive_step(t)
+	_stroke_phases(t)
 
 static func _sim(angle: float = 25.0) -> RacePhysics:
 	var p := RacePhysics.new()
@@ -328,6 +329,50 @@ static func _racer_contact(t: TestCase) -> void:
 	_drive(untouched, 10.0, input)
 	t.eq_v(solo.pos, untouched.pos, 1e-12,
 		"a racer alone in the field drives exactly as one with no field at all")
+
+## The two phases the character rig paddles and flaps on. They are simulation
+## state — measured from the tick a flipper went down and the tick a jump began,
+## neither of which is recoverable from a pose — and they are the only part of
+## `AdjustJoints` that nothing else in a [RacerState] implies.
+static func _stroke_phases(t: TestCase) -> void:
+	t.begin("stroke phases")
+	var p := _sim(25.0)
+	var idle := RaceInput.new()
+	_drive(p, 1.0, idle)
+	t.eq_f(p.paddling_factor, 0.0, 1e-9, "nobody paddling is phase zero")
+	t.eq_f(p.flap_factor, 0.0, 1e-9, "and no flap")
+
+	# The first tick of a stroke is phase zero, not one tick into it: the
+	# original reads its clock before advancing it, and half a sine that starts
+	# anywhere but zero starts with the flipper already out.
+	var paddle := RaceInput.new()
+	paddle.paddling = true
+	p.step(paddle, 1.0 / 60.0)
+	t.eq_f(p.paddling_factor, 0.0, 1e-9, "the tick the flipper goes down is phase zero")
+
+	# Then it runs to 1 over PADDLING_DURATION and drops back, which is where
+	# the sine is at zero again.
+	_drive(p, PhysConst.PADDLING_DURATION * 0.5, paddle)
+	t.between(p.paddling_factor, 0.4, 0.6, "halfway through the stroke")
+	t.ok(p.is_paddling, "and still paddling")
+	# Holding the key does not hold the stroke: the flipper comes back and goes
+	# down again, which is the paddling rhythm. Letting go is what ends it.
+	_drive(p, PhysConst.PADDLING_DURATION, paddle)
+	t.ok(p.is_paddling, "a held key starts the next stroke")
+	t.between(p.paddling_factor, 0.0, 0.6, "part-way into that one")
+	_drive(p, PhysConst.PADDLING_DURATION, idle)
+	t.eq_f(p.paddling_factor, 0.0, 1e-9, "and releasing it puts the flippers away")
+
+	# A jump is a flap, whether or not the flippers are also paddling.
+	var charge := RaceInput.new()
+	charge.charging = true
+	_drive(p, 0.3, charge)
+	p.step(idle, 1.0 / 60.0)
+	t.ok(p.jumping, "letting the jump key go starts a jump")
+	t.eq_f(p.flap_factor, 0.0, 1e-9, "which starts at phase zero too")
+	_drive(p, PhysConst.JUMP_FORCE_DURATION * 0.5, idle)
+	t.between(p.flap_factor, 0.4, 0.6, "and runs over JUMP_FORCE_DURATION")
+	t.eq_f(p.paddling_factor, 0.0, 1e-9, "a jump is not a paddle stroke")
 
 static func _determinism(t: TestCase) -> void:
 	t.begin("determinism")

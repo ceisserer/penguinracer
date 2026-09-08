@@ -5,10 +5,10 @@
 ## sampled on a frame boundary would land at a different point in the run every
 ## time the framerate moved.
 ##
-## Recording is unconditional and cheap — 2 bytes a tick plus 56 every third
-## tick, about 4 kB for a Bunny Hill run — so the player does not have to have
+## Recording is unconditional and cheap — 2 bytes a tick plus 72 every third
+## tick, about 5 kB for a Bunny Hill run — so the player does not have to have
 ## asked for a ghost before the run that would have set one. What is conditional
-## is keeping it; see [GhostStore].
+## is keeping it; see [SavedRunStore].
 class_name RaceRecorder
 extends RefCounted
 
@@ -29,6 +29,9 @@ var _have_state: bool = false
 ## previous one is either already saved or was not worth saving.
 func begin(course_dir: String, character_dir: String, racer_name: String) -> void:
 	recording = RaceRecording.new()
+	# Stamped rather than defaulted — see [member RaceRecording.format_version]
+	# for why a version that is only a default is not stored at all.
+	recording.format_version = RaceRecording.FORMAT_VERSION
 	recording.course_dir = course_dir
 	recording.character_dir = character_dir
 	recording.racer_name = racer_name

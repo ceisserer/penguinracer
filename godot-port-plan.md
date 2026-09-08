@@ -235,7 +235,7 @@ Race scene                                   fixed 60 Hz tick, interpolated pres
   └── CourseRoot         (heightmap, object grids, MultiMesh batches)
 
 RacePhysics              (GDScript, headless-testable, no node deps) — one per SimulatedRacer
-CharacterRig             (skinned skeleton, canned keyframes, procedural additive layer)
+CharacterRig             (skinned skeleton, canned keyframes, the racing pose layer)
                          — one under each Racer
 Net / RaceNetwork        (autoload) ENet session; snapshots in and out of PlaybackRacers
 ```
@@ -344,6 +344,14 @@ from a noise texture, and careful in-shader tonemapping to fight the `RGBA8` LDR
 The fog range in §4.3 is the original's 75 m, not a stretched version of it: ETR's white haze is
 load-bearing for how its snow reads, and the skybox is what sits behind it.
 
+**Correction, 2026-09-08:** `EnvironmentPreset` no longer carries `sun_energy`/`ambient_energy`
+as scalars. `light.lst`'s `[diff]` and `[amb]` are display-space multipliers and Godot
+sRGB-decodes anything handed to it as a light colour, which bends the channel balance rather than
+scaling it; and ETR clamps per channel, which a scalar cannot reproduce on a texture whose blue is
+already at the ceiling. The migrated colours stay verbatim in `sun_color`/`ambient_color`; the
+fitted correction is `sun_gain`/`ambient_gain`, a `Color` each, applied through
+`EnvironmentPreset.as_light_color` for both the ambient and the sun. history.md §22.
+
 **Correction, 2026-09-01:** the *shipped default* is now 40–150 m, stretched from the migrated
 0–75 by the settings file rather than by the data. Six of the eight presets carry
 `[fogstart] 0`, which puts haze on the trees a couple of lengths in front of the player; the
@@ -365,8 +373,15 @@ racing a recorded run — look like three features and are one, if the seam is p
 **The seam is `RacerState`**: time, position, orientation, velocity, progress, flags, herring, as
 14 float32s. It is the only thing the presentation reads. A racer simulated here fills it from
 `RacePhysics`; a ghost fills it from a recorded stream; a peer fills it from a packet. One
-presentation path serves all three, and the same 14 floats are the ghost file format and the wire
+presentation path serves all three, and the same floats are the ghost file format and the wire
 format, so the two never drift apart.
+
+> **Corrected 2026-09-07.** 18 float32s, not 14. The procedural character layer needs four values
+> a pose does not imply — the steering lean, the paddle and flap phases, and the net force along
+> the body's own up axis — and the rule above is what decides where they live: if the
+> presentation may read nothing but `RacerState`, then everything the presentation needs is in
+> `RacerState`, including for a racer that has no simulation behind it. `RaceRecording.FORMAT_VERSION`
+> went to 2 with it.
 
 **Two kinds of racer, not four.** `SimulatedRacer` owns a `RacePhysics` fed by an `InputSource`;
 `PlaybackRacer` owns a `RacerStateStream` read by time. The player and an AI opponent are the
@@ -518,6 +533,11 @@ Importer (§5). `CourseData`, `TerrainLayer`. Chunked terrain mesh, untextured. 
 
 ### Phase 2 — Rendering — **M**
 Splat shader with PBR layers, sun + baked LightmapGI + SSAO, fog, sky, instanced trees, item pickups.
+
+> **Corrected 2026-09-07.** A tree is not a billboard in the original, and reading it as one is
+> the single most visible difference a hillside had. `DrawTrees` gives every `[coll] 1` object two
+> fixed quads at 90° and only the item loop under it faces the camera. Both shapes are now
+> generated, split on `[coll]`; see `PROGRESS.md` Phase 2.
 > **Exit:** looks like a game; holds 60 fps in-browser on mid hardware.
 
 ### Phase 3 — Snow — **L** *(the differentiator)*
@@ -531,7 +551,16 @@ snow shading (wrap diffuse + sparkle).
 Placeholder mesh from `shape.lst`, then authored skinned glTF. Procedural additive layer (lean into
 turns, brace on brake, flap on paddle, impact reaction on tree hit) over migrated keyframe animations.
 The rig and the canned clips are done for all five characters, including the pre-race start
-animation (`CIntro`), and the shell can choose between them; the additive layer is not.
+animation (`CIntro`), and the shell can choose between them.
+
+> **Corrected 2026-09-07.** "Additive layer" is the wrong shape and was not built as one.
+> `AdjustJoints` is not an offset over the canned clips — it *replaces* them: `CRacing` resets
+> every joint and writes an absolute pose from the racer's state, and `CIntro` plays a keyframe
+> and never calls it. The two are exclusive by construction, so `CharacterRig.adjust_joints` is a
+> no-op while a clip is playing rather than something blended over it. There is also no impact
+> reaction on a tree hit in the original; that item is redesign, not port.
+> Done as of this date, for all five characters, and for every racer on the hill rather than just
+> the player — which is what added four floats to `RacerState`, above.
 > **Exit:** the penguin sells speed and carve direction without the player looking at the HUD.
 
 ### Phase 5 — Game shell — **M**
@@ -619,7 +648,7 @@ Do these **before** committing to the phase plan.
 **Status, 2026-08-31 — see [`history.md`](./history.md):** S1 **retired, PASS** in a web export
 under Chromium/WebGL2 (Firefox still unverified for want of a GPU in the build container). S2
 **retired, PASS with margin** — 0.073 ms per frame in-browser, 0.44 % of a 16.7 ms budget, so the
-GDExtension contingency should not be built. S3–S6 remain open.
+GDExtension contingency should not be built. S3–S5 remain open; S6 retired 2026-09-08, below.
 
 **S4, 2026-09-01.** The `RGBA8` ceiling was the wrong thing to have been worried about. Snow did
 clip to flat white across the whole near field, but not because 8 bits could not hold it — because
@@ -629,6 +658,15 @@ environment reflections, a filmic tone curve). ETR clips its own lit snow too; t
 *meant* to sit in a narrow band just under the ceiling. Bunny Hill now matches the original at
 both ends of that band. The mitigation that mattered was not "build the shader early" but
 "capture the same frame from both games and measure it" — see history.md §11.
+
+**S6, 2026-09-08.** Retired, done. `tools/build_web_streamed.sh` splits the web export into a
+slim base (engine + shell + all 44 course preview thumbnails, ~65 MB against the old
+monolithic 161 MB) plus one `.pck` per course and one for `assets/music/`, fetched over HTTP
+and mounted at runtime by `PackStream` (`game/scripts/config/pack_stream.gd`) only when a
+course is chosen or a track first plays. Built on Godot's own `--export-pack` per generated
+preset (`tools/gen_course_export_presets.py`) rather than a hand-rolled packer, so texture
+import-remapping is exactly what a normal export already produces. Skybox compression was not
+needed to hit the budget and remains open if a future course pushes it back up.
 
 **Explicitly not a risk:** Godot's physics engine. We do not use it — the simulation is a custom point
 mass against our own heightmap, exactly as ETR did. Its limitations do not apply to us.

@@ -39,6 +39,7 @@ static func run(t: TestCase) -> void:
 	_model_frame(t, rig)
 	_start_path(t, rig)
 	_start_poses(t, rig)
+	_racing_pose(t, rig)
 
 	tree.root.remove_child(rig)
 	rig.free()
@@ -192,6 +193,135 @@ static func _start_poses(t: TestCase, rig: CharacterRig) -> void:
 	t.ok(not player.is_playing(), "and stops the player")
 
 # ------------------------------------------------------------------
+#                       the procedural layer
+# ------------------------------------------------------------------
+
+## `AdjustJoints`: the pose a racer holds while racing, which is every frame of
+## every race that is not the start animation.
+##
+## Checked against the numbers in `tux.cpp` rather than against a screenshot,
+## because every failure mode here is a penguin that still looks like a penguin.
+## A flipper on the wrong side, a head that turns the wrong way, an angle that
+## saturates one line early — none of them are visible as *wrong*, only as not
+## quite the original.
+static func _racing_pose(t: TestCase, rig: CharacterRig) -> void:
+	t.begin("character/racing pose")
+	var sk: Skeleton3D = rig.skeleton
+	var left: int = sk.find_bone("left_shldr")
+	var right: int = sk.find_bone("right_shldr")
+	var rest_left: Quaternion = sk.get_bone_rest(left).basis.get_rotation_quaternion()
+	var rest_right: Quaternion = sk.get_bone_rest(right).basis.get_rotation_quaternion()
+
+	# Coasting: flippers in, and the standing angles the original applies
+	# unconditionally — a neck at -50 and a head at -30 are what make the
+	# penguin look down the hill rather than at his own feet.
+	rig.adjust_joints(0.0, false, 0.0, 0.0, 0.0, 0.0)
+	t.ok(sk.get_bone_pose_rotation(left).is_equal_approx(rest_left),
+		"coasting leaves the flippers at rest")
+	_at(t, sk, "neck", -50.0, "the neck is held at -50 whatever the racer is doing")
+	_at(t, sk, "head", -30.0, "and the head at -30")
+	_at(t, sk, "left_hip", -20.0, "the hips sit at -20 at a standstill")
+	_at(t, sk, "left_ankle", -20.0, "and the ankles at -20")
+
+	# Braking puts both flippers all the way out, to MAX_ARM_ANGLE2.
+	rig.adjust_joints(0.0, true, 0.0, 0.0, 0.0, 0.0)
+	_at(t, sk, "left_shldr", CharacterRig.MAX_ARM_ANGLE, "braking puts the left flipper out")
+	_at(t, sk, "right_shldr", CharacterRig.MAX_ARM_ANGLE, "and the right one")
+
+	# Steering is one-sided: `max(-turn, 0)` and `max(turn, 0)`, so a full turn
+	# raises one flipper and leaves the other alone. That asymmetry is the whole
+	# of what a steering animation looks like from behind.
+	rig.adjust_joints(1.0, false, 0.0, 0.0, 0.0, 0.0)
+	_at(t, sk, "right_shldr", CharacterRig.MAX_ARM_ANGLE, "a right turn puts the right flipper out")
+	t.ok(sk.get_bone_pose_rotation(left).is_equal_approx(rest_left),
+		"and leaves the left one in")
+	_at(t, sk, "tail", 20.0, "the tail swings with the lean")
+	_at(t, sk, "head", -30.0, "the head keeps its pitch", -70.0)
+	rig.adjust_joints(-1.0, false, 0.0, 0.0, 0.0, 0.0)
+	_at(t, sk, "left_shldr", CharacterRig.MAX_ARM_ANGLE, "a left turn is the mirror of it")
+	t.ok(sk.get_bone_pose_rotation(right).is_equal_approx(rest_right),
+		"with the right flipper in")
+	_at(t, sk, "head", -30.0, "and the head turned the other way", 70.0)
+
+	# Braking and steering share one limit: the sum is clamped at
+	# MAX_ARM_ANGLE2 before the flap is added past it.
+	rig.adjust_joints(1.0, true, 0.0, 0.0, 0.0, 0.0)
+	_at(t, sk, "right_shldr", CharacterRig.MAX_ARM_ANGLE,
+		"braking through a turn does not stack past the limit")
+
+	# The paddle stroke is half a sine, so its peak is at phase 0.5 and both
+	# ends are the rest pose — which is what lets the phase reset without a step.
+	rig.adjust_joints(0.0, false, 0.5, 0.0, 0.0, 0.0)
+	_at(t, sk, "left_shldr", CharacterRig.MAX_ARM_ANGLE,
+		"mid-stroke the flipper is at the limit", -CharacterRig.MAX_EXT_PADDLING_ANGLE)
+	rig.adjust_joints(0.0, false, 1.0, 0.0, 0.0, 0.0)
+	t.ok(sk.get_bone_pose_rotation(left).is_equal_approx(rest_left),
+		"a stroke that has run out is back at rest")
+
+	# A flap is added past the clamp, so a jump reads even out of a brake, and
+	# it too starts and ends at the rest pose.
+	rig.adjust_joints(0.0, true, 0.0, 0.0, 0.0, 0.0)
+	var braced: Quaternion = sk.get_bone_pose_rotation(left)
+	rig.adjust_joints(0.0, true, 0.0, 0.0, 0.0, 1.0 / 6.0)
+	t.ok(not sk.get_bone_pose_rotation(left).is_equal_approx(braced),
+		"a flap moves a flipper that is already at the braking limit")
+	rig.adjust_joints(0.0, false, 0.0, 0.0, 0.0, 0.0)
+	t.ok(sk.get_bone_pose_rotation(left).is_equal_approx(rest_left),
+		"and phase zero of a flap is the rest pose")
+
+	# Speed tucks the knees and extends the ankles, each with its own ceiling.
+	# Past it the pose stops changing — a racer at 40 m/s and one at 60 hold the
+	# same legs.
+	rig.adjust_joints(0.0, false, 0.0, 20.0, 0.0, 0.0)
+	_at(t, sk, "left_knee", -30.0, "20 m/s tucks the knees")
+	_at(t, sk, "left_ankle", 0.0, "and extends the ankles")
+	rig.adjust_joints(0.0, false, 0.0, 100.0, 0.0, 0.0)
+	_at(t, sk, "left_knee", -45.0, "the knee saturates at 35 m/s")
+	_at(t, sk, "left_ankle", 30.0, "the ankle at 50")
+
+	# The legs brace against the ground pushing back, over ±20 degrees. The
+	# clamp matters more than the slope: a landing is thousands of newtons, and
+	# without it the hips fold through the body.
+	var past_limit: float = CharacterRig.FORCE_PER_DEGREE * CharacterRig.MAX_FORCE_ANGLE * 1.5
+	rig.adjust_joints(0.0, false, 0.0, 0.0, past_limit, 0.0)
+	_at(t, sk, "left_hip", -20.0 + CharacterRig.MAX_FORCE_ANGLE,
+		"a hard landing braces the hips to the limit")
+	rig.adjust_joints(0.0, false, 0.0, 0.0, -past_limit, 0.0)
+	_at(t, sk, "left_hip", -20.0 - CharacterRig.MAX_FORCE_ANGLE,
+		"and going light over a crest folds them the other way")
+	rig.adjust_joints(0.0, false, 0.0, 0.0, CharacterRig.FORCE_PER_DEGREE * 5.0, 0.0)
+	_at(t, sk, "left_hip", -15.0, "below the limit it is linear in the force")
+
+	# The start animation and this write the same joints. The original never has
+	# both: `CIntro` poses through the keyframe and `CRacing` through here.
+	t.ok(rig.play_clip(&"start"), "the start clip plays")
+	rig.seek_clip(0.0)
+	var posed: Quaternion = sk.get_bone_pose_rotation(left)
+	rig.adjust_joints(1.0, true, 0.5, 30.0, 3000.0, 0.5)
+	t.ok(sk.get_bone_pose_rotation(left).is_equal_approx(posed),
+		"and a clip that is playing is not fought over")
+	rig.stop_clip()
+
+## Assert that [param joint] is posed at [param z] degrees about its own Z and
+## [param y] about its own Y, on top of its rest — the form every one of these
+## poses takes. See [method CharacterRig._pose].
+static func _at(t: TestCase, sk: Skeleton3D, joint: String, z: float,
+		message: String, y: float = 0.0) -> void:
+	var index: int = sk.find_bone(joint)
+	if index < 0:
+		t.ok(false, "%s (no %s bone)" % [message, joint])
+		return
+	var want: Quaternion = sk.get_bone_rest(index).basis.get_rotation_quaternion() \
+		* Quaternion(Vector3.BACK, deg_to_rad(z)) * Quaternion(Vector3.UP, deg_to_rad(y))
+	var got: Quaternion = sk.get_bone_pose_rotation(index)
+	if not got.is_equal_approx(want):
+		message = "%s (expected z %.1f y %.1f, off by %.2f degrees)" % [
+			message, z, y, rad_to_deg(got.angle_to(want))]
+		t.ok(false, message)
+		return
+	t.ok(true, message)
+
+# ------------------------------------------------------------------
 #                          all five of them
 # ------------------------------------------------------------------
 
@@ -286,6 +416,18 @@ static func _every_character(t: TestCase, tree: SceneTree) -> void:
 			if player != null and player.has_animation(clip) and path != null:
 				t.eq_f(player.get_animation(clip).length, path.duration(), 1e-4,
 					"%s: %s is as long as its path" % [name, clip])
+
+		# The procedural layer runs for whoever is on the hill, and four of the
+		# five are missing at least one joint it names — Samuel has no right leg
+		# and no tail at all. A joint that is not there is skipped, exactly as
+		# `RotateNode` skips a name its index cannot resolve, so this has to be
+		# a pose and not a crash.
+		if sk != null:
+			rig.adjust_joints(1.0, true, 0.5, 30.0, 3000.0, 0.25)
+			var shoulder: int = sk.find_bone("left_shldr")
+			t.ok(shoulder < 0 or not sk.get_bone_pose_rotation(shoulder).is_equal_approx(
+					sk.get_bone_rest(shoulder).basis.get_rotation_quaternion()),
+				"%s: the joints it does have are posed" % name)
 
 		# The model frame is baked per scene, so it is per character to get
 		# wrong — and getting it wrong is a penguin riding the hill upright.

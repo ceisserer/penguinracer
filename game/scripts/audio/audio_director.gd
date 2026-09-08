@@ -61,7 +61,11 @@ var _players: Dictionary = {}
 ## Which cues were started looping — see the note on `Halt` above.
 var _looping: Dictionary = {}
 var _music: AudioStreamPlayer
-var _current_track: AudioStream
+## The path last asked for, not the loaded [AudioStream] — see
+## [member MusicTrack.stream_path]. Compared against on the next
+## [method _play_stream] so asking for the piece already playing is not a
+## restart.
+var _current_track_path: String = ""
 ## Set by [method quit_game] so a second close request cannot restart the wait.
 var _quitting: bool = false
 
@@ -95,7 +99,7 @@ func silence() -> void:
 	if _music != null:
 		_music.stop()
 		_music.stream = null
-	_current_track = null
+	_current_track_path = ""
 
 ## How the game leaves: silence the mixer, let it settle, then quit.
 ##
@@ -196,7 +200,7 @@ func cue_volume(gain: float) -> float:
 ## restart — the original compares against `curr_music` and returns — which is
 ## what lets the menu open over a race without cutting the track.
 func play_music(id: StringName, loop: bool = true) -> void:
-	_play_stream(library.track(id) if library != null else null, loop)
+	_play_stream(library.track(id) if library != null else "", loop)
 
 ## `CMusic::PlayTheme`.
 func play_theme(theme_id: StringName, situation: MusicTheme.Situation) -> void:
@@ -214,20 +218,32 @@ func play_menu_music() -> void:
 
 ## `CMusic::Halt`.
 func stop_music() -> void:
-	_current_track = null
+	_current_track_path = ""
 	if _music != null:
 		_music.stop()
 
 func music_track() -> AudioStream:
-	return _current_track
+	return _music.stream if _music != null else null
 
-func _play_stream(stream: AudioStream, loop: bool) -> void:
-	if not enabled or _music == null or stream == null:
+## Streamed rather than passed an already-loaded [AudioStream]: on the web
+## export music is not in the base bundle (see [PackStream]), so the piece
+## has to be fetched before it can be loaded. On every other build
+## [method PackStream.ensure] resolves in the same call — the resource is
+## already there — so this still assigns [member _music]`.stream`
+## synchronously with respect to the caller in every case that matters to a
+## test.
+func _play_stream(path: String, loop: bool) -> void:
+	if not enabled or _music == null or path.is_empty():
 		return
-	if stream == _current_track and _music.playing:
+	if path == _current_track_path and _music.playing:
+		return
+	_current_track_path = path
+	if await PackStream.ensure(path, "music.pck") != OK:
+		return
+	var stream: AudioStream = load(path)
+	if stream == null:
 		return
 	_set_loop(stream, loop)
-	_current_track = stream
 	_music.stream = stream
 	_music.play()
 

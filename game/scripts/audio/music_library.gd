@@ -30,11 +30,13 @@ static func load_default() -> MusicLibrary:
 			return lib
 	return MusicLibrary.new()
 
-func track(id: StringName) -> AudioStream:
+## The track's `res://assets/music/...` path, empty if `id` names nothing.
+## A path rather than the loaded [AudioStream] — see [member MusicTrack.stream_path].
+func track(id: StringName) -> String:
 	if _by_id.size() != tracks.size():
 		_reindex()
 	var t: MusicTrack = _by_id.get(id, null)
-	return t.stream if t != null else null
+	return t.stream_path if t != null else ""
 
 ## The named theme, falling back to the first one.
 ##

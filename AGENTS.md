@@ -36,12 +36,12 @@ game/                     Godot project (project.godot, gl_compatibility)
                           (who is on the hill, and who is winning) +
                           IntroSequence (the start animation) + the racer
                           layer: Racer + SimulatedRacer +
-                          PlaybackRacer, RacerState (the 14-float snapshot that is
+                          PlaybackRacer, RacerState (the 18-float snapshot that is
                           also the ghost file format and the wire format),
                           RacerStateStream, InputSource and its kinds — including
                           AIInputSource + AISkill, the computer opponents —
                           RaceSetup (practice or a field of 1..9),
-                          RaceRecording + RaceRecorder + GhostStore
+                          RaceRecording + RaceRecorder + SavedRunStore + RaceOutcome
   scripts/net/            RaceNetwork autoload (`Net`) — ENet session, snapshot RPCs
   scripts/character/      CharacterRig + KeyframePath — the rig the importer writes
                           and the root motion a keyframe animation cannot carry —
@@ -50,10 +50,14 @@ game/                     Godot project (project.godot, gl_compatibility)
   scripts/audio/          AudioDirector autoload + generated sound/music banks
   scripts/config/         GameConfig autoload — the player's settings file —
                           plus LaunchArgs, the command line and the URL query
-                          parsed once into one list
+                          parsed once into one list, and PackStream, which
+                          fetches a course or the music pack on a web build
+                          that streams them (risk S6) and is a no-op
+                          everywhere else
   scripts/debug/          DebugCapture autoload (headless screenshots / scripted input),
                           key_log (what a remote desktop is doing to the keyboard)
   shaders/                terrain (splat + snow/ice shading), etr_skybox,
+                          object_billboard (items), object_cross (trees),
                           snow_trail, s1_displace
   addons/etr_import/      one-way, re-runnable importer from the ETR data tree
   courses/<name>/         GENERATED: course.tres, course.tscn, heightmap.res, splat_*.png
@@ -62,22 +66,29 @@ game/                     Godot project (project.godot, gl_compatibility)
                           previews, sound bank + music library, 13 translations
   assets/sounds|music/    GENERATED: the 10 effects and 10 pieces, copied verbatim
   scenes/                 main_menu.tscn (the main scene), course_menu.tscn,
-                          character_menu.tscn, settings_menu.tscn, race.tscn,
-                          key_log.tscn
-  user://ghosts/          NOT in the repo: the player's best run per course, written
-                          by GhostStore and replayed as a translucent second penguin
+                          character_menu.tscn, settings_menu.tscn, ghost_menu.tscn,
+                          race.tscn, results_menu.tscn, key_log.tscn
+  user://runs/            NOT in the repo: every run the player named and kept from
+                          the results screen, written by SavedRunStore and — when
+                          one is chosen from the main menu's Race against ghost
+                          list — replayed as a translucent second penguin
   themes/                 etr_menu.tres — ETR's `common.cpp` palette as a Godot
                           theme, and the checkbox icons it binds
   tests/                  headless suite (physics, surface, input, audio, imported
-                          terrain library, character rig, racer layer, computer
-                          opponents) + ODE benchmark
+                          terrain library, environment presets, course objects,
+                          character rig, racer layer, computer opponents) + ODE
+                          benchmark + tone_report.gd, which is not a test
   spikes/s1_pingpong/     ping-pong render-target spike (risk S1)
 etr-0.8.4/                original source + data — READ-ONLY, never write here
 tools/                    import_all.sh, shot.sh (deterministic screenshot, real GPU
                           when there is one),
                           png.py + regionstats.py + linstats.py (compare a
-                          capture against a reference numerically),
-                          webtest/ (COOP/COEP server + puppeteer runner)
+                          capture against a reference numerically — pure Python
+                          and minutes per frame; `tests/tone_report.gd` is the
+                          same statistics in about a second),
+                          webtest/ (COOP/COEP server + puppeteer runner),
+                          gen_course_export_presets.py + build_web_streamed.sh
+                          (the streamed web export, risk S6)
 ```
 
 Generated trees (`game/courses/`, `game/resources/`, `game/assets/`) are committed. Re-running the
@@ -105,6 +116,8 @@ godot --path game -- --host --course=bunny_hill                    # ... hosting
 godot --path game -- --join=127.0.0.1 --course=bunny_hill          # ... joining one
 godot --path game res://scenes/key_log.tscn                        # what the link does to the keyboard
 godot --headless --path game --script res://tests/run_tests.gd     # physics suite + benchmark
+godot --headless --path game --script res://tests/tone_report.gd \
+    -- shot.png 1.0 lit:100,620,500,715                            # per-region tone of a capture
 godot --path game spikes/s1_pingpong/s1_spike.tscn                 # snow RT spike
 
 ./tools/import_all.sh [--course=bunny_hill] [--force]              # 4-pass importer
@@ -113,8 +126,8 @@ godot --path game spikes/s1_pingpong/s1_spike.tscn                 # snow RT spi
 godot --path game -- --capture=/tmp/shot.png --capture-frames=200 \
     --auto-input=carve --camera=above --course=wild_mountains
 
-# web
-godot --headless --path game --export-release "Web" build/web/index.html
+# web — streamed build: base + one .pck per course + one for music
+./tools/build_web_streamed.sh
 node tools/webtest/server.js build/web 8060 &
 node tools/webtest/run_web_test.js \
     "http://127.0.0.1:8060/index.html?course=bunny_hill&nointro=1" /tmp/web.png RACE_READY
@@ -122,13 +135,18 @@ node tools/webtest/run_web_test.js \
 
 Settings live in `user://penguinracer.cfg` — on Linux
 `~/.local/share/godot/app_userdata/PenguinRacer/`, written with its comments on first run.
-Window size, render scale, fog distance, whether ghosts are drawn, the size and skill of the
-computer field, and the two multiplayer keys; delete it to get the defaults back. The main menu's
-**Configuration** screen moves the six a player can act on — `[multiplayer] player_name` and
-`port` are file-only until there is a lobby, and `opponents`/`opponent_skill` are set from the
-course screen instead, where the choice is actually made — and writes the same commented file back.
+Window size, render scale, fog distance, the size and skill of the computer field, and the two
+multiplayer keys; delete it to get the defaults back. The main menu's **Configuration** screen
+moves the five a player can act on — `[multiplayer] player_name` and `port` are file-only until
+there is a lobby, and `opponents`/`opponent_skill` are set from the course screen instead, where
+the choice is actually made — and writes the same commented file back. Whether a ghost is drawn is
+no longer a setting: it is whichever saved run the player chose from the main menu's **Race
+against ghost** list, or none.
 
-Export presets: `Web` (all 44 courses), `WebOneCourse` (bunny_hill, 6.6 MB pck), `WebSpike`.
+Export presets: `Web` (the streamed base — engine, shell, all 44 previews, no course internals
+or music), one generated `Course_<dir>` per course, `MusicPack`, `WebSpike`. The generated
+presets are owned by `tools/gen_course_export_presets.py`, re-run whenever a course is added,
+removed or renamed; `tools/build_web_streamed.sh` drives the whole build.
 The test server must set COOP/COEP and `.wasm`/`.pck` MIME types or the export fails obscurely.
 Prerequisite: Godot 4.7.2 on `PATH` as `godot`, plus export templates for web.
 
@@ -144,13 +162,13 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 |---|---|
 | 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 3254 assertions, 0 failures, 0.9 s headless. |
 | 1 — importer + first course | **done** — all 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. bunny_hill drivable in a browser; wild_mountains (100×1000) runs. |
-| 2 — rendering | partial — splat PBR, chunked terrain, instanced trees, HUD, migrated skyboxes. Tone matched to the original on Bunny Hill; no LightmapGI bake. Snow and ice carry procedural micro-relief, a twinkling crystal glint and a Fresnel sky reflection. |
+| 2 — rendering | partial — splat PBR, chunked terrain, instanced course objects (trees are the original's two fixed planes at 90°, turned by a hashed yaw so a grid-placed forest does not share them; items are billboards), HUD, migrated skyboxes. Tone matched to the original on Bunny Hill at both ends of the range and in all three channels; no LightmapGI bake. Snow and ice carry procedural micro-relief, a twinkling crystal glint and a Fresnel sky reflection. |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror both wired; a carve leaves a track with a shaded trench, a self-occluded floor and a bright ploughed lip. |
-| 4 — character | rig + canned clips done for **all five characters**, procedural layer not started — welded ArrayMesh from `shape.lst` **skinned** to a Skeleton3D with ETR joint names, the four keyframe lists as an AnimationLibrary plus a `KeyframePath` of root motion each, and the pre-race start animation (`CIntro`) wired into the race. Tux, Trixi, Boris, Samuel and Beastie each carry their own shape and their own clips; `resources/characters.tres` indexes them and `GameConfig.character` picks one. No additive layer over racing (`AdjustJoints`); finish/wonrace/lostrace imported but not played. |
-| 5 — game shell | partial — `main_menu.tscn` is the main scene: Practice opens the course list, *Race the computer* opens the same list with a field of 1–9 opponents behind it, Configuration edits `penguinracer.cfg` graphically, and a race is a scene the shell hands over to and takes back. `character_menu.tscn` is the character half of `CRegist` — arrows over a framed name with the migrated 128x128 preview under it. Every screen wears `themes/etr_menu.tres`, so the shell reads as the original's: the flat `colBackgr` blue, white text, `colDYell` on whatever has focus, square white-outlined frames. Generated course and character catalogs, 13 languages wired to `tr()`, audio (10 effects + 10 pieces + 3 racing themes on an `AudioDirector` autoload that reproduces ETR's one-voice-per-cue mixer). No cups, medals or profiles (data is imported and waiting; the player half of `CRegist` waits on them); no volume or language controls on the settings screen; none of ETR's menu art (corner ornaments, title logo), which waits on the licence audit. |
+| 4 — character | **done for all five characters** — welded ArrayMesh from `shape.lst` **skinned** to a Skeleton3D with ETR joint names, the four keyframe lists as an AnimationLibrary plus a `KeyframePath` of root motion each, the pre-race start animation (`CIntro`) wired into the race, the finish-line clip (`finish`/`wonrace`/`lostrace`, chosen by `RaceOutcome.clip` and looped for the win/loss pair — see the game shell row) wired into the results screen, and the racing pose layer (`AdjustJoints`) on `CharacterRig.adjust_joints` — flippers out to brake and the inside one out through a turn, a stroke through them while paddling, a flap on a jump, legs that tuck with speed and brace against the ground, a tail and a head that follow the lean. It runs off a `RacerState` and nothing else, so a ghost and a remote peer animate too. Tux, Trixi, Boris, Samuel and Beastie each carry their own shape and their own clips; `resources/characters.tres` indexes them and `GameConfig.character` picks one. The finish-line clip carries no root motion, unlike `CIntro` — a `DEVIATION` noted where it plays, since the racer has already coasted to a stop by then. |
+| 5 — game shell | partial — `main_menu.tscn` is the main scene: Practice opens the course list, *Race the computer* opens the same list with a field of 1–9 opponents behind it, *Race against ghost* opens a list of every saved run (`ghost_menu.tscn`), Configuration edits `penguinracer.cfg` graphically, and a race is a scene the shell hands over to and takes back. A finished race brings up `results_menu.tscn` over the course — time, herring, the `wonrace`/`lostrace`/`finish` clip playing, and a name field to keep the run — before the ordinary course menu takes over. `character_menu.tscn` is the character half of `CRegist` — arrows over a framed name with the migrated 128x128 preview under it. Every screen wears `themes/etr_menu.tres`, so the shell reads as the original's: the flat `colBackgr` blue, white text, `colDYell` on whatever has focus, square white-outlined frames. Generated course and character catalogs, 13 languages wired to `tr()`, audio (10 effects + 10 pieces + 3 racing themes on an `AudioDirector` autoload that reproduces ETR's one-voice-per-cue mixer). No cups, medals or profiles (data is imported and waiting; the player half of `CRegist` waits on them); no volume or language controls on the settings screen; none of ETR's menu art (corner ornaments, title logo), which waits on the licence audit. |
 | 6 — polish/ship | not started. |
 | computer opponents | **done** — beyond the original, which has nobody on the hill. `RaceSetup` is the whole mode switch: 0 opponents is Practice and 1–9 is a race, chosen on the course screen and remembered in `penguinracer.cfg`. An opponent is a `SimulatedRacer` driven by an `AIInputSource` — the seam the racer layer was built for, used with no change to it. It plans an aim point every `AISkill.plan_interval` ticks by scoring nine candidate lines against trees, the play bounds, swerve cost, its own lane, the friction ahead, herring and the other racers. **The three levels move driving habits and never the physics**: lookahead, reaction, nerve, how long they paddle, how readily they brake. Measured over 30 s of a 22° slope: easy 231 m, medium 333 m, hard 422 m, a player holding the accelerator straight 413 m. Deterministic — the only randomness is a per-seat personality drawn once from a seed. Opponents are solid: everyone on the hill bounces off everyone else through the shared `RacerField` (see the deviations), which is why the steering term only has to keep them out of each other's way rather than out of each other. No jumps, no tricks, no cups. |
-| multiplayer foundation | seams built, ghosts working, network scaffold desktop-only — beyond the original, plan §8.4. The simulation runs on a fixed 60 Hz tick with interpolated presentation; `RaceScene` owns a list of `Racer`s, split into `SimulatedRacer` (a `RacePhysics` fed by an `InputSource`) and `PlaybackRacer` (a `RacerStateStream` read by time). Ghosts are finished end to end: every run is recorded, a completed best is written to `user://ghosts/<course>.res`, and the next race draws it translucent with the gap in seconds on the HUD. `Net` hosts/joins an ENet session over `--host`/`--join=` and each peer broadcasts 20 snapshots a second. A peer is a body like any other — the local player collides with it against the snapshot stream, and the machine that owns it resolves the same contact from its side. No lobby, no countdown, no web (ENet is UDP). |
+| multiplayer foundation | seams built, ghosts working, network scaffold desktop-only — beyond the original, plan §8.4. The simulation runs on a fixed 60 Hz tick with interpolated presentation; `RaceScene` owns a list of `Racer`s, split into `SimulatedRacer` (a `RacePhysics` fed by an `InputSource`) and `PlaybackRacer` (a `RacerStateStream` read by time). Ghosts are finished end to end: every run is recorded, and a finished race brings up a results screen (`ResultsMenu`) where the player can name it and keep it (`SavedRunStore`, `user://runs/`, one file per save — nothing is written automatically any more). The main menu's **Race against ghost** entry (`GhostMenu`) lists every saved run and racing one draws it translucent with the gap in seconds on the HUD. `Net` hosts/joins an ENet session over `--host`/`--join=` and each peer broadcasts 20 snapshots a second. A peer is a body like any other — the local player collides with it against the snapshot stream, and the machine that owns it resolves the same contact from its side. No lobby, no countdown, no web (ENet is UDP). |
 
 ### Spikes
 
@@ -158,21 +176,36 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   verified. Firefox untested (no GPU in this container; it refuses WebGL2 under software rendering).
 - **S2** GDScript ODE loop — **PASS with margin**: 0.045 ms/frame native, 0.073 ms in-browser
   (0.44 % of 16.7 ms). **The godot-rust GDExtension contingency should not be built.**
-- **S3–S6** open: dequantization eyeball per course, RGBA8 snow banding, asset licence audit,
-  web cold-load size.
+- **S3–S5** open: dequantization eyeball per course, RGBA8 snow banding, asset licence audit.
+- **S6** web cold-load size — **done**: `tools/build_web_streamed.sh` builds a slim base
+  (engine + shell + all 44 preview thumbnails, ~65 MB against the old 161 MB) plus one `.pck`
+  per course (268 KB–9.2 MB) and one for music (14 MB), fetched and mounted at runtime by
+  `PackStream` only when a course is chosen or a track first plays. See Commands and the
+  `game/scripts/config/pack_stream.gd` doc comment.
 
 ### Known gaps
 
 - Near-field terrain mesh too coarse (~0.5 m vertices vs a 0.45 m contact patch) — the trench reads
   in lighting but not in silhouette. Fix: denser mesh for chunks inside the deformation window.
   `Racer._drawn_snow_lift` is the standing compensation for it and comes out when it is fixed.
-- Web cold load 161 MB (128 MB pck) — all 44 courses bundled, plus 18 MB of audio. Needs
-  per-course streaming (Phase 6); the 14 MB of music is the easiest part to load on demand.
 - The terrain slide sound is on/off with no speed term, and 12 of the 43 terrains (including
   `snow`) name no sound — both faithful, both the obvious first improvement. See the deviations.
 - Snow tone is matched on one course under one environment (Bunny Hill / `tuxracer_sunny`).
-  The other seven presets and the evening/night curves have not been compared against the
-  original. The snow/ice/roughness tables now cover all eight splat layers.
+  All 44 shipped courses select a *sunny* preset — 40 `etr_sunny`, 4 `tuxracer_sunny`, and the
+  two carry identical light values — so the fit reaches every course that ships. The
+  evening/night presets are a different matter and the display-space fix moved them **the wrong
+  way**: undoing an sRGB decode raises a dark value far more than a bright one, so night's
+  `[amb] 0.2` went from a shaded snow of about 45/255 to about 105/255 against the original's
+  47. Nothing selects them, so nothing regressed; anything that starts to will need its own
+  fitted `sun_gain`/`ambient_gain` pair, which is what those fields being per-preset is for.
+  The snow/ice/roughness tables now cover all eight splat layers.
+- The lit near field still clips more than the original's. After the fit both measured surfaces
+  match within a level in all three channels, but our lit region's *upper half* runs about six
+  levels over ETR's (median G 254 against 248, so 53 % of it clips where ETR clips 3.5 %). Not
+  chased further because the reference frame and ours are not the same view — ETR's is at 25
+  km/h on undisturbed snow, ours at 44 km/h over a fresh trench, and the camera is 70° FOV at
+  19° above the slope against the original's 60° at 10°. Closing it wants a reference capture
+  taken at a matched camera, not another scalar.
 - Asset licence audit not started — blocks Phase 5, long lead time.
 
 ## Architecture rules
@@ -198,11 +231,35 @@ takes the slow path, which is worth doing before trusting a small tone measureme
    and the deformation render target are allowed the screen's rate.
 8. **A racer is whatever fills a `RacerState`.** The presentation reads that struct and nothing
    else, so it cannot tell the player from an AI, a ghost or a peer. Do not branch on
-   `Racer.kind` in drawing code; add a subclass or an `InputSource` instead. The 14-float layout
+   `Racer.kind` in drawing code; add a subclass or an `InputSource` instead. The packed layout
    is a file format and a wire format at once — appending a field is a version bump, moving one
-   silently reinterprets every stored ghost.
+   silently reinterprets every stored ghost. It is 18 floats today: the pose, plus the four the
+   character rig poses its joints from, which are there because a ghost and a peer have no
+   simulation to read them out of.
 
 ## Traps found the hard way
+
+- **A tree in ETR is not a billboard.** `DrawTrees` emits eight fixed vertices per collidable
+  object — a quad across X and a quad across Z, both from the ground to `[height]`, never turned
+  toward anything — and only then walks `NocollArr` and emits four camera-facing vertices per
+  *item*. Both loops live in the same function under the same name, which is most of how one
+  billboarded mesh came to serve all fourteen object types. It is silent: a billboarded tree is
+  the right texture at the right size in the right place, and it is wrong only while the camera is
+  moving, when the whole forest swivels together and no tree ever shows a second profile. The
+  giveaway is `[coll]`, which is what the two loops split on. `shaders/object_cross.gdshader` +
+  `ETRImport._cross_quad_mesh` are the tree half, `object_billboard.gdshader` + a `QuadMesh` the
+  item half, and `TestObjects` asserts which type gets which — against the vertex data, because a
+  still frame does not say.
+- **Godot omits an exported property that still equals its script's default, so a
+  `format_version` declared as the current version is never written to disk.** Every stored file
+  then loads back as whatever the running build calls current, and the version check passes for
+  all of them — which is worse than having no check, because the bump *looks* like it did
+  something. Found when [constant RaceRecording.FORMAT_VERSION] went to 2 for the four floats
+  [RacerState] grew and a v1 ghost on disk was read back as v2, replayed at an 18-float stride
+  through a 14-float buffer, and drawn as a second penguin standing in the snow. Nothing warned.
+  The declared default is now 0 — a version that has never shipped — and `RaceRecorder.begin`
+  stamps the real one. Same shape as the `modified_in_editor` trap below: record provenance, do
+  not let it be a default.
 
 - **`set_shader_parameter` with a packed array aliases the caller's array.** Clearing your local
   array clears what the shader reads. Pass `.duplicate()`. Cost a whole debugging pass at S1.
@@ -263,16 +320,37 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   tone curve will fix it, because the ratio between a lit slope and a shaded one is wrong.
 - **ETR shades in display space; Godot shades in linear.** Even with the light state complete,
   the same constants land with a much wider spread between lit and shaded here. Close it with
-  `EnvironmentPreset.ambient_energy` and `sun_energy` together — two scalars solved against two
-  measured points on one captured frame, because one scalar cannot place both ends. Do not fold
-  them back into the migrated colours.
+  `EnvironmentPreset.ambient_gain` and `sun_gain` together — solved against two measured points
+  on one captured frame, because one number cannot place both ends. Do not fold them back into
+  the migrated colours.
+- **Godot sRGB-decodes `light_color` and `ambient_light_color`, and `light.lst` is not colours.**
+  `[diff] 1.0 0.9 1.0` and `[amb] 0.45 0.53 0.75` are the numbers ETR multiplies its
+  display-space texture by; handed to Godot as a `Color` they are decoded, so a stored 0.9
+  reaches the shader as 0.787 and *every ratio between the channels is stretched* — the migrated
+  ambient's blue-to-red goes from 1.43 in the file to 2.23 in the shader. Nothing fails: the
+  frame renders, and a level fit on one channel still lands. What it costs is the other two, and
+  on snow they were already near the ceiling — blue sat at 1.80 pre-tonemap against a ceiling of
+  1.0, green pinned at 255 over three quarters of the near field, and the only channel with
+  headroom left was red, so every bit of shading variation arrived as cyan mottling on white.
+  That is what "the snow is too bright" was. `EnvironmentPreset.as_light_color` encodes on the
+  way in so the decode gives the file's number back; `TestEnvironments` asserts the round trip.
+  Related and separate: **a scalar energy cannot reproduce a per-channel clamp.** ETR's snow
+  texture is (236, 245, **255**) and its `[amb]` is (0.70, 0.78, **1.00**), so blue is at the
+  ceiling before any light is applied and never leaves it; one scalar that puts red on the
+  reference necessarily takes blue off it. `sun_gain`/`ambient_gain` are `Color`s for that
+  reason, and their blue components are near 1.0.
 - **`Environment.ambient_light_sky_contribution` defaults to 1.0**, which hands the ambient term
   to the sky even when `ambient_light_source` is `AMBIENT_SOURCE_COLOR`. On a snow course the sky
   is a wall of sunlit snow — far brighter than the migrated `[amb]` it displaces, and scaled by
   nothing in `light.lst`. Set it to 0 when the ambient is supposed to come from the data.
 - **Pull the exposure down before concluding anything about a scene that clips.** Snow saturates
   the whole frame, and at 255 every hypothesis looks the same. Rendering once with
-  `tonemap_exposure` at 0.25 makes the pre-tonemap value readable straight off the PNG.
+  `tonemap_exposure` at 0.25 makes the pre-tonemap value readable straight off the PNG. **It is
+  a "has this channel any headroom left" instrument, not a measurement**: the two exposures do
+  not differ by a clean factor of four at the bright end. A pixel that reads 0.913 linear at
+  exposure 1.0 comes back as 0.812 at 0.25, while a mid-tone agrees to 1 %, so a fit taken on the
+  dim render lands several levels off. Fit on the exposure the game ships at, where the reference
+  frame also lives; use the dim one to find out *which* channel has run out of range.
 - **Do not tune by turning one light off.** Rendering with the sun at zero and with the ambient at
   zero gives two frames that do not sum to the full frame — the full frame is about twice their
   sum — so zeroing an energy changes more than that one term. Fit on the full render instead:
@@ -456,9 +534,22 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   both scripts would fail to compile — reported as *"Nonexistent function 'new' in base
   'GDScript'"* at whatever tried to use one, naming neither. The transport takes its identity
   through `RaceNetwork.configure()` instead, which is the better arrangement anyway.
+- **The same cycle reaches an ordinary class the moment another script calls one of its static
+  members.** `TestMultiplayer` asserting `RaceScene.outcome_clip(...)` was enough to make
+  `RaceScene` fail to compile with *"Identifier not found: Config"* — a usage of the autoload
+  `Config` deep inside `RaceScene._ready()`, nowhere near the static function being called. Calling
+  a static member forces GDScript to resolve the callee's whole class up front, and `RaceScene`
+  carries `Config` the way `GameConfig` carries `RaceNetwork` above; under `TestScripts`'s own
+  `CACHE_MODE_REUSE` walk (see below) that eager resolution happened in a context where `Config`
+  could not be found, and the failure stuck to the cached script object for the rest of the run.
+  Reproduced with a standalone probe script outside `res://tests/` before it was believed — the
+  same walk, run manually, did not fail, which is what pointed at the call site rather than the
+  file. Fixed the way the trap above was: stopped fighting the cycle and moved the pure mapping
+  (`outcome_clip`, no autoload, no node) to its own `RaceOutcome`, which nothing needs to eagerly
+  drag `RaceScene` in for.
 - **`ResourceLoader.load(path, "SomeScriptClass")` always fails.** The type hint is checked against
   `ClassDB`, which knows nothing about `class_name`, and the load errors out rather than falling
-  back. Pass `""` and cast the result — `GhostStore.load_for` does. Also pass
+  back. Pass `""` and cast the result — `SavedRunStore.list_all` does. Also pass
   `CACHE_MODE_IGNORE` for anything under `user://` that the game rewrites while running, or the
   copy read at the start of the race is the run the player has just beaten.
 - **GDScript's `%` formatter has no `%g`**, and `PackedStringArray` has no `join` — it is
@@ -620,8 +711,41 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   ceiling, do not clamp to it. `TestSurface._snow_is_band_limited` asserts the property over the
   whole phase square rather than the constants. The GPU field needs none of this: at 6.25 cm/texel
   the same 0.225 m radius is 3.6 texels.
+- **Two axis-aligned cards on a grid are the same plane.** ETR places every object on an
+  object-map cell and `DrawTrees` gives a collidable one a quad spanning X and a quad spanning Z,
+  turned toward nothing — so a row of trees shares its z to the last bit, and the X-quads of two
+  trees standing closer together than the sum of their radii are *exactly coplanar over the
+  overlap*. Nothing resolves that: the depth test is a comparison and neither surface is in front,
+  so the pair swaps frame by frame over a region the size of a whole tree. `challenge_one` has
+  1255 such pairs, 522 of them in the column at x = 50.505 down the left of the course, which is
+  where it was reported — trees that "sometimes flicker, looks a bit like z-fighting". Raising the
+  near plane does not help and neither does any depth format; **coplanar is not a precision
+  problem**. `CourseRoot.decorrelating_yaw` turns each object by a hash of its own position. Two
+  measurements are worth keeping: a 1/10-speed capture (`--fixed-fps 600`) makes the camera creep
+  so that a large frame-to-frame delta is flicker rather than motion, and widening the jitter until
+  the count stops falling is what says the rest is alpha-scissor edge crawl and not fighting.
+- **`MultiMesh.get_instance_transform` returns the identity under `--headless`.** The transforms
+  live in the [RenderingServer] and the dummy renderer keeps none of them, so every instance reads
+  back untransformed with nothing logged. A headless test written against the batch therefore sees
+  a forest of perfectly coincident trees and will happily assert whatever that implies. Assert
+  against what feeds the batch instead — `TestObjects._no_two_trees_share_a_plane` reads the
+  markers and calls the same helper `CourseRoot.build_runtime` does.
 
 ## Deliberate deviations from ETR
+
+- **A tree is shaded as a cylinder across both of its planes**, where ETR gives all eight vertices
+  `glNormal3i(0, 0, 1)` and lights the whole object flat from one world direction. The geometry is
+  the original's exactly; only the normal is not. Shading each quad by its own face normal instead
+  splits a tree into a bright half and a dark half at 90° to each other, which is further from ETR
+  than either — the cylinder keeps its even aggregate brightness from any azimuth and adds the
+  across-quad gradient. `normal_roundness = 0` in `object_cross.gdshader` is the flat card.
+
+- **Each collidable object is turned by a yaw hashed from where it stands** (±20°,
+  `CourseRoot.decorrelating_yaw`), where ETR turns none of them at all. The geometry is still the
+  original's — two fixed planes at 90°, never turned toward the camera — and the position, the
+  silhouette and the collision cylinder are unchanged. It exists only so that a forest placed on
+  an object-map grid does not share four planes between all of it; see the trap list for what that
+  costs. `YAW_JITTER = 0` is ETR's forest exactly, and its flicker with it.
 
 - Items/trees go through a **uniform spatial grid**; the original did an O(items) linear scan per
   ODE substep.
@@ -672,6 +796,14 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 - **Ambient comes from the migrated `[amb]`, not from the sky** —
   `Environment.ambient_light_sky_contribution` has to be set to 0 for that to be true. See the
   trap list.
+- **The light constants are migrated verbatim and corrected by a separate fitted gain.**
+  `sun_color`/`ambient_color` on an `EnvironmentPreset` are `light.lst`'s numbers and nothing
+  else, so a preset can still be read against the file on sight; `sun_gain`/`ambient_gain` are
+  the fitted rendering correction and are `Color`s rather than scalars, because ETR clamps per
+  channel and one number cannot reproduce that (see the trap list). Both are applied in one
+  place — `EnvironmentPreset.as_light_color`, reached from `to_environment()` for the ambient
+  and `apply_sun()` for the sun — because the bug that shipped was the two halves of that
+  disagreeing.
 - **The terrain slide sound resolves through the dominant splat layer**, where ETR used
   `Course.GetTerrainIdx(x, z, 0.5)` — the type holding at least half the blend, else nothing. Ours
   always resolves to a layer, so the cue changes slightly earlier across a boundary and a blend of

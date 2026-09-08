@@ -56,9 +56,13 @@ func build_runtime() -> void:
 			p.y = surface.height_at(p.x, p.z)
 			var diam: float = m.scale.x
 			var height: float = m.scale.y
-			var xf := Transform3D(Basis().rotated(Vector3.UP, m.rotation.y), p)
+			var collidable: bool = prefab != null and prefab.collidable
+			# Only the crossed quads need turning; an item billboards and has no
+			# plane of its own to share.
+			var yaw: float = m.rotation.y + (decorrelating_yaw(p) if collidable else 0.0)
+			var xf := Transform3D(Basis().rotated(Vector3.UP, yaw), p)
 			transforms.push_back(xf.scaled_local(Vector3(diam, height, diam)))
-			if prefab != null and prefab.collidable:
+			if collidable:
 				trees.add(p, diam, height, 0)
 			elif prefab == null or prefab.collectable:
 				var idx: int = items.add(p + Vector3(0.0, height * 0.5, 0.0), diam, height, 0)
@@ -69,6 +73,36 @@ func build_runtime() -> void:
 
 	trees.build()
 	items.build()
+
+## Widest turn [method decorrelating_yaw] gives a crossed-quad object, either
+## way. Small enough that a tree still presents ETR's face to a racer coming
+## down the fall line; wide enough that widening it further stops helping —
+## measured, ±45° leaves the same flicker as ±20°, because what is left by then
+## is the alpha-scissor cutout edge crawling and not two planes fighting.
+const YAW_JITTER := deg_to_rad(20.0)
+
+## A per-object yaw, hashed from where the object stands.
+##
+## DEVIATION: ETR turns a collidable object by nothing at all — `DrawTrees`
+## emits one quad spanning X and one spanning Z, both world-axis-aligned — and
+## every object it places sits on an object-map cell. So a row of trees shares
+## its z to the last bit, and the X-quads of two trees standing closer together
+## than the sum of their radii are *exactly coplanar over the overlap*. No depth
+## buffer resolves that: the pair swaps which one wins from frame to frame as
+## the camera moves, over a region as large as a whole tree. It reads as trees
+## flickering. `challenge_one` has 1255 such pairs, 522 of them along x = 50.505
+## — the wall of trees down the left of the course, which is where it shows.
+##
+## The geometry stays the original's: two fixed planes at 90 degrees, turned
+## toward nothing, the silhouette and the collision cylinder unchanged. All this
+## does is stop the whole forest from sharing four planes. Hashed from the
+## position rather than drawn from a [RandomNumberGenerator] so a course looks
+## the same on every machine and in every run — a capture has to be comparable.
+static func decorrelating_yaw(p: Vector3) -> float:
+	# Quantised to a centimetre first: two objects on the same cell centre must
+	# hash the same way whatever float arithmetic got them there.
+	var k: int = roundi(p.x * 100.0) * 73856093 ^ roundi(p.z * 100.0) * 19349663
+	return (float(k & 0xffff) / 32768.0 - 1.0) * YAW_JITTER
 
 func _add_batch(type_name: String, prefab: ObjectPrefab, transforms: Array[Transform3D]) -> void:
 	var mm := MultiMesh.new()

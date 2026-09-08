@@ -360,7 +360,7 @@ func import_audio(stage: String) -> void:
 	ResourceSaver.save(bank, SoundBank.PATH)
 
 	var lib := MusicLibrary.new()
-	var streams: Dictionary[String, AudioStream] = {}
+	var paths: Dictionary[String, String] = {}
 	for rec: Dictionary in pieces:
 		var name: String = SPList.get_str(rec, "name")
 		var file: String = SPList.get_str(rec, "file")
@@ -368,8 +368,15 @@ func import_audio(stage: String) -> void:
 			continue
 		var track := MusicTrack.new()
 		track.id = StringName(name)
-		track.stream = _load_audio(ASSET_MUSIC.path_join(file), "music '%s'" % name)
-		streams[name] = track.stream
+		var path: String = ASSET_MUSIC.path_join(file)
+		# Only for the warning if the editor's import pass has not seen it yet
+		# — the path is what MusicLibrary carries, not the loaded stream, so a
+		# web export can leave `assets/music/*` out of the base pck and stream
+		# it on demand (see PackStream) without MusicLibrary itself failing to
+		# load.
+		_load_audio(path, "music '%s'" % name)
+		track.stream_path = path
+		paths[name] = path
 		lib.tracks.push_back(track)
 
 	for rec: Dictionary in SPList.load_file(source_dir.path_join("music/racing_themes.lst")):
@@ -380,9 +387,9 @@ func import_audio(stage: String) -> void:
 		theme.id = StringName(name)
 		# The defaults are the original's own — `CMusic::LoadMusicList` passes
 		# them to `SPStrN`, so a theme may name only the track that differs.
-		theme.race = streams.get(SPList.get_str(rec, "race", "race_1"), null)
-		theme.won = streams.get(SPList.get_str(rec, "wonrace", "wonrace_1"), null)
-		theme.lost = streams.get(SPList.get_str(rec, "lostrace", "lostrace_1"), null)
+		theme.race_path = paths.get(SPList.get_str(rec, "race", "race_1"), "")
+		theme.won_path = paths.get(SPList.get_str(rec, "wonrace", "wonrace_1"), "")
+		theme.lost_path = paths.get(SPList.get_str(rec, "lostrace", "lostrace_1"), "")
 		lib.themes.push_back(theme)
 
 	ResourceSaver.save(lib, MusicLibrary.PATH)
@@ -1305,9 +1312,22 @@ static func _csv(s: String) -> String:
 #                          object prefabs
 # ====================================================================
 
-## Build one [ObjectPrefab] per object type. Trees and herring were camera-facing
-## billboards in the original and stay billboards here — swapping in authored
-## meshes later is a matter of pointing the prefab at a different [Mesh].
+## Build one [ObjectPrefab] per object type.
+##
+## Two shapes, because the original draws two. `DrawTrees` in
+## `course_render.cpp` walks `CollArr` — everything `[coll] 1`, i.e. the trees
+## and the shrub — and emits eight fixed vertices per object: one quad across X
+## and one across Z, both from the ground to `[height]`, never turned toward the
+## camera. It then walks `NocollArr` — the herring, the flags, the start and
+## finish banners — and emits four vertices per object, turned to face
+## `ctrl->viewpos`. So a tree is a static cross of two planes at 90 degrees and
+## an item is a billboard, and the two are not interchangeable: a billboarded
+## tree swivels as the player rides past it and has the same silhouette from
+## every side, which is the single most visible difference between a hillside
+## here and a hillside there.
+##
+## Swapping in authored meshes later is still a matter of pointing the prefab at
+## a different [Mesh]; [method _cross_quad_mesh] is only the default.
 func build_object_prefabs(object_types: Array[Dictionary]) -> Dictionary[String, ObjectPrefab]:
 	ensure_dir(OUT_OBJECTS)
 	var out: Dictionary[String, ObjectPrefab] = {}
@@ -1322,19 +1342,24 @@ func build_object_prefabs(object_types: Array[Dictionary]) -> Dictionary[String,
 		if entry["drawable"] and not String(entry["texture"]).is_empty():
 			var tex_path: String = ASSET_OBJECTS.path_join(entry["texture"])
 			if ResourceLoader.exists(tex_path):
-				var quad := QuadMesh.new()
-				# Unit quad: the per-instance transform carries diameter and
-				# height, so one mesh serves every size on the course.
-				quad.size = Vector2(1.0, 1.0)
-				quad.center_offset = Vector3(0.0, 0.5, 0.0)
-				prefab.mesh = quad
-				# A StandardMaterial3D billboard shades from the quad's own
-				# +Z, which after billboarding points at the camera — so the
-				# sun's N·L, and with it the whole cutout's brightness, swings
-				# as the view moves. `object_billboard.gdshader` does the same
-				# BILLBOARD_FIXED_Y turn with a view-independent normal.
 				var mat := ShaderMaterial.new()
-				mat.shader = load("res://shaders/object_billboard.gdshader")
+				if entry["collidable"]:
+					prefab.mesh = _cross_quad_mesh()
+					mat.shader = load("res://shaders/object_cross.gdshader")
+				else:
+					var quad := QuadMesh.new()
+					# Unit quad: the per-instance transform carries diameter and
+					# height, so one mesh serves every size on the course.
+					quad.size = Vector2(1.0, 1.0)
+					quad.center_offset = Vector3(0.0, 0.5, 0.0)
+					prefab.mesh = quad
+					# A StandardMaterial3D billboard shades from the quad's own
+					# +Z, which after billboarding points at the camera — so the
+					# sun's N·L, and with it the whole cutout's brightness,
+					# swings as the view moves. `object_billboard.gdshader` does
+					# the same BILLBOARD_FIXED_Y turn with a view-independent
+					# normal.
+					mat.shader = load("res://shaders/object_billboard.gdshader")
 				mat.set_shader_parameter("albedo_texture", load(tex_path))
 				mat.set_shader_parameter("alpha_scissor", 0.5)
 				prefab.material = mat
@@ -1342,6 +1367,53 @@ func build_object_prefabs(object_types: Array[Dictionary]) -> Dictionary[String,
 		out[name] = prefab
 	_log("object prefabs: %d" % out.size())
 	return out
+
+## The eight vertices `DrawTrees` emits, as a unit mesh: one quad in the XY
+## plane and one in the ZY plane, both spanning ±0.5 across and 0 to 1 up.
+##
+## Unit-sized for the same reason the billboard quad is — the per-instance
+## transform carries `(diameter, height, diameter)`, so ±0.5 across is ±radius
+## once scaled, which is exactly the original's `treeRadius = diam / 2`.
+##
+## Normals and tangents are authored rather than left to Godot: the shader
+## builds its cylinder impostor out of both, and a mesh with no `ARRAY_TANGENT`
+## hands it a zero vector with nothing to say so. The UVs are the original's,
+## with V flipped for Godot's top-left origin.
+static func _cross_quad_mesh() -> ArrayMesh:
+	var verts := PackedVector3Array([
+		Vector3(-0.5, 0.0, 0.0), Vector3(0.5, 0.0, 0.0),
+		Vector3(0.5, 1.0, 0.0), Vector3(-0.5, 1.0, 0.0),
+		Vector3(0.0, 0.0, -0.5), Vector3(0.0, 0.0, 0.5),
+		Vector3(0.0, 1.0, 0.5), Vector3(0.0, 1.0, -0.5),
+	])
+	var uvs := PackedVector2Array([
+		Vector2(0.0, 1.0), Vector2(1.0, 1.0), Vector2(1.0, 0.0), Vector2(0.0, 0.0),
+		Vector2(0.0, 1.0), Vector2(1.0, 1.0), Vector2(1.0, 0.0), Vector2(0.0, 0.0),
+	])
+	var normals := PackedVector3Array()
+	var tangents := PackedFloat32Array()
+	# Each quad's tangent is the direction U increases in, and its normal is
+	# that crossed with the trunk — so the pair is right-handed and the shader's
+	# `TANGENT * u + NORMAL * sqrt(1 - u²)` sweeps the near half of a cylinder.
+	for quad: int in 2:
+		var tangent: Vector3 = Vector3.RIGHT if quad == 0 else Vector3.BACK
+		var normal: Vector3 = tangent.cross(Vector3.UP)
+		for i: int in 4:
+			normals.push_back(normal)
+			tangents.append_array(PackedFloat32Array(
+				[tangent.x, tangent.y, tangent.z, 1.0]))
+
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TANGENT] = tangents
+	arrays[Mesh.ARRAY_INDEX] = PackedInt32Array([0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7])
+
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
 
 
 # ====================================================================

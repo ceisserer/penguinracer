@@ -6,8 +6,8 @@
 ##
 ## [b]There is more than one penguin on the hill.[/b] [RacerRoster] owns the
 ## list — one [SimulatedRacer] for the person at the keyboard, up to nine more
-## driven by an [AIInputSource], optionally a [PlaybackRacer] replaying their
-## best run as a ghost, and one more per connected peer. The scene does not
+## driven by an [AIInputSource], optionally a [PlaybackRacer] replaying a
+## saved run as a ghost, and one more per connected peer. The scene does not
 ## branch on which is which: it advances them all on the same tick and draws
 ## them all from the same [RacerState]. See [Racer] for the split, [AISkill] for
 ## the opponents and [RaceNetwork] for the session.
@@ -101,6 +101,15 @@ static var requested_setup: RaceSetup = null
 ## command line, so `?nointro=1` is read where the rest of the URL is read — in
 ## [MainMenu], one scene before this one exists.
 static var play_intro: bool = true
+## A saved run to race against, or null for none.
+##
+## Static for the same reason as [member requested_course_path], but consumed
+## rather than kept: [GhostMenu] sets it and [MainMenu] hands over the same
+## way it does for a chosen course, `_ready` reads it into
+## [member _active_ghost_recording] and clears it immediately — one race, not
+## a mode that persists like [member requested_setup] does, because it names
+## one specific file rather than a kind of race.
+static var requested_ghost: RaceRecording = null
 @export var environment_preset: EnvironmentPreset
 ## Snow deformation costs a 1024² render target per frame; off on the lowest tier.
 @export var snow_deformation: bool = true
@@ -139,13 +148,36 @@ var paused: bool = false
 ## on screen saying so.
 var _key_paused: bool = false
 var _paused_label: Label
+## Covers the network round trip a web build's [PackStream] does when a
+## course was not in the base bundle. Absent on native, where [method
+## PackStream.ensure] never actually suspends.
+var _loading_label: Label
 
 var menu: CourseMenu
+var results_menu: ResultsMenu
 ## Directory name of the loaded course, so the menu can highlight it.
 var current_course_dir: String = ""
 ## Incremented by [method restart]; lets a deferred callback tell whether the
 ## race it was started for is still the one running.
 var _run_id: int = 0
+
+## The saved run this race is against, or null for none. Read once out of
+## [member requested_ghost] in [method _ready]; see [method _setup_ghost].
+var _active_ghost_recording: RaceRecording = null
+
+# ------------------------------------------------------------------
+#                       the finish-line clip
+# ------------------------------------------------------------------
+
+## Whether [member CharacterRig.animation_player] is being scrubbed through
+## `finish`/`wonrace`/`lostrace` right now. See [method _start_finish_clip].
+var _finish_clip_playing: bool = false
+var _finish_clip_time: float = 0.0
+var _finish_clip_duration: float = 0.0
+## `wonrace`/`lostrace` replay from the start once they run out — an actual
+## dance rather than a freeze frame — `finish` plays once and holds its last
+## pose, the same as the original's own game-over screen.
+var _finish_clip_loop: bool = false
 
 ## How far the simulation is ahead of the frame being drawn, in seconds. Always
 ## in [0, [constant SIM_DT]) once [method _process] has topped it up.
@@ -246,6 +278,8 @@ func _ready() -> void:
 	# are a way to start a race without a menu, not a way to keep overriding a
 	# choice the player has just made on one.
 	setup = requested_setup.copy() if requested_setup != null else _cli_setup
+	_active_ghost_recording = requested_ghost
+	requested_ghost = null
 	# After the arguments, not before: `--character=` names a rig and this is
 	# where it has been read. The start animation is per character too — Trixi's
 	# `start.lst` is not Tux's — so the rig has to exist before the intro is set
@@ -257,10 +291,13 @@ func _ready() -> void:
 	menu = $CourseMenu
 	menu.course_chosen.connect(_on_course_chosen)
 	menu.back_requested.connect(leave_to_main_menu)
+	results_menu = $ResultsMenu
+	results_menu.continue_pressed.connect(_on_results_continue)
 	Net.snapshot_received.connect(_on_snapshot_received)
 	Net.roster_changed.connect(roster.sync_remote)
 	_paused_label = _make_paused_label()
-	load_course(course_scene_path)
+	_loading_label = _make_loading_label()
+	await load_course(course_scene_path)
 
 ## `P`'s freeze has no panel of its own, so it needs its own text — nothing
 ## else on screen would otherwise say the race stopped moving rather than
@@ -280,6 +317,28 @@ func _make_paused_label() -> Label:
 	label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	label.visible = false
+	layer.add_child(label)
+	return label
+
+## Same shape as [method _make_paused_label]: the one sign on screen that a
+## web build is fetching a course's `.pck` rather than having stalled. `main_menu.gd`'s
+## own "please wait" panel belongs to the menu scene, which
+## [method SceneTree.change_scene_to_file] has already torn down by the time
+## [method load_course] starts waiting on the network, so this scene needs its
+## own.
+func _make_loading_label() -> Label:
+	var layer := CanvasLayer.new()
+	add_child(layer)
+	var label := Label.new()
+	label.text = "Loading course…"
+	label.add_theme_font_size_override("font_size", 32)
+	label.add_theme_color_override("font_color", Color.WHITE)
+	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
+	label.add_theme_constant_override("shadow_offset_x", 2)
+	label.add_theme_constant_override("shadow_offset_y", 2)
+	label.set_anchors_preset(Control.PRESET_CENTER)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.visible = false
 	layer.add_child(label)
 	return label
@@ -332,6 +391,14 @@ func _rebuild_opponents() -> void:
 # ==================================================================
 
 func load_course(path: String) -> void:
+	var dir: String = path.get_base_dir().get_file()
+	_loading_label.visible = true
+	var err: Error = await PackStream.ensure(path, "courses/%s.pck" % dir)
+	if err != OK:
+		_loading_label.text = "Could not load %s (%s)" % [dir, error_string(err)]
+		return
+	_loading_label.visible = false
+
 	_stop_slide_sound()
 	Audio.halt_all()
 	if course_root != null:
@@ -341,7 +408,7 @@ func load_course(path: String) -> void:
 		terrain.queue_free()
 		terrain = null
 
-	current_course_dir = path.get_base_dir().get_file()
+	current_course_dir = dir
 	requested_course_path = path
 	var packed: PackedScene = load(path)
 	course_root = packed.instantiate()
@@ -416,14 +483,21 @@ func _use_snow_field(field: SnowField) -> void:
 func _scripted_run() -> bool:
 	return not _auto_input.is_empty()
 
-## Load the best recorded run for this course, if the player wants one.
+## Load the saved run this race is against, if there is one that applies here.
 ##
-## Two reasons not to: a scripted run (see [method _scripted_run]) and a race
-## against opponents. The rest of the reasoning, and the loading, is
-## [method RacerRoster.load_ghost].
+## Three reasons not to: a scripted run (see [method _scripted_run]), a race
+## against opponents, and a saved run recorded on a different course — picking
+## another course from the in-race menu after a ghost race leaves
+## [member _active_ghost_recording] set, and this is what drops it rather than
+## racing the wrong hill's ghost on the new one. The rest of the reasoning, and
+## the loading, is [method RacerRoster.load_ghost_recording].
 func _setup_ghost() -> void:
-	roster.load_ghost(current_course_dir,
-		Config.ghosts and not _scripted_run() and not setup.is_race())
+	if _active_ghost_recording != null \
+			and _active_ghost_recording.course_dir == current_course_dir \
+			and not _scripted_run() and not setup.is_race():
+		roster.load_ghost_recording(_active_ghost_recording)
+	else:
+		roster.clear_ghost()
 
 ## Put the race back at the start line. [param with_intro] is what separates the
 ## two ways in: choosing a course runs the start animation, where `r` mid-race is
@@ -437,6 +511,7 @@ func restart(with_intro: bool = true) -> void:
 	# put them — a race framed from ABOVE for good, and the next `begin` saving
 	# that framing as the one to restore.
 	_end_intro()
+	_stop_finish_clip()
 	running = true
 	_sim_lead = 0.0
 	_use_snow_field(SnowField.new())
@@ -484,6 +559,11 @@ func restart(with_intro: bool = true) -> void:
 # ==================================================================
 
 func _process(delta: float) -> void:
+	# Cosmetic, and the one thing that has to keep moving while the results
+	# screen is up — everything else below this stops the moment [member
+	# paused] is true.
+	if _finish_clip_playing:
+		_advance_finish_clip(delta)
 	if paused:
 		return
 	if Input.is_action_just_pressed("reset_race"):
@@ -634,20 +714,17 @@ func place_label(place: int) -> String:
 #                           course menu
 # ==================================================================
 
-func open_menu(result_text: String = "") -> void:
+## Opening from mid-race (Esc) or from the results screen's Continue — both
+## land on the ordinary course list playing menu music. A finish carrying a
+## result goes to [method _open_results] instead, which is the only other
+## place [member paused] is set for this reason.
+func open_menu() -> void:
 	if menu == null or menu.visible:
 		return
 	paused = true
 	_stop_slide_sound()
-	# The original's menus all play `param.menu_music`, and its game-over screen
-	# plays the theme's win sting — which is the screen this becomes when it
-	# comes up carrying a result. Opening the menu mid-race is the other case.
-	if result_text.is_empty():
-		Audio.play_menu_music()
-	else:
-		Audio.halt_all()
-		Audio.play_theme(course_root.course_data.music_theme, MusicTheme.Situation.WON)
-	menu.open(current_course_dir, running, setup, result_text)
+	Audio.play_menu_music()
+	menu.open(current_course_dir, running, setup)
 
 ## `P`, toggled. Unlike the course menu this has nowhere to go but back to the
 ## same race — no course list, no Back button — so it is a plain freeze with
@@ -754,9 +831,7 @@ func _apply_environment(preset: EnvironmentPreset) -> void:
 	# the player wants to see. Fog distance is the one place the two meet.
 	Config.apply_fog(env, preset)
 	we.environment = env
-	_sun.light_color = preset.sun_color
-	_sun.light_energy = preset.sun_energy
-	_sun.look_at_from_position(Vector3.ZERO, -preset.sun_direction, Vector3.UP)
+	preset.apply_sun(_sun)
 	_sun.directional_shadow_max_distance = _shadow_range_for(env)
 	for racer: Racer in roster.all:
 		if racer is SimulatedRacer:
@@ -828,26 +903,103 @@ func _on_racer_finished(racer: Racer) -> void:
 	if racer != roster.local:
 		return
 	race_completed.emit(roster.local.race_time, roster.local.herring)
-	_store_ghost()
-	_show_menu_after_finish(_run_id)
+	_show_results_after_finish(_run_id, _finish_recording())
 
-## Keep the run if it beat the stored one. Nothing is asked of the player and
-## nothing is said about it — a personal best that announces itself needs a
-## screen to announce itself on, and this is the phase that has no results
-## screen yet.
-func _store_ghost() -> void:
+## Close out the recording. Nothing is saved here — recording is unconditional
+## but keeping it is now something the player asks for on the results screen;
+## see [SavedRunStore].
+func _finish_recording() -> RaceRecording:
 	if roster.local.recorder == null:
-		return
-	var recording: RaceRecording = roster.local.recorder.finish(
-		roster.local.race_time, roster.local.herring, true)
-	GhostStore.save_if_best(recording)
+		return null
+	return roster.local.recorder.finish(roster.local.race_time, roster.local.herring, true)
 
-## Bring the menu up once the finish deceleration has played out, unless the
-## player restarted or picked another course in the meantime.
-func _show_menu_after_finish(run_id: int) -> void:
+## Bring the results screen up once the finish deceleration has played out,
+## unless the player restarted or picked another course in the meantime.
+func _show_results_after_finish(run_id: int, recording: RaceRecording) -> void:
 	await get_tree().create_timer(FINISH_MENU_DELAY).timeout
 	if run_id == _run_id and not paused:
-		open_menu(_result_line())
+		var clip: StringName = _outcome_clip()
+		_start_finish_clip(clip)
+		_open_results(recording, clip)
+
+## Whether this race had anything to win or lose, and — if so — whether the
+## player did. See [RaceOutcome] for the mapping itself.
+func _outcome_clip() -> StringName:
+	var beat_ghost: bool = _active_ghost_recording != null \
+		and roster.local.race_time < _active_ghost_recording.total_time
+	return RaceOutcome.clip(setup.is_race(), roster.place_of(roster.local) == 1,
+		_active_ghost_recording != null, beat_ghost)
+
+## Start [param clip] on the local racer's rig, falling back to `finish` and
+## then to nothing for a character missing both — the same tolerance the rig
+## already has for a joint `shape.lst` does not name. See
+## [method _advance_finish_clip] for how it keeps playing.
+func _start_finish_clip(clip: StringName) -> void:
+	var rig: CharacterRig = roster.local.rig
+	if rig == null:
+		return
+	var chosen: StringName = clip
+	if not rig.has_clip(chosen):
+		chosen = &"finish"
+	if not rig.play_clip(chosen):
+		return
+	_finish_clip_playing = true
+	_finish_clip_time = 0.0
+	_finish_clip_duration = rig.clip_length(chosen)
+	_finish_clip_loop = chosen != &"finish"
+
+## Scrub the finish clip forward by [param delta]. Joints only — no root
+## motion is applied, unlike [IntroSequence]: the racer has already coasted to
+## a stop by the time this starts, so there is nowhere for the clip to carry
+## the body to. DEVIATION: the original's `wonrace`/`lostrace` do move the
+## body a little; holding position is a small, deliberate simplification.
+func _advance_finish_clip(delta: float) -> void:
+	_finish_clip_time += delta
+	var t: float = _finish_clip_time
+	if _finish_clip_loop and _finish_clip_duration > 0.0:
+		t = fmod(t, _finish_clip_duration)
+	else:
+		t = minf(t, _finish_clip_duration)
+	roster.local.rig.seek_clip(t)
+
+func _stop_finish_clip() -> void:
+	if not _finish_clip_playing:
+		return
+	_finish_clip_playing = false
+	if roster.local != null and roster.local.rig != null:
+		roster.local.rig.stop_clip()
+
+## What the results screen says about the ghost, or empty for a race that had
+## none. A literal rather than a `tr()` key — "ghost" is not in the imported
+## string table either.
+func _ghost_note() -> String:
+	if _active_ghost_recording == null:
+		return ""
+	var delta: float = roster.local.race_time - _active_ghost_recording.total_time
+	if delta < 0.0:
+		return "Beat the ghost by %.2f s" % -delta
+	return "%.2f s behind the ghost" % delta
+
+## Bring the results screen up in place of the course menu, carrying the
+## finished run so its Save button has something to write. [param clip] is
+## what [method _show_results_after_finish] just started on the rig — reused
+## here so the sting matches the pose: `lostrace` plays the theme's loss
+## sting, anything else its win sting (`finish` included — a plain practice
+## run has nothing to lose, matching the original's own non-cup behaviour).
+func _open_results(recording: RaceRecording, clip: StringName) -> void:
+	paused = true
+	_stop_slide_sound()
+	Audio.halt_all()
+	var situation: MusicTheme.Situation = MusicTheme.Situation.LOST \
+		if clip == &"lostrace" else MusicTheme.Situation.WON
+	Audio.play_theme(course_root.course_data.music_theme, situation)
+	results_menu.open(_result_line(), recording, _ghost_note())
+
+## The results screen's Continue button. The clip stops and the ordinary
+## course menu takes over exactly as it did before there was a results screen.
+func _on_results_continue() -> void:
+	_stop_finish_clip()
+	open_menu()
 
 # ------------------------------------------------------------------
 #                          terrain slide loop

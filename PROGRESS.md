@@ -18,7 +18,7 @@ worth reading before touching the code, is the trap list in [`AGENTS.md`](./AGEN
 | **S3** heightmap dequantization per course | open — see Known gaps |
 | **S4** RGBA8 snow trail banding | open |
 | **S5** asset licence audit | open — see Known gaps |
-| **S6** web cold-load size | open — see Known gaps |
+| **S6** web cold-load size | **done** — `tools/build_web_streamed.sh`, per-course + music streaming, ~65 MB base against 161 MB |
 
 Both closed spikes are written up in [`history.md`](./history.md), including what S2's headroom
 was actually bought with — two deviations that are load-bearing and should not be undone.
@@ -84,21 +84,47 @@ can tune a material from the Inspector, had no guard at all. See materials.md §
 herring pickups, the chase camera and a HUD — **including in a browser**. The Phase 1 exit
 criterion is met: a `WebOneCourse` export loads and runs bunny_hill under Chromium/WebGL2,
 streaming 21 terrain chunks, on a 6.6 MB pck. Long courses work too — `wild_mountains`
-(100×1000) runs, and the per-course pck size is the shape Phase 6's streaming needs.
+(100×1000) runs, and the per-course pck size was the shape Phase 6's streaming needed — real
+per-course streaming (below, S6) has since replaced `WebOneCourse`.
 
 ### Phase 2 — rendering · **partial**
 
 `game/scripts/render/` + `game/shaders/` — chunked terrain with splat-blended PBR, instanced
-course objects on a cylinder-shaded billboard, the migrated three-quad skybox, per-environment
-fog and light, and a HUD. Snow and ice carry two octaves of procedural micro-relief, a crystal
+course objects in the original's two shapes, the migrated three-quad skybox, per-environment
+fog and light, and a HUD.
+
+**Trees are two fixed planes at 90°; items are billboards.** `DrawTrees` is two loops in one
+function: `CollArr` gets eight vertices — a quad across X and a quad across Z, from the ground to
+`[height]`, never turned toward anything — and `NocollArr` gets four turned to face the
+viewpoint. For a phase every one of the fourteen object types got the billboard, which renders
+perfectly and is wrong only in motion, when the whole forest swivels together and no tree ever
+shows a second profile. `[coll]` is what the two loops split on and is now what the importer
+splits on: a collidable type gets `ETRImport._cross_quad_mesh` and `object_cross.gdshader`, and
+everything else keeps the quad and `object_billboard.gdshader`. Both are still unit-sized, so the
+per-instance `(diameter, height, diameter)` scale is the original's `treeRadius = diam / 2`.
+The shading is deliberately not the original's: ETR gives all eight vertices one world-space
+normal and lights the tree flat, and shading each quad by its own face normal instead would split
+it into a bright half and a dark half — so the cylinder impostor already used for the billboards
+is swept across both planes, which keeps the even brightness and adds the volume. Snow and ice carry two octaves of procedural micro-relief, a crystal
 glint built from per-texel facet normals, and a Fresnel sky reflection on ice.
 
-Tone is matched to the original on Bunny Hill under `tuxracer_sunny`, at both ends of the range,
-by fitting `EnvironmentPreset.ambient_energy` and `sun_energy` together against two measured
-points on one captured frame. That fit is the subject of history §11, and reading it before
-touching a light value will save re-deriving why the obvious experiments do not work: the
-ambient the data means is not the ambient Godot applies by default, and turning one light off to
-isolate a term gives two frames that do not sum to the whole.
+Tone is matched to the original on Bunny Hill under `tuxracer_sunny`, at both ends of the range
+and in all three channels, by fitting `EnvironmentPreset.ambient_gain` and `sun_gain` together
+against two measured points on one captured frame. That fit is the subject of history §11 and
+§22, and reading them before touching a light value will save re-deriving why the obvious
+experiments do not work: the ambient the data means is not the ambient Godot applies by default,
+turning one light off to isolate a term gives two frames that do not sum to the whole, and
+`light.lst`'s numbers are display-space multipliers that Godot will sRGB-decode into something
+with the wrong channel balance unless they are encoded on the way in.
+
+The gains are `Color`s and not scalars. ETR clamps per channel in display space and its snow is
+already at the blue ceiling before any light is applied — `snow.png` is (236, 245, 255) and
+`[amb]` is (0.70, 0.78, 1.00) — so one number that puts red on the reference necessarily takes
+blue off a ceiling the original never leaves. That, plus the decode above, is why the shaded snow
+was 23 levels too dark in red while the lit near field had green pinned at 255 over three
+quarters of its area: two channels out of range, one channel carrying every bit of shading
+variation, and a white sheet with cyan in the hollows as the result. history §22 has the before
+and after.
 
 No LightmapGI bake. The remaining gaps — seven untuned environments, the cyan channel, the
 camera framing — are in Known gaps below.
@@ -132,7 +158,7 @@ force model friction directly scales the retarding force (ice 0.2 fast … rock 
 coefficients are exported so the call can be redone by feel. Flagging it rather than quietly
 picking a side.
 
-### Phase 4 — character · **rig and canned animations done; procedural layer not started**
+### Phase 4 — character · **rig, canned animations and the racing pose layer done**
 
 `shape.lst` → a welded `ArrayMesh` of scaled spheres **skinned to** a `Skeleton3D` carrying ETR's
 own joint names, and the four keyframe lists → an `AnimationLibrary` plus the root motion the
@@ -189,10 +215,28 @@ the node the race scene positions the character with — above the rig, and out 
 `AnimationPlayer` on it. The race scene samples the path against the same clock it seeks the
 animation on, so the two cannot drift.
 
-Still missing: the procedural additive layer (lean into turns, brace on brake, flap on paddle,
-impact reaction on tree hit) — `AdjustJoints` in the original, which runs *over* the rest pose
-during racing where the canned clips replace it. The finish, wonrace and lostrace clips are
-imported and playable but not wired to anything; they belong with cups and the game-over screen.
+**The racing pose.** `CCharShape::AdjustJoints` — the whole of the character animation that is
+not a canned clip, and what every frame of every race that is not the start animation looks like.
+`CharacterRig.adjust_joints` is the port: flippers back to brake, the inside flipper out through
+a turn (the two share one limit and are clamped together before a flap is added past it), half a
+sine of stroke through both while paddling with the legs kicking at twice the rate, six
+half-cycles of flap over a jump, knees that tuck with speed to a ceiling at 35 m/s and ankles that
+extend to one at 50, hips and knees bracing ±20° against the net force through the body, and a
+tail and a head that follow the lean. The eleven joints are posed as `rest × Rz × Ry`, the two
+axes and their order being the original's `RotateNode(name, 3, …)` then `RotateNode(name, 2, …)`;
+a character missing one is skipped rather than defaulted, which is what Samuel having no right leg
+and no tail needs.
+
+It reads a `RacerState` and nothing else, so it is not the player's animation — it is every
+racer's, including a computer opponent, a ghost and a network peer. That is what put four floats
+into the state (above): the steering lean is integrated and decayed rather than derived, and the
+two stroke phases and the body-up force are measured from things only a simulation has. It is a
+no-op while a clip is playing, which is the same split the original has — `CIntro` poses through
+`CKeyframe::Update` and never calls `AdjustJoints`, and `CRacing` calls it and plays no clip.
+
+Still missing: an impact reaction on a tree hit, which the original does not have either. The
+finish, wonrace and lostrace clips are imported and playable but not wired to anything; they
+belong with cups and the game-over screen.
 
 ### Phase 5 — game shell · **menu, course selection, settings and audio done; cups and profiles not started**
 
@@ -317,7 +361,7 @@ data says 0–75. **This reverses a correction made the same day** — a 2.5x st
 backed out as a wording-level "improvement" that removed the haze ETR's snow sits inside — and
 the difference is that it is now measured and revertible. On Bunny Hill the mid-distance tree band
 regains its contrast (5th percentile 143 → 65, clipping 19 % → 12 %) while the near field, which
-is where the `ambient_energy`/`sun_energy` tone match was fitted, does not move at all
+is where the `ambient_gain`/`sun_gain` tone match was fitted, does not move at all
 (mean 226.8 → 226.5, every percentile identical). `start_distance = 0` and `distance_scale = 1`
 in the settings file render exactly what the file says, which is the point of putting it there
 rather than in the migrated preset.
@@ -426,11 +470,17 @@ Racer                  identity, rig, and the interpolated body transform
                        → a ghost today, a network peer today
 ```
 
-`RacerState` is the seam: 14 float32s — time, position, orientation, velocity, progress, flags,
-herring — and the *only* thing the presentation reads. A simulated racer fills it from
-`RacePhysics`; a ghost fills it from a recorded stream; a peer fills it from a packet. The same
-14 floats are the file format and the wire format, so a ghost on disk and a snapshot on the wire
-are the same bytes in the same order.
+`RacerState` is the seam: 18 float32s — time, position, orientation, velocity, progress, flags,
+herring, and the four the character rig poses its joints from — and the *only* thing the
+presentation reads. A simulated racer fills it from `RacePhysics`; a ghost fills it from a
+recorded stream; a peer fills it from a packet. The same 18 floats are the file format and the
+wire format, so a ghost on disk and a snapshot on the wire are the same bytes in the same order.
+
+The last four were added with the racing pose layer (Phase 4). They are the part of
+`AdjustJoints` that a pose does not imply: the steering lean, which is integrated over half a
+second and decays over another fifth; the paddle and flap phases, each measured from a tick only
+the simulation knows about; and the net force along the body's own up axis. Without them a ghost
+and a network peer slide down the hill in the rest pose while the player beside them animates.
 
 **The simulation runs on a fixed 60 Hz tick, and the presentation interpolates.** This is the
 load-bearing change and everything else rests on it: a run has to mean the same thing at 30 fps
@@ -442,11 +492,19 @@ history §20. It moves none of them now: outside the spray, a 200-frame Bunny Hi
 pixel-identical to the one from before this work.
 
 **Ghosts are the consumer that proves the seams.** Every run the player makes is recorded — 2
-bytes of intent per tick plus a 14-float pose every third tick, about 150 kB for a four-minute
-run — and a completed run that beats the stored one is written to `user://ghosts/<course>.res`.
-The next race on that course draws it as a translucent penguin on the line it took, with the gap
-in seconds on the HUD. `[game] ghosts` in `penguinracer.cfg` and a checkbox on the Configuration
-screen turn it off.
+bytes of intent per tick plus an 18-float pose every third tick, about 190 kB for a four-minute
+run — but nothing is written to disk automatically any more. A finished race brings up a results
+screen over the still-loaded course (`ResultsMenu`) showing the time, the herring and — if the
+race had one — how far ahead of or behind a saved run's ghost it finished, while the character
+plays a `wonrace`/`lostrace`/`finish` clip (there are no cups in this rebuild, so the mapping —
+`RaceOutcome.clip` — is place in a field race, or beating the loaded ghost in a solo one, or
+nothing to win or lose in a plain practice run). From there the player can name the run and keep
+it (`SavedRunStore`, `user://runs/<course>_<ticks>.res`, one file per save, never overwritten).
+The main menu's **Race against ghost** entry (`GhostMenu`) lists every saved run across every
+course — time, herring, deletable — and racing one starts Practice on that run's course with it
+loaded as the ghost, translucent on the line it took, gap in seconds on the HUD. This replaced the
+one-best-per-course auto-save and the `[game] ghosts` checkbox on the Configuration screen, which
+are both gone.
 
 Two things are recorded, deliberately, and they are not redundant:
 
@@ -596,9 +654,9 @@ place out of the field, and the name and distance of the racer either side of yo
 leads with `Position 3rd`, from the migrated `POSITION` and `1ST`..`10TH` — which is also why the
 field stops at nine.
 
-A race draws no ghost whatever `[game] ghosts` says: the status line is the standings, and a
-translucent copy of yourself among eight racers is one more thing to mistake for one of them. The
-run is still recorded and a best time still kept.
+A race against opponents never draws a ghost, loaded or not: the status line is the standings, and
+a translucent copy of yourself among eight racers is one more thing to mistake for one of them. The
+run is still recorded either way, so it can still be saved from the results screen afterwards.
 
 **What it costs.** Ten `RacePhysics` on the tick instead of one. The S2 benchmark is 0.045 ms per
 frame per racer, so a full field is under half a millisecond — about 3 % of a 16.7 ms budget
@@ -702,6 +760,38 @@ the outcome section explains why that was stopped — every domain threads `_log
 `_protected`/`source_dir` through `self`, so there is no cheap composition seam, and verifying it
 needs a full 44-course re-import whose diff is ~116 000 lines by design.
 
+### The forest stopped flickering · **done**
+
+Reported as trees that "sometimes flicker, looks a bit like z-fighting", on the wall of trees down
+the left of Challenge One, from the moment the start animation ends. It was z-fighting, and the
+cause is in the data rather than in the renderer: ETR places every object on an object-map cell
+and draws a collidable one as two world-axis-aligned quads, so **a row of trees shares its z to
+the last bit and the X-quads of any two standing closer together than the sum of their radii are
+exactly coplanar over the overlap**. No depth buffer resolves that — the test is a comparison and
+neither surface is in front — so the pair swaps, frame by frame, over a region the size of a tree.
+Challenge One has 1255 such pairs, 522 of them in the column at x = 50.505 that lines the left of
+the course.
+
+`CourseRoot.decorrelating_yaw` turns each collidable object by a yaw hashed from its own position,
+±20°. The geometry stays the original's — two fixed planes at 90°, turned toward nothing — and the
+position, the silhouette and the collision cylinder do not move. Measured on a 1/10-speed capture
+of Challenge One (so the camera creeps and any large frame-to-frame change is flicker rather than
+motion), pixels that oscillate across eight frames: **1142 → 192**. Widening the jitter to ±45°
+gives 179, which is the floor: the residual is the alpha-scissor cutout edge crawling by a pixel,
+not depth fighting. ±20° is kept because it leaves a tree presenting ETR's face to a racer coming
+down the fall line.
+
+A hash decorrelates in the aggregate and cannot promise a floor, so
+`TestObjects._no_two_trees_share_a_plane` asserts the distribution rather than the worst pair: no
+overlapping pair coplanar (3215 → 0), and the share within a tenth of a degree in line with what
+±20° of spread predicts (11 of 3215, against 16 expected). It reads the yaw off the markers and
+the shared helper, not off the `MultiMesh` — `MultiMesh.get_instance_transform` returns the
+identity under `--headless`, which would have made every tree look perfectly coplanar with every
+other and passed the test for the wrong reason.
+
+3818 assertions, 0 failures.
+
+
 ---
 
 ## Known gaps
@@ -719,19 +809,28 @@ needs a full 44-course re-import whose diff is ~116 000 lines by design.
   time, and frame time was resampling the steps. It is also the one consumer that takes the
   trench back undivided, which is why it — and not the physics, which filters through the spring —
   is where the grid's aliasing showed up as a visible 12 Hz bob. Both are fixed; see the trap list.
-- **Web cold load is 161 MB** (128 MB pck), because the export bundles all 44 courses. Risk S6,
-  Phase 6: stream per course, compress, load music on demand.
-- **The snow is a channel too cyan.** Red matches the original within two levels at both ends,
-  but green sits about seven over on lit snow (255 against 248) because ETR's `[diff] 1.0 0.9 1.0`
-  is a display-space multiplier and Godot sRGB-decodes it to 0.787. A third fitted scalar would
-  close it; so would migrating the light colours through `linear_to_srgb`, at the cost of the
-  generated presets no longer matching `light.lst` on sight.
+- **The lit near field still clips more than the original's.** Closed as far as two measured
+  surfaces can take it — both now match within a level in all three channels (history §22) — but
+  our lit region's *upper half* runs about six levels over ETR's, so 53 % of its green clips
+  where the original clips 3.5 %. Ruled out: the §12 relief and glint (turning them off makes the
+  region brighter, not darker), the trench lip's albedo boost and the half-Lambert wrap (two
+  levels each, both deliberate). What is left is most likely that the two frames are not the same
+  view — ETR's reference is at 25 km/h on undisturbed snow, ours at 44 km/h over a fresh trench,
+  and the camera is 70° FOV at 19° above the slope where the original is 60° at 10°. It wants a
+  reference capture taken at a matched camera, not another fitted number.
 - **The snow is tuned against one frame of one course.** Bunny Hill under `tuxracer_sunny` now
-  matches the original at both ends of its range (history §11, still true after §12), but the fit
-  is two scalars solved on two surfaces in one screenshot. The other seven environments — the
-  three `etr` skyboxes are 1024² and much brighter, and `night` and `evening` invert the balance
-  between sun and ambient — have not been compared against anything. Same method, one reference
-  capture each.
+  matches the original at both ends of its range and in all three channels (history §11, §12,
+  §22), but the fit is six numbers solved on two surfaces in one screenshot. It does reach every
+  shipped course: all 44 select a *sunny* preset — 40 `etr_sunny`, 4 `tuxracer_sunny` — and the
+  two carry identical `[diff]` and `[amb]`, differing only in the skybox (the `etr` faces are
+  1024² and much brighter) and the fog colour. Since `ambient_light_sky_contribution` is 0 the
+  brighter sky does not feed the ambient, so the fit should carry; nobody has measured it on an
+  `etr_sunny` course against a reference. The four cloudy/evening/night presets are untuned and
+  **§22's fix moved the dark ones the wrong way**: undoing an sRGB decode raises a dark value far
+  more than a bright one, so `night`'s `[amb] 0.2` now gives a shaded snow of about 105/255
+  against the original's 47, where the old double-bend accidentally gave 45. Nothing selects them
+  so nothing regressed, but each needs its own fitted `sun_gain`/`ambient_gain` — which is what
+  those being per-preset fields is for. Same method, one reference capture each.
 - **The camera does not frame the course the way the original does.** `race.tscn` uses a 70°
   vertical FOV where `param.fov` is 60, and `ChaseCamera` sits 19° above the slope plane where
   `view.cpp` puts it at `CAMERA_ANGLE_ABOVE_SLOPE`/`PLAYER_ANGLE_IN_CAMERA` = 10°. Both are
@@ -749,15 +848,22 @@ needs a full 44-course re-import whose diff is ~116 000 lines by design.
   looked at joint by joint. The other four render, animate and carry their own clips, and the
   suite checks the contract they share; nobody has compared Trixi's start animation against the
   original frame by frame; a ghost is drawn as whoever set the time, not as whoever is racing now.
-  The procedural layer (`AdjustJoints`) is unwritten for all of them,
-  and every character has identical physics — which is true in ETR too, `characters.lst` carries
-  no per-character constants and `[type]` is a column nothing reads.
+  The racing pose layer does run for all five, and four of them are missing at least one joint it
+  names — Samuel has no right leg and no tail — so half of what `AdjustJoints` asks for silently
+  does nothing on him, exactly as in the original. Every character has identical physics, which is
+  true in ETR too: `characters.lst` carries no per-character constants and `[type]` is a column
+  nothing reads.
+- **The start and finish banners billboard, where the original pins them.** `object_types.lst`
+  gives both `[usenorm] 1 [norm] 0 0 1` and `DrawTrees` builds their quad about that fixed normal
+  rather than about the view direction — so in ETR they face up the hill and turn out of view as
+  you pass, and here they follow the camera. Only two of the fourteen object types set the flag,
+  the importer does not read it yet, and it is the same defect class as the trees were: one more
+  branch in `build_object_prefabs`, plus a third mesh orientation or a uniform on the billboard
+  shader.
 - **The terrain slide sound is on or off**, because the original's speed-and-lean `SlideVolume`
   ships commented out (history §16), and 12 of the 43 terrains — `snow` among them — name no
   sound at all. Both are faithful and both are the obvious first thing to improve; the mapping is one
   `StringName` per terrain resource and the volume is one call in `RaceScene`.
-- **Web cold load gains 18 MB of audio** on top of the 161 MB, and music is the easiest part of
-  the pack to stream rather than bundle — 14 MB of it, none needed before the first frame.
 - **Heightmap dequantization has not been eyeballed per course** (risk S3). The pipeline runs on
   all 44; three courses of differing character should be compared against original screenshots.
 - **The snow and ice shading terms are tuned by eye, not against a reference.** Unlike the tone
@@ -815,14 +921,15 @@ needs a full 44-course re-import whose diff is ~116 000 lines by design.
   horizontal, restitution 0.35, and the physics has no notion of a crash state — ETR's own tree
   hit is the same shape, a velocity deflection and nothing else. Being barged is a lost second,
   never a fall.
-- **A race is not a cup and there is no results screen.** The finishing place is one line on the
-  panel that already comes up after the line. No podium, no per-racer times, no points table —
-  those belong with the imported `EventSet` data and the profiles that are still to come.
-- **An opponent's grooming counts toward your best time.** Nine simulated racers stamp the same
+- **A race is not a cup.** The finishing place is one line on the results screen that comes up
+  after the line, and `wonrace`/`lostrace` follow place rather than a cup standing. No podium, no
+  per-racer times, no points table — those belong with the imported `EventSet` data and the
+  profiles that are still to come.
+- **An opponent's grooming counts toward a saved time.** Nine simulated racers stamp the same
   `SnowField`, and packed snow is faster here, so a time set in a race is not strictly comparable
-  to one set alone — and it is still stored as a best. That is the deliberate reading (racing a
-  groomed line is racing), but it means a ghost from a race and a ghost from a practice run are
-  not quite the same measurement.
+  to one set alone — and nothing stops either from being saved from the results screen. That is
+  the deliberate reading (racing a groomed line is racing), but it means a saved run from a race
+  and one from a practice run are not quite the same measurement.
 - **Asset licence audit not started** (risk S5). Independent of engineering, long lead time,
   blocks Phase 5.
 - **Two terrain layers import with no albedo**, because `terrains.lst` names a texture that is

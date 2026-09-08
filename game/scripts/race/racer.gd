@@ -114,6 +114,16 @@ func present(alpha: float) -> void:
 	global_basis = Basis(_view.orientation)
 	global_position = _view.position + Vector3(0.0,
 		PhysConst.TUX_Y_CORR + lerpf(_lift_previous, _lift, alpha), 0.0)
+	if rig != null:
+		# Every argument comes out of the interpolated view and none out of a
+		# simulation, which is what keeps this identical for a ghost, a peer and
+		# the player — and is also what keeps it off the sawtooth
+		# [method sample_snow_lift] exists to avoid. There is no live state
+		# being read at frame time here; the pose is a function of the same
+		# `alpha` the body transform above uses.
+		rig.adjust_joints(_view.turn_animation, _view.braking(),
+			_view.paddling_factor, _view.speed(), _view.up_force,
+			_view.flap_factor)
 
 ## Put the racer somewhere without interpolating through where it used to be.
 ## Used by a restart, and by the start animation, which writes the body

@@ -24,14 +24,19 @@
 ## so a trace recorded before a constant changed can say so instead of quietly
 ## producing a different race.
 ##
-## Ghosts live in `user://ghosts/`; see [GhostStore].
+## A saved run lives in `user://runs/`; see [SavedRunStore].
 class_name RaceRecording
 extends Resource
 
 ## Bumped when the meaning of a stored field changes. A file from another
 ## version is rejected rather than reinterpreted — a ghost is a convenience,
 ## and there is nothing here worth a migration path.
-const FORMAT_VERSION := 1
+##
+## 2: [RacerState] grew the four floats the character rig poses itself from
+## (see [constant RacerState.FLOATS]). A v1 file is the same poses at the wrong
+## stride, which reads as a ghost teleporting rather than as a corrupt file, so
+## it is rejected on the version rather than on the arithmetic.
+const FORMAT_VERSION := 2
 
 ## Simulation ticks per second the trace was recorded at. Not a preference:
 ## [constant RaceScene.SIM_HZ] is what the words in [member inputs] line up
@@ -40,17 +45,34 @@ const DEFAULT_SIM_HZ := 60
 
 ## Pose samples per second. 20 Hz is three simulation ticks apart, which at
 ## racing speed is around a metre — close enough that the interpolation in
-## [RacerStateStream] is indistinguishable from the real path, and 56 bytes a
-## sample means a four-minute run is about 270 kB.
+## [RacerStateStream] is indistinguishable from the real path, and 72 bytes a
+## sample means a four-minute run is about 350 kB.
 const POSE_HZ := 20
 
-@export var format_version: int = FORMAT_VERSION
+## Which layout this file is in, [b]stamped explicitly by [method
+## RaceRecorder.begin][/b] rather than defaulted to [constant FORMAT_VERSION].
+##
+## The declared default has to be a version that has never shipped, because
+## Godot's saver omits any exported property that still equals its script's
+## default — so a field declared `= FORMAT_VERSION` is never written to disk at
+## all, and every stored file loads back as [i]whatever the current build calls
+## current[/i]. The check below then passes for every file ever written and the
+## bump does nothing: the v1 ghosts on disk when [constant FORMAT_VERSION]
+## became 2 were read back as v2 and replayed at the wrong stride, which is a
+## penguin skating through the scenery rather than an error. Nothing warns.
+## Zero is what a file with no version in it now comes back as, and it is
+## rejected.
+@export var format_version: int = 0
 ## Directory name of the course, e.g. `bunny_hill`. A ghost is only ever shown
 ## on the course it was set on.
 @export var course_dir: String = ""
 ## Who the run was raced as, so the ghost is drawn as the right penguin.
 @export var character_dir: String = ""
 @export var racer_name: String = ""
+## What the player called this run when they saved it. Empty for a recording
+## that was never explicitly saved (every finished run is recorded; only
+## [SavedRunStore.save] stamps this). See [SavedRunStore].
+@export var run_name: String = ""
 @export var sim_hz: int = DEFAULT_SIM_HZ
 @export var pose_hz: int = POSE_HZ
 ## Hash of the force constants the run was simulated under. See

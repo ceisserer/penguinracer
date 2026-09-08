@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/race/race_scene.gd" id="1_race"]
 [ext_resource type="Script" path="res://scripts/camera/chase_camera.gd" id="2_cam"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://scripts/shell/race_hud.gd" id="5_hud"]
 [ext_resource type="PackedScene" path="res://scenes/course_menu.tscn" id="6_menu"]
 [ext_resource type="Script" path="res://scripts/race/racer_roster.gd" id="7_roster"]
+[ext_resource type="PackedScene" path="res://scenes/results_menu.tscn" id="8_results"]
 
 [node name="Race" type="Node3D"]
 script = ExtResource("1_race")
@@ -35,3 +36,5 @@ script = ExtResource("3_snow")
 script = ExtResource("5_hud")
 
 [node name="CourseMenu" parent="." instance=ExtResource("6_menu")]
+
+[node name="ResultsMenu" parent="." instance=ExtResource("8_results")]

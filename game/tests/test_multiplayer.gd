@@ -22,7 +22,8 @@ static func run(t: TestCase) -> void:
 	_stream_trimming(t)
 	_recording_round_trip(t)
 	_resimulation(t)
-	_ghost_store(t)
+	_saved_run_store(t)
+	_outcome_clip_mapping(t)
 	_playback_racer(t)
 	_remote_racer(t)
 	_who_collides(t)
@@ -82,6 +83,10 @@ static func _state_codec(t: TestCase) -> void:
 	a.progress = 80.0
 	a.flags = RacerState.FLAG_AIRBORNE | RacerState.FLAG_BRAKING
 	a.herring = 7
+	a.turn_animation = -0.75
+	a.paddling_factor = 0.4
+	a.flap_factor = 0.9
+	a.up_force = 1234.5
 
 	var packet: PackedFloat32Array = a.to_floats()
 	t.ok(packet.size() == RacerState.FLOATS, "a packet is one sample wide")
@@ -97,7 +102,16 @@ static func _state_codec(t: TestCase) -> void:
 	t.eq_f(b.progress, a.progress, 1e-3, "progress survives the round trip")
 	t.ok(b.flags == a.flags, "flags survive the round trip")
 	t.ok(b.herring == a.herring, "the herring count survives the round trip")
-	t.ok(b.airborne() and not b.finished(), "the flag accessors read the right bits")
+	t.ok(b.airborne() and b.braking() and not b.finished(),
+		"the flag accessors read the right bits")
+	# The four the character rig poses itself from. They are as much a part of
+	# the layout as the position is: a ghost or a peer has no forces and no
+	# paddle clock, so if they are not in the packet the racer is drawn frozen
+	# in the rest pose while it slides down the hill.
+	t.eq_f(b.turn_animation, a.turn_animation, 1e-4, "the steering lean survives the round trip")
+	t.eq_f(b.paddling_factor, a.paddling_factor, 1e-4, "the paddle phase survives it")
+	t.eq_f(b.flap_factor, a.flap_factor, 1e-4, "the flap phase survives it")
+	t.eq_f(b.up_force, a.up_force, 1e-2, "the body-up force survives it")
 	t.eq_f(b.orientation.angle_to(a.orientation), 0.0, 1e-4,
 		"orientation survives the round trip")
 	# float32 storage denormalises a quaternion by about a part in 10^7, which a
@@ -113,9 +127,11 @@ static func _state_codec(t: TestCase) -> void:
 	c.time = 13.5
 	c.position = a.position + Vector3(0.0, 0.0, -10.0)
 	c.herring = 8
+	c.turn_animation = 0.25
 	mid.interpolate(a, c, 0.25)
 	t.eq_f(mid.time, 12.75, 1e-6, "time interpolates")
 	t.eq_f(mid.position.z, -82.5, 1e-4, "position interpolates")
+	t.eq_f(mid.turn_animation, -0.5, 1e-6, "and so does the steering lean")
 	# A fish is collected once, at a known instant. 7.25 of them is not a state
 	# the game has ever been in.
 	t.ok(mid.herring == 7, "a discrete count takes the earlier sample")
@@ -254,8 +270,21 @@ static func _recording_round_trip(t: TestCase) -> void:
 	t.ok(rec.completed, "the run is marked complete")
 	t.eq_f(rec.total_time, 6.0, 1e-3, "the finish time is stored")
 
+	t.ok(rec.format_version == RaceRecording.FORMAT_VERSION,
+		"the recorder stamps the format version")
 	t.ok(rec.is_playable_on("test_slope"), "the recording plays on its own course")
 	t.ok(not rec.is_playable_on("somewhere_else"), "and not on another one")
+	# A file from a build with a different layout has to be refused, and the
+	# only thing that refuses it is this number actually reaching the disk. See
+	# [member RaceRecording.format_version] — declared as the current version it
+	# never does, because Godot omits an exported property that still equals its
+	# script's default, and every stored ghost then reads back as current.
+	var stamped: int = rec.format_version
+	rec.format_version = stamped - 1
+	t.ok(not rec.is_playable_on("test_slope"), "a file from an older layout is refused")
+	rec.format_version = 0
+	t.ok(not rec.is_playable_on("test_slope"), "and so is one with no version in it")
+	rec.format_version = stamped
 	t.ok(rec.is_resimulatable_on("test_slope"),
 		"and re-simulates under the constants it was recorded with")
 	rec.physics_signature = "stale"
@@ -307,47 +336,80 @@ static func _resimulation(t: TestCase) -> void:
 
 # ------------------------------------------------------------------
 
-static func _ghost_store(t: TestCase) -> void:
-	t.begin("ghost store")
-	# A course name no shipped course uses, so a developer's own best times are
+static func _saved_run_store(t: TestCase) -> void:
+	t.begin("saved run store")
+	# A course name no shipped course uses, so a developer's own saved runs are
 	# never touched by the suite.
 	var course := "__test_course__"
-	GhostStore.erase(course)
-	t.ok(GhostStore.load_for(course) == null, "no ghost before one is stored")
+	var before: Array[SavedRunStore.Entry] = _entries_for(course)
+	t.ok(before.is_empty(), "no saved runs before one is stored")
 
-	var slow: RaceRecording = _record(4.0)[0]
-	slow.course_dir = course
-	slow.total_time = 40.0
-	t.ok(GhostStore.save_if_best(slow), "the first completed run is stored")
-	var loaded: RaceRecording = GhostStore.load_for(course)
-	t.ok(loaded != null, "and comes back")
-	if loaded != null:
+	var first: RaceRecording = _record(4.0)[0]
+	first.course_dir = course
+	first.total_time = 40.0
+	t.ok(SavedRunStore.save(first, "first"), "a completed run can be saved")
+	var after_first: Array[SavedRunStore.Entry] = _entries_for(course)
+	t.ok(after_first.size() == 1, "and shows up in the list")
+	if after_first.size() == 1:
+		var loaded: RaceRecording = after_first[0].recording
+		# On disk, not just in memory. This is the assertion the version bump
+		# needed and did not have: a recording whose version is only the
+		# script's default is saved without it.
+		t.ok(loaded.format_version == RaceRecording.FORMAT_VERSION,
+			"the version survives a trip through the file (%d)" % loaded.format_version)
 		t.eq_f(loaded.total_time, 40.0, 1e-3, "with its time")
-		t.ok(loaded.pose_count() == slow.pose_count(), "and all of its poses")
-		t.ok(loaded.tick_count() == slow.tick_count(), "and all of its intent")
+		t.ok(loaded.pose_count() == first.pose_count(), "and all of its poses")
+		t.ok(loaded.tick_count() == first.tick_count(), "and all of its intent")
 		t.ok(loaded.character_dir == "tux", "and the character it was raced as")
+		t.ok(loaded.run_name == "first", "and the name it was saved under")
 
-	var slower: RaceRecording = _record(4.0)[0]
-	slower.course_dir = course
-	slower.total_time = 45.0
-	t.ok(not GhostStore.save_if_best(slower), "a slower run does not replace it")
-	t.eq_f(GhostStore.load_for(course).total_time, 40.0, 1e-3, "the best time stands")
-
-	var faster: RaceRecording = _record(4.0)[0]
-	faster.course_dir = course
-	faster.total_time = 35.0
-	t.ok(GhostStore.save_if_best(faster), "a faster run replaces it")
-	t.eq_f(GhostStore.load_for(course).total_time, 35.0, 1e-3, "and becomes the best")
+	# A second save does not clobber the first — unlike the one-best-per-course
+	# ghost store this replaced, every save is kept until deleted by hand.
+	var second: RaceRecording = _record(4.0)[0]
+	second.course_dir = course
+	second.total_time = 45.0
+	t.ok(SavedRunStore.save(second, "second"), "a second run can be saved too")
+	var after_second: Array[SavedRunStore.Entry] = _entries_for(course)
+	t.ok(after_second.size() == 2, "and both are kept")
 
 	var abandoned: RaceRecording = _record(4.0)[0]
 	abandoned.course_dir = course
 	abandoned.total_time = 1.0
 	abandoned.completed = false
-	t.ok(not GhostStore.save_if_best(abandoned),
-		"an unfinished run is never a best time, however short")
+	t.ok(not SavedRunStore.save(abandoned, "abandoned"),
+		"an unfinished run cannot be saved, however short")
 
-	GhostStore.erase(course)
-	t.ok(GhostStore.load_for(course) == null, "and the suite leaves nothing behind")
+	for entry: SavedRunStore.Entry in after_second:
+		SavedRunStore.delete(entry.path)
+	t.ok(_entries_for(course).is_empty(), "and the suite leaves nothing behind")
+
+## [method SavedRunStore.list_all] lists every course at once; this narrows it
+## to the one this test owns, so a developer's own saved runs on other courses
+## never affect the count.
+static func _entries_for(course: String) -> Array[SavedRunStore.Entry]:
+	var out: Array[SavedRunStore.Entry] = []
+	for entry: SavedRunStore.Entry in SavedRunStore.list_all():
+		if entry.recording.course_dir == course:
+			out.push_back(entry)
+	return out
+
+static func _outcome_clip_mapping(t: TestCase) -> void:
+	t.begin("finish-line outcome clip")
+	# There are no cups in this rebuild, so [method RaceOutcome.clip] decides
+	# `wonrace`/`lostrace` from place in a field race, from beating a saved run
+	# in a solo one, and from neither in a plain practice run.
+	t.ok(RaceOutcome.clip(true, true, false, false) == &"wonrace",
+		"first place in a field race dances")
+	t.ok(RaceOutcome.clip(true, false, false, false) == &"lostrace",
+		"anywhere else in a field race does not")
+	t.ok(RaceOutcome.clip(true, false, true, true) == &"lostrace",
+		"a field race ignores the ghost even if it was beaten")
+	t.ok(RaceOutcome.clip(false, false, true, true) == &"wonrace",
+		"beating the ghost in a solo race dances")
+	t.ok(RaceOutcome.clip(false, false, true, false) == &"lostrace",
+		"losing to it does not")
+	t.ok(RaceOutcome.clip(false, false, false, false) == &"finish",
+		"a plain practice run has nothing to win or lose")
 
 static func _playback_racer(t: TestCase) -> void:
 	t.begin("playback racer")

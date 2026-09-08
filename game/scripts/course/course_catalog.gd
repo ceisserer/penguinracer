@@ -48,6 +48,14 @@ static func scan() -> CourseCatalog:
 	cat.sort()
 	return cat
 
+## The row for [param dir], or `null`. A saved run names a course by directory,
+## and a course removed from the build since it was saved is exactly that.
+func find(dir: String) -> CourseListing:
+	for e: CourseListing in entries:
+		if e.dir == dir:
+			return e
+	return null
+
 ## Group first — the original Tux Racer courses before the community extras —
 ## then alphabetically by the name the player sees.
 func sort() -> void:

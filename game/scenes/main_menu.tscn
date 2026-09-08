@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/shell/main_menu.gd" id="1_shell"]
 [ext_resource type="PackedScene" path="res://scenes/course_menu.tscn" id="2_courses"]
 [ext_resource type="PackedScene" path="res://scenes/settings_menu.tscn" id="3_settings"]
 [ext_resource type="Theme" path="res://themes/etr_menu.tres" id="4_theme"]
 [ext_resource type="PackedScene" path="res://scenes/character_menu.tscn" id="5_character"]
+[ext_resource type="PackedScene" path="res://scenes/ghost_menu.tscn" id="6_ghost"]
 
 [node name="MainMenu" type="Control"]
 layout_mode = 3
@@ -81,6 +82,13 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 30
 text = "Race the computer"
 
+[node name="GhostButton" type="Button" parent="Frame/Body/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(340, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "Race against ghost"
+
 [node name="CharacterButton" type="Button" parent="Frame/Body/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(340, 0)
@@ -115,6 +123,8 @@ theme_override_font_sizes/font_size = 14
 [node name="CourseMenu" parent="." instance=ExtResource("2_courses")]
 
 [node name="CharacterMenu" parent="." instance=ExtResource("5_character")]
+
+[node name="GhostMenu" parent="." instance=ExtResource("6_ghost")]
 
 [node name="SettingsMenu" parent="." instance=ExtResource("3_settings")]
 

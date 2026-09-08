@@ -717,3 +717,84 @@ starts at the racer's own position it came out about equal for all nine of them 
 discriminates between nothing.
 
 Written 2026-09-02.
+
+### 22. The snow was not too bright, it was two channels short of a range
+
+*2026-09-08.* Reported as "snow, and the scene overall to a lesser extent, is much brighter than
+the original". Measured against `/tmp/etr_ref.png` — the same Bunny Hill frame §11 was fitted on
+— the level was not the problem. Red matched to a level at the lit end. What was wrong was
+everything else about the distribution:
+
+| Bunny Hill, region mean | ETR 0.8.4 | before | after |
+|---|---|---|---|
+| lit near field R | 239.2 | 238.2 | **238.5** |
+| lit near field G | 247.1 | 253.1 | **251.1** |
+| lit near field G, clipped | 3.5 % | 75.8 % | **53.0 %** |
+| shaded bank R | 191.7 | 168.9 | **191.7** |
+| shaded bank G | 214.0 | 193.6 | **214.2** |
+| shaded bank B | 253.8 | 248.6 | **253.5** |
+
+Two causes, both the same class as §11's and both invisible.
+
+**`light.lst` is not colours, and Godot decodes colours.** `Light3D.light_color` and
+`Environment.ambient_light_color` are authored values, so Godot sRGB-decodes them before the
+shader sees them. `[diff] 1.0 0.9 1.0` and `[amb] 0.45 0.53 0.75` are not authored values — they
+are the numbers ETR multiplies its display-space texture by — and the decode does not scale them,
+it *bends* them: 1.0 stays 1.0 and 0.7025 becomes 0.449, so the migrated ambient's blue-to-red
+ratio went from 1.43 in the file to 2.23 in the shader. Nothing fails. The frame renders, and a
+level fit on one channel still lands, which is exactly what §11's did — it solved two scalars
+against a *red* measurement at each end and never looked at the other two. Underneath, blue sat
+at 1.80 pre-tonemap against a ceiling of 1.0, green pinned at 255 across three quarters of the
+near field, and red was the only channel with headroom left. That is what the complaint was: with
+two of three channels on the ceiling, every bit of shading variation reaches the frame through red
+alone, and a white sheet with cyan in the hollows is what that looks like.
+
+**A scalar energy cannot reproduce a per-channel clamp.** With the decode undone, the shaded bank
+landed on the reference and the lit end blew out, and no pair of scalars could hold both — because
+`snow.png` is (236, 245, **255**) and `[amb]` is (0.70, 0.78, **1.00**). Blue is at the ceiling
+*before any light is applied* and ETR never leaves it; any scalar under 1.0 that puts red on the
+reference takes blue off a ceiling that is where the original's shaded snow gets its colour.
+`sun_energy` and `ambient_energy` are therefore now `sun_gain` and `ambient_gain`, `Color`s, and
+their blue components are near 1.0 for precisely that reason. Three numbers per end, six
+measurements, solved the same way §11 prescribes: move one, measure the gradient, solve. The
+migrated colours stay verbatim on the resource and the correction stays in its own field, which is
+the constraint §11 set and is why the fix was a rename rather than a rewrite.
+
+Both halves of the conversion now go through `EnvironmentPreset.as_light_color`, because the
+version that shipped had the ambient built in `to_environment()` and the sun assigned straight onto
+the light in `RaceScene` — so a fix applied to one of them would have left the other wrong and the
+frame would still have rendered. `TestEnvironments` asserts the round trip rather than the look:
+whatever a preset hands Godot has to come back out of `srgb_to_linear` as the file's number times
+its gain.
+
+#### Three methodology notes
+
+**The exposure-0.25 trick from §11 is an instrument, not a measurement.** It answers "has this
+channel any headroom left" and it does that well — blue reading 1.80 against a ceiling of 1.0 is
+what found the whole thing. It does not answer "how much", because the two exposures are not
+related by a factor of four at the bright end: a pixel that reads 0.913 linear at exposure 1.0
+comes back as 0.812 at 0.25 while a mid-tone agrees to 1 %. A fit taken on the dim render landed
+several levels off and had to be redone at the shipping exposure, which is where the reference
+frame lives anyway.
+
+**Fit on the surface the reference does not clip.** The shaded bank carries the fit now, and the
+lit near field only confirms it. ETR's own blue is at 255 over the whole lit region and 66 % of the
+bank, so at the lit end there are one and a half channels of information and at the shaded end
+there are nearly three.
+
+**The two frames are not the same view, and that is the floor on this fit.** After the fit our lit
+region's upper half still runs about six levels over ETR's. It is not the relief or the glint from
+§12 — turning both off made the region *brighter*, since what they mostly add is darkening
+variance — nor the trench lip's albedo boost nor the half-Lambert wrap, each worth two levels. It
+is most likely the framing: ETR's reference is at 25 km/h on undisturbed snow, ours at 44 km/h over
+a fresh trench, with a 70° FOV at 19° above the slope against the original's 60° at 10°. Closing it
+wants a reference captured at a matched camera, not another number.
+
+An aside worth recording: the *old* pipeline's double bend was load-bearing for the dark presets by
+accident. Undoing an sRGB decode raises a dark value far more than a bright one, so `night`'s
+`[amb] 0.2` goes from a shaded snow of about 45/255 to about 105/255 against the original's 47 —
+the buggy path happened to mimic ETR's display-space arithmetic down there. No shipped course
+selects a night or evening preset, so nothing regressed, but a preset is not tuned until it has
+been fitted and none of the other seven has been.
+
+Written 2026-09-08.

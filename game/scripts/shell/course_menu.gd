@@ -96,7 +96,10 @@ func _fill_list() -> void:
 	_list.clear()
 	_entries.clear()
 	for entry: CourseListing in _catalog.entries:
-		if not ResourceLoader.exists(entry.scene_path):
+		# `preview_path`, not `scene_path`: a streamed web build (see
+		# `PackStream`) legitimately has no `course.tscn` bundled until the
+		# player picks the course, but every preview thumbnail ships up front.
+		if not ResourceLoader.exists(entry.preview_path):
 			continue
 		_entries.push_back(entry)
 		_list.add_item(entry.title())

@@ -47,7 +47,7 @@ var all: Array[Racer] = []
 var local: SimulatedRacer
 ## The computer opponents, in start-line order. Empty in Practice.
 var opponents: Array[SimulatedRacer] = []
-## The player's best recorded run on this course, or null.
+## The saved run currently being raced against, or null.
 var ghost: PlaybackRacer
 ## Who the camera, the snow window and the HUD are about. The local player
 ## today; a spectator mode is this variable pointing somewhere else.
@@ -184,25 +184,25 @@ func simulated() -> Array[SimulatedRacer]:
 #                              ghost
 # ==================================================================
 
-## Load the best recorded run for this course, if one is wanted.
-##
-## [param wanted] is false for a scripted run and for a race against opponents.
-## A ghost is a second penguin on your own line and the HUD has one status line
-## to say something on — with a field on the hill that line is the standings,
-## and the translucent copy of yourself is one more thing to mistake for someone
-## you are racing. The recording still happens and a best time is still kept;
-## only the drawing is dropped.
-func load_ghost(course_dir: String, wanted: bool) -> PlaybackRacer:
-	if ghost != null:
-		all.erase(ghost)
-		remove_child(ghost)
-		ghost.queue_free()
-		ghost = null
-	if not wanted:
-		return null
-	var recording: RaceRecording = GhostStore.load_for(course_dir)
-	if recording == null:
-		return null
+## Drop whatever ghost is on the hill. A scripted run, a race against
+## opponents, or a saved run that named a different course than the one that
+## just loaded all resolve to this — see [method RaceScene._setup_ghost].
+func clear_ghost() -> void:
+	if ghost == null:
+		return
+	all.erase(ghost)
+	remove_child(ghost)
+	ghost.queue_free()
+	ghost = null
+
+## Race against [param recording], replacing whatever ghost is already on the
+## hill. A ghost is a second penguin on your own line and the HUD has one
+## status line to say something on — with a field on the hill that line is the
+## standings, and the translucent copy of yourself is one more thing to
+## mistake for someone you are racing, which is why [method RaceScene._setup_ghost]
+## never calls this during a race against opponents.
+func load_ghost_recording(recording: RaceRecording) -> PlaybackRacer:
+	clear_ghost()
 	var racer := PlaybackRacer.new()
 	racer.name = "Ghost"
 	racer.kind = Racer.Kind.GHOST

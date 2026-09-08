@@ -10,27 +10,45 @@ extends Resource
 
 @export var id: StringName = &""
 @export var sun_direction: Vector3 = Vector3(1, 1, 0).normalized()
+## `[diff]` of light 0, verbatim. **This is a display-space multiplier**, not an
+## sRGB colour — see [method apply_sun] for why that distinction is the whole
+## difference between blue snow and white snow.
 @export var sun_color: Color = Color.WHITE
-## DEVIATION: fitted, not migrated. See [member ambient_energy] — the two are
-## solved as a pair, because one scalar cannot place both ends of the range and
-## the ends are what "looks like the original" means.
-@export var sun_energy: float = 0.24
+## `[amb]` of light 0 plus the GL light-model floor plus the fill light, as the
+## importer assembled it. Display-space, exactly like [member sun_color].
 @export var ambient_color: Color = Color(0.45, 0.53, 0.75)
-## DEVIATION: fitted, not migrated, together with [member sun_energy]. ETR adds
+
+## DEVIATION: fitted, not migrated. See [member ambient_gain] — the two are
+## solved as a pair, because one number cannot place both ends of the range and
+## the ends are what "looks like the original" means.
+@export var sun_gain: Color = Color(0.103, 0.069, 0.103)
+## DEVIATION: fitted, not migrated, together with [member sun_gain]. ETR adds
 ## ambient straight onto the texture in display space and clamps; Godot decodes
 ## the texture to linear first and multiplies there, and the same constants land
 ## with a far wider spread between a lit slope and a shaded one than the original
 ## has. The pair is solved against two measured points on one frame of Bunny Hill
-## — a lit near-field slope, where ETR sits at 0.90 linear, and a shaded bank,
-## where it sits at 0.51 — captured from both games at the same moment. The
-## procedure is in PROGRESS.md §11; redo it there rather than nudging these by
-## eye, because the two ends trade off against each other.
+## — a lit near-field slope and a shaded bank — captured from both games. The
+## procedure is in history §11 and §22; redo it there rather than nudging these
+## by eye, because the two ends trade off against each other.
+##
+## [b]Why a Color and not a scalar.[/b] ETR clamps per channel in display space,
+## and on snow the blue channel is already at the ceiling before any light is
+## applied: `snow.png` is (236, 245, [b]255[/b]) and `[amb]` is (0.70, 0.78,
+## [b]1.00[/b]). One scalar that brings red down to the reference necessarily
+## takes blue down with it, off a ceiling the original never leaves — which is
+## how shaded snow ended up 33 levels too dark in red and the lit near field
+## ended up with green pinned at 255 over three quarters of its area. Three
+## numbers per end is the smallest thing that can reproduce a per-channel clamp.
+## The blue gains are near 1.0 for exactly that reason.
 ##
 ## Pre-distorting the migrated `[amb]` colour to the same effect would hide a
 ## rendering correction inside data that has to stay traceable to `light.lst`.
 ## The GL light-model floor that *is* part of the original's state is a different
 ## thing and is added in the importer, where it shows up in the generated preset.
-@export var ambient_energy: float = 0.92
+@export var ambient_gain: Color = Color(0.841, 0.905, 0.980)
+## Migrated from the fill light's `[spec]`. Nothing reads it yet — the terrain
+## shader keeps ETR's black terrain specular and the object shaders have no
+## specular term at all.
 @export var specular_color: Color = Color.BLACK
 
 @export_group("Fog")
@@ -83,8 +101,10 @@ func to_environment() -> Environment:
 	env.sky = _build_sky()
 
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = ambient_color
-	env.ambient_light_energy = ambient_energy
+	env.ambient_light_color = as_light_color(ambient_color, ambient_gain)
+	# The gain is already in the colour: an energy is one more scalar over three
+	# channels, which is the thing this fit had to stop using.
+	env.ambient_light_energy = 1.0
 	# Ambient comes from the migrated `[amb]`, not from the sky. This defaults to
 	# 1.0, which hands the whole ambient term to the skybox — and this skybox is
 	# a wall of sunlit snow, so on a snow course it is far brighter than the
@@ -113,7 +133,7 @@ func to_environment() -> Environment:
 	# on a slope seen at the grazing angle a chase camera spends all its time at,
 	# a sky made of sunlit snow adds roughly a fifth of a unit of light — enough
 	# on its own to pin the near field at white, and invisible to any amount of
-	# `sun_energy` tuning because it does not come from the sun.
+	# `sun_gain` tuning because it does not come from the sun.
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
 
 	# No bloom and no ambient occlusion in the original, and both work against
@@ -123,6 +143,34 @@ func to_environment() -> Environment:
 	env.ssao_enabled = false
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	return env
+
+## Point a [DirectionalLight3D] at the course and give it this preset's sun.
+##
+## Here rather than in the caller because the sun and the ambient have to make
+## the same trip through [method as_light_color], and the version of this bug
+## that shipped was one of them making it and the other not.
+func apply_sun(light: DirectionalLight3D) -> void:
+	light.light_color = as_light_color(sun_color, sun_gain)
+	light.light_energy = 1.0
+	light.look_at_from_position(Vector3.ZERO, -sun_direction, Vector3.UP)
+
+## A display-space multiplier from `light.lst`, times its fitted gain, packed
+## into the [Color] Godot wants for a light.
+##
+## [b]Godot sRGB-decodes `light_color` and `ambient_light_color`.[/b] They are
+## authored as colours you pick in the Inspector, so a stored 0.9 reaches the
+## shader as 0.787. But `[diff] 1.0 0.9 1.0` and `[amb] 0.45 0.53 0.75` are not
+## colours — they are the numbers ETR multiplies its display-space texture by,
+## and the decode stretches every ratio between them: the migrated ambient's
+## blue-to-red ratio goes from 1.43 in the file to 2.23 in the shader. Encoding
+## on the way in makes the decode give the file's number back. Without it no
+## amount of level fitting helps, because the *balance* is wrong: two of the
+## three channels sat on the clip ceiling and shading variation only ever
+## reached the frame through red, which is what made the snow read as a flat
+## white sheet with cyan in the hollows.
+static func as_light_color(display: Color, gain: Color) -> Color:
+	return Color(display.r * gain.r, display.g * gain.g, display.b * gain.b,
+		1.0).linear_to_srgb()
 
 func _build_sky() -> Sky:
 	var sky := Sky.new()

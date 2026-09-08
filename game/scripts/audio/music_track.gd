@@ -8,4 +8,7 @@ class_name MusicTrack
 extends Resource
 
 @export var id: StringName = &""
-@export var stream: AudioStream
+## `res://assets/music/<file>` — a path rather than an embedded [AudioStream]
+## so that excluding `assets/music/*` from a web export (streamed on demand,
+## see [PackStream]) does not leave [MusicLibrary] itself unloadable.
+@export var stream_path: String = ""

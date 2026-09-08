@@ -28,14 +28,15 @@ game/                     Godot project
   scripts/character/      the character rig, the migrated keyframe root motion, and
                           the catalog of the five playable characters
   scripts/race/           the race scene and the racers on the hill: the player, up to
-                          nine computer opponents, an optional ghost of your best run,
+                          nine computer opponents, an optional ghost of a saved run,
                           and one per network peer
   scripts/net/            the ENet session and the snapshots it carries
   scripts/shell/          HUD, main menu, course menu, settings screen
   scripts/audio/          the AudioDirector autoload and the sound/music banks
   scripts/config/         GameConfig: the settings file, read once at startup
   scenes/                 main_menu.tscn (the main scene), course_menu.tscn,
-                          character_menu.tscn, settings_menu.tscn, race.tscn
+                          character_menu.tscn, settings_menu.tscn, ghost_menu.tscn,
+                          race.tscn, results_menu.tscn
   themes/                 etr_menu.tres — ETR's GUI palette as a Godot theme,
                           plus the two checkbox icons it needs
   addons/etr_import/      one-way, re-runnable importer from the ETR data tree
@@ -46,8 +47,8 @@ game/                     Godot project
                           bank and music library
   assets/                 generated: textures, skyboxes and the migrated audio
   tests/                  headless suite (physics, surface, input, audio, terrain
-                          library, settings, character rig, recording and playback,
-                          computer opponents) + ODE benchmark
+                          library, course objects, settings, character rig,
+                          recording and playback, computer opponents) + ODE benchmark
   spikes/s1_pingpong/     the ping-pong render-target spike (risk S1)
 etr-0.8.4/                the original source and data, read-only
 tools/                    importer driver and the browser test harness
@@ -140,9 +141,9 @@ so being beaten and trying again at a different setting takes two keypresses.
 
 An opponent is not a special kind of racer. It runs the same physics you do, on the same tick, over
 the same terrain, and it collects the same herring — first one there takes it. It is also solid:
-ride into one and you both get shoved, at the cost of the speed you were closing at. Your own
-ghost is the one racer on the hill you cannot touch, because it is a recording of a run that has
-already happened and cannot be shoved back. The only thing a
+ride into one and you both get shoved, at the cost of the speed you were closing at. A ghost is the
+one racer on the hill you cannot touch, because it is a recording of a run that has already
+happened and cannot be shoved back. The only thing a
 difficulty setting moves is how well it drives: how far ahead it looks, how quickly it reacts, how
 much room it insists on round a tree, how long it keeps paddling and how readily it brakes. Nothing
 in the force model is scaled for it, because every character in the original has identical physics
@@ -154,8 +155,9 @@ exactly where a practice run begins. They wear the other characters and are call
 HUD's second line reads `3 / 10   ↑ Trixi 8 m   ↓ Boris 14 m`: your place in the field, and who is
 either side of you. After the line the result panel leads with `Position 3rd`.
 
-A race draws no ghost even with ghosts turned on — the HUD has one status line and in a race that
-line is the standings. Your time is still recorded and still kept if it is a best.
+A race never draws a ghost, whichever one was loaded — the HUD has one status line and in a race
+that line is the standings. Your time is still recorded either way, so it can still be saved
+afterwards.
 
 From the command line, without the menu:
 
@@ -166,13 +168,19 @@ godot --path game -- --course=bunny_hill --opponents=5 --difficulty=hard
 ## Racing yourself, and racing other people
 
 Every run you make is recorded — a couple of bytes per simulated frame, plus a pose twenty times a
-second, about 150 kB for a long course. Beat your stored time on a course and the new run replaces
-it, in `user://ghosts/<course>.res` beside the settings file. The next race on that course draws it
-as a translucent penguin taking the line you took, with the gap in seconds on the HUD: amber when
-you are behind it, green when you are ahead. Turn it off with **Race your best time** on the
-Configuration screen, or `[game] ghosts = false` in the file; the times keep being recorded either
-way, so turning it back on does not lose them. A scripted run (`--auto-input=`) neither keeps a
-ghost nor races one, which is what stops a screenshot comparison growing a second penguin.
+second, about 150 kB for a long course — but nothing is written to disk until you ask. Finish a
+race and a results screen comes up over the course with your time, your herring, and a field to
+name the run; press Save and it is kept, in `user://runs/`, under whatever name you gave it — as
+many runs as you like, on as many courses as you like, nothing overwritten.
+
+**Race against ghost** on the main menu lists every run you have saved, across every course, with
+its time and herring, and a Delete button for the ones you no longer want. Pick one and it starts
+Practice on the course it was recorded on, with that run drawn as a translucent penguin taking the
+line it took — amber when you are behind it, green when you are ahead. Beat it and your penguin
+dances at the finish line (`wonrace`); lose to it and it hangs its head (`lostrace`) — the same
+split a field race decides by place instead, since this rebuild has no cups to decide it by. A
+scripted run (`--auto-input=`) neither loads a ghost nor keeps one, which is what stops a
+screenshot comparison growing a second penguin.
 
 Two people on two machines can race the same course together:
 
@@ -212,7 +220,6 @@ distance_scale = 2.00     ; multiplies the range migrated from the environment's
 
 [game]
 character = "tux"         ; tux, trixi, boris, samuel or beastie
-ghosts = true             ; draw your best run on this course beside you
 opponents = 3             ; how many computer racers "Race the computer" starts with [1...9]
 opponent_skill = "medium" ; easy, medium or hard
 
@@ -273,8 +280,17 @@ python3 tools/linstats.py shot.png 0.25 200 550 500 700     # pre-tonemap linear
 
 ## Web
 
+The web export is streamed: `Web` builds a slim base (engine + shell + all 44 course preview
+thumbnails, ~65 MB) that excludes every course's `course.tscn`/`course.tres`/`heightmap.res`/
+`splat_*.png` and all of `assets/music/`. Those are built as separate `.pck` files — one per
+course (268 KB–9.2 MB each, depending on the course) plus one for music (14 MB) — and fetched
+over HTTP at runtime by `PackStream` (`game/scripts/config/pack_stream.gd`) only when a course
+is actually chosen or a track first plays. A native build is unaffected: `PackStream.ensure()`
+is a single `ResourceLoader.exists()` check that is already true, since a native export still
+bundles everything in one pck.
+
 ```bash
-godot --headless --path game --export-release "Web" build/web/index.html
+./tools/build_web_streamed.sh
 (cd tools/webtest && npm install)   # first time only
 node tools/webtest/server.js build/web 8060 &
 node tools/webtest/run_web_test.js \
@@ -289,8 +305,10 @@ command line in a page: it starts that course instead of the main menu, which is
 harness wait on `RACE_READY`. `?autostart` does the same for the default course, `?nointro=1`
 skips the start animation, and `?character=<dir>` races as one of the other four.
 
-Three export presets are defined: `Web` (everything), `WebOneCourse` (bunny_hill only — a
-6.6 MB pck, the shape per-course streaming needs) and `WebSpike` (the S1 render-target spike).
+Export presets: `Web` (the streamed base), one generated `Course_<dir>` per course plus
+`MusicPack` (owned by `tools/gen_course_export_presets.py` — re-run it whenever a course is
+added, removed or renamed; `tools/build_web_streamed.sh` does this automatically), and
+`WebSpike` (the S1 render-target spike).
 
 ```bash
 godot --headless --path game --export-release "WebSpike" build/spike/index.html

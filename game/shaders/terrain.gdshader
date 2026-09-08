@@ -444,7 +444,7 @@ void light() {
 
 	// LIGHT_COLOR arrives premultiplied by PI, because Godot folds the 1/PI of
 	// the diffuse BRDF into it. Both terms divide it back out so they stay in
-	// the same units as each other and as `sun_energy`.
+	// the same units as each other and as `sun_gain`.
 	vec3 h = normalize(LIGHT + VIEW);
 	float ndh = max(dot(NORMAL, h), 0.0);
 	// Snow keeps ETR's near-absent terrain specular — `light.lst` gives its

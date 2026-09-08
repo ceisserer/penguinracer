@@ -56,6 +56,7 @@ static var _boot_handled: bool = false
 @onready var _frame: MarginContainer = %Frame
 @onready var _practice_button: Button = %PracticeButton
 @onready var _opponents_button: Button = %OpponentsButton
+@onready var _ghost_button: Button = %GhostButton
 @onready var _character_button: Button = %CharacterButton
 @onready var _settings_button: Button = %SettingsButton
 @onready var _quit_button: Button = %QuitButton
@@ -63,6 +64,7 @@ static var _boot_handled: bool = false
 @onready var _course_menu: CourseMenu = $CourseMenu
 @onready var _character_menu: CharacterMenu = $CharacterMenu
 @onready var _settings: SettingsMenu = $SettingsMenu
+@onready var _ghost_menu: GhostMenu = $GhostMenu
 @onready var _loading: CanvasLayer = $Loading
 @onready var _loading_label: Label = %LoadingLabel
 @onready var _wait_label: Label = %WaitLabel
@@ -89,8 +91,9 @@ func _ready() -> void:
 	_title.text = ProjectSettings.get_setting("application/config/name", "PenguinRacer")
 	_version.text = "v%s" % ProjectSettings.get_setting("application/config/version", "")
 	_practice_button.text = tr("PRACTICE")
-	# Not a migrated string; the original has nobody to race against.
+	# Neither is a migrated string; the original has no opponents and no ghosts.
 	_opponents_button.text = "Race the computer"
+	_ghost_button.text = "Race against ghost"
 	_settings_button.text = tr("CONFIGURATION")
 	_quit_button.text = tr("QUIT")
 	_wait_label.text = tr("PLEASE_WAIT")
@@ -101,6 +104,7 @@ func _ready() -> void:
 
 	_practice_button.pressed.connect(_open_practice_menu)
 	_opponents_button.pressed.connect(_open_race_menu)
+	_ghost_button.pressed.connect(_open_ghost_menu)
 	_character_button.pressed.connect(_open_character_menu)
 	_settings_button.pressed.connect(_open_settings)
 	_quit_button.pressed.connect(func() -> void: Audio.quit_game(0))
@@ -110,6 +114,8 @@ func _ready() -> void:
 	_character_menu.chosen.connect(_on_character_chosen)
 	_character_menu.closed.connect(_show_root)
 	_settings.closed.connect(_show_root)
+	_ghost_menu.run_chosen.connect(_on_ghost_run_chosen)
+	_ghost_menu.closed.connect(_show_root)
 
 	Audio.play_menu_music()
 	_show_root()
@@ -147,6 +153,10 @@ func _open_character_menu() -> void:
 func _open_settings() -> void:
 	_frame.visible = false
 	_settings.open()
+
+func _open_ghost_menu() -> void:
+	_frame.visible = false
+	_ghost_menu.open()
 
 ## The character screen picks; this writes. [SettingsMenu] saves its own page of
 ## the same file the same way — the screens move values, [GameConfig] owns the
@@ -189,6 +199,26 @@ func _on_course_chosen(listing: CourseListing, setup: RaceSetup) -> void:
 	# Building a course blocks the main thread for long enough to be seen as a
 	# freeze, so the panel has to have been drawn before the load starts — one
 	# composited frame, not just one assignment.
+	await RenderingServer.frame_post_draw
+	_start_race(listing.scene_path)
+
+## A saved run was picked off [GhostMenu]'s list. Forces Practice — a ghost
+## race has never had a field, the same way choosing a course from the
+## Practice button always has — and starts the race on the course the run was
+## recorded on, with that run set as [member RaceScene.requested_ghost].
+func _on_ghost_run_chosen(recording: RaceRecording) -> void:
+	var listing: CourseListing = CourseCatalog.load_default().find(recording.course_dir)
+	if listing == null:
+		# The course this was recorded on is no longer in this build. Nothing
+		# ventured — back to the root rather than starting a race with nowhere
+		# to load.
+		_show_root()
+		return
+	RaceScene.requested_setup = RaceSetup.practice()
+	RaceScene.requested_ghost = recording
+	_loading_label.text = "%s '%s'" % [tr("LOADING"), listing.title()]
+	_loading.visible = true
+	Audio.halt_all()
 	await RenderingServer.frame_post_draw
 	_start_race(listing.scene_path)
 

@@ -75,14 +75,6 @@ var fog_distance_scale: float = 2.0
 ## being rewritten behind the player's back.
 var character: String = CharacterCatalog.DEFAULT_DIR
 
-## Whether a race shows the player's best recorded run beside them.
-##
-## Recording happens either way and costs about 4 kB a run — see [RaceRecorder].
-## This is only whether the ghost is drawn, so turning it off and back on again
-## does not lose the times set in between. A race against computer opponents
-## draws no ghost whatever this says — see [method RaceScene._setup_ghost].
-var ghosts: bool = true
-
 ## How many computer opponents the main menu's *Race the computer* entry offers
 ## next time, 1..[constant RaceSetup.MAX_OPPONENTS].
 ##
@@ -140,7 +132,6 @@ func read(cfg: ConfigFile) -> void:
 	character = str(cfg.get_value("game", "character", character)).strip_edges()
 	if character.is_empty():
 		character = CharacterCatalog.DEFAULT_DIR
-	ghosts = bool(cfg.get_value("game", "ghosts", ghosts))
 	opponents = clampi(int(cfg.get_value("game", "opponents", opponents)),
 		1, RaceSetup.MAX_OPPONENTS)
 	opponent_skill = AISkill.parse(str(cfg.get_value("game", "opponent_skill",
@@ -223,12 +214,6 @@ distance_scale = %.2f
 ; A name that is not installed falls back to tux.
 character = "%s"
 
-; Race against your own best run on each course, drawn as a translucent
-; penguin. Times are recorded either way; this only draws them.
-; A race against computer opponents never draws one — the standings take that
-; line of the HUD.
-ghosts = %s
-
 ; How many computer opponents the main menu's "Race the computer" entry starts
 ; with [1...9], and how well they drive: easy, medium or hard. The course
 ; screen sets both, and writes them back here.
@@ -249,7 +234,7 @@ player_name = "%s"
 port = %d
 """ % [_resolution_text(), str(fullscreen).to_lower(), render_scale,
 		fog_start_distance, fog_distance_scale, character,
-		str(ghosts).to_lower(), opponents, AISkill.name_of(opponent_skill),
+		opponents, AISkill.name_of(opponent_skill),
 		player_name, multiplayer_port]
 
 ## `"auto"` when the window is the platform's to size, `"1280x720"` otherwise.

@@ -1,21 +1,22 @@
-[gd_scene format=3]
+[gd_scene format=4]
 
-[ext_resource type="Script" path="res://scripts/course/course_root.gd" id="1_cubqg"]
-[ext_resource type="Resource" path="res://courses/inception/course.tres" id="2_v8cxt"]
-[ext_resource type="Script" path="res://scripts/course/object_prefab.gd" id="3_u780q"]
-[ext_resource type="Shader" path="res://shaders/object_billboard.gdshader" id="4_ynj7b"]
-[ext_resource type="Texture2D" path="res://assets/objects/herring.png" id="5_uqdbq"]
-[ext_resource type="Texture2D" path="res://assets/objects/flag.png" id="6_23ru2"]
-[ext_resource type="Texture2D" path="res://assets/objects/start.png" id="7_8h532"]
-[ext_resource type="Texture2D" path="res://assets/objects/finish.png" id="8_x3gnx"]
-[ext_resource type="Texture2D" path="res://assets/objects/snowy_tree1.png" id="9_x4nce"]
-[ext_resource type="Texture2D" path="res://assets/objects/tree_barren2.png" id="10_jpfpc"]
-[ext_resource type="Texture2D" path="res://assets/objects/shrub.png" id="11_kewxb"]
+[ext_resource type="Script" path="res://scripts/course/course_root.gd" id="1_v8cxt"]
+[ext_resource type="Resource" path="res://courses/inception/course.tres" id="2_u780q"]
+[ext_resource type="Script" path="res://scripts/course/object_prefab.gd" id="3_ynj7b"]
+[ext_resource type="Shader" path="res://shaders/object_billboard.gdshader" id="4_uqdbq"]
+[ext_resource type="Texture2D" path="res://assets/objects/herring.png" id="5_23ru2"]
+[ext_resource type="Texture2D" path="res://assets/objects/flag.png" id="6_8h532"]
+[ext_resource type="Texture2D" path="res://assets/objects/start.png" id="7_x3gnx"]
+[ext_resource type="Texture2D" path="res://assets/objects/finish.png" id="8_x4nce"]
+[ext_resource type="Shader" path="res://shaders/object_cross.gdshader" id="9_jpfpc"]
+[ext_resource type="Texture2D" path="res://assets/objects/snowy_tree1.png" id="10_kewxb"]
+[ext_resource type="Texture2D" path="res://assets/objects/tree_barren2.png" id="11_mf82b"]
+[ext_resource type="Texture2D" path="res://assets/objects/shrub.png" id="12_yeq8t"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_ceccp"]
 render_priority = 0
-shader = ExtResource("4_ynj7b")
-shader_parameter/albedo_texture = ExtResource("5_uqdbq")
+shader = ExtResource("4_uqdbq")
+shader_parameter/albedo_texture = ExtResource("5_23ru2")
 shader_parameter/albedo_tint = null
 shader_parameter/alpha_scissor = 0.5
 shader_parameter/roughness_value = null
@@ -25,8 +26,8 @@ shader_parameter/normal_up_bias = null
 [sub_resource type="QuadMesh" id="QuadMesh_wym0m"]
 center_offset = Vector3(0, 0.5, 0)
 
-[sub_resource type="Resource" id="Resource_metol"]
-script = ExtResource("3_u780q")
+[sub_resource type="Resource" id="Resource_hkl0p"]
+script = ExtResource("3_ynj7b")
 id = &"herring"
 mesh = SubResource("QuadMesh_wym0m")
 material = SubResource("ShaderMaterial_ceccp")
@@ -34,8 +35,8 @@ collectable = true
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_1r5jp"]
 render_priority = 0
-shader = ExtResource("4_ynj7b")
-shader_parameter/albedo_texture = ExtResource("6_23ru2")
+shader = ExtResource("4_uqdbq")
+shader_parameter/albedo_texture = ExtResource("6_8h532")
 shader_parameter/albedo_tint = null
 shader_parameter/alpha_scissor = 0.5
 shader_parameter/roughness_value = null
@@ -45,8 +46,8 @@ shader_parameter/normal_up_bias = null
 [sub_resource type="QuadMesh" id="QuadMesh_n2cbq"]
 center_offset = Vector3(0, 0.5, 0)
 
-[sub_resource type="Resource" id="Resource_exme5"]
-script = ExtResource("3_u780q")
+[sub_resource type="Resource" id="Resource_jvb6v"]
+script = ExtResource("3_ynj7b")
 id = &"flag"
 mesh = SubResource("QuadMesh_n2cbq")
 material = SubResource("ShaderMaterial_1r5jp")
@@ -54,8 +55,8 @@ decorative = true
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_kp70p"]
 render_priority = 0
-shader = ExtResource("4_ynj7b")
-shader_parameter/albedo_texture = ExtResource("7_8h532")
+shader = ExtResource("4_uqdbq")
+shader_parameter/albedo_texture = ExtResource("7_x3gnx")
 shader_parameter/albedo_tint = null
 shader_parameter/alpha_scissor = 0.5
 shader_parameter/roughness_value = null
@@ -65,8 +66,8 @@ shader_parameter/normal_up_bias = null
 [sub_resource type="QuadMesh" id="QuadMesh_1thkq"]
 center_offset = Vector3(0, 0.5, 0)
 
-[sub_resource type="Resource" id="Resource_hkl0p"]
-script = ExtResource("3_u780q")
+[sub_resource type="Resource" id="Resource_wo033"]
+script = ExtResource("3_ynj7b")
 id = &"start"
 mesh = SubResource("QuadMesh_1thkq")
 material = SubResource("ShaderMaterial_kp70p")
@@ -74,8 +75,8 @@ decorative = true
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_74i7d"]
 render_priority = 0
-shader = ExtResource("4_ynj7b")
-shader_parameter/albedo_texture = ExtResource("8_x3gnx")
+shader = ExtResource("4_uqdbq")
+shader_parameter/albedo_texture = ExtResource("8_x4nce")
 shader_parameter/albedo_tint = null
 shader_parameter/alpha_scissor = 0.5
 shader_parameter/roughness_value = null
@@ -85,227 +86,277 @@ shader_parameter/normal_up_bias = null
 [sub_resource type="QuadMesh" id="QuadMesh_maoaf"]
 center_offset = Vector3(0, 0.5, 0)
 
-[sub_resource type="Resource" id="Resource_jvb6v"]
-script = ExtResource("3_u780q")
+[sub_resource type="Resource" id="Resource_nss7u"]
+script = ExtResource("3_ynj7b")
 id = &"finish"
 mesh = SubResource("QuadMesh_maoaf")
 material = SubResource("ShaderMaterial_74i7d")
 decorative = true
 
-[sub_resource type="Resource" id="Resource_wo033"]
-script = ExtResource("3_u780q")
+[sub_resource type="Resource" id="Resource_6cv1o"]
+script = ExtResource("3_ynj7b")
 id = &"float"
 decorative = true
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_fgdwc"]
 render_priority = 0
-shader = ExtResource("4_ynj7b")
-shader_parameter/albedo_texture = ExtResource("9_x4nce")
+shader = ExtResource("9_jpfpc")
+shader_parameter/albedo_texture = ExtResource("10_kewxb")
 shader_parameter/albedo_tint = null
 shader_parameter/alpha_scissor = 0.5
 shader_parameter/roughness_value = null
 shader_parameter/normal_roundness = null
 shader_parameter/normal_up_bias = null
 
-[sub_resource type="QuadMesh" id="QuadMesh_usjam"]
-center_offset = Vector3(0, 0.5, 0)
+[sub_resource type="ArrayMesh" id="ArrayMesh_usjam"]
+_surfaces = [{
+"aabb": AABB(-0.5, 0, -0.5, 1, 1, 1),
+"attribute_data": PackedByteArray("AAAAAAAAgD8AAIA/AACAPwAAgD8AAAAAAAAAAAAAAAAAAAAAAACAPwAAgD8AAIA/AACAPwAAAAAAAAAAAAAAAA=="),
+"format": 34359742487,
+"index_count": 12,
+"index_data": PackedByteArray("AAABAAIAAAACAAMABAAFAAYABAAGAAcA"),
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 8,
+"vertex_data": PackedByteArray("AAAAvwAAAAAAAAAAAAAAPwAAAAAAAAAAAAAAPwAAgD8AAAAAAAAAvwAAgD8AAAAAAAAAAAAAAAAAAAC/AAAAAAAAAAAAAAA/AAAAAAAAgD8AAAA/AAAAAAAAgD8AAAC//3//f////7//f/9/////v/9//3////+//3//f////78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vw==")
+}]
 
-[sub_resource type="Resource" id="Resource_nss7u"]
-script = ExtResource("3_u780q")
+[sub_resource type="Resource" id="Resource_ijs2g"]
+script = ExtResource("3_ynj7b")
 id = &"tree"
-mesh = SubResource("QuadMesh_usjam")
+mesh = SubResource("ArrayMesh_usjam")
 material = SubResource("ShaderMaterial_fgdwc")
 collidable = true
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_vqipt"]
 render_priority = 0
-shader = ExtResource("4_ynj7b")
-shader_parameter/albedo_texture = ExtResource("10_jpfpc")
+shader = ExtResource("9_jpfpc")
+shader_parameter/albedo_texture = ExtResource("11_mf82b")
 shader_parameter/albedo_tint = null
 shader_parameter/alpha_scissor = 0.5
 shader_parameter/roughness_value = null
 shader_parameter/normal_roundness = null
 shader_parameter/normal_up_bias = null
 
-[sub_resource type="QuadMesh" id="QuadMesh_w2kcw"]
-center_offset = Vector3(0, 0.5, 0)
+[sub_resource type="ArrayMesh" id="ArrayMesh_w2kcw"]
+_surfaces = [{
+"aabb": AABB(-0.5, 0, -0.5, 1, 1, 1),
+"attribute_data": PackedByteArray("AAAAAAAAgD8AAIA/AACAPwAAgD8AAAAAAAAAAAAAAAAAAAAAAACAPwAAgD8AAIA/AACAPwAAAAAAAAAAAAAAAA=="),
+"format": 34359742487,
+"index_count": 12,
+"index_data": PackedByteArray("AAABAAIAAAACAAMABAAFAAYABAAGAAcA"),
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 8,
+"vertex_data": PackedByteArray("AAAAvwAAAAAAAAAAAAAAPwAAAAAAAAAAAAAAPwAAgD8AAAAAAAAAvwAAgD8AAAAAAAAAAAAAAAAAAAC/AAAAAAAAAAAAAAA/AAAAAAAAgD8AAAA/AAAAAAAAgD8AAAC//3//f////7//f/9/////v/9//3////+//3//f////78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vw==")
+}]
 
-[sub_resource type="Resource" id="Resource_6cv1o"]
-script = ExtResource("3_u780q")
+[sub_resource type="Resource" id="Resource_rw78v"]
+script = ExtResource("3_ynj7b")
 id = &"tree_barren"
-mesh = SubResource("QuadMesh_w2kcw")
+mesh = SubResource("ArrayMesh_w2kcw")
 material = SubResource("ShaderMaterial_vqipt")
 collidable = true
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_x1vcr"]
 render_priority = 0
-shader = ExtResource("4_ynj7b")
-shader_parameter/albedo_texture = ExtResource("11_kewxb")
+shader = ExtResource("9_jpfpc")
+shader_parameter/albedo_texture = ExtResource("12_yeq8t")
 shader_parameter/albedo_tint = null
 shader_parameter/alpha_scissor = 0.5
 shader_parameter/roughness_value = null
 shader_parameter/normal_roundness = null
 shader_parameter/normal_up_bias = null
 
-[sub_resource type="QuadMesh" id="QuadMesh_18ja8"]
-center_offset = Vector3(0, 0.5, 0)
+[sub_resource type="ArrayMesh" id="ArrayMesh_18ja8"]
+_surfaces = [{
+"aabb": AABB(-0.5, 0, -0.5, 1, 1, 1),
+"attribute_data": PackedByteArray("AAAAAAAAgD8AAIA/AACAPwAAgD8AAAAAAAAAAAAAAAAAAAAAAACAPwAAgD8AAIA/AACAPwAAAAAAAAAAAAAAAA=="),
+"format": 34359742487,
+"index_count": 12,
+"index_data": PackedByteArray("AAABAAIAAAACAAMABAAFAAYABAAGAAcA"),
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 8,
+"vertex_data": PackedByteArray("AAAAvwAAAAAAAAAAAAAAPwAAAAAAAAAAAAAAPwAAgD8AAAAAAAAAvwAAgD8AAAAAAAAAAAAAAAAAAAC/AAAAAAAAAAAAAAA/AAAAAAAAgD8AAAA/AAAAAAAAgD8AAAC//3//f////7//f/9/////v/9//3////+//3//f////78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vw==")
+}]
 
-[sub_resource type="Resource" id="Resource_ijs2g"]
-script = ExtResource("3_u780q")
+[sub_resource type="Resource" id="Resource_u4q1e"]
+script = ExtResource("3_ynj7b")
 id = &"shrub"
-mesh = SubResource("QuadMesh_18ja8")
+mesh = SubResource("ArrayMesh_18ja8")
 material = SubResource("ShaderMaterial_x1vcr")
 collidable = true
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_k1gr5"]
 render_priority = 0
-shader = ExtResource("4_ynj7b")
-shader_parameter/albedo_texture = ExtResource("10_jpfpc")
+shader = ExtResource("9_jpfpc")
+shader_parameter/albedo_texture = ExtResource("11_mf82b")
 shader_parameter/albedo_tint = null
 shader_parameter/alpha_scissor = 0.5
 shader_parameter/roughness_value = null
 shader_parameter/normal_roundness = null
 shader_parameter/normal_up_bias = null
 
-[sub_resource type="QuadMesh" id="QuadMesh_vr4y1"]
-center_offset = Vector3(0, 0.5, 0)
+[sub_resource type="ArrayMesh" id="ArrayMesh_vr4y1"]
+_surfaces = [{
+"aabb": AABB(-0.5, 0, -0.5, 1, 1, 1),
+"attribute_data": PackedByteArray("AAAAAAAAgD8AAIA/AACAPwAAgD8AAAAAAAAAAAAAAAAAAAAAAACAPwAAgD8AAIA/AACAPwAAAAAAAAAAAAAAAA=="),
+"format": 34359742487,
+"index_count": 12,
+"index_data": PackedByteArray("AAABAAIAAAACAAMABAAFAAYABAAGAAcA"),
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 8,
+"vertex_data": PackedByteArray("AAAAvwAAAAAAAAAAAAAAPwAAAAAAAAAAAAAAPwAAgD8AAAAAAAAAvwAAgD8AAAAAAAAAAAAAAAAAAAC/AAAAAAAAAAAAAAA/AAAAAAAAgD8AAAA/AAAAAAAAgD8AAAC//3//f////7//f/9/////v/9//3////+//3//f////78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vw==")
+}]
 
-[sub_resource type="Resource" id="Resource_rw78v"]
-script = ExtResource("3_u780q")
+[sub_resource type="Resource" id="Resource_2mnuf"]
+script = ExtResource("3_ynj7b")
 id = &"tree_barren2"
-mesh = SubResource("QuadMesh_vr4y1")
+mesh = SubResource("ArrayMesh_vr4y1")
 material = SubResource("ShaderMaterial_k1gr5")
 collidable = true
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_nbulg"]
 render_priority = 0
-shader = ExtResource("4_ynj7b")
-shader_parameter/albedo_texture = ExtResource("9_x4nce")
+shader = ExtResource("9_jpfpc")
+shader_parameter/albedo_texture = ExtResource("10_kewxb")
 shader_parameter/albedo_tint = null
 shader_parameter/alpha_scissor = 0.5
 shader_parameter/roughness_value = null
 shader_parameter/normal_roundness = null
 shader_parameter/normal_up_bias = null
 
-[sub_resource type="QuadMesh" id="QuadMesh_440gf"]
-center_offset = Vector3(0, 0.5, 0)
+[sub_resource type="ArrayMesh" id="ArrayMesh_440gf"]
+_surfaces = [{
+"aabb": AABB(-0.5, 0, -0.5, 1, 1, 1),
+"attribute_data": PackedByteArray("AAAAAAAAgD8AAIA/AACAPwAAgD8AAAAAAAAAAAAAAAAAAAAAAACAPwAAgD8AAIA/AACAPwAAAAAAAAAAAAAAAA=="),
+"format": 34359742487,
+"index_count": 12,
+"index_data": PackedByteArray("AAABAAIAAAACAAMABAAFAAYABAAGAAcA"),
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 8,
+"vertex_data": PackedByteArray("AAAAvwAAAAAAAAAAAAAAPwAAAAAAAAAAAAAAPwAAgD8AAAAAAAAAvwAAgD8AAAAAAAAAAAAAAAAAAAC/AAAAAAAAAAAAAAA/AAAAAAAAgD8AAAA/AAAAAAAAgD8AAAC//3//f////7//f/9/////v/9//3////+//3//f////78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vw==")
+}]
 
-[sub_resource type="Resource" id="Resource_u4q1e"]
-script = ExtResource("3_u780q")
+[sub_resource type="Resource" id="Resource_ykou3"]
+script = ExtResource("3_ynj7b")
 id = &"tree1"
-mesh = SubResource("QuadMesh_440gf")
+mesh = SubResource("ArrayMesh_440gf")
 material = SubResource("ShaderMaterial_nbulg")
 collidable = true
 
-[sub_resource type="Resource" id="Resource_2mnuf"]
-script = ExtResource("3_u780q")
+[sub_resource type="Resource" id="Resource_1sv0t"]
+script = ExtResource("3_ynj7b")
 id = &"tree2"
 collidable = true
 
-[sub_resource type="Resource" id="Resource_ykou3"]
-script = ExtResource("3_u780q")
+[sub_resource type="Resource" id="Resource_6niai"]
+script = ExtResource("3_ynj7b")
 id = &"tree3"
 collidable = true
 
-[sub_resource type="Resource" id="Resource_1sv0t"]
-script = ExtResource("3_u780q")
+[sub_resource type="Resource" id="Resource_ty8rv"]
+script = ExtResource("3_ynj7b")
 id = &"tree4"
 collidable = true
 
-[sub_resource type="Resource" id="Resource_6niai"]
-script = ExtResource("3_u780q")
+[sub_resource type="Resource" id="Resource_l3ee2"]
+script = ExtResource("3_ynj7b")
 id = &"tree5"
 collidable = true
 
-[node name="inception" type="Node3D" unique_id=548566876]
-script = ExtResource("1_cubqg")
-course_data = ExtResource("2_v8cxt")
-object_prefabs = Dictionary[String, ExtResource("3_u780q")]({
-"finish": SubResource("Resource_jvb6v"),
-"flag": SubResource("Resource_exme5"),
-"float": SubResource("Resource_wo033"),
-"herring": SubResource("Resource_metol"),
-"shrub": SubResource("Resource_ijs2g"),
-"start": SubResource("Resource_hkl0p"),
-"tree": SubResource("Resource_nss7u"),
-"tree1": SubResource("Resource_u4q1e"),
-"tree2": SubResource("Resource_2mnuf"),
-"tree3": SubResource("Resource_ykou3"),
-"tree4": SubResource("Resource_1sv0t"),
-"tree5": SubResource("Resource_6niai"),
-"tree_barren": SubResource("Resource_6cv1o"),
-"tree_barren2": SubResource("Resource_rw78v")
+[node name="inception" type="Node3D" unique_id=360801163]
+script = ExtResource("1_v8cxt")
+course_data = ExtResource("2_u780q")
+object_prefabs = Dictionary[String, ExtResource("3_ynj7b")]({
+"finish": SubResource("Resource_nss7u"),
+"flag": SubResource("Resource_jvb6v"),
+"float": SubResource("Resource_6cv1o"),
+"herring": SubResource("Resource_hkl0p"),
+"shrub": SubResource("Resource_u4q1e"),
+"start": SubResource("Resource_wo033"),
+"tree": SubResource("Resource_ijs2g"),
+"tree1": SubResource("Resource_ykou3"),
+"tree2": SubResource("Resource_1sv0t"),
+"tree3": SubResource("Resource_6niai"),
+"tree4": SubResource("Resource_ty8rv"),
+"tree5": SubResource("Resource_l3ee2"),
+"tree_barren": SubResource("Resource_rw78v"),
+"tree_barren2": SubResource("Resource_2mnuf")
 })
 
-[node name="Objects" type="Node3D" parent="." unique_id=722672235]
+[node name="Objects" type="Node3D" parent="." unique_id=2070995463]
 
-[node name="herring" type="Node3D" parent="Objects" unique_id=1539876378]
+[node name="herring" type="Node3D" parent="Objects" unique_id=166186555]
 
-[node name="herring_0" type="Marker3D" parent="Objects/herring" unique_id=1182139369]
+[node name="herring_0" type="Marker3D" parent="Objects/herring" unique_id=723372410]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 130.5221, 0, -632.6326)
 
-[node name="herring_1" type="Marker3D" parent="Objects/herring" unique_id=856462464]
+[node name="herring_1" type="Marker3D" parent="Objects/herring" unique_id=376846579]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 128.51405, 0, -490.49048)
 
-[node name="herring_2" type="Marker3D" parent="Objects/herring" unique_id=453473475]
+[node name="herring_2" type="Marker3D" parent="Objects/herring" unique_id=316903963]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 128.51405, 0, -489.4895)
 
-[node name="herring_3" type="Marker3D" parent="Objects/herring" unique_id=432611143]
+[node name="herring_3" type="Marker3D" parent="Objects/herring" unique_id=1295639722]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 130.5221, 0, -488.4885)
 
-[node name="herring_4" type="Marker3D" parent="Objects/herring" unique_id=1557041164]
+[node name="herring_4" type="Marker3D" parent="Objects/herring" unique_id=248270214]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 129.51807, 0, -488.4885)
 
-[node name="herring_5" type="Marker3D" parent="Objects/herring" unique_id=550199158]
+[node name="herring_5" type="Marker3D" parent="Objects/herring" unique_id=353443478]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 128.51405, 0, -488.4885)
 
-[node name="herring_6" type="Marker3D" parent="Objects/herring" unique_id=2024873080]
+[node name="herring_6" type="Marker3D" parent="Objects/herring" unique_id=219089639]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 130.5221, 0, -487.4875)
 
-[node name="herring_7" type="Marker3D" parent="Objects/herring" unique_id=630419258]
+[node name="herring_7" type="Marker3D" parent="Objects/herring" unique_id=494817112]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 130.5221, 0, -486.48648)
 
-[node name="herring_8" type="Marker3D" parent="Objects/herring" unique_id=186395630]
+[node name="herring_8" type="Marker3D" parent="Objects/herring" unique_id=1955372602]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 130.5221, 0, -485.48547)
 
-[node name="herring_9" type="Marker3D" parent="Objects/herring" unique_id=138257681]
+[node name="herring_9" type="Marker3D" parent="Objects/herring" unique_id=400733363]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 132.53012, 0, -484.4845)
 
-[node name="herring_10" type="Marker3D" parent="Objects/herring" unique_id=1711391146]
+[node name="herring_10" type="Marker3D" parent="Objects/herring" unique_id=1674360799]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 131.52611, 0, -484.4845)
 
-[node name="herring_11" type="Marker3D" parent="Objects/herring" unique_id=86228453]
+[node name="herring_11" type="Marker3D" parent="Objects/herring" unique_id=245675837]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 130.5221, 0, -484.4845)
 
-[node name="herring_12" type="Marker3D" parent="Objects/herring" unique_id=985774410]
+[node name="herring_12" type="Marker3D" parent="Objects/herring" unique_id=1669196967]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 132.53012, 0, -22.022022)
 
-[node name="herring_13" type="Marker3D" parent="Objects/herring" unique_id=991086933]
+[node name="herring_13" type="Marker3D" parent="Objects/herring" unique_id=114410311]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 132.53012, 0, -21.02102)
 
-[node name="herring_14" type="Marker3D" parent="Objects/herring" unique_id=1987896350]
+[node name="herring_14" type="Marker3D" parent="Objects/herring" unique_id=888168020]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 132.53012, 0, -20.02002)
 
-[node name="herring_15" type="Marker3D" parent="Objects/herring" unique_id=1265719427]
+[node name="herring_15" type="Marker3D" parent="Objects/herring" unique_id=1418900585]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 131.52611, 0, -20.02002)
 
-[node name="herring_16" type="Marker3D" parent="Objects/herring" unique_id=144185829]
+[node name="herring_16" type="Marker3D" parent="Objects/herring" unique_id=1574836232]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 130.5221, 0, -20.02002)
 
-[node name="herring_17" type="Marker3D" parent="Objects/herring" unique_id=539399092]
+[node name="herring_17" type="Marker3D" parent="Objects/herring" unique_id=1903842866]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 130.5221, 0, -19.019018)
 
-[node name="herring_18" type="Marker3D" parent="Objects/herring" unique_id=7654246]
+[node name="herring_18" type="Marker3D" parent="Objects/herring" unique_id=1195251368]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 130.5221, 0, -18.018019)
 
-[node name="herring_19" type="Marker3D" parent="Objects/herring" unique_id=989307885]
+[node name="herring_19" type="Marker3D" parent="Objects/herring" unique_id=792479614]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 130.5221, 0, -17.017017)
 
-[node name="herring_20" type="Marker3D" parent="Objects/herring" unique_id=1045820554]
+[node name="herring_20" type="Marker3D" parent="Objects/herring" unique_id=1416847238]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 130.5221, 0, -16.016016)
 
-[node name="herring_21" type="Marker3D" parent="Objects/herring" unique_id=82938128]
+[node name="herring_21" type="Marker3D" parent="Objects/herring" unique_id=77940449]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 130.5221, 0, -15.015015)
 
-[node name="herring_22" type="Marker3D" parent="Objects/herring" unique_id=1811497851]
+[node name="herring_22" type="Marker3D" parent="Objects/herring" unique_id=1188733230]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 130.5221, 0, -14.014014)

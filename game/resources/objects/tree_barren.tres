@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="ObjectPrefab" format=3]
+[gd_resource type="Resource" script_class="ObjectPrefab" format=4]
 
-[ext_resource type="Shader" path="res://shaders/object_billboard.gdshader" id="1_1ebj8"]
+[ext_resource type="Shader" path="res://shaders/object_cross.gdshader" id="1_1ebj8"]
 [ext_resource type="Texture2D" path="res://assets/objects/tree_barren2.png" id="2_ptq78"]
 [ext_resource type="Script" path="res://scripts/course/object_prefab.gd" id="3_4p3uy"]
 
@@ -14,12 +14,22 @@ shader_parameter/roughness_value = null
 shader_parameter/normal_roundness = null
 shader_parameter/normal_up_bias = null
 
-[sub_resource type="QuadMesh" id="QuadMesh_w2kcw"]
-center_offset = Vector3(0, 0.5, 0)
+[sub_resource type="ArrayMesh" id="ArrayMesh_w2kcw"]
+_surfaces = [{
+"aabb": AABB(-0.5, 0, -0.5, 1, 1, 1),
+"attribute_data": PackedByteArray("AAAAAAAAgD8AAIA/AACAPwAAgD8AAAAAAAAAAAAAAAAAAAAAAACAPwAAgD8AAIA/AACAPwAAAAAAAAAAAAAAAA=="),
+"format": 34359742487,
+"index_count": 12,
+"index_data": PackedByteArray("AAABAAIAAAACAAMABAAFAAYABAAGAAcA"),
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 8,
+"vertex_data": PackedByteArray("AAAAvwAAAAAAAAAAAAAAPwAAAAAAAAAAAAAAPwAAgD8AAAAAAAAAvwAAgD8AAAAAAAAAAAAAAAAAAAC/AAAAAAAAAAAAAAA/AAAAAAAAgD8AAAA/AAAAAAAAgD8AAAC//3//f////7//f/9/////v/9//3////+//3//f////78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vw==")
+}]
 
 [resource]
 script = ExtResource("3_4p3uy")
 id = &"tree_barren"
-mesh = SubResource("QuadMesh_w2kcw")
+mesh = SubResource("ArrayMesh_w2kcw")
 material = SubResource("ShaderMaterial_vqipt")
 collidable = true

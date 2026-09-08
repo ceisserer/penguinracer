@@ -92,6 +92,16 @@ var jumping: bool = false
 var jump_charging: bool = false
 var airborne: bool = false
 
+## Phase of the stroke the flippers are on: 0 as they go down, 1 as the stroke
+## runs out. Nothing in the force model reads it — it is the paddle half of what
+## `AdjustJoints` animates, and it is computed here because it is measured from
+## [member paddle_time], an instant only the simulation knows.
+var paddling_factor: float = 0.0
+## Phase of a flap: the push-off of a jump, or a paddle taken in mid-air where
+## there is nothing to push against. Same reasoning as
+## [member paddling_factor], measured from [member jump_start_time].
+var flap_factor: float = 0.0
+
 # tricks
 var front_flip: bool = false
 var back_flip: bool = false
@@ -190,6 +200,8 @@ func init_at(start_x: float, start_z: float) -> void:
 	jump_charging = false
 	begin_jump = false
 	airborne = false
+	paddling_factor = 0.0
+	flap_factor = 0.0
 	way = 0.0
 	time = 0.0
 	finished = false
@@ -748,8 +760,36 @@ func update(timestep: float) -> void:
 	_adjust_position(surf_nml, dist_from_surface)
 	_apply_bounds(speed)
 	_update_orientation(timestep, dist_from_surface, surf_nml)
+	_update_stroke_phases()
 
 	time += timestep
+
+## The two stroke phases the character rig flaps and paddles on. Port of the
+## tail of `UpdatePlayerPos`.
+##
+## Presentation only, and still simulation state: both are measured from an
+## instant nothing outside the tick records — the tick a flipper went down
+## ([member paddle_time]) and the tick a jump began ([member jump_start_time]) —
+## and both are cleared by the same conditions that clear
+## [member is_paddling] and [member jumping] inside the force loop.
+##
+## Read [b]before[/b] the clock advances, which is what makes a stroke that
+## started on this tick come out at phase zero rather than at one tick's worth
+## of it. The original reads the same global at the same point.
+##
+## A paddle in mid-air is a flap and not a stroke: the original animates the
+## difference, and it is the same difference [method calc_paddle_force] makes.
+func _update_stroke_phases() -> void:
+	paddling_factor = 0.0
+	flap_factor = 0.0
+	if is_paddling:
+		var factor: float = (time - paddle_time) / PhysConst.PADDLING_DURATION
+		if airborne:
+			flap_factor = factor
+		else:
+			paddling_factor = factor
+	if jumping:
+		flap_factor = (time - jump_start_time) / PhysConst.JUMP_FORCE_DURATION
 
 ## Convenience: one frame of input plus one frame of simulation.
 func step(input: RaceInput, timestep: float) -> void:

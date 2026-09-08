@@ -18,14 +18,15 @@ enum Situation {
 }
 
 @export var id: StringName = &""
-@export var race: AudioStream
-@export var won: AudioStream
-@export var lost: AudioStream
+## Paths rather than embedded [AudioStream]s — see [member MusicTrack.stream_path].
+@export var race_path: String = ""
+@export var won_path: String = ""
+@export var lost_path: String = ""
 
-func for_situation(situation: Situation) -> AudioStream:
+func for_situation(situation: Situation) -> String:
 	match situation:
 		Situation.WON:
-			return won
+			return won_path
 		Situation.LOST:
-			return lost
-	return race
+			return lost_path
+	return race_path

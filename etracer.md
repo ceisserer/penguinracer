@@ -25,7 +25,8 @@ heightmap-based snow slope. Core loop:
   *charge + release a jump*. Airborne you can do flips and rolls (trick modifier key).
 - **Objective:** reach the bottom of the course before a time limit while collecting herring
   (fish pickups). Cups grade you bronze/silver/gold on `(herring, time)` thresholds.
-- **Hazards:** trees (billboard sprites with a polyhedron collision proxy) slow you and cost speed;
+- **Hazards:** trees (two textured quads at 90°, fixed, with a polyhedron collision proxy) slow
+  you and cost speed;
   terrain type changes friction (ice 0.2 → rock 0.7) and whether you leave track marks / kick up
   snow particles.
 - **Feel:** the whole thing lives or dies on the terrain-following physics + camera lag. That is the
@@ -71,7 +72,10 @@ Everything is global singletons (`Course`, `Env`, `Sound`, `Music`, `Tex`, `FT`,
 - `vectors.{h,cpp}`, `matrices.{h,cpp}` — vec2/3/4, 4×4 matrices, quaternions.
 
 **Presentation**
-- `course_render.cpp` — terrain draw call + tree/item billboards.
+- `course_render.cpp` — terrain draw call, then `DrawTrees`: two loops, one over `CollArr`
+  emitting eight fixed vertices per tree (a quad across X and a quad across Z, ground to
+  `[height]`, never turned toward the camera) and one over `NocollArr` emitting four camera-facing
+  vertices per item. Only the second half billboards. `[coll]` is what splits them.
 - `particles.cpp` (1131 ln) — 4 separate snow systems (see §4.4).
 - `track_marks.cpp` (305 ln) — ski/belly trail quad strip.
 - `env.{h,cpp}` — skybox, 4 lights, linear fog, per-environment/time-of-day config.
@@ -404,7 +408,7 @@ of value-per-effort:
   from the converted heightmap. Validate by recording a deterministic input trace in the original
   binary and comparing trajectories. Get the *feel* right before any art.
 - **Phase 2 — renderer.** Clipmap terrain + splat shading, sun + IBL, height fog, glTF character with
-  the procedural pose layer, billboard→instanced trees (or real tree models).
+  the procedural pose layer, instanced crossed-quad trees (or real tree models).
 - **Phase 3 — snow.** §7 items 1–4.
 - **Phase 4 — shell.** Course/cup/event selection, HUD, scores, i18n (15 translations already exist
   and are cheap to carry over).

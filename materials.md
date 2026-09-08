@@ -357,9 +357,13 @@ the array index *is* the splat channel.
 **Course objects — yes, fully.** `courses/<name>/course.tscn` opens in the 3D viewport with an
 `Objects` subtree of `Marker3D`s, one per tree and herring, with editable position, rotation and
 scale; `CourseRoot.build_runtime()` bakes them into `MultiMesh` batches and `ObjectGrid`s at load.
-The per-object `ShaderMaterial`s (`object_billboard.gdshader`) are sub-resources saved *in that
-scene*, so their uniforms — `albedo_tint`, `alpha_scissor`, `normal_roundness` — do appear in the
-Inspector and are editable. Terrain has no equivalent, which is the next point.
+The per-object `ShaderMaterial`s are sub-resources saved *in that scene*, so their uniforms —
+`albedo_tint`, `alpha_scissor`, `normal_roundness` — do appear in the Inspector and are editable.
+There are two shaders behind them and which one an object gets is decided by `[coll]`, not by
+taste: a collidable type (every tree, and the shrub) is `object_cross.gdshader` over the two fixed
+planes at 90° the original draws, and everything else is `object_billboard.gdshader` over a single
+camera-facing quad. Pointing a tree at the billboard makes it swivel with the camera; pointing a
+herring at the cross makes it vanish edge-on. Terrain has no equivalent, which is the next point.
 
 **And an edit survives the next import — yes, now.** This used to be the reason not to author
 anything here. `CourseData.modified_in_editor` existed and `import_course()` checked it, but
@@ -451,4 +455,6 @@ have.
   an edited `splat_*.png` is still overwritten silently by a re-import.
 - Snow tone is matched on one course under one environment (Bunny Hill / `tuxracer_sunny`). The
   material tables cover all eight splat slots; the *tuning* behind them has been compared against
-  the original in exactly one lighting condition.
+  the original in exactly one lighting condition. All 44 shipped courses do select a sunny preset
+  and the two sunny presets carry identical light values, so the one condition is the shipped one
+  — but see PROGRESS.md's known gaps for what the other four presets are worth now.

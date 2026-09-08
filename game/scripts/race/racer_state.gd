@@ -14,8 +14,9 @@ class_name RacerState
 extends RefCounted
 
 ## Floats per sample in the packed layout: time, position (3), orientation (4),
-## velocity (3), progress, flags, herring.
-const FLOATS := 14
+## velocity (3), progress, flags, herring, and the four the character rig poses
+## itself from.
+const FLOATS := 18
 
 const FLAG_AIRBORNE := 1 << 0
 const FLAG_PADDLING := 1 << 1
@@ -44,6 +45,24 @@ var progress: float = 0.0
 var flags: int = 0
 var herring: int = 0
 
+## Where the steering animation has got to, −1 hard left to +1 hard right. Not
+## [member RacePhysics.turn_fact]: it ramps in over half a second and decays out
+## over [constant RacePhysics.ROLL_DECAY], so it is the lean the body has
+## actually taken rather than the key that is being held.
+var turn_animation: float = 0.0
+## Phase of the flipper stroke and of the flap, 0..1. See
+## [member RacePhysics.paddling_factor].
+var paddling_factor: float = 0.0
+var flap_factor: float = 0.0
+## The net force along the body's [i]own[/i] up axis, in newtons — what the legs
+## brace against on a landing and go slack under on a crest.
+##
+## The original reads `-local_force.z`, its model frame having +Z through the
+## belly; the body frame here is Godot's, so the same quantity is +Y. Stored
+## rather than derived because a ghost and a peer have no forces at all: this is
+## the one term of `AdjustJoints` that nothing else in the state implies.
+var up_force: float = 0.0
+
 func copy_from(other: RacerState) -> void:
 	time = other.time
 	position = other.position
@@ -52,6 +71,10 @@ func copy_from(other: RacerState) -> void:
 	progress = other.progress
 	flags = other.flags
 	herring = other.herring
+	turn_animation = other.turn_animation
+	paddling_factor = other.paddling_factor
+	flap_factor = other.flap_factor
+	up_force = other.up_force
 
 ## Read the simulation. The one place [RacePhysics] state is turned into the
 ## form everything downstream consumes.
@@ -73,9 +96,18 @@ func capture(physics: RacePhysics, race_time: float, herring_count: int) -> void
 		flags |= FLAG_FINISHED
 	if physics.jumping:
 		flags |= FLAG_JUMPING
+	turn_animation = physics.turn_animation
+	paddling_factor = physics.paddling_factor
+	flap_factor = physics.flap_factor
+	# Into the body frame, where the sign means "up through the back" whatever
+	# the slope is doing underneath.
+	up_force = (physics.orientation.inverse() * physics.net_force).y
 
 func airborne() -> bool:
 	return (flags & FLAG_AIRBORNE) != 0
+
+func braking() -> bool:
+	return (flags & FLAG_BRAKING) != 0
 
 func finished() -> bool:
 	return (flags & FLAG_FINISHED) != 0
@@ -100,6 +132,15 @@ func interpolate(a: RacerState, b: RacerState, t: float) -> void:
 	progress = lerpf(a.progress, b.progress, k)
 	flags = a.flags
 	herring = a.herring
+	turn_animation = lerpf(a.turn_animation, b.turn_animation, k)
+	# [member paddling_factor] and [member flap_factor] step back to zero at the
+	# end of a stroke rather than running past it, so an interval that straddles
+	# the reset is interpolated backwards through the last few per cent of the
+	# stroke. It does not show: both drive a sine that is already at zero there,
+	# which is the whole reason the original can restart them the way it does.
+	paddling_factor = lerpf(a.paddling_factor, b.paddling_factor, k)
+	flap_factor = lerpf(a.flap_factor, b.flap_factor, k)
+	up_force = lerpf(a.up_force, b.up_force, k)
 
 # ------------------------------------------------------------------
 #                     the packed layout
@@ -122,6 +163,10 @@ func write_into(buf: PackedFloat32Array) -> void:
 	buf.push_back(progress)
 	buf.push_back(float(flags))
 	buf.push_back(float(herring))
+	buf.push_back(turn_animation)
+	buf.push_back(paddling_factor)
+	buf.push_back(flap_factor)
+	buf.push_back(up_force)
 
 ## Read the sample starting at [param offset] out of [param buf].
 ##
@@ -137,6 +182,10 @@ func read_from(buf: PackedFloat32Array, offset: int) -> void:
 	progress = buf[offset + 11]
 	flags = int(buf[offset + 12])
 	herring = int(buf[offset + 13])
+	turn_animation = buf[offset + 14]
+	paddling_factor = buf[offset + 15]
+	flap_factor = buf[offset + 16]
+	up_force = buf[offset + 17]
 
 ## This sample on its own, ready to hand to a transport. A snapshot RPC sends
 ## exactly this; [RacerStateStream] stores a concatenation of them.

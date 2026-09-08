@@ -17,12 +17,53 @@ extends Node3D
 ## for why this is not simply another track.
 @export var keyframe_paths: Dictionary[StringName, KeyframePath] = {}
 
+## Angle limits from `tux.cpp`, in degrees. `MAX_ARM_ANGLE2` is three things at
+## once there — how far a flipper goes back to brake, how far it goes out to
+## steer, and the amplitude of a flap — and they are one constant because the
+## first two are summed and then clamped against it.
+const MAX_ARM_ANGLE := 30.0
+const MAX_PADDLING_ANGLE := 35.0
+const MAX_EXT_PADDLING_ANGLE := 30.0
+const MAX_KICK_PADDLING_ANGLE := 20.0
+## Newtons of body-up force per degree the legs brace by, and the range they
+## brace over. `clamp(-20, -net_force.z / 300, 20)` in the original.
+const FORCE_PER_DEGREE := 300.0
+const MAX_FORCE_ANGLE := 20.0
+## Speed, in m/s, past which the knees stop tucking further and the ankles stop
+## extending further. `min(35, speed)` and `min(50, speed)` — read as degrees on
+## the other side of the sum, which is why they are not the same number.
+const MAX_KNEE_SPEED := 35.0
+const MAX_ANKLE_SPEED := 50.0
+
+## The joints [method adjust_joints] writes. A character that does not have one
+## is not an error — `CCharShape::RotateNode` looks the name up and returns
+## false — and four of the five are missing at least one. See the AGENTS.md
+## note on `[joint] joint`.
+const POSED_JOINTS: Array[StringName] = [
+	&"left_shldr", &"right_shldr", &"left_hip", &"right_hip",
+	&"left_knee", &"right_knee", &"left_ankle", &"right_ankle",
+	&"tail", &"neck", &"head",
+]
+
 var skeleton: Skeleton3D
 var animation_player: AnimationPlayer
+
+## Bone index and rest rotation per name in [constant POSED_JOINTS], resolved
+## once. [method adjust_joints] runs for every racer on the hill every frame,
+## and `find_bone` is a linear scan over the bone names.
+var _bone: Dictionary[StringName, int] = {}
+var _rest: Dictionary[StringName, Quaternion] = {}
 
 func _ready() -> void:
 	skeleton = get_node_or_null(^"Skeleton3D") as Skeleton3D
 	animation_player = get_node_or_null(^"AnimationPlayer") as AnimationPlayer
+	if skeleton != null:
+		for joint: StringName in POSED_JOINTS:
+			var index: int = skeleton.find_bone(String(joint))
+			if index < 0:
+				continue
+			_bone[joint] = index
+			_rest[joint] = skeleton.get_bone_rest(index).basis.get_rotation_quaternion()
 	if animation_player != null:
 		# The caller owns the clock. A canned animation runs while the
 		# simulation is stopped, and it has to stay in step with the
@@ -48,6 +89,12 @@ func play_clip(clip: StringName) -> bool:
 	animation_player.seek(0.0, true)
 	return true
 
+## Seconds [param clip] runs for, or 0 if the rig does not have it.
+func clip_length(clip: StringName) -> float:
+	if not has_clip(clip):
+		return 0.0
+	return animation_player.get_animation(clip).length
+
 ## Pose the skeleton at [param seconds] into the clip that is playing.
 func seek_clip(seconds: float) -> void:
 	if animation_player != null and animation_player.is_playing():
@@ -60,6 +107,96 @@ func stop_clip() -> void:
 		animation_player.stop()
 	if skeleton != null:
 		skeleton.reset_bone_poses()
+
+# ------------------------------------------------------------------
+#                     the procedural layer
+# ------------------------------------------------------------------
+
+## Pose the joints for a racer who is racing. Port of
+## `CCharShape::AdjustJoints`.
+##
+## The whole of the character animation that is not a canned clip: flippers out
+## to brake and out on the inside of a turn, a stroke through them while
+## paddling, a flap through them on a jump, legs that tuck as the speed comes up
+## and brace as the ground pushes back, a tail that swings with the lean and a
+## head that looks where the racer is turning.
+##
+## Everything comes out of one [RacerState], which is what lets it run for a
+## ghost and a remote peer as well as for the racer being simulated here — see
+## [method Racer.present], which is the only caller. Nothing is read from a
+## [RacePhysics]; there is not one for four of the five kinds of racer.
+##
+## [param turn] is [member RacerState.turn_animation], [param paddling] and
+## [param flap] the two stroke phases, [param speed] metres per second, and
+## [param up_force] newtons along the body's own up axis.
+##
+## Silent no-op while a clip is playing. The start animation writes the same
+## joints from `start.lst`, and the original has the same split: `CIntro` poses
+## the character through `CKeyframe::Update` and never calls this, where
+## `CRacing` calls this and plays no clip.
+func adjust_joints(turn: float, braking: bool, paddling: float, speed: float,
+		up_force: float, flap: float) -> void:
+	if skeleton == null or (animation_player != null and animation_player.is_playing()):
+		return
+
+	var braking_angle: float = MAX_ARM_ANGLE if braking else 0.0
+	# One stroke is half a sine, so the flipper leaves the rest pose and comes
+	# back to it — which is what lets the phase snap back to zero at the end of
+	# a stroke without a step in the pose. The kick runs at twice the rate: the
+	# legs go through a whole cycle per stroke of the flippers.
+	var paddling_angle: float = MAX_PADDLING_ANGLE * sin(paddling * PI)
+	var ext_paddling_angle: float = MAX_EXT_PADDLING_ANGLE * sin(paddling * PI)
+	var kick_paddling_angle: float = MAX_KICK_PADDLING_ANGLE * sin(paddling * TAU)
+	# A flap is six half-cycles of the flippers over the jump, phased so that it
+	# starts and ends at the rest pose.
+	var flap_angle: float = MAX_ARM_ANGLE * (0.5 + 0.5 * sin(PI * flap * 6.0 - PI / 2.0))
+	# It is the flipper on the *inside* of the turn that goes out —
+	# `max(-turn, 0)` for the left and `max(turn, 0)` for the right, and
+	# positive turn is a right turn. The outside one stays in.
+	var left_turn_angle: float = maxf(-turn, 0.0) * MAX_ARM_ANGLE
+	var right_turn_angle: float = maxf(turn, 0.0) * MAX_ARM_ANGLE
+	var force_angle: float = clampf(up_force / FORCE_PER_DEGREE,
+		-MAX_FORCE_ANGLE, MAX_FORCE_ANGLE)
+	var turn_leg_angle: float = turn * 10.0
+	# Braking, paddling and steering share one flipper and one limit between
+	# them; the flap is added past it, so a jump reads even out of a brake.
+	var left_arm: float = minf(braking_angle + paddling_angle + left_turn_angle,
+		MAX_ARM_ANGLE) + flap_angle
+	var right_arm: float = minf(braking_angle + paddling_angle + right_turn_angle,
+		MAX_ARM_ANGLE) + flap_angle
+	var knee_speed: float = minf(MAX_KNEE_SPEED, speed)
+	var ankle_speed: float = minf(MAX_ANKLE_SPEED, speed)
+
+	_pose(&"left_shldr", left_arm, -ext_paddling_angle)
+	_pose(&"right_shldr", right_arm, ext_paddling_angle)
+	_pose(&"left_hip", -20.0 + turn_leg_angle + force_angle)
+	_pose(&"right_hip", -20.0 - turn_leg_angle + force_angle)
+	_pose(&"left_knee", -10.0 + turn_leg_angle - knee_speed + kick_paddling_angle + force_angle)
+	_pose(&"right_knee", -10.0 - turn_leg_angle - knee_speed - kick_paddling_angle + force_angle)
+	_pose(&"left_ankle", -20.0 + ankle_speed)
+	_pose(&"right_ankle", -20.0 + ankle_speed)
+	_pose(&"tail", turn * 20.0)
+	_pose(&"neck", -50.0)
+	_pose(&"head", -30.0, -turn * 70.0)
+
+## One joint, as `rest × Rz × Ry`.
+##
+## A [Skeleton3D] rotation is an absolute pose rather than an offset from the
+## rest, so the rest has to be carried explicitly — the same reason the migrated
+## keyframes are baked that way. The two axes and their order are the original's
+## `RotateNode(name, 3, …)` then `RotateNode(name, 2, …)`: axis 3 is the joint's
+## own Z and axis 2 its own Y, and every joint frame is `shape.lst`'s, so the
+## pair comes out as the anatomical motion.
+##
+## A joint the character does not have is skipped, not defaulted. Samuel has no
+## right leg and no tail at all, and the original simply does not rotate a node
+## its name index cannot resolve.
+func _pose(joint: StringName, z_degrees: float, y_degrees: float = 0.0) -> void:
+	if not _bone.has(joint):
+		return
+	skeleton.set_bone_pose_rotation(_bone[joint], _rest[joint]
+		* Quaternion(Vector3.BACK, deg_to_rad(z_degrees))
+		* Quaternion(Vector3.UP, deg_to_rad(y_degrees)))
 
 ## The basis to give this node's parent so that the rig ends up rotated by
 ## [param model_rotation] in world space.

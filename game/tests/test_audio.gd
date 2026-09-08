@@ -73,27 +73,27 @@ static func _music_library(t: TestCase) -> void:
 	t.ok(lib.themes.size() == 3, "normal, calm and spunky (%d)" % lib.themes.size())
 
 	# Unreferenced by anything in the original, and kept anyway.
-	t.ok(lib.track(&"freezingpoint") != null, "an unreferenced piece is still imported")
-	t.ok(lib.track(&"raceintro") != null, "so is the other one")
-	t.ok(lib.track(&"nothing_here") == null, "an unknown name resolves to nothing")
-	t.ok(lib.track(lib.menu_track) != null, "param.menu_music resolves")
-	t.ok(lib.track(lib.credits_track) != null, "param.credits_music resolves")
-	t.ok(lib.track(lib.options_track) != null, "param.config_music resolves")
+	t.ok(not lib.track(&"freezingpoint").is_empty(), "an unreferenced piece is still imported")
+	t.ok(not lib.track(&"raceintro").is_empty(), "so is the other one")
+	t.ok(lib.track(&"nothing_here").is_empty(), "an unknown name resolves to nothing")
+	t.ok(not lib.track(lib.menu_track).is_empty(), "param.menu_music resolves")
+	t.ok(not lib.track(lib.credits_track).is_empty(), "param.credits_music resolves")
+	t.ok(not lib.track(lib.options_track).is_empty(), "param.config_music resolves")
 
 	var normal: MusicTheme = lib.theme(&"normal")
 	t.ok(normal != null and normal.id == &"normal", "the normal theme is there")
-	t.ok(normal.race == lib.track(&"race_1"), "normal races to race_1")
-	t.ok(normal.won == lib.track(&"wonrace_1"), "and wins to wonrace_1")
-	t.ok(normal.lost == lib.track(&"lostrace_1"), "and loses to lostrace_1")
+	t.ok(normal.race_path == lib.track(&"race_1"), "normal races to race_1")
+	t.ok(normal.won_path == lib.track(&"wonrace_1"), "and wins to wonrace_1")
+	t.ok(normal.lost_path == lib.track(&"lostrace_1"), "and loses to lostrace_1")
 
 	# The three themes differ only in the racing track — the stings are shared,
 	# which is what the situation split buys.
 	var calm: MusicTheme = lib.theme(&"calm")
-	t.ok(calm.race != normal.race, "calm races to a different piece")
-	t.ok(calm.won == normal.won, "but shares the win sting")
-	t.ok(normal.for_situation(MusicTheme.Situation.RACE) == normal.race, "RACE selects the race track")
-	t.ok(normal.for_situation(MusicTheme.Situation.WON) == normal.won, "WON selects the win sting")
-	t.ok(normal.for_situation(MusicTheme.Situation.LOST) == normal.lost, "LOST selects the loss sting")
+	t.ok(calm.race_path != normal.race_path, "calm races to a different piece")
+	t.ok(calm.won_path == normal.won_path, "but shares the win sting")
+	t.ok(normal.for_situation(MusicTheme.Situation.RACE) == normal.race_path, "RACE selects the race track")
+	t.ok(normal.for_situation(MusicTheme.Situation.WON) == normal.won_path, "WON selects the win sting")
+	t.ok(normal.for_situation(MusicTheme.Situation.LOST) == normal.lost_path, "LOST selects the loss sting")
 
 	# racing_themes.lst declares its first entry the fallback.
 	t.ok(lib.theme(&"no_such_theme") == lib.themes[0], "an unknown theme falls back to the first")
@@ -176,12 +176,12 @@ static func _director_behaviour(t: TestCase) -> void:
 	# the menu close back onto an uninterrupted race track.
 	director.play_theme(&"normal", MusicTheme.Situation.RACE)
 	var playing: AudioStream = director.music_track()
-	t.ok(playing != null and playing == director.library.track(&"race_1"),
+	t.ok(playing != null and playing == load(director.library.track(&"race_1")),
 		"the normal theme races to race_1")
 	director.play_theme(&"normal", MusicTheme.Situation.RACE)
 	t.ok(director.music_track() == playing, "asking again does not swap the stream")
 	director.play_theme(&"normal", MusicTheme.Situation.WON)
-	t.ok(director.music_track() == director.library.track(&"wonrace_1"),
+	t.ok(director.music_track() == load(director.library.track(&"wonrace_1")),
 		"a different situation does")
 
 	# What the way out rests on. `quit_game` calls `silence` and then hands the
