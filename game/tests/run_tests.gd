@@ -28,6 +28,7 @@ func _run() -> void:
 	TestConfig.run(t)
 	TestInput.run(t)
 	TestMultiplayer.run(t)
+	TestSpray.run(t)
 	TestAI.run(t)
 	TestAudio.run(t)
 	TestPackStream.run(t)

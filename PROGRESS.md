@@ -113,6 +113,18 @@ it into a bright half and a dark half — so the cylinder impostor already used 
 is swept across both planes, which keeps the even brightness and adds the volume. Snow and ice carry two octaves of procedural micro-relief, a crystal
 glint built from per-texel facet normals, and a Fresnel sky reflection on ice.
 
+**The spray draws ETR's particles, not just ETR's particle counts.** The counts and velocities
+were ported in phase 0, but the first cut textured none of it: every particle was a flat white
+square at full size, fading never — plausible against snow at a glance, and nothing failed. ETR's
+`Particle::Draw` textures each particle from a 64×64 atlas of four soft puffs (`snowparticles.png`),
+picks one quadrant per particle at birth and keeps it, grows the particle from 0.035 m toward a
+per-particle base of up to 0.18 m across its whole life, fades it out linearly, and gives each one
+a lifetime of `FRandom() × 1.0 s` rather than a fixed length. All of it is ported now; the atlas
+itself is redrawn procedurally in `SprayEmitter.make_puff_image` because the original is texture
+art that waits on the licence audit (the checkbox-icon standing), and the spray tint is sunny's
+`[partcol] 0.85 0.9 1.0` standing in for a value `EnvironmentPreset` does not carry yet. A
+before/after capture of a Bunny Hill carve differs inside the spray plume and nowhere else.
+
 Tone is matched to the original on Bunny Hill under `tuxracer_sunny`, at both ends of the range
 and in all three channels, by fitting `EnvironmentPreset.ambient_gain` and `sun_gain` together
 against two measured points on one captured frame. That fit is the subject of history §11 and
