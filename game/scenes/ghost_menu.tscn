@@ -1,0 +1,89 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/shell/ghost_menu.gd" id="1_ghost"]
+[ext_resource type="Theme" path="res://themes/etr_menu.tres" id="2_theme"]
+
+[node name="GhostMenu" type="CanvasLayer"]
+layer = 10
+script = ExtResource("1_ghost")
+
+[node name="Dim" type="ColorRect" parent="."]
+unique_name_in_owner = true
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.4, 0.6, 0.8, 1)
+
+[node name="Frame" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+theme_override_constants/margin_left = 56
+theme_override_constants/margin_top = 40
+theme_override_constants/margin_right = 56
+theme_override_constants/margin_bottom = 36
+
+[node name="Body" type="VBoxContainer" parent="Frame"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Frame/Body"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 34
+horizontal_alignment = 1
+
+[node name="Empty" type="Label" parent="Frame/Body"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+theme_type_variation = &"DimLabel"
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="ListPanel" type="PanelContainer" parent="Frame/Body"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="RunList" type="ItemList" parent="Frame/Body/ListPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+
+[node name="Buttons" type="HBoxContainer" parent="Frame/Body"]
+unique_name_in_owner = true
+layout_mode = 2
+alignment = 2
+theme_override_constants/separation = 10
+
+[node name="RaceButton" type="Button" parent="Frame/Body/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="DeleteButton" type="Button" parent="Frame/Body/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="BackButton" type="Button" parent="Frame/Body/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="DeleteConfirm" type="ConfirmationDialog" parent="."]
+unique_name_in_owner = true
+theme = ExtResource("2_theme")

@@ -184,6 +184,13 @@ static func _finish(t: TestCase) -> void:
 	t.eq_v(p.calc_gravitation_force(), Vector3(0.0, -196.2, 0.0), 1e-6,
 		"gravity is not overridden during the finish")
 
+	# Real gravity never quite balances the flat finish brake at a few m/s, so
+	# without a floor the racer creeps forever instead of stopping — see
+	# [constant RacePhysics.FINISH_STOP_SPEED]. The camera has its lag switched
+	# off in exactly this speed band, so an unsettled creep there is what read
+	# as a jittering camera through the whole finish delay.
+	t.eq_v(p.vel, Vector3.ZERO, 1e-6, "the racer settles to a full stop rather than creeping")
+
 static func _items(t: TestCase) -> void:
 	t.begin("item collection")
 	var p := _sim(25.0)

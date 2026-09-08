@@ -730,6 +730,22 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   a forest of perfectly coincident trees and will happily assert whatever that implies. Assert
   against what feeds the batch instead — `TestObjects._no_two_trees_share_a_plane` reads the
   markers and calls the same helper `CourseRoot.build_runtime` does.
+- **Dropping a state-machine exit and keeping only the force it used to guard is not the same
+  deviation.** The original leaves the racing loop outright once `speed < 3` at the finish line
+  (`AdjustVelocity`) — the flat 500 N gravity swap the DEVIATION on `calc_brake_force` already
+  called out was never what stopped the player, that early exit was. Kept real gravity and the
+  brake ramp but not the exit, and the two fight forever at a few m/s: gravity's downhill component
+  never quite zeroes, the flat brake is keyed to `_finish_speed` rather than current speed, and
+  `RaceScene` keeps ticking the physics for the full `FINISH_MENU_DELAY` (3 s) before the finish
+  clip and results screen appear. The result is a permanent low-speed creep rather than a stop —
+  and `ChaseCamera` switches its position/aim lag off below 2 m/s (`NO_INTERP_SPEED`), which is
+  exactly that creep's speed band, so for the whole delay the camera drew it, and every bit of
+  substep-to-substep ODE noise riding on it, completely unsmoothed: reported as the camera jumping
+  at high frequency where the character was supposed to be dancing or slumping. Fixed by porting
+  the exit condition rather than only the force — `RacePhysics.FINISH_STOP_SPEED` freezes `vel` and
+  skips the ODE solve once a finished, grounded racer is this slow, which is what the original's
+  state change gave it for free. The lesson: when a DEVIATION note says "only X is retained," check
+  what else the removed behaviour was quietly doing before trusting X to do all of it alone.
 
 ## Deliberate deviations from ETR
 

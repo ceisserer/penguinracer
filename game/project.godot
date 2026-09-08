@@ -1,6 +1,10 @@
 ; Engine configuration file.
-; PenguinRacer — Godot rebuild of Extreme Tux Racer.
-; See ../godot-port-plan.md
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
 
 config_version=5
 
@@ -10,8 +14,15 @@ config/name="PenguinRacer"
 config/description="Downhill penguin racer with real snow deformation. Rebuild of Extreme Tux Racer 0.8.4."
 config/version="0.1.0"
 run/main_scene="res://scenes/main_menu.tscn"
-run/main_scene.spike="res://spikes/s1_pingpong/s1_spike.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
+run/main_scene.spike="res://spikes/s1_pingpong/s1_spike.tscn"
+
+[autoload]
+
+Config="*res://scripts/config/game_config.gd"
+Net="*res://scripts/net/race_network.gd"
+DebugCapture="*res://scripts/debug/debug_capture.gd"
+Audio="*res://scripts/audio/audio_director.gd"
 
 [debug]
 
@@ -22,6 +33,12 @@ gdscript/warnings/untyped_declaration=1
 window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
+
+[importer_defaults]
+
+texture={
+"mipmaps/generate": true
+}
 
 [input]
 
@@ -75,10 +92,6 @@ reset_race={
 
 [internationalization]
 
-; The 111 UI strings imported from ETR's `translations/` tree, in 13 languages.
-; Registered here so the shell can call tr() with the semantic keys
-; (PRESS_ANY_KEY_TO_START, SELECT_A_RACE, ...); legacy numeric IDs remain
-; traceable through i18n/legacy_string_ids.cfg.
 locale/translations=PackedStringArray("res://i18n/penguinracer.en.translation", "res://i18n/penguinracer.cs_CZ.translation", "res://i18n/penguinracer.de_DE.translation", "res://i18n/penguinracer.fi_FI.translation", "res://i18n/penguinracer.es_ES.translation", "res://i18n/penguinracer.fr_FR.translation", "res://i18n/penguinracer.pl_PL.translation", "res://i18n/penguinracer.pt_PT.translation", "res://i18n/penguinracer.se_SE.translation", "res://i18n/penguinracer.eo.translation", "res://i18n/penguinracer.du_NL.translation", "res://i18n/penguinracer.ro_RO.translation", "res://i18n/penguinracer.it_IT.translation")
 
 [rendering]
@@ -87,21 +100,3 @@ renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
 anti_aliasing/quality/msaa_3d=1
-
-[importer_defaults]
-
-; Godot imports textures without mipmaps by default, which is right for 2D and
-; wrong for everything here: terrain albedo is sampled at grazing angles across
-; the whole course and the object billboards recede to a few pixels. Without
-; mipmaps both alias into a moving speckle. Set as an import default so a
-; re-run of tools/import_all.sh cannot quietly undo it.
-texture={
-"mipmaps/generate": true
-}
-
-[autoload]
-
-Config="*res://scripts/config/game_config.gd"
-Net="*res://scripts/net/race_network.gd"
-DebugCapture="*res://scripts/debug/debug_capture.gd"
-Audio="*res://scripts/audio/audio_director.gd"

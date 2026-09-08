@@ -46,7 +46,12 @@ tests cover terrain following, steering symmetry, bounds (including the new poly
 items, trees, the finish, determinism under a replayed input trace, and stability at 10 fps.
 
 Deviations from the original are marked `DEVIATION` in the source, each with a reason. The
-finish sequence keeps real gravity instead of the original's flat 500 N hack.
+finish sequence keeps real gravity instead of the original's flat 500 N hack; below
+`RacePhysics.FINISH_STOP_SPEED` (3 m/s, the original's own cutoff for leaving the racing loop
+altogether) it now freezes the racer instead of integrating a permanent low-speed creep — the
+original's early exit gave it a full stop for free, and without it the creep sat exactly in the
+chase camera's un-lagged speed band and read as the camera jittering through the finish delay
+instead of the finish clip playing cleanly. See the trap list.
 
 ### Phase 1 — importer and first drivable course · **done**
 

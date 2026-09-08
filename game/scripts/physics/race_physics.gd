@@ -170,6 +170,17 @@ const RACER_RESTITUTION := 0.35
 const RACER_PUSH_SPEED := 1.2
 const JUMP_MAX_START_HEIGHT := 0.30
 const FIN_AIR_BRAKE := 20.0
+## Below this, the original exits the racing loop outright (`AdjustVelocity`,
+## `speed < 3`). Ported as a settle instead of a state change: real gravity
+## (see the DEVIATION on [method calc_brake_force]) keeps a downhill component
+## that the flat finish brake never quite cancels once [member vel] is this
+## small, so without a floor the two settle into a slow, permanent creep
+## instead of a stop. [ChaseCamera] switches its lag off below 2 m/s, which is
+## exactly this speed band, so for the whole finish delay the camera would
+## have drawn that creep — plus every bit of substep-to-substep ODE noise in
+## it — completely unsmoothed. Freezing here is what the original's early
+## exit gave it for free.
+const FINISH_STOP_SPEED := 3.0
 
 # ====================================================================
 #                              setup
@@ -388,7 +399,8 @@ func calc_brake_force(speed: float) -> Vector3:
 		return Vector3.ZERO
 	# DEVIATION: the original's finish sequence also swapped gravity for a flat
 	# 500 N (etracer.md §4.1, called out as a hack). Gravity stays real here;
-	# only the braking ramp is retained, which is what actually stops the player.
+	# the braking ramp plus the [constant FINISH_STOP_SPEED] settle in [method
+	# update] are what stop the player instead.
 	if not airborne:
 		is_braking = true
 		return _finish_speed * finish_brake * _ff_frictdir
@@ -744,10 +756,16 @@ func update(timestep: float) -> void:
 		min_speed = PhysConst.MIN_TUX_SPEED
 		min_frict_speed = PhysConst.MIN_FRICT_SPEED
 
+	# Settled: stop integrating rather than let the finish brake and gravity
+	# fight over the last few m/s. See [constant FINISH_STOP_SPEED].
+	var settled: bool = finished and not airborne and vel.length() < FINISH_STOP_SPEED
+	if settled:
+		vel = Vector3.ZERO
+
 	if wind != null:
 		wind.update(timestep)
 
-	if timestep > 2e-9:
+	if timestep > 2e-9 and not settled:
 		_solve_ode_system(timestep)
 
 	surface.sample_into(pos.x, pos.z, _sample)

@@ -1,0 +1,87 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/shell/results_menu.gd" id="1_results"]
+[ext_resource type="Theme" path="res://themes/etr_menu.tres" id="2_theme"]
+
+[node name="ResultsMenu" type="CanvasLayer"]
+layer = 10
+script = ExtResource("1_results")
+
+[node name="Dim" type="ColorRect" parent="."]
+unique_name_in_owner = true
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.2, 0.3, 0.6, 0.72)
+
+[node name="Frame" type="CenterContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+
+[node name="Panel" type="PanelContainer" parent="Frame"]
+custom_minimum_size = Vector2(520, 0)
+layout_mode = 2
+
+[node name="Body" type="VBoxContainer" parent="Frame/Panel"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Result" type="Label" parent="Frame/Panel/Body"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"AccentLabel"
+theme_override_font_sizes/font_size = 22
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="Ghost" type="Label" parent="Frame/Panel/Body"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_type_variation = &"DimLabel"
+theme_override_font_sizes/font_size = 17
+horizontal_alignment = 1
+
+[node name="SaveRow" type="HBoxContainer" parent="Frame/Panel/Body"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="NameEdit" type="LineEdit" parent="Frame/Panel/Body/SaveRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 17
+placeholder_text = "Name this run"
+max_length = 60
+
+[node name="SaveButton" type="Button" parent="Frame/Panel/Body/SaveRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Save"
+
+[node name="Saved" type="Label" parent="Frame/Panel/Body"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_type_variation = &"DimLabel"
+theme_override_font_sizes/font_size = 15
+horizontal_alignment = 1
+text = "Saved."
+
+[node name="ContinueButton" type="Button" parent="Frame/Panel/Body"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Continue"
