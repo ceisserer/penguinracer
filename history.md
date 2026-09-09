@@ -581,6 +581,20 @@ running and mid-race with the slide loop as well. Both exit clean. `tools/shot.s
 loading 18 MB of streams), but it is no longer load-bearing: a capture run *with* sound now exits
 clean too.
 
+**Correction, 2026-09-08.** The conclusion above is right about the mechanism and wrong about the
+tool. What has to elapse *is* wall-clock, and `SceneTree.create_timer` does not measure it: it
+counts down by the frame delta, so the interval it delivers is however many whole frames fit,
+each measured with the previous frame's length. The frame that asks to quit is the one that just
+wrote a PNG or tore down a course, so that delta is nothing like the frames after it. Instrumented
+on the real path, the 100 ms timer returned after 43 ms and four frames and the music playback was
+released on the fifth — every quit from the menu still leaked the four instances this section was
+written to stop, 7 runs in 8. The 5 ms row in the table above is measuring the same confound from
+the other side. `AudioDirector.await_settled` now waits for the objects themselves — a `weakref`
+per playback, yield until they are all gone, `QUIT_SETTLE_TIMEOUT` as a backstop — and the same
+window-manager check comes up clean on the menu, mid-race, and on the results screen. The
+verification below missed it because it was run under `--fixed-fps`, which makes the countdown
+synthetic and generous. See the trap list.
+
 An aside on method. An early attempt at a "before" run stashed `game/scripts` — and reverted a
 working tree with a phase of uncommitted work in it, so what came back was a pile of parse errors
 rather than the old behaviour. The trap list already carried this as `git stash` swallowing the

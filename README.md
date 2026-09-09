@@ -48,7 +48,8 @@ game/                     Godot project
   assets/                 generated: textures, skyboxes and the migrated audio
   tests/                  headless suite (physics, surface, input, audio, terrain
                           library, course objects, settings, character rig,
-                          recording and playback, computer opponents) + ODE benchmark
+                          chase camera, recording and playback, computer opponents)
+                          + ODE benchmark
   spikes/s1_pingpong/     the ping-pong render-target spike (risk S1)
 etr-0.8.4/                the original source and data, read-only
 tools/                    importer driver and the browser test harness
@@ -176,8 +177,9 @@ many runs as you like, on as many courses as you like, nothing overwritten.
 **Race against ghost** on the main menu lists every run you have saved, across every course, with
 its time and herring, and a Delete button for the ones you no longer want. Pick one and it starts
 Practice on the course it was recorded on, with that run drawn as a translucent penguin taking the
-line it took — amber when you are behind it, green when you are ahead. Beat it and your penguin
-dances at the finish line (`wonrace`); lose to it and it hangs its head (`lostrace`) — the same
+line it took — amber when you are behind it, green when you are ahead. Whatever you were racing, crossing the line
+stands your penguin up out of the racing pose and turns it round to face you. Beat the ghost and it
+dances there (`wonrace`); lose to it and it hangs its head (`lostrace`) — the same
 split a field race decides by place instead, since this rebuild has no cups to decide it by. A
 scripted run (`--auto-input=`) neither loads a ghost nor keeps one, which is what stops a
 screenshot comparison growing a second penguin.

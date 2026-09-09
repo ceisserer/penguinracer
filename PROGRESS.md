@@ -36,9 +36,9 @@ paddle, and the roll normal. ODE23 (Bogacki–Shampine) with adaptive stepping, 
 `MAX_STEP_DIST` cap. Trees and herring go through a uniform spatial grid, fixing the original's
 O(items) scan per substep.
 
-**0 failures** — 2293 assertions when the phase closed, 3254 today across physics, surface,
-input, audio, the imported terrain library, the settings file and the character rig, in 0.9 s
-headless. Per-force golden values are
+**0 failures** — 2293 assertions when the phase closed, 4096 today across physics, surface,
+input, audio, the imported terrain library, the settings file, the character rig and the chase
+camera, in 3.9 s headless. Per-force golden values are
 worked out by hand from the constants — air drag at 20 m/s, each of the three spring bands, the
 400 N lateral friction cap, the 30°/55° bank angles, the paddle's fade to nothing at 60 km/h — so
 a change in feel shows up as a test failure rather than as a vague complaint. Whole-simulation
@@ -251,9 +251,37 @@ two stroke phases and the body-up force are measured from things only a simulati
 no-op while a clip is playing, which is the same split the original has — `CIntro` poses through
 `CKeyframe::Update` and never calls `AdjustJoints`, and `CRacing` calls it and plays no clip.
 
-Still missing: an impact reaction on a tree hit, which the original does not have either. The
-finish, wonrace and lostrace clips are imported and playable but not wired to anything; they
-belong with cups and the game-over screen.
+Still missing: an impact reaction on a tree hit, which the original does not have either.
+
+**The finish-line clip is the same machinery as the intro, and for a while it was not.**
+`finish`/`wonrace`/`lostrace` play on the results screen (`RaceScene._start_finish_clip`, chosen
+by `RaceOutcome.clip`), and they were wired as joints only — the `Animation` seeked, the
+`KeyframePath` ignored, on the reasoning that the racer has already coasted to a stop so there is
+nowhere for root motion to carry it. That reasoning was wrong about what is in the clip. The
+whole of standing up is on node 0: all three open at `[yaw] 180 [pitch] 109` — face down the
+hill, tipped past horizontal, which is the pose the race leaves the body in — and walk that to
+`[yaw] 5 [pitch] 1` while lifting `[pos]` by 0.35 m, so the penguin rises onto its feet and turns
+to face back up the hill at the camera. The joint tracks only fold the flippers and the legs in
+underneath. Played without the path, the animation ran correctly and invisibly, and the penguin
+lay in the snow through the entire results screen. `RaceScene._apply_finish_pose` is now
+`IntroSequence._apply_pose` for the other end of the race: same clock, same
+`CharacterRig.parent_basis_for`, same reading of the authored Y as a clearance the terrain height
+is added to, with `CGameOver::Enter`'s own `-0.18` height correction where the intro uses `-0.05`.
+The clip also stops looping — it runs out and holds its last pose, which is what
+`CKeyframe::Update` does, and which looping now visibly contradicts because it would replay the
+stand-up from lying down every few seconds. `start.lst` never caught this: it is authored upright
+and keys yaw only, so the pitch axis was untested until something used it. `TestCharacter` now
+asserts that all three finish-family clips start prone and end on their feet, on the path.
+
+Fixing the clip changed nothing on screen, because the results screen was hiding it twice over.
+`results_menu.tscn` was a `CenterContainer` — and the chase camera puts the penguin in the middle
+of the frame, so the panel covered the animation exactly — over a full-screen `ColorRect` at 72 %
+blue, which took the snow from 237/252/255 down to 103/126/181 and left no pixel under 80
+anywhere in the frame. `CGameOver` does neither: its message frame is 500 wide at
+`topframe = 80` and the course behind it goes on rendering at full brightness. The panel is now
+anchored top-centre at 80 px, which `window/stretch/mode="canvas_items"` makes 80 of a 720-high
+canvas whatever the window is, and the dim is gone. The result is the original's frame: message
+at the top, penguin standing on its trench below it, course lit as it was a second earlier.
 
 ### Phase 5 — game shell · **menu, course selection, settings and audio done; cups and profiles not started**
 
@@ -353,6 +381,22 @@ Four decisions worth keeping:
   and Godot says so on the way out (history §18). The director owns `auto_accept_quit` for the
   same reason. Anything added later that wants to end the process wants that method, not the
   tree's.
+- **...and it waits for the playbacks, not for a duration.** The wait used to be a 100 ms
+  `SceneTree` timer, which counts frame deltas rather than wall clock: instrumented on the real
+  path it returned after 43 ms and four frames, and the music was released on the fifth, so every
+  quit from the main menu still leaked `start1-jt.ogg` and its packet sequence — the same four
+  instances the wait was added to stop. `AudioDirector.await_settled` yields until the playbacks
+  `begin_shutdown` stopped are actually gone, watched through `weakref` and counted by
+  `settling()`, with `QUIT_SETTLE_TIMEOUT` only as a backstop. It is also quicker: quitting from a
+  silent screen no longer sleeps at all.
+- **...and the silence it starts with is one-way.** The tree keeps processing through the wait, so
+  silencing once only opened a window for the next caller: `RaceScene._update_slide_sound` plays
+  the terrain's cue every tick, and the player having just been stopped is what let it through.
+  Every quit from a race leaked `rock_slide.wav` and its playback on top of the music.
+  `AudioDirector.begin_shutdown()` — silence, then a gate `play` and `_play_stream` refuse on — is
+  what the wait now begins with, and it covers the pickups, the tree hit and the music as well as
+  the slide. `TestAudio` asserts the refusal and the watch list; the symptom itself is an
+  exit-time warning and cannot fail a test.
 
 The fourth slice: settings. `scripts/config/game_config.gd` is the `Config` autoload and
 `user://penguinracer.cfg` is its file — plain text, written with its comments the first time the
@@ -457,8 +501,9 @@ gives the slip away — and Samuel has no right leg, no hands and no tail at all
 and neither is fixable, because `CCharShape::RotateNode` looks a name up and returns false when it
 is missing, so the original never rotates a joint the file does not name. The test suite grew a
 group that asserts the contract all five share (a skinned mesh, one root bone, parents before
-children, the five joints they all have, and a clip whose length matches its root motion) rather
-than Tux's sixteen-bone list, which is only Tux's. 3389 assertions, 0 failures.
+children, the five joints they all have, a clip whose length matches its root motion, and a
+finish-family clip that stands the character up) rather
+than Tux's sixteen-bone list, which is only Tux's. 4047 assertions, 0 failures.
 
 Verified end to end: all five race on Bunny Hill under `--character=`, natively on the GPU and in
 Chromium through `?character=beastie` against the `WebOneCourse` export. The previews are ETR data
@@ -807,6 +852,51 @@ identity under `--headless`, which would have made every tree look perfectly cop
 other and passed the test for the wrong reason.
 
 3818 assertions, 0 failures.
+
+
+### The camera stopped swinging on a jump · **done**
+
+Reported as the camera making "1-3 nervous moves from left to right" during a jump. The lag model
+was not the cause and neither was the racer: **airborne, the horizontal velocity is exactly
+constant** — there is no steering off the ground (`calc_friction_force` returns zero, and steering
+in this game is a rotation of the friction force), and neither gravity, the jump impulse nor
+Reynolds drag turns it. So everything the camera did sideways came from the one other lateral term
+in `ChaseCamera.track`: `up = surface_normal.lerp(UP, 0.5)`, the lean that keeps the camera from
+burying itself in a steep pitch, multiplied by `height` and added to the offset.
+
+That lean was taking the **whole** terrain normal, including its across-track half, which does
+nothing for the burying problem and translates the camera sideways instead — a yaw swing at 4 m
+behind the player. On the ground it is at least coherent, because the racer is on the surface it
+is leaning with. Airborne it is not: the racer flies straight and the ground beneath it does
+whatever it likes, and a jump is taken off the ridge where the normal sweeps hardest of all.
+
+Measured by driving the real physics down a real course, jumping, and reading the yaw off
+`ChaseCamera`'s own basis over the airborne stretch:
+
+| course | camera yaw, before | reversals | after | heading moved |
+|---|---|---|---|---|
+| Bumpy Ride | 16.63° over 1.85 s | 5 | 0.12° | 0.01° |
+| Downhill Fear | 11.17° over 1.70 s | 4 | 0.22° | 0.00° |
+| Wild Mountains | 11.23° over 0.62 s | 2 | 0.03° | 0.00° |
+| Chinese Wall | 1.98° over 0.50 s | 1 | 0.03° | 0.00° |
+| Bunny Hill | 0.61° over 0.43 s | 0 | 0.02° | 0.00° |
+
+Two to five reversals of eleven to seventeen degrees, on a penguin flying dead straight, is the
+report exactly.
+
+`ChaseCamera._lean_up` keeps only the component of the tilt in the vertical plane the racer is
+travelling in. The anti-burying behaviour is unchanged — it was always a fore-and-aft effect — and
+the `MIN_CAMERA_HEIGHT` backstop fires at the same rate as before (Downhill Fear 48.5 % → 49.2 %,
+Wild Mountains 74.5 % → 74.4 %). The ground ride got quieter too, since the same term was
+wobbling the camera over every bump: mean |Δ²| of the drawn yaw halved on Bunny Hill (0.0042° →
+0.0021°) and on Bumpy Ride (0.0216° → 0.0084°).
+
+`TestCamera` asserts the invariant rather than the numbers — the lean is square to the direction
+of travel for any normal and any heading — plus the end-to-end property on two courses, and that
+the pitch half survived, so deleting the lean outright would not pass. It also asserts that the
+normal under the flight really does sweep, or the test would pass on a course that got flattened.
+
+4096 assertions, 0 failures.
 
 
 ---

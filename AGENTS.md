@@ -76,7 +76,8 @@ game/                     Godot project (project.godot, gl_compatibility)
                           theme, and the checkbox icons it binds
   tests/                  headless suite (physics, surface, input, audio, imported
                           terrain library, environment presets, course objects,
-                          character rig, racer layer, computer opponents) + ODE
+                          character rig, chase camera, racer layer, computer
+                          opponents) + ODE
                           benchmark + tone_report.gd, which is not a test
   spikes/s1_pingpong/     ping-pong render-target spike (risk S1)
 etr-0.8.4/                original source + data — READ-ONLY, never write here
@@ -160,11 +161,11 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 
 | Phase | State |
 |---|---|
-| 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 3254 assertions, 0 failures, 0.9 s headless. |
+| 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 4096 assertions, 0 failures, 3.9 s headless. |
 | 1 — importer + first course | **done** — all 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. bunny_hill drivable in a browser; wild_mountains (100×1000) runs. |
 | 2 — rendering | partial — splat PBR, chunked terrain, instanced course objects (trees are the original's two fixed planes at 90°, turned by a hashed yaw so a grid-placed forest does not share them; items are billboards), HUD, migrated skyboxes. Tone matched to the original on Bunny Hill at both ends of the range and in all three channels; no LightmapGI bake. Snow and ice carry procedural micro-relief, a twinkling crystal glint and a Fresnel sky reflection. The carve spray draws ETR's textured, growing, fading puffs on a redrawn atlas. |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror both wired; a carve leaves a track with a shaded trench, a self-occluded floor and a bright ploughed lip. |
-| 4 — character | **done for all five characters** — welded ArrayMesh from `shape.lst` **skinned** to a Skeleton3D with ETR joint names, the four keyframe lists as an AnimationLibrary plus a `KeyframePath` of root motion each, the pre-race start animation (`CIntro`) wired into the race, the finish-line clip (`finish`/`wonrace`/`lostrace`, chosen by `RaceOutcome.clip` and looped for the win/loss pair — see the game shell row) wired into the results screen, and the racing pose layer (`AdjustJoints`) on `CharacterRig.adjust_joints` — flippers out to brake and the inside one out through a turn, a stroke through them while paddling, a flap on a jump, legs that tuck with speed and brace against the ground, a tail and a head that follow the lean. It runs off a `RacerState` and nothing else, so a ghost and a remote peer animate too. Tux, Trixi, Boris, Samuel and Beastie each carry their own shape and their own clips; `resources/characters.tres` indexes them and `GameConfig.character` picks one. The finish-line clip carries no root motion, unlike `CIntro` — a `DEVIATION` noted where it plays, since the racer has already coasted to a stop by then. |
+| 4 — character | **done for all five characters** — welded ArrayMesh from `shape.lst` **skinned** to a Skeleton3D with ETR joint names, the four keyframe lists as an AnimationLibrary plus a `KeyframePath` of root motion each, the pre-race start animation (`CIntro`) wired into the race, the finish-line clip (`finish`/`wonrace`/`lostrace`, chosen by `RaceOutcome.clip` — see the game shell row) wired into the results screen, and the racing pose layer (`AdjustJoints`) on `CharacterRig.adjust_joints` — flippers out to brake and the inside one out through a turn, a stroke through them while paddling, a flap on a jump, legs that tuck with speed and brace against the ground, a tail and a head that follow the lean. It runs off a `RacerState` and nothing else, so a ghost and a remote peer animate too. Tux, Trixi, Boris, Samuel and Beastie each carry their own shape and their own clips; `resources/characters.tres` indexes them and `GameConfig.character` picks one. Both canned clips are played the same way — the `Animation` for the joints and the `KeyframePath` for the body — because in both of them the body is where the animation is: `finish.lst` opens lying on the belly and stands the penguin up entirely on node 0. See the trap list. |
 | 5 — game shell | partial — `main_menu.tscn` is the main scene: Practice opens the course list, *Race the computer* opens the same list with a field of 1–9 opponents behind it, *Race against ghost* opens a list of every saved run (`ghost_menu.tscn`), Configuration edits `penguinracer.cfg` graphically, and a race is a scene the shell hands over to and takes back. A finished race brings up `results_menu.tscn` over the course — time, herring, the `wonrace`/`lostrace`/`finish` clip playing, and a name field to keep the run — before the ordinary course menu takes over. `character_menu.tscn` is the character half of `CRegist` — arrows over a framed name with the migrated 128x128 preview under it. Every screen wears `themes/etr_menu.tres`, so the shell reads as the original's: the flat `colBackgr` blue, white text, `colDYell` on whatever has focus, square white-outlined frames. Generated course and character catalogs, 13 languages wired to `tr()`, audio (10 effects + 10 pieces + 3 racing themes on an `AudioDirector` autoload that reproduces ETR's one-voice-per-cue mixer). No cups, medals or profiles (data is imported and waiting; the player half of `CRegist` waits on them); no volume or language controls on the settings screen; none of ETR's menu art (corner ornaments, title logo), which waits on the licence audit. |
 | 6 — polish/ship | not started. |
 | computer opponents | **done** — beyond the original, which has nobody on the hill. `RaceSetup` is the whole mode switch: 0 opponents is Practice and 1–9 is a race, chosen on the course screen and remembered in `penguinracer.cfg`. An opponent is a `SimulatedRacer` driven by an `AIInputSource` — the seam the racer layer was built for, used with no change to it. It plans an aim point every `AISkill.plan_interval` ticks by scoring nine candidate lines against trees, the play bounds, swerve cost, its own lane, the friction ahead, herring and the other racers. **The three levels move driving habits and never the physics**: lookahead, reaction, nerve, how long they paddle, how readily they brake. Measured over 30 s of a 22° slope: easy 231 m, medium 333 m, hard 422 m, a player holding the accelerator straight 413 m. Deterministic — the only randomness is a per-seat personality drawn once from a seed. Opponents are solid: everyone on the hill bounces off everyone else through the shared `RacerField` (see the deviations), which is why the steering term only has to keep them out of each other's way rather than out of each other. No jumps, no tricks, no cups. |
@@ -265,6 +266,20 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   array clears what the shader reads. Pass `.duplicate()`. Cost a whole debugging pass at S1.
 - **Compatibility can't `emit_particle()`.** Drive rate-based emitters instead: ETR's per-frame
   count becomes `amount_ratio`, its spray velocity becomes emitter direction and speed.
+- **Airborne, the horizontal velocity is exactly constant, so anything the camera does sideways
+  came from the ground.** Off the ground there is no steering — steering in this game is a rotation
+  of the friction force and `calc_friction_force` returns zero when `airborne` — and neither
+  gravity, the jump impulse nor Reynolds drag turns a velocity. That leaves one lateral term in
+  `ChaseCamera.track`: the lean, `surface_normal.lerp(UP, 0.5) * height`. It was taking the whole
+  normal, and the across-track half of a tilt does nothing for the burying-in-a-steep-pitch problem
+  the lean exists for — it just translates the camera sideways, which at `distance` behind the
+  player is a yaw swing. A jump is taken off the ridge where that normal sweeps hardest: 11–17° of
+  camera yaw with two to five reversals in it, over a racer whose heading moved 0.01°, reported as
+  "the camera makes 1-3 nervous moves from left to right during jumps". `ChaseCamera._lean_up`
+  keeps only the pitch half. **The diagnosis is the reusable part**: when the presentation moves
+  and the simulation provably does not, the input to look at is whichever term reads the world
+  rather than the racer. Measure it off the drawn basis over the airborne window —
+  `TestCamera._fly` — not off a still frame, which cannot show an oscillation at all.
 - **Don't slerp the chase camera's orientation** — the shortest arc carries roll and the lag never
   settles, so the horizon stays tilted. Interpolate position and aim point as vectors, rebuild the
   basis against world up each frame.
@@ -297,6 +312,28 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   `AdjustOrientation` sets `new_y` = velocity and `new_z` = −surface normal; `shape.lst` agrees
   (head at +Y, legs at −Y, tail at −Y −Z). The importer bakes `ETRImport.MODEL_TO_GODOT` into the
   character scene root; get it wrong and Tux rides the hill standing upright.
+- **An ETR keyframe clip is mostly root motion, and the joint tracks alone look like nothing
+  happened.** `finish.lst` — and `wonrace`/`lostrace`, which open on the same six frames — starts
+  at `[yaw] 180 [pitch] 109`, i.e. face down the hill and tipped past horizontal, and walks that
+  to `[yaw] 5 [pitch] 1` while lifting `[pos]` by 0.35 m: the penguin rises onto its feet and
+  turns to face back up the hill at the camera. Every degree of that is on node 0, which is
+  `KeyframePath` here and not a track in the `Animation`, so playing the clip through the
+  `AnimationPlayer` and skipping the path folds the flippers and the legs and leaves the body
+  lying in the snow exactly as the race left it — which is what it did for a phase, through the
+  whole results screen, with the animation genuinely playing the entire time. `start.lst` does
+  not catch this: it is authored upright and keys yaw only, so the intro looks right whether or
+  not the pitch axis works. `RaceScene._apply_finish_pose` is `IntroSequence._apply_pose` for the
+  other end of the race, and `TestCharacter` now asserts that all three finish-family clips start
+  prone and end on their feet — on the path, where the fact lives.
+- **A menu drawn over a live race cannot be centred, and cannot dim.** The chase camera puts the
+  penguin in the middle of the frame, so `results_menu.tscn`'s centred `CenterContainer` covered
+  the finish animation exactly, and its full-screen 72 % blue `ColorRect` washed out everything
+  the panel did not reach — snow went from 237/252/255 to 103/126/181, and there was not one
+  pixel under 80 left in the frame. The animation played correctly behind both of them and looked
+  like nothing at all, which is why fixing the clip on its own changed nothing on screen.
+  `CGameOver` has the answer already: a 500-wide frame at `topframe = 80` and a course that keeps
+  rendering at full brightness. The panel is anchored top-centre at 80 px now, which
+  `window/stretch/mode="canvas_items"` makes 80 of a 720-high canvas at every resolution.
 - **A trail-map normal must be added to the terrain normal, never mixed into it.** The trail map is
   empty almost everywhere, so a reconstructed normal is `(0,1,0)` off the trench — mixing toward it
   flattens the whole course and leaves shading detail only near the player.
@@ -475,12 +512,46 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   once the tree is coming down, so silencing from `tree_exiting` — or in the same breath as
   `SceneTree.quit()` — releases nothing and Godot reports "4 ObjectDB instances were leaked at
   exit" plus "2 resources still in use at exit", the music stream and its Ogg packet sequence.
-  Every quit goes through `AudioDirector.quit_game()` for that reason: it silences, waits
-  `QUIT_SETTLE`, then quits, and it owns the window's close button (`auto_accept_quit = false`)
-  so the X and Alt+F4 get the same wait. **The wait is wall-clock, not frames** — it is the mixer
-  thread that has to run, and 30 frames of an idle scene went by in 19 ms and still lost the race.
-  This was read as a dummy-driver artefact for a phase, which it is not: the driver only makes it
-  reproduce everywhere, since a container with no sound card falls back to it.
+  Every quit goes through `AudioDirector.quit_game()` for that reason: it silences, waits for the
+  mixer, then quits, and it owns the window's close button (`auto_accept_quit = false`) so the X
+  and Alt+F4 get the same wait. This was read as a dummy-driver artefact for a phase, which it is
+  not: the driver only makes it reproduce everywhere, since a container with no sound card falls
+  back to it.
+- **`SceneTree.create_timer` is not a wall clock, so "wait 100 ms for the mixer" did not.** The
+  entry above used to end "the wait is wall-clock, not frames", which is true of what has to
+  elapse and false of what a scene-tree timer delivers: it counts down by the frame delta, so the
+  interval is however many whole frames fit, each measured with the *previous* frame's length.
+  The frame that asks to quit is the one that just wrote a PNG or tore down a course, so that
+  delta is nothing like the frames after it. Instrumented on the real path, a 100 ms timer
+  returned after **43 ms and four frames**, and the music playback was released on the fifth —
+  so every quit from the main menu still leaked `start1-jt.ogg`, its packet sequence and their
+  two playbacks, the exact "4 ObjectDB instances / 2 resources" the fix was written against. It
+  hid under `tools/shot.sh`, whose `--fixed-fps 60` makes the countdown synthetic and generous.
+  `AudioDirector.await_settled` waits for the objects instead: `begin_shutdown` takes a `weakref`
+  of every playback it stops, `settling()` counts the ones still alive, and the loop yields until
+  that is zero, with `QUIT_SETTLE_TIMEOUT` as a backstop rather than as the mechanism. **The
+  reusable part**: when you can name the object you are waiting for, wait for *it*; a duration
+  chosen to be comfortably more than enough is only as good as the clock that measures it.
+- **A settle window is live, so silencing once is not silence.** The other half of the same
+  warning: for as long as the shutdown waits, the tree is still processing, so anything that
+  plays a cue on a timer is still asking for it — and `silence()` having just stopped the player
+  is exactly what makes `player.playing` false and the next call go through.
+  `RaceScene._update_slide_sound` asks every tick, so the looping terrain slide restarted inside
+  the window and every quit from a race printed "2 ObjectDB instances were leaked at exit" and
+  "1 resources still in use" — `rock_slide.wav` and its playback. `AudioDirector.begin_shutdown()`
+  is the fix and the name: it sets a one-way gate that `play` and `_play_stream` refuse on, so the
+  silence sticks. The gate lives on the mixer rather than in the race because the race is only the
+  loudest caller — the pickups, the tree hit and the music are the same shape. **The reusable
+  part**: when a teardown has to wait, the thing it waited for has to be *unable* to come back,
+  not merely stopped; a shutdown flag is cheaper than auditing every caller. The web build wants
+  it checked on the far side of an `await` too, where `PackStream.ensure` is a real round trip.
+- **The headless suite's own "N ObjectDB instances were leaked at exit" is not the game's.** It is
+  pre-existing and it wanders — 34–37 over repeated runs of an unchanged tree — because
+  `run_tests.gd` calls `SceneTree.quit()` directly and the audio group leaves a director and its
+  players behind for the same reason a game that quits without waiting does. It moves when tests
+  are added or removed and it is not a signal. When chasing a real leak, reproduce it from the
+  game (`--capture=` quits through `AudioDirector`, so its exit is clean and any warning is a
+  finding) and read the detail with `--verbose`, which names the instances and the resource paths.
 - **A `SceneTree` script's `_initialize` runs before the root Window is inside the tree**, and an
   `AudioStreamPlayer` refuses to start outside one. `tests/run_tests.gd` runs everything on the
   first `_process` for that reason — do not move it back.

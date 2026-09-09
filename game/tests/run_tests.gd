@@ -25,6 +25,7 @@ func _run() -> void:
 	TestEnvironments.run(t)
 	TestObjects.run(t)
 	TestCharacter.run(t)
+	TestCamera.run(t)
 	TestConfig.run(t)
 	TestInput.run(t)
 	TestMultiplayer.run(t)

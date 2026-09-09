@@ -61,6 +61,12 @@ const MAX_TICKS_PER_FRAME := 8
 ## finish deceleration is watchable instead of being cut off by a panel.
 const FINISH_MENU_DELAY := 3.0
 
+## What `CGameOver::Enter` passes `CKeyframe::Init` as its height correction —
+## the counterpart of [constant IntroSequence.HEIGHT_CORRECTION], and a deeper
+## number because the standing pose of a finish clip has its feet a little
+## further below the reference point than the start animation's does.
+const FINISH_HEIGHT_CORRECTION := -0.18
+
 ## What a ghost is called on the HUD. Lives on [RacerRoster] with the rest of
 ## the field; named here because [RaceHUD] has always asked the scene for it.
 const GHOST_LABEL := RacerRoster.GHOST_LABEL
@@ -174,10 +180,12 @@ var _active_ghost_recording: RaceRecording = null
 var _finish_clip_playing: bool = false
 var _finish_clip_time: float = 0.0
 var _finish_clip_duration: float = 0.0
-## `wonrace`/`lostrace` replay from the start once they run out — an actual
-## dance rather than a freeze frame — `finish` plays once and holds its last
-## pose, the same as the original's own game-over screen.
-var _finish_clip_loop: bool = false
+## Root motion of the clip, sampled against [member _finish_clip_time]. This is
+## where the whole of standing up lives — see [method _start_finish_clip].
+var _finish_clip_path: KeyframePath = null
+## Where on the hill the clip plays, in world XZ: the racer's own position when
+## it started, which is `CKeyframe::Init(ctrl->cpos, …)` in `CGameOver::Enter`.
+var _finish_clip_origin: Vector2 = Vector2.ZERO
 
 ## How far the simulation is ahead of the frame being drawn, in seconds. Always
 ## in [0, [constant SIM_DT]) once [method _process] has topped it up.
@@ -934,6 +942,16 @@ func _outcome_clip() -> StringName:
 ## then to nothing for a character missing both — the same tolerance the rig
 ## already has for a joint `shape.lst` does not name. See
 ## [method _advance_finish_clip] for how it keeps playing.
+##
+## [b]The clip is root motion first and joints second.[/b] Standing up out of
+## the racing pose is not in any joint track: `finish.lst` opens on
+## `[yaw] 180 [pitch] 109` — face down the hill, tipped past horizontal, i.e.
+## lying on the belly — and walks that to `[yaw] 5 [pitch] 1` while lifting
+## `[pos]` by 0.35 m, so the penguin rises onto its feet and turns to face back
+## up the hill. All of that is on node 0 in the original, which is [KeyframePath]
+## here; the joint tracks only fold the flippers and the legs in underneath it.
+## Playing the [Animation] without the path is what left the racer lying in the
+## snow through the whole results screen.
 func _start_finish_clip(clip: StringName) -> void:
 	var rig: CharacterRig = roster.local.rig
 	if rig == null:
@@ -946,26 +964,47 @@ func _start_finish_clip(clip: StringName) -> void:
 	_finish_clip_playing = true
 	_finish_clip_time = 0.0
 	_finish_clip_duration = rig.clip_length(chosen)
-	_finish_clip_loop = chosen != &"finish"
+	_finish_clip_path = rig.path_for(chosen)
+	# `CKeyframe::Init(ctrl->cpos, -0.18)`: the clip plays around wherever the
+	# racer came to rest, not around the finish line.
+	var at: Vector3 = roster.local.state.position
+	_finish_clip_origin = Vector2(at.x, at.z)
+	_apply_finish_pose(0.0)
 
-## Scrub the finish clip forward by [param delta]. Joints only — no root
-## motion is applied, unlike [IntroSequence]: the racer has already coasted to
-## a stop by the time this starts, so there is nowhere for the clip to carry
-## the body to. DEVIATION: the original's `wonrace`/`lostrace` do move the
-## body a little; holding position is a small, deliberate simplification.
+## Scrub the finish clip forward by [param delta], body and joints together.
+##
+## It runs out rather than looping and the last pose is held, which is what
+## `CKeyframe::Update` does — it goes inactive on reaching the last key and
+## `CGameOver` simply keeps drawing the shape. Looping would replay the stand-up
+## from lying down every few seconds now that the root motion is applied.
 func _advance_finish_clip(delta: float) -> void:
 	_finish_clip_time += delta
-	var t: float = _finish_clip_time
-	if _finish_clip_loop and _finish_clip_duration > 0.0:
-		t = fmod(t, _finish_clip_duration)
-	else:
-		t = minf(t, _finish_clip_duration)
-	roster.local.rig.seek_clip(t)
+	_apply_finish_pose(minf(_finish_clip_time, _finish_clip_duration))
+
+## Place the body where the clip says and pose the joints to match.
+##
+## The height is the same reading [IntroSequence] makes: the authored Y is a
+## clearance over the terrain, so `CKeyframe::Update` adds `FindYCoord` to it —
+## which is what lets one canned animation play on all 44 courses. A clip with
+## no root motion still poses its joints, on the body transform the race left
+## behind.
+func _apply_finish_pose(t: float) -> void:
+	var racer: Racer = roster.local
+	if _finish_clip_path != null:
+		var offset: Vector3 = _finish_clip_path.offset_at(t)
+		var x: float = _finish_clip_origin.x + offset.x
+		var z: float = _finish_clip_origin.y + offset.z
+		var y: float = course_root.surface.height_at(x, z) + offset.y \
+			+ PhysConst.TUX_Y_CORR + FINISH_HEIGHT_CORRECTION
+		racer.apply_pose(Vector3(x, y, z),
+			racer.rig.parent_basis_for(_finish_clip_path.basis_at(t)))
+	racer.rig.seek_clip(t)
 
 func _stop_finish_clip() -> void:
 	if not _finish_clip_playing:
 		return
 	_finish_clip_playing = false
+	_finish_clip_path = null
 	if roster.local != null and roster.local.rig != null:
 		roster.local.rig.stop_clip()
 

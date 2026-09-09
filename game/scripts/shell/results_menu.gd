@@ -7,6 +7,14 @@
 ## the banner couldn't: keep the run. Every finished race is recorded, but
 ## nothing is written to disk until this screen's Save button is pressed —
 ## see [SavedRunStore].
+##
+## [b]The panel sits at the top of the screen and dims nothing.[/b] Both are
+## `CGameOver` — `topframe = 80` over a course it goes on rendering at full
+## brightness — and both are load-bearing rather than taste: the chase camera
+## puts the penguin in the middle of the frame, so a centred panel covers the
+## finish animation completely, and a full-screen tint washes out what is left
+## of it. This screen was authored as a centred panel over a 72 % blue
+## `ColorRect` and the animation played behind both of them for a phase.
 class_name ResultsMenu
 extends CanvasLayer
 

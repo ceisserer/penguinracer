@@ -416,6 +416,21 @@ static func _every_character(t: TestCase, tree: SceneTree) -> void:
 			if player != null and player.has_animation(clip) and path != null:
 				t.eq_f(player.get_animation(clip).length, path.duration(), 1e-4,
 					"%s: %s is as long as its path" % [name, clip])
+			# Standing up at the finish line is root motion and nothing else.
+			# The three finish-family clips open on `[pitch] 109` — tipped past
+			# horizontal, i.e. lying on the belly, the pose the race left the
+			# racer in — and end near `[pitch] 1`, on the feet. Every degree of
+			# that is on node 0, so a caller that plays the [Animation] and
+			# skips the [KeyframePath] draws a penguin lying in the snow through
+			# the whole results screen. Model +Y is the head; see
+			# [method RaceScene._apply_finish_pose].
+			if clip != &"start" and path != null and not path.is_empty():
+				var head_first: Vector3 = path.basis_at(0.0) * Vector3.UP
+				var head_last: Vector3 = path.basis_at(path.duration()) * Vector3.UP
+				t.ok(head_first.y < 0.0,
+					"%s: %s starts prone (head y %.2f)" % [name, clip, head_first.y])
+				t.ok(head_last.y > 0.9,
+					"%s: %s ends on its feet (head y %.2f)" % [name, clip, head_last.y])
 
 		# The procedural layer runs for whoever is on the hill, and four of the
 		# five are missing at least one joint it names — Samuel has no right leg

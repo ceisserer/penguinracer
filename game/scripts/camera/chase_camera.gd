@@ -70,7 +70,7 @@ func track(player_pos: Vector3, player_vel: Vector3, surface_normal: Vector3,
 	else:
 		# Lean the offset with the terrain so the camera stays over the slope
 		# rather than burying itself in it on a steep pitch.
-		var up: Vector3 = surface_normal.lerp(Vector3.UP, 0.5).normalized()
+		var up: Vector3 = _lean_up(surface_normal, direction)
 		target_pos = player_pos - direction * distance + up * height
 		target_aim = player_pos + Vector3(0.0, look_ahead, 0.0)
 
@@ -108,6 +108,32 @@ func track(player_pos: Vector3, player_vel: Vector3, surface_normal: Vector3,
 
 	global_transform = Transform3D(
 		_look_basis(Vector3.ZERO, to_aim).orthonormalized(), _position)
+
+## The direction the camera's height offset leans in: the terrain normal blended
+## half way to world up, with its [b]sideways[/b] half removed.
+##
+## The lean exists for one reason — not burying the camera in the hill on a
+## steep pitch — and that is entirely a fore-and-aft effect. The across-track
+## half of the same tilt does nothing for it and translates the camera sideways
+## instead, which at [member distance] behind the player is a yaw swing.
+##
+## It shows up on a jump. Airborne, the horizontal velocity is exactly constant
+## — no steering, and neither gravity nor drag turns it — so the camera has
+## nothing to follow but the ground it is flying over, whose normal sweeps
+## hardest across exactly the ridge the jump was taken off. Measured with the
+## full normal, a jump on Bumpy Ride swung the camera 16.6° with five reversals
+## in it, and one on Downhill Fear 11.2° with four, over a heading that moved
+## 0.01° — the two or three nervous flicks left and right that a jump used to
+## come with. Keeping only the pitch half leaves the anti-burying behaviour
+## identical (the [constant MIN_CAMERA_HEIGHT] backstop fires at the same rate)
+## and takes both swings under a quarter of a degree. [TestCamera] asserts it.
+static func _lean_up(surface_normal: Vector3, direction: Vector3) -> Vector3:
+	var lean: Vector3 = surface_normal
+	var flat := Vector3(direction.x, 0.0, direction.z)
+	if flat.length_squared() > 1e-8:
+		var side: Vector3 = flat.normalized().cross(Vector3.UP)
+		lean = (lean - side * lean.dot(side)).normalized()
+	return lean.lerp(Vector3.UP, 0.5).normalized()
 
 static func _look_basis(from: Vector3, to: Vector3) -> Basis:
 	var forward: Vector3 = to - from

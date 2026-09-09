@@ -198,6 +198,37 @@ static func _director_behaviour(t: TestCase) -> void:
 	director.silence()
 	t.ok(director.music_track() == null, "and survives being called twice")
 
+	# ...and the other half: the settle window is live, so a silence that does
+	# not also refuse buys nothing. `RaceScene._update_slide_sound` plays the
+	# terrain's cue every tick, and `silence` stopping the player is exactly
+	# what makes the next call go through — the slide restarted inside the wait
+	# and leaked `rock_slide.wav` and its playback on every quit from a race.
+	# Like the `silence` group above, the real symptom is an exit-time
+	# warning rather than a failure here.
+	director.play(&"rock_sound", true)
+	t.ok(director.is_playing(&"rock_sound"), "the slide is sounding before the quit")
+	director.begin_shutdown()
+	t.ok(not director.is_playing(&"rock_sound"), "beginning a shutdown silences it")
+	director.play(&"rock_sound", true)
+	t.ok(not director.is_playing(&"rock_sound"), "and it cannot start again")
+	director.play(&"tree_hit")
+	t.ok(not director.is_playing(&"tree_hit"), "nor can a one-shot")
+	director.play_theme(&"normal", MusicTheme.Situation.RACE)
+	t.ok(director.music_track() == null, "nor the music")
+
+	# And what the wait is now for. `AudioServer` releases a stopped playback an
+	# iteration or two later, so the shutdown has to snapshot what it stopped
+	# and wait for those objects rather than for an interval standing in for
+	# them — a `SceneTree` timer counts frame deltas and returned after 43 ms of
+	# a 100 ms wait on the real path, one frame before the music was released.
+	# Counted here in the same frame as the shutdown, which is before the
+	# server has had an iteration to free anything.
+	t.ok(director.settling() == 1,
+		"the shutdown waits on the one playback it stopped (got %d)" % director.settling())
+	director.begin_shutdown()
+	t.ok(director.settling() == 0,
+		"and on nothing when nothing was sounding (got %d)" % director.settling())
+
 	# `--no-audio` has to gate every entry point, not just the music.
 	director.enabled = false
 	director.stop_music()
