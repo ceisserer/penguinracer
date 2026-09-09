@@ -3,8 +3,8 @@
 ## ETR's `options.txt` has two halves — the keys its configuration screen can
 ## also set, and the keys only the file carries — and [GameConfig] started as
 ## the second half because there was no screen. This is the screen, and it moves
-## every key a player can act on today: window size, fullscreen, render scale
-## and the two fog distances. Nothing else lands here; a value migrated out of
+## every key a player can act on today: window size, fullscreen, render scale,
+## whether ice reflects the racers, and the two fog distances. Nothing else lands here; a value migrated out of
 ## `etr-0.8.4/data` belongs on a resource, not in a settings panel.
 ##
 ## Two keys are deliberately file-only for now — `[multiplayer] player_name` and
@@ -44,6 +44,8 @@ signal closed()
 @onready var _fullscreen: CheckBox = %FullscreenCheck
 @onready var _render_scale: HSlider = %RenderScaleSlider
 @onready var _render_scale_value: Label = %RenderScaleValue
+@onready var _ice_reflection_label: Label = %IceReflectionLabel
+@onready var _ice_reflection: CheckBox = %IceReflectionCheck
 @onready var _fog_start: HSlider = %FogStartSlider
 @onready var _fog_start_value: Label = %FogStartValue
 @onready var _fog_scale: HSlider = %FogScaleSlider
@@ -55,6 +57,10 @@ func _ready() -> void:
 	_title.text = tr("CONFIGURATION")
 	_resolution_label.text = tr("RESOLUTION")
 	_fullscreen_label.text = tr("FULLSCREEN")
+	# Neither migrated nor keyed, like `ghost` and *Race the computer*: ETR
+	# reflects nothing, so there is no string to migrate and a `tr()` key would
+	# resolve to nothing in all 13 languages.
+	_ice_reflection_label.text = "Ice reflections:"
 	_ok_button.text = tr("OK")
 	_cancel_button.text = tr("CANCEL")
 	_path_label.text = ProjectSettings.globalize_path(GameConfig.PATH)
@@ -80,6 +86,7 @@ func open() -> void:
 		_fill_resolutions(Config.resolution)
 	_fullscreen.button_pressed = Config.fullscreen
 	_render_scale.value = Config.render_scale
+	_ice_reflection.button_pressed = Config.ice_reflections
 	_fog_start.value = Config.fog_start_distance
 	_fog_scale.value = Config.fog_distance_scale
 	# `value_changed` does not fire when the value assigned is the one already
@@ -128,6 +135,7 @@ func _accept() -> void:
 		Config.resolution = _resolution.get_selected_metadata()
 		Config.fullscreen = _fullscreen.button_pressed
 	Config.render_scale = _render_scale.value
+	Config.ice_reflections = _ice_reflection.button_pressed
 	Config.fog_start_distance = _fog_start.value
 	Config.fog_distance_scale = _fog_scale.value
 	Config.apply_display()

@@ -131,6 +131,9 @@ var course_root: CourseRoot
 var terrain: TerrainRenderer
 var snow_cpu: SnowField
 var snow_gpu: SnowFieldGPU
+## The mirror the ice reflects the racers in, or a pass that is switched off.
+## Presentation only — nothing in the simulation may read it.
+var reflection: IceReflection
 var camera: ChaseCamera
 
 ## Everyone on the hill: the player, the field, the ghost and any peers. See
@@ -261,6 +264,13 @@ func _ready() -> void:
 	roster = $Racers
 	roster.racer_added.connect(_on_racer_added)
 	_sun = $Sun
+	# Built here rather than in `race.tscn` for the same reason [TerrainRenderer]
+	# is: it is a render target and a camera, not a thing anyone would want to
+	# position in the editor.
+	reflection = IceReflection.new()
+	reflection.name = "IceReflection"
+	reflection.enabled = Config.ice_reflections
+	add_child(reflection)
 	if not requested_course_path.is_empty():
 		course_scene_path = requested_course_path
 	# A `--course=` on the way in outranks it: a capture run names the course it
@@ -525,6 +535,10 @@ func restart(with_intro: bool = true) -> void:
 	_use_snow_field(SnowField.new())
 	if snow_gpu != null:
 		snow_gpu.reset()
+	if reflection != null:
+		# Otherwise the smoothed plane normal eases across from wherever the
+		# last run left it, which on a restart is the bottom of the course.
+		reflection.reset()
 	# The herring are back. `hide_item` collapsed their instance transforms and
 	# `collectable` was cleared on the shared grid; a restart that skipped this
 	# left the course stripped of everything the last run picked up, which a
@@ -644,6 +658,31 @@ func _present(delta: float) -> void:
 		snow_gpu.update(view.position.x, view.position.z, delta)
 		terrain.set_trail_map(snow_gpu.trail_texture(), snow_gpu.window_origin(),
 			snow_gpu.window_extent(), snow_gpu.max_depth)
+	_update_reflection(view, delta)
+
+## Aim the ice's mirror at the racer being watched and hand the result to the
+## terrain. See [IceReflection] for why the plane is the one under that racer.
+func _update_reflection(view: RacerState, delta: float) -> void:
+	if reflection == null or terrain == null:
+		return
+	if not reflection.enabled:
+		terrain.set_character_reflection(null, Vector3.ZERO, Vector3.UP, 0.0)
+		return
+	# The *drawn* surface, not the simulated one. [SnowField] takes the trench
+	# off the height the physics stands on and the terrain mesh does not go down
+	# with it — the same mismatch [method Racer._drawn_snow_lift] exists for, and
+	# undone the same way. A mirror plane on the simulated height would sit up to
+	# `max_trench` below the ice the player can see, and the reflection would
+	# hang off the bottom of the penguin.
+	var height: float = course_root.surface.height_at(view.position.x, view.position.z)
+	if snow_cpu != null:
+		height += snow_cpu.depth_at(view.position.x, view.position.z)
+	reflection.update(camera,
+		Vector3(view.position.x, height, view.position.z),
+		roster.view_target.surface_normal(), delta)
+	terrain.set_character_reflection(reflection.texture(),
+		reflection.plane_point(), reflection.plane_normal(),
+		reflection.fade_distance)
 
 # ==================================================================
 #                          the start animation
@@ -839,6 +878,11 @@ func _apply_environment(preset: EnvironmentPreset) -> void:
 	# the player wants to see. Fog distance is the one place the two meet.
 	Config.apply_fog(env, preset)
 	we.environment = env
+	# The mirror renders through a camera of its own, and a camera that is not
+	# given an environment does not inherit this one — see
+	# [method IceReflection.set_environment].
+	if reflection != null:
+		reflection.set_environment(env)
 	preset.apply_sun(_sun)
 	_sun.directional_shadow_max_distance = _shadow_range_for(env)
 	for racer: Racer in roster.all:

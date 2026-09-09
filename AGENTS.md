@@ -29,7 +29,8 @@ marked with a date.
 game/                     Godot project (project.godot, gl_compatibility)
   scripts/physics/        RacePhysics + surface + snow — plain RefCounted, zero node deps
   scripts/course/         CourseData, TerrainLayer, prefabs, events, environments
-  scripts/render/         terrain chunks, GPU snow field, spray
+  scripts/render/         terrain chunks, GPU snow field, spray, and IceReflection —
+                          the planar mirror pass the ice samples the racers from
   scripts/camera/         chase camera        scripts/shell/  main menu, course menu,
                                                               settings screen, HUD
   scripts/race/           RaceScene (the tick loop and the course) + RacerRoster
@@ -82,6 +83,8 @@ game/                     Godot project (project.godot, gl_compatibility)
                           opponents) + ODE
                           benchmark + tone_report.gd, which is not a test
   spikes/s1_pingpong/     ping-pong render-target spike (risk S1)
+  spikes/s7_reflection/   planar reflection spike (S7): which of the two ways to
+                          mirror works here, and what Fresnel costs
 etr-0.8.4/                original source + data — READ-ONLY, never write here
 tools/                    import_all.sh, shot.sh (deterministic screenshot, real GPU
                           when there is one),
@@ -122,6 +125,7 @@ godot --headless --path game --script res://tests/run_tests.gd     # physics sui
 godot --headless --path game --script res://tests/tone_report.gd \
     -- shot.png 1.0 lit:100,620,500,715                            # per-region tone of a capture
 godot --path game spikes/s1_pingpong/s1_spike.tscn                 # snow RT spike
+godot --path game spikes/s7_reflection/s7_spike.tscn               # planar reflection spike
 
 ./tools/import_all.sh [--course=bunny_hill] [--force]              # 4-pass importer
 
@@ -138,9 +142,9 @@ node tools/webtest/run_web_test.js \
 
 Settings live in `user://penguinracer.cfg` — on Linux
 `~/.local/share/godot/app_userdata/PenguinRacer/`, written with its comments on first run.
-Window size, render scale, fog distance, the size and skill of the computer field, and the two
-multiplayer keys; delete it to get the defaults back. The main menu's **Configuration** screen
-moves the five a player can act on — `[multiplayer] player_name` and `port` are file-only until
+Window size, render scale, whether ice reflects the racers, fog distance, the size and skill of
+the computer field, and the two multiplayer keys; delete it to get the defaults back. The main menu's **Configuration** screen
+moves the six a player can act on — `[multiplayer] player_name` and `port` are file-only until
 there is a lobby, and `opponents`/`opponent_skill` are set from the course screen instead, where
 the choice is actually made — and writes the same commented file back. The resolution row offers
 the display's own modes (`DisplayModes`, filled from `DisplayServer` at open time), not a fixed
@@ -168,7 +172,7 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 |---|---|
 | 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 4096 assertions, 0 failures, 3.9 s headless. |
 | 1 — importer + first course | **done** — all 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. bunny_hill drivable in a browser; wild_mountains (100×1000) runs. |
-| 2 — rendering | partial — splat PBR, chunked terrain, instanced course objects (trees are the original's two fixed planes at 90°, turned by a hashed yaw so a grid-placed forest does not share them; items are billboards), HUD, migrated skyboxes. Tone matched to the original on Bunny Hill at both ends of the range and in all three channels; no LightmapGI bake. Snow and ice carry procedural micro-relief, a twinkling crystal glint and a Fresnel sky reflection. The carve spray draws ETR's textured, growing, fading puffs on a redrawn atlas. |
+| 2 — rendering | partial — splat PBR, chunked terrain, instanced course objects (trees are the original's two fixed planes at 90°, turned by a hashed yaw so a grid-placed forest does not share them; items are billboards), HUD, migrated skyboxes. Tone matched to the original on Bunny Hill at both ends of the range and in all three channels; no LightmapGI bake. Snow and ice carry procedural micro-relief, a twinkling crystal glint and a Fresnel sky reflection, and the ice reflects the racers standing on it — a planar mirror pass (`IceReflection`) the ice branch samples in place of the sky where there is a penguin. The carve spray draws ETR's textured, growing, fading puffs on a redrawn atlas. |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror both wired; a carve leaves a track with a shaded trench, a self-occluded floor and a bright ploughed lip. |
 | 4 — character | **done for all five characters** — welded ArrayMesh from `shape.lst` **skinned** to a Skeleton3D with ETR joint names, the four keyframe lists as an AnimationLibrary plus a `KeyframePath` of root motion each, the pre-race start animation (`CIntro`) wired into the race, the finish-line clip (`finish`/`wonrace`/`lostrace`, chosen by `RaceOutcome.clip` — see the game shell row) wired into the results screen, and the racing pose layer (`AdjustJoints`) on `CharacterRig.adjust_joints` — flippers out to brake and the inside one out through a turn, a stroke through them while paddling, a flap on a jump, legs that tuck with speed and brace against the ground, a tail and a head that follow the lean. It runs off a `RacerState` and nothing else, so a ghost and a remote peer animate too. Tux, Trixi, Boris, Samuel and Beastie each carry their own shape and their own clips; `resources/characters.tres` indexes them and `GameConfig.character` picks one. Both canned clips are played the same way — the `Animation` for the joints and the `KeyframePath` for the body — because in both of them the body is where the animation is: `finish.lst` opens lying on the belly and stands the penguin up entirely on node 0. See the trap list. |
 | 5 — game shell | partial — `main_menu.tscn` is the main scene: Practice opens the course list, *Race the computer* opens the same list with a field of 1–9 opponents behind it, *Race against ghost* opens a list of every saved run (`ghost_menu.tscn`), Configuration edits `penguinracer.cfg` graphically, and a race is a scene the shell hands over to and takes back. A finished race brings up `results_menu.tscn` over the course — time, herring, the `wonrace`/`lostrace`/`finish` clip playing, and a name field to keep the run — before the ordinary course menu takes over. `character_menu.tscn` is the character half of `CRegist` — arrows over a framed name with the migrated 128x128 preview under it. Every screen wears `themes/etr_menu.tres`, so the shell reads as the original's: the flat `colBackgr` blue, white text, `colDYell` on whatever has focus, square white-outlined frames. Generated course and character catalogs, 13 languages wired to `tr()`, audio (10 effects + 10 pieces + 3 racing themes on an `AudioDirector` autoload that reproduces ETR's one-voice-per-cue mixer). No cups, medals or profiles (data is imported and waiting; the player half of `CRegist` waits on them); no volume or language controls on the settings screen; none of ETR's menu art (corner ornaments, title logo), which waits on the licence audit. |
@@ -182,6 +186,14 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   verified. Firefox untested (no GPU in this container; it refuses WebGL2 under software rendering).
 - **S2** GDScript ODE loop — **PASS with margin**: 0.045 ms/frame native, 0.073 ms in-browser
   (0.44 % of 16.7 ms). **The godot-rust GDExtension contingency should not be built.**
+- **S7** planar character reflection under Compatibility — **PASS** native, and it settled the
+  design. A `SubViewport` sharing the main `World3D` with a determinant −1 camera renders
+  identically to a mirrored duplicate in a world of its own, and the renderer flips the winding
+  itself (`CULL_BACK`/`FRONT`/`DISABLED` all measure the same), so `IceReflection` carries no
+  duplicate rigs and character materials are untouched. It also measured the thing that shaped
+  the shader: the Fresnel weight at chase-camera incidence is 0.02–0.09, so the reflection had to
+  *occlude* the sky ramp rather than add to it. **Web untested** — no browser GPU in this
+  container — which is the one open risk on the feature.
 - **S3–S5** open: dequantization eyeball per course, RGBA8 snow banding, asset licence audit.
 - **S6** web cold-load size — **done**: `tools/build_web_streamed.sh` builds a slim base
   (engine + shell + all 44 preview thumbnails, ~65 MB against the old 161 MB) plus one `.pck`
@@ -870,6 +882,31 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   makes the rest visible: Schlick at the ~65 degree incidence a chase camera sits at is about
   0.09, and 0.09 of sky over an already near-white albedo is four levels nobody sees. All of it
   is behind uniforms; `ice_albedo = 1.0` and `detail_relief_* = 0` restore the previous look.
+
+- **The ice reflects the racers standing on it**, and ETR reflects nothing at all — its
+  `DrawCharacter` draws the penguin exactly once and its ice differs from its snow only by
+  texture and `[friction]`. Compatibility has no SSR and no `RenderingDevice` (rule 2), so this is
+  the fixed-function reflection: `IceReflection` renders the racers a second time through a
+  `SubViewport` whose camera is the chase camera mirrored through the ice under the player, and
+  the ice branch of `terrain.gdshader` samples it by `SCREEN_UV`. Three decisions are worth
+  keeping, all of them measured by spike S7 rather than assumed:
+  **(1) the mirror shares the main `World3D`** and narrows `cull_mask` to one visual layer, so it
+  draws the very rigs the main pass drew — there is no duplicate rig, no pose to copy, and a
+  ghost, an opponent and a remote peer are reflected without the reflection knowing they exist
+  (rule 8 again). **(2) The determinant is −1 and nothing is done about it**: the renderer flips
+  the winding itself for a mirrored view matrix, so character materials are untouched.
+  **(3) The reflection occludes the sky ramp rather than adding to it** — where there is a
+  penguin in the mirror, the penguin is what the ice reflects *instead of* the sky, which is both
+  the physics and the only way it reads. Schlick at chase-camera incidence is 0.02–0.09, and an
+  additive term at that weight is invisible; a dark penguin standing between bright ice and a
+  bright sky is not. Measured on `tuxway`: 17 levels, against a run-to-run noise floor of zero.
+  The one real approximation is the plane. A planar reflection is only true on its plane and the
+  terrain is a heightmap, so the plane is the tangent under the racer being watched — exact at
+  the contact point, where the eye checks it, and wrong at a rate that grows with distance.
+  `reflection_fade_distance` (8 m) is what confines it: the lookup is by `SCREEN_UV`, so without
+  it a frozen lake elsewhere in frame would show a penguin reflected in a plane it has nothing to
+  do with. `[display] ice_reflections = false` is off, and `character_reflection_opacity = 0` is
+  the same thing in the shader.
 - **The spray's puff atlas is redrawn, not copied.** ETR textures every spray
   particle from `data/textures/snowparticles.png` — a 64×64, 2×2 atlas of four
   soft puffs, one quadrant per particle chosen at birth and kept — grows each

@@ -267,6 +267,7 @@ Two masks, computed once, and everything material-dependent downstream is gated 
 | crystal glint | `snow_mask` | per-texel facet normals + a sharp lobe in `light()` |
 | wrap lighting | `snow_mask` | half-Lambert, standing in for the subsurface scattering Compatibility has no SSS for |
 | sky reflection (`EMISSION`) | `ice_mask` | Fresnel-weighted two-colour ramp |
+| character reflection | `ice_mask` | the racers, mirrored through the ice under the player, *replacing* the sky ramp where the mirror has one — see `IceReflection` |
 | sun glare | `ice_mask` | tight lobe on the same Fresnel weight |
 | albedo cut (`ice_albedo` 0.82) | `ice_mask` | makes the additive ice terms visible at all |
 | trench albedo/roughness/AO/ridge | `snow_mask` | the trail map only affects snow |
@@ -301,17 +302,22 @@ They resolve through `SurfaceSample.terrain_id`, the dominant layer at the conta
 ## 5. What looks per-material but is not
 
 - **`albedo` is the only per-layer texture, and the only one there is room for.** WebGL2 guarantees
-  16 fragment texture units and `terrain.gdshader` binds 13: two splat maps, eight albedos, the
-  trail map, the detail map and the sparkle noise. Eight per-layer normal maps would need 21.
+  16 fragment texture units and `terrain.gdshader` binds 14: two splat maps, eight albedos, the
+  trail map, the detail map, the sparkle noise and the character reflection. Two units left.
+  Eight per-layer normal maps would need 22.
   `TerrainLayer` used to carry `normal` and `roughness` as `Texture2D` exports that no importer
   wrote and no sampler read — assigning one in the Inspector did nothing at all. Both are gone;
   relief comes from the shared procedural detail field, and roughness from the scalar table.
 - **Every tuning uniform in the `Surface_Detail`, `Snow_Shading` and `Ice_Shading` groups** is
   global to the course: relief amplitudes, fade distances, wind direction and stretch, sparkle
-  scale/spread/sharpness, `specular_f0`, `ice_reflection`, `ice_gloss`, `ice_albedo`. Snow is snow
-  everywhere. Per-layer versions would mean four more `vec4` pairs each.
-- **`sky_zenith` / `sky_horizon`**, what the ice reflects, come from the course's
-  `EnvironmentPreset` via `TerrainRenderer.set_sky_tint()`, not from any layer.
+  scale/spread/sharpness, `specular_f0`, `ice_reflection`, `ice_gloss`, `ice_albedo`, and the
+  `Character_Reflection` group's opacity, shear and fade distance. Snow is snow everywhere. Per-layer versions would mean four more `vec4` pairs each.
+- **`sky_zenith` / `sky_horizon`**, what the ice reflects when there is no racer in the way, come
+  from the course's `EnvironmentPreset` via `TerrainRenderer.set_sky_tint()`, not from any layer.
+  What it reflects when there *is* one comes from `TerrainRenderer.set_character_reflection()`,
+  and is a render target rather than anything a layer could carry: the mirror is per frame and per
+  camera, not per material. The plane it is true on arrives with it, because a planar reflection
+  is only correct on its own plane and the terrain is a heightmap.
 - **`shiny`** has no independent effect; its only reader is `is_ice()`.
 - **`[starttex]`, `[tracktex]`, `[stoptex]`** — ETR's per-terrain track-mark decal textures — are
   not migrated at all. The trench here is geometry plus a shader, not a decal atlas.

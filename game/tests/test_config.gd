@@ -22,6 +22,7 @@ static func _defaults(t: TestCase) -> void:
 	t.ok(c.resolution == Vector2i(1280, 720), "the window matches project.godot")
 	t.ok(not c.fullscreen, "windowed by default")
 	t.eq_f(c.render_scale, 1.0, 1e-6, "3D renders at full resolution")
+	t.ok(c.ice_reflections, "and the ice reflects the racers on it")
 	t.eq_f(c.fog_start_distance, 40.0, 1e-6, "40 m of clear air in front of the camera")
 	t.eq_f(c.fog_distance_scale, 2.0, 1e-6, "the migrated fog range is doubled")
 	t.ok(c.character == "tux", "and you race as the first row of characters.lst")

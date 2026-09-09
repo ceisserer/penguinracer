@@ -19,9 +19,11 @@ worth reading before touching the code, is the trap list in [`AGENTS.md`](./AGEN
 | **S4** RGBA8 snow trail banding | open |
 | **S5** asset licence audit | open — see Known gaps |
 | **S6** web cold-load size | **done** — `tools/build_web_streamed.sh`, per-course + music streaming, ~65 MB base against 161 MB |
+| **S7** planar character reflection on ice | **PASS** native — settled the design (shared `World3D`, no duplicate rigs, winding needs no fixing) and measured the Fresnel weight that shaped the shader. **Web untested**: no browser GPU here. |
 
-Both closed spikes are written up in [`history.md`](./history.md), including what S2's headroom
-was actually bought with — two deviations that are load-bearing and should not be undone.
+The closed spikes are written up in [`history.md`](./history.md), including what S2's headroom
+was actually bought with — two deviations that are load-bearing and should not be undone. S7
+keeps its findings in its own doc comment, `game/spikes/s7_reflection/s7_spike.gd`.
 
 ---
 
@@ -917,6 +919,70 @@ normal under the flight really does sweep, or the test would pass on a course th
 
 4096 assertions, 0 failures.
 
+
+### Ice reflects the racers standing on it
+
+ETR reflects nothing, and neither did we: ice was a Fresnel-weighted two-colour sky ramp and a sun
+glare, which is what distinguished it from snow. It now also reflects the penguins.
+
+`IceReflection` is a `SubViewport` on the **same `World3D`** as the race, holding one camera: the
+chase camera reflected through the ice plane under whoever is being watched, with `cull_mask`
+narrowed to the layer `Racer._join_reflection_layer` puts the rigs on. Because the world is
+shared, the mirror draws the rigs the main pass already posed — no duplicate rig, no pose copy,
+and a ghost, an opponent and a remote peer are reflected without any of them being mentioned. The
+ice branch of `terrain.gdshader` samples the result by `SCREEN_UV`.
+
+Three things were measured rather than assumed, all in spike S7:
+
+- **The shared world works.** A camera basis with determinant −1 renders identically to the
+  alternative design (a mirrored duplicate in a world of its own): reflection patch r=0.669
+  against a control of r=0.616, in both. The shared version is strictly less machinery.
+- **The winding needs no fixing.** `CULL_BACK`, `CULL_FRONT` and `CULL_DISABLED` all measure
+  0.669 to three decimals — the renderer flips the front face itself for a mirrored view matrix —
+  so character materials are untouched and there is no per-racer material duplication.
+- **Fresnel at chase-camera incidence is 0.02–0.09.** Probing `EMISSION = vec3(fresnel)` moved the
+  plane by 0.004. This is the same wall the sky ramp hit and it is recorded in AGENTS.md as "0.09
+  of sky over an already near-white albedo is four levels nobody sees".
+
+That last one is why the reflection **occludes the sky ramp instead of adding to it**. Where the
+mirror has a penguin, the penguin is what the ice reflects *instead of* the sky, so the whole term
+stays inside the Fresnel budget the sky was already spending and can never out-brighten the
+surface it is a reflection in. A dark penguin between bright ice and a bright sky is a dark shape,
+which is the one thing that shows up on a surface already near the ceiling. An additive version of
+the same term is invisible.
+
+Measured on `tuxway` (100 % ice), 200 frames, `--auto-input=carve`:
+
+| | pixels changed | max delta | where |
+|---|---|---|---|
+| reflections on vs off | 4227 (0.29 %) | 17 levels | one box, (741,448)–(857,515) |
+| rerun, same setting | 0 | 0 | — |
+
+The capture is bit-exact on rerun, so all 4227 pixels are the feature, and they are confined to a
+box directly under the penguin — which is the plane fade doing its job. The player's own
+reflection is the *least* visible case, and correctly so: a penguin lying on its belly on the ice
+occludes nearly all of its own reflection. Opponents seen across the slope, at the grazing angles
+Fresnel likes, are where it reads.
+
+Cost, `tuxway` with a field of nine, unthrottled: **0.11 ms/frame** (5.35 ms against 5.24 ms), or
+about 0.7 % of a 16.7 ms budget. The mirror renders at half the main viewport's resolution — a
+reflection in ice is the one image in the frame allowed to be soft — and stacks with
+`render_scale` rather than fighting it. `[display] ice_reflections = false` turns it off and frees
+the target; the Configuration screen has the checkbox.
+
+The approximation is the plane, and it is the honest one: a planar reflection is only true on its
+plane and the terrain is a heightmap. The plane is the tangent under the racer being watched,
+which is exact at the contact point — where the feet are, and where the eye checks it — and wrong
+at a rate that grows with distance from it. `reflection_fade_distance` (8 m) confines the term to
+the patch the plane came from. Without it the `SCREEN_UV` lookup would put a penguin into any ice
+anywhere in frame, at any height and any slope.
+
+`TestReflection` asserts the geometry rather than the pixels: the plane is fixed, the mirror is
+its own inverse, the determinant is −1 and the basis stays orthogonal, a camera one metre up comes
+back one metre down without sliding sideways, the racer meshes are on both visual layers, and the
+setting round-trips through the hand-written settings file.
+
+4228 assertions, 0 failures.
 
 ---
 

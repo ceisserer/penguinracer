@@ -38,6 +38,14 @@ var fullscreen: bool = false
 ## laptop GPU running a browser; 2D and the HUD stay at full resolution.
 ## ETR had no equivalent — it scaled by picking a smaller window.
 var render_scale: float = 1.0
+## Whether the ice reflects the racers standing on it.
+##
+## DEVIATION: ETR reflects nothing at all, so this is a knob on an addition
+## rather than on anything migrated. It costs a second render of the character
+## rigs into a half-resolution target every frame — cheap next to the terrain,
+## but it is a whole extra 3D pass on a WebGL2 budget, and the lowest tier
+## should be able to say no. See [IceReflection].
+var ice_reflections: bool = true
 
 # --- fog ---
 
@@ -125,6 +133,8 @@ func read(cfg: ConfigFile) -> void:
 	fullscreen = bool(cfg.get_value("display", "fullscreen", fullscreen))
 	render_scale = clampf(float(cfg.get_value("display", "render_scale",
 		render_scale)), 0.25, 2.0)
+	ice_reflections = bool(cfg.get_value("display", "ice_reflections",
+		ice_reflections))
 	fog_start_distance = maxf(float(cfg.get_value("fog", "start_distance",
 		fog_start_distance)), 0.0)
 	fog_distance_scale = clampf(float(cfg.get_value("fog", "distance_scale",
@@ -196,6 +206,11 @@ fullscreen = %s
 ; [0.25...2.0]. Below 1.0 buys framerate; the HUD stays sharp either way.
 render_scale = %.2f
 
+; Whether ice reflects the racers standing on it. The original reflects
+; nothing; this is a second, half-resolution render of the characters every
+; frame, so it is the first thing to turn off on a slow machine.
+ice_reflections = %s
+
 [fog]
 
 ; Metres of clear air before fog starts to build.
@@ -233,6 +248,7 @@ player_name = "%s"
 ;     godot --path game -- --join=192.168.1.20 --course=bunny_hill
 port = %d
 """ % [_resolution_text(), str(fullscreen).to_lower(), render_scale,
+		str(ice_reflections).to_lower(),
 		fog_start_distance, fog_distance_scale, character,
 		opponents, AISkill.name_of(opponent_skill),
 		player_name, multiplayer_port]

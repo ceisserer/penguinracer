@@ -23,7 +23,7 @@ Targets **web (WebGL2 / Compatibility renderer)** and **desktop native** from on
 game/                     Godot project
   scripts/physics/        RacePhysics + surface + snow — no node dependencies
   scripts/course/         CourseData, TerrainLayer, prefabs, events, environments
-  scripts/render/         terrain chunks, GPU snow field, spray
+  scripts/render/         terrain chunks, GPU snow field, spray, ice reflection
   scripts/camera/         chase camera
   scripts/character/      the character rig, the migrated keyframe root motion, and
                           the catalog of the five playable characters
@@ -51,6 +51,7 @@ game/                     Godot project
                           chase camera, recording and playback, computer opponents)
                           + ODE benchmark
   spikes/s1_pingpong/     the ping-pong render-target spike (risk S1)
+  spikes/s7_reflection/   the planar reflection spike (S7)
 etr-0.8.4/                the original source and data, read-only
 tools/                    importer driver and the browser test harness
 ```
@@ -85,6 +86,7 @@ godot --path game -- --course=wild_mountains         # ... straight into a cours
 godot --path game -- --character=trixi               # ... as someone other than Tux
 godot --headless --path game --script res://tests/run_tests.gd   # test suite + benchmark
 godot --path game spikes/s1_pingpong/s1_spike.tscn   # snow render-target spike
+godot --path game spikes/s7_reflection/s7_spike.tscn # planar reflection spike
 godot --path game res://scenes/key_log.tscn          # keyboard delivery probe
 godot --path game -- --no-audio                      # play with the sound off
 godot --path game -- --no-intro                      # ... and without the start animation
@@ -215,6 +217,7 @@ Web       IndexedDB, per origin
 resolution = "1280x720"   ; or "auto"; ignored on the web, where the page sizes the canvas
 fullscreen = false
 render_scale = 1.00       ; fraction of the window the 3D scene renders at [0.25...2.0]
+ice_reflections = true    ; whether ice reflects the racers standing on it
 
 [fog]
 start_distance = 40.0     ; metres of clear air before fog starts to build

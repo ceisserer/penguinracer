@@ -229,6 +229,7 @@ func install_character(scene_path: String) -> bool:
 	var instance: Node3D = (load(scene_path) as PackedScene).instantiate()
 	add_child(instance)
 	rig = instance as CharacterRig
+	_join_reflection_layer()
 	return rig != null
 
 ## The capsule the race drew before there were characters, and still draws when
@@ -254,6 +255,20 @@ func install_fallback_mesh() -> void:
 	# down to point the way the racer is going. Same turn the rig root bakes.
 	instance.transform = Transform3D(Basis(Vector3(1, 0, 0), -PI / 2.0), Vector3.ZERO)
 	add_child(instance)
+	_join_reflection_layer()
+
+## Put everything drawn for this racer on the layer the ice reflection renders,
+## in addition to the one everything else is on.
+##
+## [IceReflection] narrows its camera to that layer alone, which is how the
+## mirror pass draws the racers without drawing the terrain — the reflection of
+## a slope in the slope itself is both wrong and expensive. Nothing else in the
+## game uses visual layers, so this line and that camera's `cull_mask` are the
+## whole convention.
+func _join_reflection_layer() -> void:
+	for node: Node in _mesh_instances(self):
+		var mesh_instance: MeshInstance3D = node
+		mesh_instance.layers |= IceReflection.RACER_VISUAL_LAYER
 
 ## Render the rig as something you can see the course through.
 ##

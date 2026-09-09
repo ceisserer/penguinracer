@@ -111,6 +111,26 @@ func set_sky_tint(zenith: Color, horizon: Color) -> void:
 	_material.set_shader_parameter("sky_zenith", zenith)
 	_material.set_shader_parameter("sky_horizon", horizon)
 
+## Point the ice at the mirror [IceReflection] just rendered, and tell it which
+## plane that mirror is only true on.
+##
+## [param tex] of `null` switches the term off, which is what the setting and a
+## race with nobody to reflect both come to. The plane is not decoration: the
+## lookup is by SCREEN_UV, so without it every ice fragment in frame would take
+## the reflection regardless of where it was. See the shader's
+## `reflection_fade_distance`.
+func set_character_reflection(tex: Texture2D, plane_point: Vector3,
+		plane_normal: Vector3, fade_distance: float) -> void:
+	if _material == null:
+		return
+	_material.set_shader_parameter("character_reflection_enabled", tex != null)
+	_material.set_shader_parameter("character_reflection", tex)
+	if tex == null:
+		return
+	_material.set_shader_parameter("reflection_plane_point", plane_point)
+	_material.set_shader_parameter("reflection_plane_normal", plane_normal)
+	_material.set_shader_parameter("reflection_fade_distance", fade_distance)
+
 # ------------------------------------------------------------------
 #                        procedural noise bakes
 # ------------------------------------------------------------------

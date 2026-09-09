@@ -219,6 +219,42 @@ uniform float ice_gloss : hint_range(16.0, 1024.0) = 300.0;
 // by texture and by `[friction]`.
 uniform float ice_albedo : hint_range(0.0, 1.0) = 0.82;
 
+group_uniforms Character_Reflection;
+// The racers, drawn again from a viewpoint mirrored through the ice under the
+// player, by [IceReflection]. RGB is the penguin, A is where there is one.
+//
+// Sampled by SCREEN_UV, so this and the frame it is blended into have to be the
+// same view — which they are by construction, because the mirror camera copies
+// the chase camera's lens and differs only by the reflection.
+uniform sampler2D character_reflection : filter_linear, repeat_disable,
+	hint_default_transparent;
+uniform bool character_reflection_enabled = false;
+// How much of the sky's share of the reflection a covered pixel takes.
+//
+// 1.0 is the physical answer and the shipped one: where there is a penguin in
+// the mirror, the penguin is what the ice reflects instead of the sky, and the
+// whole thing stays inside the Fresnel budget the sky ramp was already
+// spending. That is why this is an opacity and not a gain — a gain would let
+// the reflection out-brighten the surface it is a reflection in, and a penguin
+// glowing through the ice is worse than no penguin at all. Above 1.0 buys
+// legibility at the cost of the physics.
+uniform float character_reflection_opacity : hint_range(0.0, 4.0) = 1.0;
+// The mirror plane, in world space: a point on it and its normal. A planar
+// reflection is only correct on its own plane, and the terrain is a heightmap.
+uniform vec3 reflection_plane_point = vec3(0.0);
+uniform vec3 reflection_plane_normal = vec3(0.0, 1.0, 0.0);
+// Metres off that plane at which a fragment stops taking the reflection.
+//
+// Load-bearing, not a polish term. The lookup is by SCREEN_UV, so *any* ice
+// anywhere in frame would otherwise pick the mirror up — a frozen lake half a
+// course away, at a different height and a different slope, would show a
+// penguin reflected in a plane it has nothing to do with. Fading with distance
+// from the plane confines the effect to the patch the plane was derived from,
+// which is the patch the player is standing on and looking at.
+uniform float reflection_fade_distance : hint_range(0.5, 40.0) = 8.0;
+// How far the micro-relief drags the reflection sideways, in screen widths.
+uniform float character_reflection_shear : hint_range(0.0, 0.2) = 0.02;
+
 varying vec3 world_pos;
 varying vec2 splat_uv;
 varying float snow_mask;
@@ -324,6 +360,11 @@ void fragment() {
 
 	float view_dist = length(VERTEX);
 
+	// The geometric normal, before anything below bends it. Kept because the
+	// ice reflection shears its lookup by how far the perturbation moved it,
+	// and by the time that is wanted NORMAL is the perturbed one.
+	vec3 n_geometric = NORMAL;
+
 	// Everything below perturbs one world-space normal and normalizes once.
 	//
 	// Perturbing is the whole point and it is not interchangeable with mixing.
@@ -425,8 +466,42 @@ void fragment() {
 		// the grazing rise, which is the angle a chase camera lives at.
 		ice_fresnel = 0.018 + 0.982 * pow(1.0 - ndv, 5.0);
 		vec3 refl = mat3(INV_VIEW_MATRIX) * reflect(-VIEW, NORMAL);
-		vec3 sky = mix(sky_horizon, sky_zenith, smoothstep(0.0, 0.6, refl.y));
-		EMISSION += sky * ice_fresnel * ice_reflection * ice_mask;
+		vec3 reflected = mix(sky_horizon, sky_zenith, smoothstep(0.0, 0.6, refl.y));
+
+		// The racers, where there are any. This *replaces* the sky rather than
+		// adding to it, which is both the physics and the reason it reads: a
+		// penguin standing on a frozen lake does not make the ice brighter, it
+		// stands between the ice and the sky the ice was reflecting. Against
+		// snow-white terrain the reflection is therefore a dark shape, which is
+		// the one thing that shows up on a surface already near the ceiling.
+		if (character_reflection_enabled) {
+			// Distance from the mirror plane, along its own normal.
+			float off = abs(dot(world_pos - reflection_plane_point,
+				reflection_plane_normal));
+			float plane_fade = 1.0 - smoothstep(reflection_fade_distance * 0.5,
+				reflection_fade_distance, off);
+			if (plane_fade > 0.0) {
+				// Ripple: drag the lookup by how far the micro-relief has bent
+				// the normal off the geometry. Screen space is the right space
+				// for it — the mirror is a screen-space image, and a shear of
+				// it is exactly what the eye reads as a disturbed surface.
+				vec2 shear = (NORMAL.xy - n_geometric.xy) * character_reflection_shear;
+				vec4 mirror = texture(character_reflection,
+					clamp(SCREEN_UV + shear, vec2(0.0), vec2(1.0)));
+				// Un-premultiply. The mirror is rendered against a transparent
+				// clear whose RGB is zero, so filtering across the penguin's
+				// silhouette — and this is a half-resolution target, so it is
+				// always filtering — carries the colour down with the coverage.
+				// Blending that in directly would ring the reflection with a
+				// dark edge that is the background bleeding through, not ice.
+				vec3 mirror_rgb = mirror.rgb / max(mirror.a, 0.001);
+				float cover = clamp(mirror.a * plane_fade
+					* character_reflection_opacity, 0.0, 1.0);
+				reflected = mix(reflected, mirror_rgb, cover);
+			}
+		}
+
+		EMISSION += reflected * ice_fresnel * ice_reflection * ice_mask;
 		ALBEDO = mix(ALBEDO, ALBEDO * ice_albedo, ice_mask);
 	}
 
