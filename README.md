@@ -233,6 +233,12 @@ port = 27015              ; the port --host listens on and --join= assumes
 Delete the file to get the defaults and the comments back. Godot's own `--resolution` and
 `--fullscreen` outrank it, so `tools/shot.sh` captures at 1280x720 whatever it says.
 
+The **Configuration** screen's resolution list is the display's, not a fixed one: the screen's own
+resolution, the standard modes that share its shape and fit beside the taskbar, and whatever the
+file already says. A size of a shape the panel does not have would only letterbox itself, so it is
+not offered. In a browser the resolution and fullscreen rows are not shown at all — the page sizes
+the canvas there and the `resolution` key is ignored.
+
 The two fog keys are the only place a shipped default deliberately differs from the original's
 data. ETR's sunny and night environments say `[fogstart] 0 [fogend] 75`, so its white haze starts
 at the camera; the defaults here hold it off to 40 m and stretch the range to 150. That haze is

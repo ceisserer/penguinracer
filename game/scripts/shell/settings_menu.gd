@@ -31,19 +31,9 @@ signal closed()
 ## Ok. The one exception is the fog start, which the file only floors at zero and
 ## which stops here at 200 m — further than the far plane of any course.
 ##
-## What the drop-down offers. "Auto" is [constant Vector2i.ZERO] — the platform
-## sizes the window — and a size already in the file that is not on this list is
-## added to it, so opening the screen can never quietly resize someone's window.
-const RESOLUTIONS: Array[Vector2i] = [
-	Vector2i.ZERO,
-	Vector2i(1024, 768),
-	Vector2i(1280, 720),
-	Vector2i(1366, 768),
-	Vector2i(1600, 900),
-	Vector2i(1920, 1080),
-	Vector2i(2560, 1440),
-]
-
+## What the drop-down offers under "Auto" ([constant Vector2i.ZERO], where the
+## platform sizes the window): the modes of the display the window is on, from
+## [DisplayModes], not a fixed list.
 @onready var _title: Label = %Title
 @onready var _resolution_label: Label = %ResolutionLabel
 @onready var _fullscreen_label: Label = %FullscreenLabel
@@ -86,7 +76,8 @@ func _ready() -> void:
 ## open rather than once in [method _ready] is what makes Cancel free: the
 ## discarded edit is only ever in the widgets.
 func open() -> void:
-	_fill_resolutions(Config.resolution)
+	if _resolution_row.visible:
+		_fill_resolutions(Config.resolution)
 	_fullscreen.button_pressed = Config.fullscreen
 	_render_scale.value = Config.render_scale
 	_fog_start.value = Config.fog_start_distance
@@ -103,11 +94,7 @@ func open() -> void:
 		_render_scale.grab_focus()
 
 func _fill_resolutions(current: Vector2i) -> void:
-	var sizes: Array[Vector2i] = []
-	sizes.assign(RESOLUTIONS)
-	if not sizes.has(current):
-		sizes.push_back(current)
-		sizes.sort()
+	var sizes: Array[Vector2i] = DisplayModes.for_current_screen(current)
 	_resolution.clear()
 	for i: int in sizes.size():
 		_resolution.add_item(_size_label(sizes[i]), i)

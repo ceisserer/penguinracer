@@ -415,6 +415,25 @@ the reader, including `"auto"`, which is the one value that is not a size and wh
 Cancel throws it away. Every slider spans exactly what `GameConfig.read` would clamp a hand-edited
 value to, so the screen cannot silently narrow a file it did not write.
 
+The resolution row asks the display rather than carrying a list. It used to offer six hardcoded
+sizes, which was arbitrary in both directions — a 1366x768 laptop was invited to open a 2560x1440
+window it cannot show, and a 4K monitor was never offered its own resolution. `DisplayModes`
+builds the list instead: the screen's own size, plus the standard modes that share its shape and
+fit inside `DisplayServer.screen_get_usable_rect` (the desktop minus its taskbar), plus whatever
+the file already says, so opening the screen still cannot resize anybody's window. There is no
+mode enumeration in Godot to call — `DisplayServer` has no `SDL_GetDisplayMode` — so shape and
+fit are what stand in for one, and a panel nothing standard shares a shape with (21:9, portrait)
+is offered fractions of itself. Everything on the list has the display's shape on purpose:
+`stretch/aspect="keep"` letterboxes a window that does not, so a 4:3 mode on a 16:9 panel is a
+row that can only make the game smaller. On the 1600x900 screen in this container the drop-down
+comes out `auto, 854x480, 1024x576, 1280x720, 1366x768, 1600x900` and stops there.
+`DisplayModes` is pure and node-free — the list-building could not stay on `SettingsMenu`, which
+names the `Config` autoload, without the static call from `tests/test_config.gd` breaking its
+compile; that is the `RaceOutcome` trap a second time. The resolution and fullscreen rows are
+hidden on the web build, as they have been since the screen landed: the page sizes the canvas
+there and `apply_display` returns early, so both would be dead knobs. Nothing is now even asked
+of `DisplayServer` on that build.
+
 Fog is why it exists now. `light.lst` ships `[fogstart] 0` for six of the eight presets, and the
 two of those six that are sunny are what all 44 shipped courses select, so the original's haze
 begins at the camera and the trees two lengths ahead are already washed toward white; the defaults here are 40 m of clear air and 2x the migrated range, i.e. 40–150 m where the

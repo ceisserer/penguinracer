@@ -50,7 +50,9 @@ game/                     Godot project (project.godot, gl_compatibility)
   scripts/audio/          AudioDirector autoload + generated sound/music banks
   scripts/config/         GameConfig autoload — the player's settings file —
                           plus LaunchArgs, the command line and the URL query
-                          parsed once into one list, and PackStream, which
+                          parsed once into one list, DisplayModes, the window
+                          sizes the settings screen offers for the display it is
+                          actually on, and PackStream, which
                           fetches a course or the music pack on a web build
                           that streams them (risk S6) and is a no-op
                           everywhere else
@@ -140,7 +142,10 @@ Window size, render scale, fog distance, the size and skill of the computer fiel
 multiplayer keys; delete it to get the defaults back. The main menu's **Configuration** screen
 moves the five a player can act on — `[multiplayer] player_name` and `port` are file-only until
 there is a lobby, and `opponents`/`opponent_skill` are set from the course screen instead, where
-the choice is actually made — and writes the same commented file back. Whether a ghost is drawn is
+the choice is actually made — and writes the same commented file back. The resolution row offers
+the display's own modes (`DisplayModes`, filled from `DisplayServer` at open time), not a fixed
+list, and the resolution and fullscreen rows are hidden on the web build, where the page sizes the
+canvas and `apply_display` ignores both. Whether a ghost is drawn is
 no longer a setting: it is whichever saved run the player chose from the main menu's **Race
 against ghost** list, or none.
 
@@ -561,6 +566,13 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   really is the size that was asked for — do not go looking for a bug in the sizing code. Godot's
   own `--resolution`/`--fullscreen` also outrank the file, deliberately, which is what keeps
   `tools/shot.sh` capturing at 1280x720 whatever the developer's own settings say.
+- **Nothing in Godot enumerates a display's modes.** `DisplayServer` reports a screen's size,
+  usable rect, DPI, scale and refresh rate and stops there — there is no `SDL_GetDisplayMode`, on
+  any platform. `DisplayModes` derives the settings screen's list instead: the panel's own
+  resolution plus the standard modes that share its shape and fit inside the usable rect, with
+  fractions of the panel where nothing standard shares its shape (21:9, portrait). Shape is the
+  invariant and it is not cosmetic — with `stretch/aspect="keep"` a window of the wrong shape
+  letterboxes itself, which is the trap above seen from the menu.
 - **`change_scene_to_file()` called from `_ready` prints "Parent node is busy adding/removing
   children" and carries on.** The shell decides in its own `_ready` whether a scripted run should
   skip the menu, which is exactly that case: the tree is still adding the scene that is asking to
@@ -617,7 +629,10 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   same walk, run manually, did not fail, which is what pointed at the call site rather than the
   file. Fixed the way the trap above was: stopped fighting the cycle and moved the pure mapping
   (`outcome_clip`, no autoload, no node) to its own `RaceOutcome`, which nothing needs to eagerly
-  drag `RaceScene` in for.
+  drag `RaceScene` in for. It happened a second time the moment a test called
+  `SettingsMenu.sizes_for(...)`, and was fixed the same way — the list-building moved to
+  `DisplayModes`. Treat it as the rule: anything a test wants to call statically does not live on
+  a script that names an autoload.
 - **`ResourceLoader.load(path, "SomeScriptClass")` always fails.** The type hint is checked against
   `ClassDB`, which knows nothing about `class_name`, and the load errors out rather than falling
   back. Pass `""` and cast the result — `SavedRunStore.list_all` does. Also pass

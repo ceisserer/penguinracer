@@ -10,6 +10,7 @@ extends RefCounted
 static func run(t: TestCase) -> void:
 	_defaults(t)
 	_parsing(t)
+	_resolution_choices(t)
 	_round_trip(t)
 	_fog_range(t)
 	_launch_args(t)
@@ -92,6 +93,84 @@ distance_scale = 1.0
 		"the wrong separator keeps the fallback")
 	t.ok(GameConfig.parse_resolution("64x48", Vector2i(800, 600)) == Vector2i(800, 600),
 		"an unusably small window keeps the fallback")
+
+## The other half of the resolution setting: the list [SettingsMenu] offers
+## for it, which [DisplayModes] builds from the display rather than from a
+## hardcoded six.
+##
+## [method DisplayModes.sizes_for] is static and pure so this can drive it from
+## screens no test machine has. What is checked is that the list is the display's
+## and not a fixed one — a 16:9 monitor is never offered 16:10, nothing is
+## offered a mode larger than the panel it would open on, and a size already in
+## the file survives whatever the display says.
+static func _resolution_choices(t: TestCase) -> void:
+	t.begin("config/resolution choices")
+
+	# A 1080p desktop with a 40 px panel along the bottom.
+	var full_hd: Array[Vector2i] = DisplayModes.sizes_for(Vector2i(1920, 1080),
+		Vector2i(1920, 1040), Vector2i(1280, 720))
+	t.ok(full_hd[0] == Vector2i.ZERO, "'Auto' is the first row whatever the screen is")
+	t.ok(full_hd.has(Vector2i(1920, 1080)),
+		"the screen's own resolution is offered even though a panel covers part of it")
+	t.ok(full_hd.has(Vector2i(1280, 720)) and full_hd.has(Vector2i(1600, 900)),
+		"and the 16:9 modes under it")
+	t.ok(not full_hd.has(Vector2i(2560, 1440)), "nothing larger than the screen")
+	t.ok(not full_hd.has(Vector2i(1024, 768)) and not full_hd.has(Vector2i(1280, 800)),
+		"and no shape the display does not have — those two only letterbox")
+
+	# A 16:10 laptop gets a 16:10 list, which is the whole point of asking.
+	var laptop: Array[Vector2i] = DisplayModes.sizes_for(Vector2i(1920, 1200),
+		Vector2i(1920, 1160), Vector2i.ZERO)
+	t.ok(laptop.has(Vector2i(1680, 1050)) and laptop.has(Vector2i(1280, 800)),
+		"a 16:10 panel is offered 16:10")
+	t.ok(not laptop.has(Vector2i(1920, 1080)), "and not the 16:9 sizes of the same width")
+
+	# 1366x768 is 0.05 % off 16:9 and is one of its modes; the tolerance exists
+	# for it and must not stretch far enough to let 16:10 through.
+	t.ok(full_hd.has(Vector2i(1366, 768)), "1366x768 counts as 16:9")
+
+	# A hand-edited file the display disagrees with still opens on its own value,
+	# because a drop-down that cannot show it would resize the window on Ok.
+	var odd: Array[Vector2i] = DisplayModes.sizes_for(Vector2i(1920, 1080),
+		Vector2i(1920, 1040), Vector2i(1111, 777))
+	t.ok(odd.has(Vector2i(1111, 777)), "a size only the file knows about is added")
+
+	# A panel no standard mode shares a shape with — portrait here, and a 21:9
+	# desktop is the common one — is offered fractions of itself rather than a
+	# page of 4:3. Every row still has the display's shape, which is the whole
+	# invariant: `stretch/aspect="keep"` letterboxes anything else.
+	var portrait: Array[Vector2i] = DisplayModes.sizes_for(Vector2i(1080, 1920),
+		Vector2i(1080, 1920), Vector2i.ZERO)
+	t.ok(portrait.size() > DisplayModes.MIN_OFFERED,
+		"an unusual panel is offered its own resolution scaled down, not nothing")
+	t.ok(portrait.has(Vector2i(1080, 1920)), "with its own resolution among it")
+	var wrong_shape := 0
+	var too_big := 0
+	for size: Vector2i in portrait:
+		if size == Vector2i.ZERO:
+			continue
+		if size.x > 1080 or size.y > 1920:
+			too_big += 1
+		if absf(float(size.x) / float(size.y) - 1080.0 / 1920.0) > 0.01:
+			wrong_shape += 1
+	t.ok(too_big == 0, "nothing that would not fit on it")
+	t.ok(wrong_shape == 0, "and nothing that would letterbox on it")
+
+	# 21:9 matches one row of the catalogue and scales to another 20 px from it.
+	var ultrawide: Array[Vector2i] = DisplayModes.sizes_for(Vector2i(3440, 1440),
+		Vector2i(3440, 1400), Vector2i.ZERO)
+	t.ok(ultrawide.has(Vector2i(2560, 1080)), "a 21:9 desktop keeps the 21:9 standard mode")
+	t.ok(not ultrawide.has(Vector2i(1024, 768)) and not ultrawide.has(Vector2i(1920, 1080)),
+		"and is offered no 4:3 or 16:9 to letterbox in")
+	t.ok(not ultrawide.has(Vector2i(2580, 1080)),
+		"the scaled size twenty pixels off a real mode is not a second row")
+
+	# No display to ask — the headless run this suite is, or a platform that will
+	# not say. Offering the catalogue beats offering an empty drop-down.
+	var unknown: Array[Vector2i] = DisplayModes.sizes_for(Vector2i.ZERO,
+		Vector2i.ZERO, Vector2i(1280, 720))
+	t.ok(unknown.size() == DisplayModes.STANDARD_SIZES.size() + 1,
+		"a silent display offers every standard mode, plus 'Auto'")
 
 ## What [SettingsMenu] does when Ok is pressed: move the values, write the file,
 ## read it back next launch. The file is generated as commented text rather than
