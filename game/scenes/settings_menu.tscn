@@ -203,7 +203,7 @@ theme_override_font_sizes/font_size = 15
 layout_mode = 2
 theme_type_variation = &"DimLabel"
 theme_override_font_sizes/font_size = 15
-text = "Fog is read when a course loads, so a change to it shows on the next race. 0 m and 1.0 x is the original's fog exactly."
+text = "Fog and shadows are read when a course loads, so a change to either shows on the next race. 0 m and 1.0 x is the original's fog exactly."
 autowrap_mode = 3
 
 [node name="Path" type="Label" parent="Frame/Panel/Body"]
