@@ -12,6 +12,7 @@ sun_direction = Vector3(0.57735026, 0.57735026, 0.57735026)
 sun_color = Color(0.45, 0.43, 0.47, 1)
 ambient_color = Color(0.59, 0.6, 0.64, 1)
 specular_color = Color(0.25, 0.25, 0.25, 1)
+casts_shadows = false
 sky_front = ExtResource("2_uopa1")
 sky_left = ExtResource("3_tlchc")
 sky_right = ExtResource("4_u3kqd")

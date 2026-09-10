@@ -11,7 +11,12 @@
 // glint for snow, a Fresnel sky reflection for ice — because both materials are
 // defined by how they change when you move, and a static texture never does.
 shader_type spatial;
-render_mode cull_back, depth_draw_opaque, diffuse_burley, specular_schlick_ggx;
+// `ambient_light_disabled` because the ambient is not the engine's here — see
+// `etr_illumination.gdshaderinc`, which is where it comes from instead and why.
+render_mode cull_back, depth_draw_opaque, diffuse_burley, specular_schlick_ggx,
+	ambient_light_disabled;
+
+#include "res://shaders/etr_illumination.gdshaderinc"
 
 group_uniforms Splat;
 // Two things about these samplers matter and neither is obvious.
@@ -96,9 +101,13 @@ uniform float ridge_height = 0.05;
 uniform float trail_normal_strength : hint_range(0.0, 2.0) = 0.5;
 // Ambient occlusion inside the trench. A groove in snow is shaded by its own
 // walls, and that self-shadowing is the whole reason a real track reads as
-// carved rather than painted. Applied to the ambient term only
-// (`AO_LIGHT_AFFECT` 0): the sun is a single direction and already handled by
-// the tilted normal, so occluding it as well would double-count.
+// carved rather than painted. Applied to the ambient term only: the sun is a
+// single direction and already handled by the tilted normal, so occluding it as
+// well would double-count. That used to be Godot's `AO` with `AO_LIGHT_AFFECT`
+// at 0; with `ambient_light_disabled` the engine has no ambient left to apply it
+// to, so it rides the `ambient_occlusion` varying into light() instead. Note it
+// is invisible wherever the illumination is already clamped — which is most of a
+// sunlit slope, and is also true of the original, which has no such term at all.
 uniform float trench_ao : hint_range(0.0, 1.0) = 0.25;
 // The snow ploughed out of the trench lands on its lip, and freshly turned snow
 // is brighter than the wind-crusted surface it came from — the pale line either
@@ -270,6 +279,16 @@ varying float ridge_lip;
 // SPECULAR is write-only and there is no texture sampling worth doing.
 varying float sparkle;
 varying vec3 glint_normal;
+// The trench's self-occlusion, applied to `etr_ambient` in light(). It used to
+// be Godot's `AO` with `AO_LIGHT_AFFECT` at 0, which is the same "ambient only"
+// intent — but `ambient_light_disabled` leaves the engine no ambient to apply it
+// to, so it has to travel to where the ambient now lives.
+varying float ambient_occlusion;
+// What the ice reflects, already Fresnel-weighted and masked: the sky ramp with
+// the mirrored racers composited into it. Added in light() rather than written
+// to EMISSION — see the ice reflection block in fragment() for why that is not
+// a stylistic choice.
+varying vec3 ice_sky;
 
 vec2 trail_uv_of(vec2 world_xz) {
 	return (world_xz - trail_origin) / trail_extent;
@@ -352,6 +371,7 @@ void fragment() {
 
 	ALBEDO = sample_layers(world_pos.xz, w0, w1).rgb;
 	METALLIC = 0.0;
+	ambient_occlusion = 1.0;
 
 	snow_mask = clamp(dot(layer_snowness, w0) + dot(layer_snowness_hi, w1), 0.0, 1.0);
 	ice_mask = clamp(dot(layer_iceness, w0) + dot(layer_iceness_hi, w1), 0.0, 1.0);
@@ -423,8 +443,7 @@ void fragment() {
 		// crust or to pack.
 		ALBEDO *= 1.0 + ridge_lip * ridge_brighten * snow_mask;
 		// The trench shades itself. Ambient only — see `trench_ao`.
-		AO = 1.0 - depth_n * trench_ao * snow_mask;
-		AO_LIGHT_AFFECT = 0.0;
+		ambient_occlusion = 1.0 - depth_n * trench_ao * snow_mask;
 	}
 
 	NORMAL = normalize(mat3(VIEW_MATRIX) * normalize(n_world));
@@ -456,10 +475,23 @@ void fragment() {
 
 	// --- ice reflection -----------------------------------------------------
 	// Fresnel against the perturbed normal, so the ripples above shear the
-	// reflection the way a frozen lake does. This is an unshaded addition —
-	// the sky reaches ice regardless of where the sun is — so it goes through
-	// EMISSION, the one additive channel a custom light() leaves alone.
+	// reflection the way a frozen lake does. This is an unshaded addition — the
+	// sky reaches ice regardless of where the sun is — so it is added rather
+	// than lit, and it is carried to light() as `ice_sky` rather than written
+	// to EMISSION.
+	//
+	// [b]Why not EMISSION, which is what this used for a phase.[/b] EMISSION
+	// does not land in the same units on the two renderers: a value written
+	// there comes back sRGB-decoded under Compatibility and verbatim under
+	// Mobile, so the same ice measured 176/186/195 on the desktop build and
+	// 152/161/170 in the browser and the reflected penguin was half as visible
+	// on the web. Measured with a constant — `EMISSION = vec3(0.5)` reads back
+	// as 0.500 linear on Mobile and 0.216, which is `srgb_to_linear(0.5)`, on
+	// Compatibility. `DIFFUSE_LIGHT` and `SPECULAR_LIGHT` have no such split;
+	// they agree to within a level, which is what the whole tone fit rests on.
+	// So the additive channel to use is the one inside the light loop.
 	ice_fresnel = 0.0;
+	ice_sky = vec3(0.0);
 	if (ice_mask > 0.0) {
 		float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
 		// Schlick, with ice's F0 of about 0.018. Nearly all of the effect is in
@@ -501,7 +533,7 @@ void fragment() {
 			}
 		}
 
-		EMISSION += reflected * ice_fresnel * ice_reflection * ice_mask;
+		ice_sky = reflected * ice_fresnel * ice_reflection * ice_mask;
 		ALBEDO = mix(ALBEDO, ALBEDO * ice_albedo, ice_mask);
 	}
 
@@ -515,7 +547,41 @@ void light() {
 	float ndl = dot(NORMAL, LIGHT);
 	float wrapped = clamp((ndl + wrap_amount) / (1.0 + wrap_amount), 0.0, 1.0);
 	float shaped = mix(max(ndl, 0.0), wrapped * wrapped, snow_mask);
-	DIFFUSE_LIGHT += ALBEDO * LIGHT_COLOR * ATTENUATION * shaped / PI;
+
+	// ETR's fixed-function pipeline, in the order that is the whole point: sum
+	// the ambient and the sun into one illumination value, clamp *that* to one,
+	// and only then modulate the texture. The clamp is not a safety rail — it
+	// is the invariant that light cannot brighten a surface past its own
+	// albedo. `snow.png` is (236, 245, 255), so in the original a fully sunlit
+	// slope reads exactly that and keeps every bit of its texture. Multiplying
+	// first and clamping the product instead, which is what a PBR renderer does
+	// and what this shader used to do, sends the same slope to flat 255 white
+	// the moment the illumination passes 1/albedo — which is most of a sunny
+	// course, and was the Bumpy Ride report. See history §24.
+	//
+	// Written once per light, and there is exactly one: `race.tscn` has a
+	// single Sun and [EnvironmentPreset] folds ETR's three fill lights into the
+	// ambient. A second light here would add the ambient a second time.
+	//
+	// **`DIFFUSE_LIGHT` carries no `ALBEDO`.** Godot multiplies the accumulated
+	// diffuse by it once, after the light loop — so writing `ALBEDO * ...`
+	// here, which is what this did for two phases, squares it. On snow that is
+	// a 16 % darkening of the sun term only (the ambient took the engine's
+	// single multiply), which is a perfectly plausible frame and was quietly
+	// absorbed into `sun_gain`. Measured rather than reasoned:
+	// `DIFFUSE_LIGHT += vec3(0.5)` over an albedo of 0.5 comes back as 0.25.
+	//
+	// `ATTENUATION` is the sun's shadow map, and it multiplies the sun term
+	// alone: a shadowed fragment is one the sun has stopped reaching and the
+	// ambient still does, which is both the physics and what makes a shadow on
+	// snow read as blue-white rather than as grey. Inside the sum, so it falls
+	// to the ambient and stops; outside the clamp, so a slope that was sitting
+	// on the ceiling actually darkens instead of spending the shadow on
+	// headroom. On the web build it is 1 everywhere — [RenderBackend] explains
+	// why the sun there casts nothing — and this line is then exactly the
+	// original's, which also has no shadow map.
+	DIFFUSE_LIGHT += etr_illumination(LIGHT_COLOR / PI, shaped, ATTENUATION,
+		ambient_occlusion);
 
 	// LIGHT_COLOR arrives premultiplied by PI, because Godot folds the 1/PI of
 	// the diffuse BRDF into it. Both terms divide it back out so they stay in
@@ -531,6 +597,13 @@ void light() {
 	float strength = mix(specular_f0 * specular_strength,
 		ice_specular_strength * ice_fresnel, ice_mask);
 	SPECULAR_LIGHT += LIGHT_COLOR * ATTENUATION * pow(ndh, gloss) * strength / PI;
+
+	// The sky the ice reflects, added once and unlit. It rides in here because
+	// SPECULAR_LIGHT is a channel both renderers agree on and EMISSION is not;
+	// it is not a light term and nothing about it is attenuated, shadowed or
+	// multiplied by the albedo — a mirror reflects the sky whether or not the
+	// sun reaches it.
+	SPECULAR_LIGHT += ice_sky;
 
 	// The facet lobe, separately: it needs its own normal and a far sharper
 	// exponent than the surface, and folding it into the term above would only

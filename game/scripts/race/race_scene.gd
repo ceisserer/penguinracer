@@ -884,18 +884,58 @@ func _apply_environment(preset: EnvironmentPreset) -> void:
 	if reflection != null:
 		reflection.set_environment(env)
 	preset.apply_sun(_sun)
+	_sun.shadow_enabled = _shadows_wanted(preset)
 	_sun.directional_shadow_max_distance = _shadow_range_for(env)
+	if course_root != null:
+		course_root.set_casting_shadows(_sun.shadow_enabled)
+		course_root.set_ambient(preset.ambient_illumination())
 	for racer: Racer in roster.all:
 		if racer is SimulatedRacer:
 			(racer as SimulatedRacer).spray.particle_color = preset.particle_color
 	if terrain != null:
+		# The ambient the terrain clamps the sun against — see
+		# [method TerrainRenderer.set_ambient]. The same two fields the
+		# [Environment] above got its ambient from, so the two cannot drift.
+		terrain.set_ambient(preset.ambient_illumination())
 		# What the ice reflects. The horizon end is the fog colour: at the
 		# grazing angle a chase camera reflects at, ETR's sky is its own white
 		# haze, and the skybox's nadir average is a downward direction ice
 		# never shows you.
 		terrain.set_sky_tint(preset.sky_zenith_color, preset.fog_color)
 
+## Whether the sun casts a shadow map at all, which three separate things have
+## to agree on.
+##
+## [b]The renderer.[/b] Under Compatibility a shadow-casting light moves into a
+## second, additive pass blended in sRGB rather than linear, and the sun then
+## arrives five to ten times too bright with its N·L gradient crushed flat —
+## `RenderBackend` has the whole story. That is not a quality setting, it is a
+## broken frame, so the web build gets no shadow map whatever the file says.
+##
+## [b]The sky.[/b] `CCharShape::DrawShadow` returns immediately under `light_id`
+## 1 or 3 — cloudy and night — so the original already knows a hard shadow under
+## an overcast sky is wrong. [member EnvironmentPreset.casts_shadows] is that
+## line.
+##
+## [b]The player.[/b] `param.perf_level > 2` gates the same thing in the
+## original; [member GameConfig.shadows] is the switch.
+func _shadows_wanted(preset: EnvironmentPreset) -> bool:
+	return RenderBackend.supports_light_shadows() \
+		and Config.shadows and preset.casts_shadows
+
 ## How far directional shadows have to reach for this environment.
+##
+## [b]On the two bias values in `race.tscn`, which have nowhere else to be
+## written down.[/b] Godot's directional defaults are `shadow_bias` 0.1 and
+## `shadow_normal_bias` 2.0, and a normal bias is measured in *world metres*
+## along the surface normal: two of them, on a penguin 0.6 m across, erase his
+## shadow completely. That is what "the racer casts nothing" was — the shadow
+## map had him in it the whole time (rendering `vec3(ATTENUATION)` out of the
+## terrain shader shows it), and the receiver was sampling far enough off the
+## contact point to miss. 0.4 m and 0.03 put it back with no acne on the snow,
+## which is the surface that would show it first: the terrain is a near-white
+## Lambertian sheet at a grazing angle, i.e. the worst case for both.
+##
 ##
 ## Godot stops drawing them past `directional_shadow_max_distance` and fades
 ## them out over the last tenth. Set shorter than the visible slope, that cutoff

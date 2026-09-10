@@ -18,18 +18,38 @@ extends Resource
 ## importer assembled it. Display-space, exactly like [member sun_color].
 @export var ambient_color: Color = Color(0.45, 0.53, 0.75)
 
-## DEVIATION: fitted, not migrated. See [member ambient_gain] — the two are
-## solved as a pair, because one number cannot place both ends of the range and
-## the ends are what "looks like the original" means.
-@export var sun_gain: Color = Color(0.103, 0.069, 0.103)
-## DEVIATION: fitted, not migrated, together with [member sun_gain]. ETR adds
-## ambient straight onto the texture in display space and clamps; Godot decodes
-## the texture to linear first and multiplies there, and the same constants land
-## with a far wider spread between a lit slope and a shaded one than the original
-## has. The pair is solved against two measured points on one frame of Bunny Hill
-## — a lit near-field slope and a shaded bank — captured from both games. The
-## procedure is in history §11 and §22; redo it there rather than nudging these
-## by eye, because the two ends trade off against each other.
+## DEVIATION: not migrated. Where [member ambient_gain] places the shaded end of
+## the range, this sets *how steeply the sun climbs to the ceiling* — and since
+## `shaders/terrain.gdshader` reproduces ETR's illumination clamp, it has a
+## derived answer rather than a fitted one.
+##
+## ETR saturates red at `0.2 + 0.45 + 1.0 * ndl >= 1`, i.e. at `ndl = 0.35`.
+## Here the same fragment has `ambient_illumination().r + sun * shaped >= 1`,
+## with the half-Lambert `shaped` of `((ndl + 0.2) / 1.2)^2` = 0.210 at that
+## angle, so `sun = (1 - 0.591) / 0.210 = 1.95` puts the ceiling at the same
+## angle. Green crosses within 5 % of that at the same number, and blue is over
+## the ceiling on the ambient alone in both games — which is why this is one
+## scalar on the migrated `[diff]` and not three fitted numbers. The per-channel
+## behaviour that needed three of them is the clamp, and the clamp is where ETR
+## puts it now.
+##
+## It was `(0.103, 0.069, 0.103)` until 2026-09-10, an order of magnitude under
+## what a linear pipeline wants, because it had been fitted against
+## Compatibility's sRGB-blended shadow pass — see [RenderBackend] and history
+## §24 for what that pass was doing to the sun.
+@export var sun_gain: Color = Color(1.95, 1.95, 1.95)
+## DEVIATION: fitted, not migrated. ETR adds ambient straight onto the texture in
+## display space and clamps; Godot decodes the texture to linear first and
+## multiplies there, and the same constants land with a far wider spread between
+## a lit slope and a shaded one than the original has. Solved against one
+## measured point on one frame of Bunny Hill — the shaded bank — captured from
+## both games. The procedure is in history §11 and §22; redo it there rather than
+## nudging this by eye.
+##
+## [b]This end never went through the sRGB additive pass[/b] that broke
+## [member sun_gain]: a shaded fragment is ambient only, and the ambient was
+## always in the base pass. So these three numbers are the ones §22 fitted, kept
+## verbatim through the 2026-09-10 rework.
 ##
 ## [b]Why a Color and not a scalar.[/b] ETR clamps per channel in display space,
 ## and on snow the blue channel is already at the ceiling before any light is
@@ -50,6 +70,22 @@ extends Resource
 ## shader keeps ETR's black terrain specular and the object shaders have no
 ## specular term at all.
 @export var specular_color: Color = Color.BLACK
+
+## Whether anything on a course under this preset throws a shadow.
+##
+## Migrated, and from an odd place: `CCharShape::DrawShadow` opens with
+## `if (g_game.light_id == 1 || g_game.light_id == 3) return;`, and the four
+## light conditions are indexed `sunny, cloudy, evening, night` — so the
+## original draws Tux's shadow under a sunny or an evening sun and under nothing
+## else. It reads like an arbitrary rule and is not: those two are the presets
+## whose sun is a fill light rather than a source, and a hard shadow under an
+## overcast sky is the single most obviously wrong thing a renderer can draw.
+##
+## Extended here to the trees, which the original never shadows at all, so that
+## a course does not go half-shadowed on a cloudy afternoon. It is one of three
+## gates — see [member GameConfig.shadows] and
+## [method RenderBackend.supports_light_shadows].
+@export var casts_shadows: bool = true
 
 @export_group("Fog")
 @export var fog_enabled: bool = true
@@ -171,6 +207,21 @@ func apply_sun(light: DirectionalLight3D) -> void:
 static func as_light_color(display: Color, gain: Color) -> Color:
 	return Color(display.r * gain.r, display.g * gain.g, display.b * gain.b,
 		1.0).linear_to_srgb()
+
+## The same ambient [method to_environment] hands Godot, but as the linear
+## number a shader works in rather than packed into a [Color] for the decode.
+##
+## `shaders/terrain.gdshader` needs it as a number because it is
+## `ambient_light_disabled`: the terrain sums the ambient and the sun and clamps
+## the total before either touches the albedo, the way ETR's fixed-function
+## pipeline does, and the engine adds its ambient outside the light loop where
+## that sum cannot happen. Derived from the same two fields as the
+## [Environment]'s copy so the two cannot drift — [TestEnvironments] asserts
+## they agree.
+func ambient_illumination() -> Vector3:
+	return Vector3(ambient_color.r * ambient_gain.r,
+		ambient_color.g * ambient_gain.g,
+		ambient_color.b * ambient_gain.b)
 
 func _build_sky() -> Sky:
 	var sky := Sky.new()

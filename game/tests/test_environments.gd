@@ -26,6 +26,8 @@ static func run(t: TestCase) -> void:
 	var presets: Array[EnvironmentPreset] = _load_all(t)
 	_round_trip(t, presets)
 	_reaches_the_environment(t, presets)
+	_reaches_the_terrain(t, presets)
+	_the_shadow_gate(t, presets)
 	_reaches_the_sun(t, presets)
 	_still_traceable(t, presets)
 
@@ -79,6 +81,44 @@ static func _reaches_the_environment(t: TestCase, presets: Array[EnvironmentPres
 				"%s: ambient %s survives the Environment" % [preset.id, "RGB"[ch]])
 		t.ok(is_equal_approx(env.ambient_light_sky_contribution, 0.0),
 			"%s: the ambient still comes from [amb] and not from the sky" % preset.id)
+
+## The third copy of the ambient, and the one that draws the snow.
+##
+## `shaders/terrain.gdshader` is `ambient_light_disabled` — ETR sums the ambient
+## and the sun and clamps the total before either touches the albedo, and the
+## engine adds its ambient after the light loop, where that sum cannot happen —
+## so the terrain is told the number instead, through
+## [method EnvironmentPreset.ambient_illumination]. Two copies of one value is
+## two chances to disagree, and a disagreement here is invisible: the terrain
+## and everything else in the frame would simply be lit by slightly different
+## skies. Assert they are the same number.
+static func _reaches_the_terrain(t: TestCase, presets: Array[EnvironmentPreset]) -> void:
+	t.begin("environments/ambient reaches the terrain shader")
+	for preset: EnvironmentPreset in presets:
+		var shader_side: Vector3 = preset.ambient_illumination()
+		var engine_side: Color = preset.to_environment().ambient_light_color.srgb_to_linear()
+		for ch: int in range(3):
+			t.ok(absf(shader_side[ch] - engine_side[ch]) < EPS,
+				"%s: the terrain's ambient %s is the Environment's" % [preset.id, "RGB"[ch]])
+
+## `CCharShape::DrawShadow` opens with
+## `if (g_game.light_id == 1 || g_game.light_id == 3) return;` and the light
+## conditions are indexed `sunny, cloudy, evening, night` — so the original
+## draws no shadow under an overcast or a night sky. The importer reads that off
+## the directory name rather than off an index; this is the assertion that it
+## still lands on all eight presets.
+##
+## It is one of three gates and the only one that is data. The other two are the
+## renderer ([RenderBackend], which refuses on the web build) and the player
+## ([member GameConfig.shadows]).
+static func _the_shadow_gate(t: TestCase, presets: Array[EnvironmentPreset]) -> void:
+	t.begin("environments/who casts a shadow")
+	for preset: EnvironmentPreset in presets:
+		var id: String = String(preset.id)
+		var overcast: bool = id.ends_with("_cloudy") or id.ends_with("_night")
+		t.ok(preset.casts_shadows != overcast,
+			"%s: casts_shadows is %s, as DrawShadow's light_id gate says" % [
+				id, not overcast])
 
 ## The sun half. It is a separate assertion because the bug this replaces was
 ## the two halves disagreeing — the ambient went through the conversion in

@@ -46,6 +46,22 @@ var render_scale: float = 1.0
 ## but it is a whole extra 3D pass on a WebGL2 budget, and the lowest tier
 ## should be able to say no. See [IceReflection].
 var ice_reflections: bool = true
+## Whether the racers and the standing course objects cast a shadow on the snow.
+##
+## Half migrated, half DEVIATION. `CCharShape::DrawShadow` draws the character's
+## shadow only above `param.perf_level > 2`, so a shadow being the first thing a
+## slow machine gives up is the original's own policy and this is that switch.
+## Trees casting one is the deviation: `DrawTrees` emits eight vertices per
+## object and no shadow geometry at all.
+##
+## It is not the only gate, and the other two are not the player's:
+## [member EnvironmentPreset.casts_shadows] carries ETR's own per-sky rule, and
+## [method RenderBackend.supports_light_shadows] answers no on the web build,
+## where a shadow-casting light is drawn in an sRGB-blended second pass and
+## wrecks the frame. Wanting shadows is what this says; getting them needs all
+## three. Nothing writes it back to `false` when the renderer refuses — the file
+## records the preference, not what the hardware made of it.
+var shadows: bool = true
 
 # --- fog ---
 
@@ -135,6 +151,7 @@ func read(cfg: ConfigFile) -> void:
 		render_scale)), 0.25, 2.0)
 	ice_reflections = bool(cfg.get_value("display", "ice_reflections",
 		ice_reflections))
+	shadows = bool(cfg.get_value("display", "shadows", shadows))
 	fog_start_distance = maxf(float(cfg.get_value("fog", "start_distance",
 		fog_start_distance)), 0.0)
 	fog_distance_scale = clampf(float(cfg.get_value("fog", "distance_scale",
@@ -211,6 +228,13 @@ render_scale = %.2f
 ; frame, so it is the first thing to turn off on a slow machine.
 ice_reflections = %s
 
+; Whether the racers and the trees cast a shadow on the snow. The original
+; draws the character's shadow only at its highest detail level and never
+; draws one for a tree; both are off under a cloudy or a night sky either way,
+; and off entirely on the web build, whose renderer cannot draw one without
+; blowing the whole frame out.
+shadows = %s
+
 [fog]
 
 ; Metres of clear air before fog starts to build.
@@ -248,7 +272,7 @@ player_name = "%s"
 ;     godot --path game -- --join=192.168.1.20 --course=bunny_hill
 port = %d
 """ % [_resolution_text(), str(fullscreen).to_lower(), render_scale,
-		str(ice_reflections).to_lower(),
+		str(ice_reflections).to_lower(), str(shadows).to_lower(),
 		fog_start_distance, fog_distance_scale, character,
 		opponents, AISkill.name_of(opponent_skill),
 		player_name, multiplayer_port]

@@ -111,6 +111,22 @@ func set_sky_tint(zenith: Color, horizon: Color) -> void:
 	_material.set_shader_parameter("sky_zenith", zenith)
 	_material.set_shader_parameter("sky_horizon", horizon)
 
+## Hand the terrain the environment's ambient, in the linear units the shader
+## works in.
+##
+## It has to be told, because the shader is `ambient_light_disabled`: ETR sums
+## the ambient and the sun and clamps the total before either reaches the
+## albedo, and the engine's own ambient is added after the light loop, where
+## that sum can no longer happen. See the shader's `etr_ambient` and
+## [method EnvironmentPreset.ambient_illumination].
+##
+## Not optional. With the engine's ambient off and nothing here, the shaded side
+## of every slope has no light at all.
+func set_ambient(ambient: Vector3) -> void:
+	if _material == null:
+		return
+	_material.set_shader_parameter("etr_ambient", ambient)
+
 ## Point the ice at the mirror [IceReflection] just rendered, and tell it which
 ## plane that mirror is only true on.
 ##

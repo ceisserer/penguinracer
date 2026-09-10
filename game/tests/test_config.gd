@@ -23,6 +23,9 @@ static func _defaults(t: TestCase) -> void:
 	t.ok(not c.fullscreen, "windowed by default")
 	t.eq_f(c.render_scale, 1.0, 1e-6, "3D renders at full resolution")
 	t.ok(c.ice_reflections, "and the ice reflects the racers on it")
+	# Wanting shadows is the default; getting them is also up to the renderer
+	# and the sky. See [method RaceScene._shadows_wanted].
+	t.ok(c.shadows, "and the racers and the trees cast a shadow")
 	t.eq_f(c.fog_start_distance, 40.0, 1e-6, "40 m of clear air in front of the camera")
 	t.eq_f(c.fog_distance_scale, 2.0, 1e-6, "the migrated fog range is doubled")
 	t.ok(c.character == "tux", "and you race as the first row of characters.lst")
@@ -185,6 +188,7 @@ static func _round_trip(t: TestCase) -> void:
 	c.fog_start_distance = 15.0
 	c.fog_distance_scale = 1.3
 	c.character = "boris"
+	c.shadows = false
 
 	var back: GameConfig = _read(c.file_text())
 	t.ok(back.resolution == Vector2i(1920, 1080), "a chosen resolution comes back")
@@ -193,6 +197,9 @@ static func _round_trip(t: TestCase) -> void:
 	t.eq_f(back.fog_start_distance, 15.0, 1e-6, "and where fog starts")
 	t.eq_f(back.fog_distance_scale, 1.3, 1e-6, "and how far it reaches")
 	t.ok(back.character == "boris", "and who the next race is run as")
+	# A bool that is written as `false` and read back as its `true` default is
+	# the failure mode here, and it looks exactly like a setting nobody wired up.
+	t.ok(not back.shadows, "and a player who has turned the shadows off")
 
 	# "auto" is the one value that is not a size, and writing it as 0x0 would
 	# come back through parse_resolution as the fallback instead.

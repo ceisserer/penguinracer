@@ -10,7 +10,10 @@
 // together. Fixing it means decoupling the shading normal from the quad's
 // orientation, which is what the impostor normal below does.
 shader_type spatial;
-render_mode cull_disabled, depth_draw_opaque, diffuse_burley, specular_schlick_ggx;
+render_mode cull_disabled, depth_draw_opaque, diffuse_burley, specular_schlick_ggx,
+	ambient_light_disabled;
+
+#include "res://shaders/etr_illumination.gdshaderinc"
 
 uniform sampler2D albedo_texture : source_color, filter_linear_mipmap, repeat_disable;
 uniform vec4 albedo_tint : source_color = vec4(1.0);
@@ -72,7 +75,6 @@ void fragment() {
 	ALPHA_SCISSOR_THRESHOLD = 0.5;
 	ROUGHNESS = roughness_value;
 	METALLIC = 0.0;
-	SPECULAR = 0.2;
 
 	// Cylinder impostor: bulge the normal across the quad's width only. The
 	// vertical axis is left alone because a tree is tall and round, not
@@ -82,4 +84,20 @@ void fragment() {
 	vec3 curved = axis_right * u + axis_out * sqrt(max(0.0, 1.0 - u * u));
 	vec3 n = mix(axis_out, curved, normal_roundness);
 	NORMAL = normalize(mix(n, axis_up, normal_up_bias));
+}
+
+// ETR clamps every fragment it draws, not just the terrain: `DrawTrees` goes
+// through the same fixed-function pipeline as everything else, so a sunlit tree
+// reads its own texture and no brighter. Without this the sun that puts a snow
+// slope on the ceiling — where the terrain's clamp holds it — bleaches the
+// forest instead, which is what it did for one afternoon on 2026-09-10 while
+// only `terrain.gdshader` had the clamp. See `etr_illumination.gdshaderinc`.
+//
+// Plain Lambert, no wrap: the half-Lambert in the terrain shader is a snow
+// deviation (there is no subsurface term in this renderer and snow reads as
+// plaster without one), and foliage has no such excuse. `normal_up_bias` is
+// already doing the "catches light from above" job the wrap would do here.
+void light() {
+	DIFFUSE_LIGHT += etr_illumination(LIGHT_COLOR / PI,
+		max(dot(NORMAL, LIGHT), 0.0), ATTENUATION, 1.0);
 }

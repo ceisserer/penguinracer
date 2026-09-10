@@ -4,7 +4,8 @@
 ## also set, and the keys only the file carries — and [GameConfig] started as
 ## the second half because there was no screen. This is the screen, and it moves
 ## every key a player can act on today: window size, fullscreen, render scale,
-## whether ice reflects the racers, and the two fog distances. Nothing else lands here; a value migrated out of
+## whether ice reflects the racers, whether anything casts a shadow, and the two
+## fog distances. Nothing else lands here; a value migrated out of
 ## `etr-0.8.4/data` belongs on a resource, not in a settings panel.
 ##
 ## Two keys are deliberately file-only for now — `[multiplayer] player_name` and
@@ -46,6 +47,9 @@ signal closed()
 @onready var _render_scale_value: Label = %RenderScaleValue
 @onready var _ice_reflection_label: Label = %IceReflectionLabel
 @onready var _ice_reflection: CheckBox = %IceReflectionCheck
+@onready var _shadows_row: Control = %ShadowsRow
+@onready var _shadows_label: Label = %ShadowsLabel
+@onready var _shadows: CheckBox = %ShadowsCheck
 @onready var _fog_start: HSlider = %FogStartSlider
 @onready var _fog_start_value: Label = %FogStartValue
 @onready var _fog_scale: HSlider = %FogScaleSlider
@@ -61,6 +65,7 @@ func _ready() -> void:
 	# reflects nothing, so there is no string to migrate and a `tr()` key would
 	# resolve to nothing in all 13 languages.
 	_ice_reflection_label.text = "Ice reflections:"
+	_shadows_label.text = "Shadows:"
 	_ok_button.text = tr("OK")
 	_cancel_button.text = tr("CANCEL")
 	_path_label.text = ProjectSettings.globalize_path(GameConfig.PATH)
@@ -70,6 +75,14 @@ func _ready() -> void:
 	var on_web: bool = OS.has_feature("web")
 	_resolution_row.visible = not on_web
 	_fullscreen_row.visible = not on_web
+	# And the same argument for the shadows row. The browser runs the
+	# Compatibility renderer, where a shadow-casting light is drawn in a second,
+	# sRGB-blended pass that wrecks the whole frame — so [RaceScene] refuses
+	# there whatever this says, and offering the switch would be offering a
+	# third dead knob. Asked of [RenderBackend] rather than of `web`, so a
+	# desktop run started with `--rendering-method gl_compatibility` — which is
+	# how the web look gets checked without a browser — hides it too.
+	_shadows_row.visible = RenderBackend.supports_light_shadows()
 
 	_render_scale.value_changed.connect(_on_render_scale_changed)
 	_fog_start.value_changed.connect(_on_fog_start_changed)
@@ -87,6 +100,7 @@ func open() -> void:
 	_fullscreen.button_pressed = Config.fullscreen
 	_render_scale.value = Config.render_scale
 	_ice_reflection.button_pressed = Config.ice_reflections
+	_shadows.button_pressed = Config.shadows
 	_fog_start.value = Config.fog_start_distance
 	_fog_scale.value = Config.fog_distance_scale
 	# `value_changed` does not fire when the value assigned is the one already
@@ -136,6 +150,11 @@ func _accept() -> void:
 		Config.fullscreen = _fullscreen.button_pressed
 	Config.render_scale = _render_scale.value
 	Config.ice_reflections = _ice_reflection.button_pressed
+	# Written back even when the row is hidden, which is what keeps a settings
+	# file edited on a desktop from being flattened by a run in a browser: the
+	# widget was filled from the file either way, so this writes back what was
+	# read.
+	Config.shadows = _shadows.button_pressed
 	Config.fog_start_distance = _fog_start.value
 	Config.fog_distance_scale = _fog_scale.value
 	Config.apply_display()

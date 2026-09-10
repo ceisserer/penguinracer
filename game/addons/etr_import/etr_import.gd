@@ -1105,6 +1105,10 @@ func import_environments(stage: String) -> void:
 				continue
 			var preset := EnvironmentPreset.new()
 			preset.id = StringName("%s_%s" % [loc, light])
+			# `DrawShadow` bails on light_id 1 and 3, and the light directories
+			# are indexed the same way the original's `lightcond` is — so this
+			# is that line, read off the name instead of the index it came in on.
+			preset.casts_shadows = light != "cloudy" and light != "night"
 			_import_skybox(preset, dir, SPList.get_bool(rec, "high_res", false), stage)
 
 			for line: Dictionary in lines:

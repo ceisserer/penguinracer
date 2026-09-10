@@ -28,6 +28,10 @@ var _batches: Dictionary[String, MultiMeshInstance3D] = {}
 ## collected herring back. Kept here rather than re-read off the MultiMesh
 ## because [method hide_item] has already overwritten it by then.
 var _item_transforms: Dictionary[int, Transform3D] = {}
+## Whether the standing objects cast into the sun's shadow map. Off until
+## [method set_casting_shadows] says otherwise, because the default has to be
+## the one that is safe on every renderer — see [RenderBackend].
+var _casts_shadows: bool = false
 
 ## Build the runtime representation. Safe to call once, from the race scene.
 func build_runtime() -> void:
@@ -115,9 +119,47 @@ func _add_batch(type_name: String, prefab: ObjectPrefab, transforms: Array[Trans
 	mmi.name = "Batch_%s" % type_name
 	mmi.multimesh = mm
 	mmi.material_override = prefab.material
-	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mmi.cast_shadow = _shadow_setting()
 	add_child(mmi)
 	_batches[type_name] = mmi
+
+## Hand every object batch the environment's ambient.
+##
+## Same reason the terrain needs it and the same number — the object shaders are
+## `ambient_light_disabled` too, because ETR clamps a tree exactly as it clamps a
+## slope. See `shaders/etr_illumination.gdshaderinc`.
+##
+## The material is a shared [ShaderMaterial] on the [ObjectPrefab] resource, so
+## this writes through to every course that uses the same prefab. Harmless: one
+## course is loaded at a time and every one of them sets this on load.
+func set_ambient(ambient: Vector3) -> void:
+	for mmi: MultiMeshInstance3D in _batches.values():
+		var mat: ShaderMaterial = mmi.material_override as ShaderMaterial
+		if mat != null:
+			mat.set_shader_parameter("etr_ambient", ambient)
+
+## Turn the standing objects' shadow casting on or off for the whole course.
+##
+## Called by [method RaceScene._apply_environment] once the preset is known,
+## because two of the three things that decide it — the renderer and the sky —
+## are not visible from here. Batches built later take it from
+## [member _casts_shadows] instead, which is what keeps a course streamed in
+## mid-race in step with one built at load.
+func set_casting_shadows(enabled: bool) -> void:
+	_casts_shadows = enabled
+	for mmi: MultiMeshInstance3D in _batches.values():
+		mmi.cast_shadow = _shadow_setting()
+
+## `DOUBLE_SIDED` rather than `ON`, and that is not a detail. A tree here is two
+## crossed quads with `cull_disabled` and an alpha cutout, so it has no back
+## face to cull and no volume to be inside: the default `ON` renders the shadow
+## map with back faces culled, which for a single-sided card means the half of
+## every tree facing away from the sun casts nothing and the forest throws a
+## shadow made of stripes.
+func _shadow_setting() -> GeometryInstance3D.ShadowCastingSetting:
+	if _casts_shadows:
+		return GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED
+	return GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 ## Hide a collected herring by collapsing its instance transform.
 func hide_item(index: int) -> void:
