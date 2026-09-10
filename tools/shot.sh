@@ -20,6 +20,13 @@
 # doing before trusting a small tone measurement, since the two rasterisers do
 # not agree to the last level.
 #
+# `--resolution` is *logical*: a compositor running a fractional output scale
+# multiplies it, and this container's Wayland session runs at 1.25, so the
+# default comes out as a 1600x900 PNG. Region boxes in the tone-fitting notes
+# (history Â§11, Â§22) are 1280x720 pixels, so either scale the box by the PNG's
+# own size or ask for `SHOT_RESOLUTION=1024x576` and get exactly 1280x720 back.
+# Check the size of what you got before trusting a documented rectangle.
+#
 # Either way `--fixed-fps` makes the simulation advance by frame count rather
 # than by how slowly it happens to draw, which is what makes two runs — and the
 # two paths — comparable at all. `--no-audio` keeps the run silent, which a
@@ -47,7 +54,7 @@ DRIVER="${SHOT_DRIVER:-$DRIVER}"
 ARGS=(--path "$ROOT/game")
 [[ -n "$METHOD" ]] && ARGS+=(--rendering-method "$METHOD")
 [[ -n "$DRIVER" ]] && ARGS+=(--rendering-driver "$DRIVER")
-ARGS+=(--resolution 1280x720 --fixed-fps 60 --
+ARGS+=(--resolution "${SHOT_RESOLUTION:-1280x720}" --fixed-fps 60 --
     --capture="$OUT" --capture-frames="$FRAMES"
     --auto-input="$INPUT" --course="$COURSE" --no-audio)
 
