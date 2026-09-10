@@ -3,6 +3,16 @@
 #
 #     tools/shot.sh /tmp/out.png [frames] [course] [auto-input]
 #
+# The game ships two renderers — Mobile on the desktop and Compatibility on the
+# web, which is the only one a browser offers — and they do not light a frame
+# the same way, so a capture has to say which one it is of. `SHOT_METHOD` picks:
+# `mobile` (the desktop default, Vulkan), `gl_compatibility` (what the web
+# build runs, and what a desktop `--compat` run reproduces), or `forward_plus`.
+# Unset takes the project's own setting for this platform. Compatibility needs
+# the GL driver and the other two need Vulkan, so the driver follows the method
+# rather than being pinned; `SHOT_DRIVER` overrides that if you need a specific
+# pairing.
+#
 # Prefers the real GPU. If the container has a Wayland socket and a DRI render
 # node, the capture runs against it and 120 frames of Bunny Hill take about 5 s;
 # the llvmpipe fallback below takes a little over two minutes for the same
@@ -25,8 +35,19 @@ INPUT="${4:-paddle}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 GODOT="${GODOT:-godot}"
-ARGS=(--path "$ROOT/game" --rendering-driver opengl3
-    --resolution 1280x720 --fixed-fps 60 --
+METHOD="${SHOT_METHOD:-}"
+case "$METHOD" in
+    gl_compatibility) DRIVER=opengl3 ;;
+    mobile|forward_plus) DRIVER=vulkan ;;
+    "") DRIVER="" ;;
+    *) echo "SHOT_METHOD must be mobile, forward_plus or gl_compatibility" >&2; exit 2 ;;
+esac
+DRIVER="${SHOT_DRIVER:-$DRIVER}"
+
+ARGS=(--path "$ROOT/game")
+[[ -n "$METHOD" ]] && ARGS+=(--rendering-method "$METHOD")
+[[ -n "$DRIVER" ]] && ARGS+=(--rendering-driver "$DRIVER")
+ARGS+=(--resolution 1280x720 --fixed-fps 60 --
     --capture="$OUT" --capture-frames="$FRAMES"
     --auto-input="$INPUT" --course="$COURSE" --no-audio)
 
@@ -37,6 +58,15 @@ if [[ -z "${SHOT_FORCE_SOFTWARE:-}" && -S "$WL_SOCKET" && -e /dev/dri/renderD128
     # Without them Godot reports "Can't load EGL dynamic library" and then
     # misdiagnoses it as the driver being too old for OpenGL 3.3.
     exec "$GODOT" --display-driver wayland "${ARGS[@]}"
+fi
+
+# The software fallback is llvmpipe, which is a GL rasteriser: there is no
+# lavapipe in this image, so Vulkan — and with it Mobile and Forward+ — has no
+# software path at all. Say so rather than falling back to a renderer the
+# caller did not ask for.
+if [[ "$DRIVER" == "vulkan" ]]; then
+    echo "no software Vulkan here — SHOT_METHOD=$METHOD needs the real GPU" >&2
+    exit 3
 fi
 
 exec xvfb-run -a -s "-screen 0 1280x800x24" \
