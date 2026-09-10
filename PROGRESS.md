@@ -345,6 +345,16 @@ Two decisions worth keeping:
   same order the original has, since its finish keyframe runs inside the racing state and
   `CGameOver::Enter` is what changes the music.
 
+**Fixed 2026-09-09 — the terrain slide never made a sound.** Everything above it worked: the
+splat resolved to a layer, the layer named a cue, the cue had a player, the player reported
+`playing`, and the mixer gain was right. `AudioDirector._set_loop` turned `LOOP_FORWARD` on and
+left `AudioStreamWAV.loop_end` at the importer's 0, which is the playback's end limit once the
+mode is on — so every start wrapped to frame 0 having mixed nothing and retired there. The cue
+held a voice and emitted silence on ice, rock, grass, mud and leaves alike. `_set_loop` now sets
+the window as well as the mode; `TestAudio` asserts `loop_end > loop_begin` and that the window
+spans the sample, because `loop_mode` read correct the whole time and the old assertion on it
+passed throughout. See the trap in AGENTS.md.
+
 `-- --no-audio` gates the whole thing, for capture runs where a soundtrack is only a slow start.
 Volumes are the original's `param.sound_volume` 90 / `param.music_volume` 20 and live on the
 director. The configuration screen does not move them yet — they are two more keys the settings

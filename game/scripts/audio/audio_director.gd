@@ -381,13 +381,31 @@ static func _percent_to_db(percent: float) -> float:
 ## Looping is a property of the stream in Godot and of the call in SFML, so it
 ## is set per play rather than baked into the import.
 ##
+## [b]`loop_mode` on its own does not loop a WAV.[/b] [AudioStreamWAV] keeps
+## the loop window beside the mode, and the importer leaves
+## [member AudioStreamWAV.loop_begin] and [member AudioStreamWAV.loop_end] at
+## zero for a sample imported with looping off — which every effect in
+## `assets/sounds/` is. Setting `LOOP_FORWARD` without the window gives the
+## playback an end limit of frame 0, so it wraps to the start having mixed
+## nothing and retires on the spot: the cue reports `playing`, holds a voice,
+## and is silent. That is the whole of "the terrain slide makes no sound" —
+## it was never a terrain, a cue table or a mixer-gain problem, and the
+## one-shots were never affected, because `LOOP_DISABLED` takes its end limit
+## from the sample length instead. Set the window as well as the mode, and
+## test looping by whether the playback *advances*; `loop_mode` reads correct
+## either way.
+##
 ## The streams are shared — `wonrace_1` is the win sting of all three themes —
 ## which is safe only because every caller agrees: music always loops, and the
 ## one looping effect is the terrain slide, whose cue is used nowhere else.
 static func _set_loop(stream: AudioStream, loop: bool) -> void:
 	if stream is AudioStreamWAV:
-		(stream as AudioStreamWAV).loop_mode = \
+		var wav: AudioStreamWAV = stream
+		wav.loop_mode = \
 			AudioStreamWAV.LOOP_FORWARD if loop else AudioStreamWAV.LOOP_DISABLED
+		if loop:
+			wav.loop_begin = 0
+			wav.loop_end = roundi(wav.get_length() * float(wav.mix_rate))
 	elif stream is AudioStreamOggVorbis:
 		(stream as AudioStreamOggVorbis).loop = loop
 

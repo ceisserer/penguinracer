@@ -1,10 +1,16 @@
 ## The audio data and the original's mixing arithmetic.
 ##
-## The players themselves are not exercised — a headless run has the Dummy
-## driver and nothing to hear — but everything that decides *what* plays is
-## data, and that is what breaks silently. The bank, the themes, the terrain →
-## cue mapping and `CalcSoundVol` are all checked against `audio.cpp`,
-## `racing.cpp` and the two `.lst` files they read.
+## Nothing here is audible — a headless run has the Dummy driver — but
+## everything that decides *what* plays is data, and that is what breaks
+## silently. The bank, the themes, the terrain → cue mapping and `CalcSoundVol`
+## are all checked against `audio.cpp`, `racing.cpp` and the two `.lst` files
+## they read.
+##
+## "Not audible" is not "not testable", and reading it that way is what let the
+## terrain slide hold a voice and emit silence for a whole phase. The Dummy
+## driver still mixes, so a stream that cannot produce a frame is visible here
+## — see the loop-window assertions in [method _director_behaviour], and
+## `AudioDirector._set_loop` for what they are guarding.
 class_name TestAudio
 extends RefCounted
 
@@ -158,12 +164,25 @@ static func _director_behaviour(t: TestCase) -> void:
 
 	director.play(&"rock_sound", true)
 	t.ok(director.is_playing(&"rock_sound"), "a looped cue starts")
-	t.ok((director.get_node(^"rock_sound") as AudioStreamPlayer).stream.loop_mode
-		== AudioStreamWAV.LOOP_FORWARD, "and is set to loop")
-
+	var slide: AudioStreamWAV = (director.get_node(^"rock_sound") as AudioStreamPlayer).stream
+	t.ok(slide.loop_mode == AudioStreamWAV.LOOP_FORWARD, "and is set to loop")
+	# The mode is not the loop. `AudioStreamWAV` takes the playback's end limit
+	# from `loop_end` once the mode is on, and the importer leaves it at 0 for
+	# every effect here — so `LOOP_FORWARD` by itself wraps to the start having
+	# mixed nothing, and the terrain slide held a voice and made no sound on
+	# every surface. Assert the window, because the mode above read correct
+	# throughout. See `AudioDirector._set_loop`.
+	t.ok(slide.loop_end > slide.loop_begin,
+		"with a loop window, not just a mode (begin %d, end %d)"
+			% [slide.loop_begin, slide.loop_end])
+	t.eq_f(float(slide.loop_end - slide.loop_begin) / float(slide.mix_rate),
+		slide.get_length(), 1e-3, "and the window is the whole sample")
 	# `CSound::Halt` checks getLoop() first: a one-shot cannot be halted.
 	director.play(&"tree_hit")
 	t.ok(director.is_playing(&"tree_hit"), "a one-shot starts")
+	t.ok((director.get_node(^"tree_hit") as AudioStreamPlayer).stream.loop_mode
+		== AudioStreamWAV.LOOP_DISABLED,
+		"unlooped, which is why the one-shots were never silent")
 	director.halt(&"tree_hit")
 	t.ok(director.is_playing(&"tree_hit"), "and halt refuses to cut it off")
 	director.halt(&"rock_sound")

@@ -523,6 +523,21 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   (`snow_sound` is `[vol] 0.2` in the file and gain 1.5 in the code). Both are migrated —
   `SoundCue.race_gain` is the live one, `legacy_volume` the file's — and volumes clip at
   `MIX_MAX_VOLUME` = 100, so at the default 90 that 1.5 is really 1.11.
+- **`AudioStreamWAV.loop_mode` is not the loop; `loop_end` is.** Once the mode is on, the
+  playback takes its end limit from `loop_end`, and Godot's WAV importer leaves that at 0 for
+  any sample imported with looping off — which is all ten effects. `LOOP_FORWARD` with a zero
+  window wraps to frame 0 having mixed nothing and retires on the spot, so the cue reports
+  `playing`, holds a voice, and is silent. That was the whole of "the terrain slide makes no
+  sound": ice, rock, grass, mud and leaves were all resolved correctly, played correctly and
+  heard by nobody, while the one-shots were fine because `LOOP_DISABLED` takes the end limit
+  from the sample length instead. Nothing warned, and the test asserting `loop_mode ==
+  LOOP_FORWARD` passed the entire time. `AudioDirector._set_loop` sets the window with the mode
+  now, and `TestAudio` asserts `loop_end > loop_begin` and that it spans the sample. **The
+  reusable part**: a flag that names a behaviour is not the behaviour — assert the quantity the
+  engine actually reads. Measured the same way it was found, with
+  `AudioStreamPlayer.get_playback_position()` over frames: broken it stays at 0.000 and
+  `playing` goes false, fixed it advances. That works under the headless Dummy driver, which is
+  the only way to test audio here at all.
 - **`AudioServer` frees a stopped playback a frame later, so a quit has to wait for it.** `stop()`
   only marks the playback for deletion; the mixer thread has to fade it out and the object is
   freed by the `AudioServer::update()` at the end of a later main-loop iteration. Neither happens
