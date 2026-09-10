@@ -127,26 +127,73 @@ art that waits on the licence audit (the checkbox-icon standing), and the spray 
 `[partcol] 0.85 0.9 1.0` standing in for a value `EnvironmentPreset` does not carry yet. A
 before/after capture of a Bunny Hill carve differs inside the spray plume and nowhere else.
 
-Tone is matched to the original on Bunny Hill under `tuxracer_sunny`, at both ends of the range
-and in all three channels, by fitting `EnvironmentPreset.ambient_gain` and `sun_gain` together
-against two measured points on one captured frame. That fit is the subject of history §11 and
-§22, and reading them before touching a light value will save re-deriving why the obvious
-experiments do not work: the ambient the data means is not the ambient Godot applies by default,
-turning one light off to isolate a term gives two frames that do not sum to the whole, and
-`light.lst`'s numbers are display-space multipliers that Godot will sRGB-decode into something
-with the wrong channel balance unless they are encoded on the way in.
+**Two renderers: Mobile on the desktop, Compatibility on the web.** `project.godot` had said
+`gl_compatibility` since the first commit, on the entirely reasonable ground that WebGL2 offers
+nothing else — and the desktop build had been inheriting the browser's constraint for five phases
+without that being written down anywhere as a choice. It cost more than a feature list. Under
+Compatibility a light that casts shadows is drawn in a *second, additive pass blended in sRGB*
+(godotengine/godot#77496, #90259), so the sun arrived five to ten times too bright with its N·L
+gradient crushed flat by a curve that is steepest near zero — every slope facing the sun at the
+same value, which is what "the left bank at Bumpy Ride is a white sheet" was. It is a framebuffer
+blend: no shader reaches it and no gain fits around it. `rendering_method` is `mobile` now,
+`rendering_method.web` is `gl_compatibility`, and `RenderBackend` is the seam — it asks the server
+for a `RenderingDevice` rather than reading the setting, so a desktop run passing
+`--rendering-method gl_compatibility` (which is how the web look gets checked without a browser)
+answers the same as the browser does. history §24 has the measurements and the shader-based
+shadow system that was built first and thrown away.
 
-The gains are `Color`s and not scalars. ETR clamps per channel in display space and its snow is
-already at the blue ceiling before any light is applied — `snow.png` is (236, 245, 255) and
+**Every lit shader reproduces ETR's illumination clamp**, which the split made both necessary and
+worth doing: `shaders/etr_illumination.gdshaderinc` is `texture × clamp(ambient + sun·N·L, 0, 1)`,
+included by the terrain and both object shaders, each `ambient_light_disabled` so the two terms
+can meet inside `light()` — the engine adds its ambient after the light loop, where the sum can no
+longer happen. Multiplying first and clamping the product, which is what a PBR renderer does,
+sends a slope to flat 255 white past `illum > 1/albedo`; two courses under the same sun then want
+gains a factor of 1.75 apart. With the clamp in ETR's place, `sun_gain` stops being a fit and
+becomes a derivation — 1.95, one scalar on the migrated `[diff]`, from where ETR's own red
+saturates.
+
+**The sun casts a real shadow map, on the desktop.** PSSM, four splits, range tied to the fog, and
+`shadow_normal_bias` at 0.4 rather than Godot's 2.0, which is world metres and had been erasing a
+0.6 m penguin's shadow entirely. Three gates, two of them migrated: `RenderBackend` (the renderer),
+`EnvironmentPreset.casts_shadows` (`DrawShadow`'s own `light_id` 1/3 rule — nothing casts under a
+cloudy or a night sky) and `GameConfig.shadows` (ETR's `perf_level`, now a row on the settings
+screen, hidden where the renderer refuses). The web build has none, deliberately.
+
+Tone is matched to the original on Bunny Hill under `tuxracer_sunny`, at both ends of the range
+and in all three channels. `EnvironmentPreset.ambient_gain` places the shaded end and is history
+§22's fit verbatim — a shaded fragment is ambient only, and the ambient was always in the base
+pass, so that end was never distorted by the sRGB pass. `sun_gain` places the lit end and is
+derived from the clamp. history §11, §22 and §24 are worth reading before touching a light value,
+because they are mostly about why the obvious experiments do not work: the ambient the data means
+is not the ambient Godot applies by default; `light.lst`'s numbers are display-space multipliers
+that Godot will sRGB-decode into the wrong channel balance unless they are encoded on the way in;
+and "turning one light off gives two frames that do not sum to the whole" was never a rendering
+subtlety, it was the shadow pass being culled along with the light.
+
+`ambient_gain` is a `Color` and not a scalar. ETR clamps per channel in display space and its snow
+is already at the blue ceiling before any light is applied — `snow.png` is (236, 245, 255) and
 `[amb]` is (0.70, 0.78, 1.00) — so one number that puts red on the reference necessarily takes
 blue off a ceiling the original never leaves. That, plus the decode above, is why the shaded snow
 was 23 levels too dark in red while the lit near field had green pinned at 255 over three
-quarters of its area: two channels out of range, one channel carrying every bit of shading
-variation, and a white sheet with cyan in the hollows as the result. history §22 has the before
-and after.
+quarters of its area. `sun_gain` no longer needs three numbers for the same job, because the
+per-channel behaviour they were reproducing *is* the clamp, and the clamp is now where ETR puts it.
 
-No LightmapGI bake. The remaining gaps — seven untuned environments, the cyan channel, the
-camera framing — are in Known gaps below.
+Measured on the Bunny Hill frame history §11 and §22 were fitted on, against ETR's 239.2 R /
+247.1 G / 3.5 % of green clipped:
+
+| | before (Compat + shadows) | after, Mobile | after, Compat |
+|---|---|---|---|
+| lit near field R | 238.3 | **234.9** | **235.5** |
+| lit near field G | 251.4 | **244.3** | **245.0** |
+| G clipped | 53.2 % | **2.9 %** | **7.2 %** |
+
+Bumpy Ride's left bank — the report that started it — goes from 251.0 R with 60 % clipped to
+233.4 with 1.2 %. The two renderers agreeing to within a level on snow is the property that
+matters most: one fit serves both targets, and the browser gets the desktop's look minus the
+shadows.
+
+No LightmapGI bake. The remaining gaps — the character's own material, seven untuned
+environments, ice under Compatibility, the camera framing — are in Known gaps below.
 
 ### Phase 3 — snow · **mechanism proven, integration partial**
 
@@ -1132,6 +1179,27 @@ setting round-trips through the hand-written settings file.
   to one set alone — and nothing stops either from being saved from the results screen. That is
   the deliberate reading (racing a groomed line is racing), but it means a saved run from a race
   and one from a practice run are not quite the same measurement.
+- **The character is the one lit surface without the illumination clamp**, and adding only the
+  clamp would make it look worse rather than better. Three things are wrong together.
+  `shape.lst` gives each part a `[diff]` in *display* space — Tux's `blackcol` is `0.1 0.1 0.1` —
+  and the importer stores it as a linear vertex colour on a `StandardMaterial3D`, so a fully lit
+  black part reads 89/255 where ETR reads 26. The material has no clamp, so on a racing pose with
+  the sun on his back the illumination runs to about 2.5 and he reads 137: grey, not black.
+  And ETR gives every character material a real `[spec]`/`[exp]` (`blackcol` is 0.5 at exponent
+  20), which is where the form on his sunlit side comes from in the original and which this build
+  has never had — so clamping alone would pin everything above `ndl` = 0.21 flat and take away the
+  gradient without giving the highlight back. Done together: `srgb_to_linear` on the migrated
+  colours, the include, and a specular lobe land the back at 22 against ETR's 26 and the white
+  belly at 199 against 199. It needs a `character.gdshader` and a transparent variant of it
+  (`Racer.make_translucent` duplicates a `StandardMaterial3D` today) plus a re-import of the five
+  rigs, which is why it is a job and not a line.
+- **Ice is 16 levels darker under Compatibility than under Mobile.** `tuxway` mid-lake measures
+  176.6 R on the desktop and 160.5 in the browser, and the reflected penguin is correspondingly
+  fainter. Most of the original 25-level gap was the sky reflection going through `EMISSION`,
+  which the two renderers do not treat alike — `EMISSION = vec3(0.5)` reads back as 0.500 linear
+  under Mobile and 0.216 under Compatibility, and it rides `SPECULAR_LIGHT` now, which they agree
+  on. The remaining 16 are somewhere else in the ice branch and have not been chased. Snow, which
+  is most of every course, agrees to within a level.
 - **Asset licence audit not started** (risk S5). Independent of engineering, long lead time,
   blocks Phase 5.
 - **Two terrain layers import with no albedo**, because `terrains.lst` names a texture that is

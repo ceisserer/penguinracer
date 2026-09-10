@@ -812,3 +812,199 @@ selects a night or evening preset, so nothing regressed, but a preset is not tun
 been fitted and none of the other seven has been.
 
 Written 2026-09-08.
+
+---
+
+### 24. Two renderers, because one of them blends a shadow in sRGB
+
+*2026-09-10.* Reported as "snow is still way too bright — the left snow-hill at Bumpy Ride, right
+from the start". Measured on frame 30 of that course, the left bank read R 250 / G 255 / B 255 with
+60 % / 97 % / 100 % of it clipped: a flat white sheet with no texture left in it. The right bank,
+turned away from the sun, read 188 / 211 / 253 and was fine. So it was the *sun* term, and it was
+not a level — the bank had no form at all.
+
+#### What it was
+
+Zeroing each energy in turn and rendering the full frame gave, in linear red over the same region:
+
+| | linear R |
+|---|---|
+| ambient only (sun energy 0) | 0.4815 |
+| sun only (ambient black) | 0.0624 |
+| both, shadows **off** | 0.5441 — the sum |
+| both, shadows **on** | 0.9622 |
+
+(That table and the sweep below it are the first attempt's measurements, kept because they are
+what identified the pass; everything from *the clamp* onward was re-measured against the split.)
+
+`Sun.shadow_enabled` was worth +0.42 linear on a lit slope and nothing at all on a shaded one.
+Nothing about the shadow *map* explains that, and the shadow mode did not matter — orthogonal, two
+splits, four splits, blended or not, all measured identically. What pinned it was replacing the
+whole of `light()` with `DIFFUSE_LIGHT += vec3(c)` and sweeping `c`: the extra term came back as
+**`srgb(c · albedo)` added to `srgb(ambient)`**, predicted 0.0519 / 0.0876 / 0.2237 in display for
+c = 0.005 / 0.01 / 0.05 against 0.0514 / 0.0875 / 0.2232 measured.
+
+**In the Compatibility renderer a light that casts shadows is drawn in a second, additive pass, and
+that pass is blended in sRGB space rather than linear.** It is a deliberate engine trade-off
+(godotengine/godot#77496, #90259) — a shadowed light has to be in a pass of its own so it cannot
+flicker between the two blend spaces — and `use_hdr_2d` does not change it (0.9593 against 0.9622).
+Two things follow. The sun lands five to ten times too bright, and worse, the sRGB curve *crushes
+its N·L gradient*: srgb is steepest near zero, so a dim sun term arrives compressed into the top of
+the range and every slope facing the sun ends up at the same value. That is the flat white bank.
+
+It also explains §11's methodology note, which observed the symptom and drew the wrong conclusion
+from it. "Rendering with the sun at zero and again with the ambient at zero gives two frames whose
+values do not sum to the full frame — the full frame is roughly twice their sum" is exactly this:
+setting the sun's energy to zero culls the light, which removes the additive pass, which removes the
+sRGB blend. The sum was fine. The full frame was wrong. §11 and §22 then fitted `sun_gain` against
+the distorted path and got 0.103 — an order of magnitude under what a linear pipeline wants, and
+correct only on the one frame it was solved on.
+
+#### The first answer, and why it was not kept
+
+The first pass at this took the fix that stays inside one renderer: turn `shadow_enabled` off,
+which puts the sun back in the base pass, and replace the engine's shadow map with one the terrain
+shader applies itself — a coverage mask baked from the trees at course load, plus an analytic
+ellipse per racer, both multiplied into the sun term inside `light()` where the clamp still holds.
+It worked, and it was rejected as the answer to the wrong question. (It is
+`git stash` entry *"lightning experiment"* on `perf-and-structure-pass`, and the diagnosis section
+above is its measurements, carried forward. Two unrelated things are still in there and were
+**not** brought over: exponential height fog driven by a migrated `[fogheight]`, and a skybox
+whose ground direction goes to the fog colour rather than to the front face's nadir average.
+Neither has anything to do with shadows and both are worth a second look on their own.) The whole apparatus exists to route around a blend space. Two hundred and
+ninety lines of `CourseShadows`, a second `SubViewport` with a world of its own, a shader whose
+only job is to lay a tree flat along the sun ray — none of it is about how this game should look,
+and all of it would have to be maintained forever on both targets.
+
+**The renderer was the variable nobody had moved.** `project.godot` had said `gl_compatibility`
+since the first commit, on the entirely reasonable ground that the web build has no choice — and
+the desktop build had been quietly inheriting the browser's constraint for five phases. Godot's
+Mobile renderer has one light loop, in linear, with the shadow arriving as `ATTENUATION` inside it.
+That is not a workaround for the bug; it is the absence of the bug.
+
+So: `rendering_method` is `mobile`, `rendering_method.web` is `gl_compatibility`, and
+`RenderBackend` is the seam. It asks `RenderingServer.get_rendering_device()` rather than reading
+the project setting, because the setting is a per-platform override with a `--rendering-method` on
+top of it and neither is visible from its value — a desktop run passing `gl_compatibility`, which
+is how the web look gets checked without a browser, has to answer the same as the browser does.
+
+#### The clamp, which the split made necessary and the split made cheap
+
+Removing the sRGB pass does not fix the report on its own. It cannot: ETR computes
+`texture × clamp(ambient + sun·N·L, 0, 1)`, so a fully sunlit slope reads exactly its texture —
+(236, 245, 255) for `snow.png` — with all of it intact. Multiplying first and clamping the product,
+which is what a PBR renderer does, sends anything past `illum > 1/albedo` to flat 255 white, and no
+choice of gain avoids that. Measured, with the pipeline linear:
+
+| `sun_gain` | Bunny Hill lit near field | Bumpy Ride left bank |
+|---|---|---|
+| (1.05, 0.78, 1.05) | 239.1 / 247.2 — matches the reference exactly | 254.0 / 255.0, 85 % clipped |
+| (0.60, 0.45, 0.60) | 219.4 / 233.4 — 20 levels dark | 236.4 / 246.4, 6 % clipped |
+
+The two courses wanted gains a factor of 1.75 apart, which is the shape of a missing clamp and not
+of a constant that needs nudging. `shaders/etr_illumination.gdshaderinc` is that clamp, and every
+lit shader includes it: the terrain and both object shaders, each `ambient_light_disabled` and
+each taking the ambient as `etr_ambient` instead, so that the two terms can meet inside `light()`
+where the engine's ambient cannot reach them.
+
+Putting it in a shared include rather than in `terrain.gdshader` was not tidiness. For one
+afternoon only the terrain had it, and the sun that the terrain's clamp was holding at the ceiling
+went straight into the forest instead: ETR clamps a tree exactly as it clamps a slope, because
+`DrawTrees` goes through the same fixed-function pipeline as everything else.
+
+#### What the clamp bought
+
+`sun_gain` stopped being a fit. ETR saturates red at `0.2 + 0.45 + 1.0·ndl >= 1`, i.e. `ndl = 0.35`,
+where the half-Lambert `shaped` is 0.210 — so `sun = (1 − 0.591) / 0.210 = 1.95` puts the ceiling at
+the same angle, and green crosses within 5 % of that at the same number. One scalar on the migrated
+`[diff]`, derived rather than solved. The three-numbers-per-end argument from §22 was always an
+argument about a per-channel *clamp*; with the clamp where ETR puts it, only the shaded end still
+needs three, and `ambient_gain` is §22's verbatim — a shaded fragment is ambient only, the ambient
+was always in the base pass, and that end of the fit was never distorted.
+
+| Bunny Hill, lit near field | ETR 0.8.4 | before (Compat + shadows) | after, Mobile | after, Compat |
+|---|---|---|---|---|
+| R | 239.2 | 238.3 | **234.9** | **235.5** |
+| G | 247.1 | 251.4 | **244.3** | **245.0** |
+| G clipped | 3.5 % | 53.2 % | **2.9 %** | **7.2 %** |
+
+Bumpy Ride's left bank — the report — goes from 251.0 R with 60 % clipped to 233.4 with 1.2 %.
+§22's closing note, "our lit region's upper half still runs about six levels over ETR's, and
+closing it wants a reference captured at a matched camera", is answered: it was not the camera, it
+was the clamp.
+
+The two renderers now agree to within a level on snow, which is the property that matters more
+than any of the numbers above — it means one fit serves both targets, and that a look tuned on the
+desktop is the look the browser gets, minus the shadows.
+
+#### The second bug, found on the way out
+
+With the sun back in the base pass and the gain re-solved, the lit near field came out 19 levels
+under the reference. `DIFFUSE_LIGHT += vec3(0.5)` over a surface of albedo 0.5 came back as
+**0.25**: Godot multiplies the accumulated diffuse light by `ALBEDO` once, after the light loop.
+The shader had been writing `DIFFUSE_LIGHT += ALBEDO * ...` on top of that and squaring it. On snow
+that is a 16 % darkening of the sun term and nothing at all to the ambient — which took the
+engine's single multiply — so it produced a perfectly plausible frame and was absorbed into
+`sun_gain` along with everything else.
+
+#### The third, found while checking the ice
+
+The same constant sweep against the two renderers turned up a channel that does *not* agree.
+`EMISSION = vec3(0.5)` reads back as 0.500 linear under Mobile and 0.216 under Compatibility, which
+is `srgb_to_linear(0.5)` to three places. `DIFFUSE_LIGHT` and `SPECULAR_LIGHT` have no such split,
+and neither does an `ALBEDO` that arrived through a `source_color` sampler — which is why the
+terrain matched between renderers all along and the ice did not. The ice's Fresnel sky reflection,
+with the mirrored racers composited into it, was the one term in the game going through `EMISSION`:
+`tuxway` mid-lake measured 176.6 R on the desktop and 151.9 in the browser, and the reflected
+penguin was half as visible there. Moving it to `SPECULAR_LIGHT`, added in `light()` and attenuated
+by nothing, leaves Mobile bit-identical and takes Compatibility to 160.5. Sixteen levels are still
+unaccounted for somewhere else in the ice branch and are in the known gaps.
+
+#### The shadow, once there was a renderer that could draw one
+
+Godot's directional defaults are `shadow_bias` 0.1 and `shadow_normal_bias` **2.0**, and a normal
+bias is world metres along the surface normal. Two of them, on a penguin 0.6 m across, erase his
+shadow completely — which is what "the racer casts nothing" was, with the shadow map containing him
+the entire time. Rendering `vec3(ATTENUATION)` straight out of the terrain shader is what showed
+it: the trees, the start banner and the hill were all in there, and the penguin was a blob three
+pixels wide. 0.4 and 0.03 put it back with no acne on the snow, which is the surface that would
+show acne first — a near-white Lambertian sheet at a grazing angle is the worst case for both
+biases at once.
+
+The three gates on `shadow_enabled` are not defensive programming; two of them are migrated.
+`CCharShape::DrawShadow` opens with `if (light_id == 1 || light_id == 3) return;` — no shadow under
+a cloudy or a night sky — and it is drawn at all only above `param.perf_level > 2`. Those are
+`EnvironmentPreset.casts_shadows` and `GameConfig.shadows`. The third is `RenderBackend`, and
+`race.tscn` ships `shadow_enabled = false` because a scene file cannot ask which renderer it is
+about to be loaded into.
+
+#### Methodology
+
+**A term that only appears when two others are both non-zero is a pass-structure problem, not a
+shading one.** Ambient alone was right, sun alone was right, and together they were nearly double.
+No compositing model does that, so the thing to question was not the arithmetic in the shader but
+how many times the renderer was running it — which is what the constant-in-`light()` sweep answered
+in one render each.
+
+**Sweep the constant, do not reason about the formula.** All three bugs here were found by writing
+a number into a shader output that could not be confused with anything else and reading what came
+out: `vec3(c)` for the pass structure, `vec3(0.5)` for the albedo multiply, the same against both
+renderers for `EMISSION`. All three had survived being reasoned about for at least a phase. The
+counterpart warning is in the same technique: a constant written to `ALBEDO` does *not* read back
+the way a sampled albedo does, so the sweep answers questions about the pipeline and not about the
+material.
+
+**Correct §11's note rather than leaving it.** "Do not tune by turning one light off" was a real
+instruction derived from a real measurement, and it was a bug report the whole time. A methodology
+note that says "the renderer evidently does something we do not understand here" is a lead, not a
+rule.
+
+**Check which variable you have been treating as fixed.** The renderer had been `gl_compatibility`
+since the first commit for a reason that only ever applied to one of the two targets, and five
+phases of rendering work were spent inside that constraint without anyone writing down that it was
+a choice. The trap-list entry that came out of the first attempt — "a shadowed light under
+Compatibility blends in sRGB, so no shader can reach it" — was true, complete, and pointed at a
+workaround because the sentence stopped one word short of "under Compatibility, *which is only the
+web build*".
+
+Written 2026-09-10.

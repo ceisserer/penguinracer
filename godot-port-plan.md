@@ -34,6 +34,22 @@ how the deformation field silently came out empty on the first pass at S1.
 Forward+/WebGPU future would improve a system, isolate that system behind an interface so it can be
 upgraded without touching callers.
 
+**Correction, 2026-09-10 — the rule was right, its scope was not.** "Web export requires the
+Compatibility renderer" is a constraint on the *web* export, and this plan quietly let it become a
+constraint on the project: `project.godot` shipped `rendering_method = "gl_compatibility"` with no
+per-platform override, so the desktop build spent five phases inside the browser's limits for no
+reason anyone had written down. The table row above also overstates one entry — "**Do have:**
+PBR, **shadows**, …" is true only in the sense that the renderer will draw them. Under
+Compatibility a shadow-casting light is moved into a second, additive pass that is blended in
+**sRGB** rather than linear (godotengine/godot#77496, #90259), so the sun arrives five to ten
+times too bright with its N·L gradient crushed flat, and no shader or gain can reach a framebuffer
+blend. Shadows are on the "do have" list and are not usable there.
+
+The project now ships **Mobile on the desktop and Compatibility on the web**, and the rule reads:
+nothing may *depend* on a feature Compatibility lacks, but a desktop build may **add** one behind
+a gate as long as the web frame without it is still worth shipping. `RenderBackend` is the gate
+and `Sun.shadow_enabled` is the only thing through it so far. See history §24.
+
 ---
 
 ## 2. What we rescue vs. discard
@@ -318,7 +334,7 @@ Long courses are fine despite appearances: `the_long_ride` is 80×4000, upsample
 160×300 ≈ 48 k vertices. Chunk streaming keeps memory flat. Distant chunks get a static LOD;
 only chunks inside the deformation window need the displacement path.
 
-### 4.5 Visual target under Compatibility
+### 4.5 Visual target
 
 One `DirectionalLight3D` (sun) + baked `LightmapGI` (courses are static — bake on desktop, ship the
 lightmap; this is the main compensation for no SDFGI) + SSAO + depth/height fog + glow.
@@ -351,6 +367,26 @@ scaling it; and ETR clamps per channel, which a scalar cannot reproduce on a tex
 already at the ceiling. The migrated colours stay verbatim in `sun_color`/`ambient_color`; the
 fitted correction is `sun_gain`/`ambient_gain`, a `Color` each, applied through
 `EnvironmentPreset.as_light_color` for both the ambient and the sun. history.md §22.
+
+**Correction, 2026-09-10 — the heading is now "the visual target", and Compatibility is the floor
+rather than the ceiling.** The desktop runs the Mobile renderer (§4.1's correction), so the
+directional shadow ETR only ever had as a blob under the character is real there, gated three ways
+and absent on the web. Two more things in the paragraph above have moved:
+
+- **The shading order is the original's, not a PBR renderer's.** Every lit shader includes
+  `shaders/etr_illumination.gdshaderinc` and computes `texture × clamp(ambient + sun·N·L, 0, 1)`,
+  with the engine's ambient disabled so the two terms can be summed before the albedo multiply.
+  Multiplying first and clamping the product — what §4.5 assumed all along — sends a slope to flat
+  255 white past `illum > 1/albedo`, which on snow is about 1.2, and is why the same sun that fit
+  Bunny Hill blew Bumpy Ride out.
+- **`sun_gain` is no longer fitted.** With the clamp in ETR's place it is derived from where the
+  original's own red saturates: one scalar, 1.95, on the migrated `[diff]`. `ambient_gain` is
+  still three fitted numbers, because a shaded fragment is ambient only and its channels sit at
+  different fractions of their own ceiling. history.md §24.
+- **No `LightmapGI` bake**, and there is not going to be one — it is still listed at the top of
+  this section. The courses are static, but nothing in the frame wants bounced light: ETR has one
+  ambient constant and clamps.
+
 
 **Correction, 2026-09-01:** the *shipped default* is now 40–150 m, stretched from the migrated
 0–75 by the settings file rather than by the data. Six of the eight presets carry

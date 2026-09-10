@@ -3,7 +3,8 @@
 A Godot 4.7 rebuild of [Extreme Tux Racer](http://extremetuxracer.sourceforge.net/) 0.8.4:
 downhill penguin racing with the original's physics model and real snow deformation.
 
-Targets **web (WebGL2 / Compatibility renderer)** and **desktop native** from one project.
+Targets **web (WebGL2 / Compatibility renderer)** and **desktop native (Vulkan / Mobile
+renderer)** from one project.
 
 - [`etracer.md`](./etracer.md) — analysis of the original C++ source. The reference for *what
   the original does*, especially §4.1 (physics constants) and §5 (legacy file formats).
@@ -59,6 +60,11 @@ tools/                    importer driver and the browser test harness
 ## Prerequisites
 
 Godot 4.7.2 on `PATH` as `godot`, plus its export templates if you want to build for the web.
+The desktop build runs the **Mobile** renderer and so needs Vulkan; the web build runs
+**Compatibility**, which is what WebGL2 gives you and the only reason the project carries two.
+The split is not cosmetic — under Compatibility a shadow-casting light is drawn in a second pass
+blended in sRGB, so the desktop gets shadows and the browser does not. See
+`game/scripts/config/render_backend.gd`.
 
 ```bash
 curl -sLO https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
@@ -218,6 +224,9 @@ resolution = "1280x720"   ; or "auto"; ignored on the web, where the page sizes 
 fullscreen = false
 render_scale = 1.00       ; fraction of the window the 3D scene renders at [0.25...2.0]
 ice_reflections = true    ; whether ice reflects the racers standing on it
+shadows = true            ; racers and trees cast a shadow. Desktop only — the browser's
+                          ; renderer cannot draw one without blowing the frame out — and
+                          ; off under a cloudy or a night sky either way
 
 [fog]
 start_distance = 40.0     ; metres of clear air before fog starts to build
@@ -234,7 +243,9 @@ port = 27015              ; the port --host listens on and --join= assumes
 ```
 
 Delete the file to get the defaults and the comments back. Godot's own `--resolution` and
-`--fullscreen` outrank it, so `tools/shot.sh` captures at 1280x720 whatever it says.
+`--fullscreen` outrank it, so `tools/shot.sh` captures at the size it asks for whatever the file
+says — though `--resolution` is *logical*, and a compositor running a fractional output scale
+multiplies it, so check the size of the PNG before trusting a pixel rectangle in it.
 
 The **Configuration** screen's resolution list is the display's, not a fixed one: the screen's own
 resolution, the standard modes that share its shape and fit beside the taskbar, and whatever the
@@ -271,7 +282,15 @@ count *is* the race time and two runs are comparable:
 
 ```bash
 tools/shot.sh /tmp/shot.png 200 bunny_hill paddle    # out, frames, course, scripted input
+SHOT_METHOD=gl_compatibility tools/shot.sh /tmp/web.png 200 bunny_hill paddle
+                                                     # ... as the browser will render it
+SHOT_RESOLUTION=1024x576 tools/shot.sh /tmp/shot.png  # ... at a true 1280x720 under a 1.25 scale
 ```
+
+`SHOT_METHOD` is `mobile`, `gl_compatibility` or `forward_plus` and the driver follows it; unset
+takes the project's own setting for the platform. The same thing without a capture is
+`godot --path game --rendering-method gl_compatibility --rendering-driver opengl3`, which is how
+the web look is checked without opening a browser.
 
 It renders on the real GPU when the machine has a Wayland socket and a DRI render node — that
 needs `libegl1 libegl-mesa0 libdecor-0-0`, without which Godot misreports the missing EGL library

@@ -2,7 +2,8 @@
 
 Godot 4.7 rebuild of **Extreme Tux Racer 0.8.4**: downhill penguin racing with the original's
 physics model and real snow deformation. Ships to **web (WebGL2 / Compatibility)** and **desktop
-native** from one project; both targets matter equally.
+native (Vulkan / Mobile renderer)** from one project; both targets matter equally. Two renderers,
+one project — see architecture rule 2 and [RenderBackend].
 
 **This is a rebuild, not a port.** Only the physics model is translated faithfully (constants are
 the game). Everything else is redesigned; original content is imported into the new shape.
@@ -26,7 +27,8 @@ marked with a date.
 ## Layout
 
 ```
-game/                     Godot project (project.godot, gl_compatibility)
+game/                     Godot project (project.godot; mobile on the desktop,
+                          gl_compatibility on the web)
   scripts/physics/        RacePhysics + surface + snow — plain RefCounted, zero node deps
   scripts/course/         CourseData, TerrainLayer, prefabs, events, environments
   scripts/render/         terrain chunks, GPU snow field, spray, and IceReflection —
@@ -50,6 +52,8 @@ game/                     Godot project (project.godot, gl_compatibility)
                           index of the five playable characters
   scripts/audio/          AudioDirector autoload + generated sound/music banks
   scripts/config/         GameConfig autoload — the player's settings file —
+                          plus RenderBackend, which renderer is running and the
+                          one thing that follows from it (shadows) —
                           plus LaunchArgs, the command line and the URL query
                           parsed once into one list, DisplayModes, the window
                           sizes the settings screen offers for the display it is
@@ -61,7 +65,9 @@ game/                     Godot project (project.godot, gl_compatibility)
                           key_log (what a remote desktop is doing to the keyboard)
   shaders/                terrain (splat + snow/ice shading), etr_skybox,
                           object_billboard (items), object_cross (trees),
-                          snow_trail, s1_displace
+                          snow_trail, s1_displace, and
+                          etr_illumination.gdshaderinc — ETR's sum-ambient-and-
+                          sun-then-clamp, included by everything that is lit
   addons/etr_import/      one-way, re-runnable importer from the ETR data tree
   courses/<name>/         GENERATED: course.tres, course.tscn, heightmap.res, splat_*.png
   resources/  i18n/       GENERATED: layers, prefabs, environments, events, course
@@ -142,14 +148,18 @@ node tools/webtest/run_web_test.js \
 
 Settings live in `user://penguinracer.cfg` — on Linux
 `~/.local/share/godot/app_userdata/PenguinRacer/`, written with its comments on first run.
-Window size, render scale, whether ice reflects the racers, fog distance, the size and skill of
+Window size, render scale, whether ice reflects the racers, whether anything casts a shadow, fog
+distance, the size and skill of
 the computer field, and the two multiplayer keys; delete it to get the defaults back. The main menu's **Configuration** screen
-moves the six a player can act on — `[multiplayer] player_name` and `port` are file-only until
+moves the seven a player can act on — `[multiplayer] player_name` and `port` are file-only until
 there is a lobby, and `opponents`/`opponent_skill` are set from the course screen instead, where
 the choice is actually made — and writes the same commented file back. The resolution row offers
 the display's own modes (`DisplayModes`, filled from `DisplayServer` at open time), not a fixed
 list, and the resolution and fullscreen rows are hidden on the web build, where the page sizes the
-canvas and `apply_display` ignores both. Whether a ghost is drawn is
+canvas and `apply_display` ignores both. The shadows row is hidden for the same reason wherever
+`RenderBackend.supports_light_shadows()` is false — the browser, and a desktop run started with
+`--rendering-method gl_compatibility` — but the value is still written back, so a preference set
+on the desktop survives a session in a browser. Whether a ghost is drawn is
 no longer a setting: it is whichever saved run the player chose from the main menu's **Race
 against ghost** list, or none.
 
@@ -158,7 +168,21 @@ or music), one generated `Course_<dir>` per course, `MusicPack`, `WebSpike`. The
 presets are owned by `tools/gen_course_export_presets.py`, re-run whenever a course is added,
 removed or renamed; `tools/build_web_streamed.sh` drives the whole build.
 The test server must set COOP/COEP and `.wasm`/`.pck` MIME types or the export fails obscurely.
-Prerequisite: Godot 4.7.2 on `PATH` as `godot`, plus export templates for web.
+Prerequisite: Godot 4.7.2 on `PATH` as `godot`, plus export templates for web. The desktop build
+needs **Vulkan** now that it runs the Mobile renderer; the web build needs nothing new. Checking
+what the browser will do without opening one is a flag:
+
+```bash
+godot --path game --rendering-method gl_compatibility --rendering-driver opengl3
+                                                                   # ... as the web build renders it
+SHOT_METHOD=gl_compatibility SHOT_RESOLUTION=1024x576 tools/shot.sh /tmp/web-look.png
+                                                                   # ... and captured, at a true 1280x720
+```
+
+`SHOT_METHOD` is `mobile` (the desktop default, Vulkan), `gl_compatibility` (what the browser
+runs) or `forward_plus`; the driver follows it. There is no software Vulkan in this image, so the
+llvmpipe fallback can only serve Compatibility — `shot.sh` says so rather than quietly capturing
+the wrong renderer.
 
 `tools/shot.sh` renders on the container's real GPU (Wayland socket + `/dev/dri/renderD128`),
 which needs `libegl1 libegl-mesa0 libdecor-0-0` installed; without them Godot reports it as
@@ -172,7 +196,7 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 |---|---|
 | 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 4096 assertions, 0 failures, 3.9 s headless. |
 | 1 — importer + first course | **done** — all 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. bunny_hill drivable in a browser; wild_mountains (100×1000) runs. |
-| 2 — rendering | partial — splat PBR, chunked terrain, instanced course objects (trees are the original's two fixed planes at 90°, turned by a hashed yaw so a grid-placed forest does not share them; items are billboards), HUD, migrated skyboxes. Tone matched to the original on Bunny Hill at both ends of the range and in all three channels; no LightmapGI bake. Snow and ice carry procedural micro-relief, a twinkling crystal glint and a Fresnel sky reflection, and the ice reflects the racers standing on it — a planar mirror pass (`IceReflection`) the ice branch samples in place of the sky where there is a penguin. The carve spray draws ETR's textured, growing, fading puffs on a redrawn atlas. |
+| 2 — rendering | partial — **two renderers**: Mobile on the desktop, Compatibility on the web, split because a shadow-casting light under Compatibility is drawn in an sRGB-blended second pass (trap list). Every lit shader reproduces ETR's illumination clamp; the desktop additionally gets a PSSM directional shadow the original has no equivalent for. Splat PBR, chunked terrain, instanced course objects (trees are the original's two fixed planes at 90°, turned by a hashed yaw so a grid-placed forest does not share them; items are billboards), HUD, migrated skyboxes. Tone matched to the original on Bunny Hill at both ends of the range and in all three channels; no LightmapGI bake. Snow and ice carry procedural micro-relief, a twinkling crystal glint and a Fresnel sky reflection, and the ice reflects the racers standing on it — a planar mirror pass (`IceReflection`) the ice branch samples in place of the sky where there is a penguin. The carve spray draws ETR's textured, growing, fading puffs on a redrawn atlas. |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror both wired; a carve leaves a track with a shaded trench, a self-occluded floor and a bright ploughed lip. |
 | 4 — character | **done for all five characters** — welded ArrayMesh from `shape.lst` **skinned** to a Skeleton3D with ETR joint names, the four keyframe lists as an AnimationLibrary plus a `KeyframePath` of root motion each, the pre-race start animation (`CIntro`) wired into the race, the finish-line clip (`finish`/`wonrace`/`lostrace`, chosen by `RaceOutcome.clip` — see the game shell row) wired into the results screen, and the racing pose layer (`AdjustJoints`) on `CharacterRig.adjust_joints` — flippers out to brake and the inside one out through a turn, a stroke through them while paddling, a flap on a jump, legs that tuck with speed and brace against the ground, a tail and a head that follow the lean. It runs off a `RacerState` and nothing else, so a ghost and a remote peer animate too. Tux, Trixi, Boris, Samuel and Beastie each carry their own shape and their own clips; `resources/characters.tres` indexes them and `GameConfig.character` picks one. Both canned clips are played the same way — the `Animation` for the joints and the `KeyframePath` for the body — because in both of them the body is where the animation is: `finish.lst` opens lying on the belly and stands the penguin up entirely on node 0. See the trap list. |
 | 5 — game shell | partial — `main_menu.tscn` is the main scene: Practice opens the course list, *Race the computer* opens the same list with a field of 1–9 opponents behind it, *Race against ghost* opens a list of every saved run (`ghost_menu.tscn`), Configuration edits `penguinracer.cfg` graphically, and a race is a scene the shell hands over to and takes back. A finished race brings up `results_menu.tscn` over the course — time, herring, the `wonrace`/`lostrace`/`finish` clip playing, and a name field to keep the run — before the ordinary course menu takes over. `character_menu.tscn` is the character half of `CRegist` — arrows over a framed name with the migrated 128x128 preview under it. Every screen wears `themes/etr_menu.tres`, so the shell reads as the original's: the flat `colBackgr` blue, white text, `colDYell` on whatever has focus, square white-outlined frames. Generated course and character catalogs, 13 languages wired to `tr()`, audio (10 effects + 10 pieces + 3 racing themes on an `AudioDirector` autoload that reproduces ETR's one-voice-per-cue mixer). No cups, medals or profiles (data is imported and waiting; the player half of `CRegist` waits on them); no volume or language controls on the settings screen; none of ETR's menu art (corner ornaments, title logo), which waits on the licence audit. |
@@ -224,15 +248,38 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   km/h on undisturbed snow, ours at 44 km/h over a fresh trench, and the camera is 70° FOV at
   19° above the slope against the original's 60° at 10°. Closing it wants a reference capture
   taken at a matched camera, not another scalar.
+- **The character is the one lit surface with no illumination clamp**, and it is a three-part job
+  rather than a missing include. `shape.lst` gives every part a `[diff]` in *display* space
+  (Tux's `blackcol` is 0.1) and the importer stores it as a linear vertex colour, so his back
+  reads 89/255 where ETR reads 26 even with the illumination on the ceiling; and ETR gives the
+  character a real `[spec]`/`[exp]` per material, which is where the form on his sunlit side
+  comes from and which this build has never had. Clamping alone would pin everything above
+  `ndl` = 0.21 flat and take the gradient away without giving the highlight back — **half of this
+  is worse than neither**. The three together are: `srgb_to_linear` on the migrated colours, the
+  include, and a specular lobe; measured, they land the back at 22 against ETR's 26 and the belly
+  at 199 against 199. It needs a `character.gdshader` (plus a transparent variant, since
+  `Racer.make_translucent` duplicates a `StandardMaterial3D` today) and a re-import of the five
+  rigs.
+- Ice is 16 levels darker under Compatibility than under Mobile (`tuxway`, mid-lake: 160.5 R
+  against 176.6) after the `EMISSION` half of it was fixed — see the trap list. The residual is
+  somewhere else in the ice branch and has not been chased; snow, which is most of every course,
+  agrees to within a level.
 - Asset licence audit not started — blocks Phase 5, long lead time.
 
 ## Architecture rules
 
 1. **`RacePhysics` has zero node dependencies.** Plain `RefCounted` stepped against a
    `SurfaceProvider`. This is what makes headless golden tests possible — do not break it.
-2. **No system may depend on a feature Compatibility lacks**: no compute shaders, no
-   `RenderingDevice`, no HDR (RGBA8 only), no decals/volumetrics/SSR/SDFGI/TAA, no manual particle
-   emission. Where Forward+ would help, isolate behind an interface.
+2. **Two renderers, and the web one is the floor.** The desktop runs **Mobile** (Vulkan) and the
+   web runs **Compatibility** (WebGL2), which is the only thing a browser offers. Nothing may
+   *depend* on a feature Compatibility lacks — no compute shaders, no `RenderingDevice`, no HDR
+   (RGBA8 only), no decals/volumetrics/SSR/SDFGI/TAA, no manual particle emission — but a desktop
+   build may **add** one, behind a gate, as long as the web frame without it is still a frame
+   worth shipping. `Sun.shadow_enabled` is the one that does today, and
+   `RenderBackend.supports_light_shadows()` is the gate; `race.tscn` ships it off, because a
+   scene file cannot ask which renderer it is about to be loaded into. Corrected 2026-09-10 —
+   this rule used to end "where Forward+ would help, isolate behind an interface", which was the
+   same instruction written as though it would never be taken up.
 3. **Gameplay never reads back from the GPU.** Readback stalls the browser. Snow is dual-represented
    on purpose: `SnowFieldGPU` (1024², 64 m toroidal window, for pixels) and `SnowField`
    (128² CPU mirror, for feel). They deliberately do not match.
@@ -393,6 +440,46 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   ceiling before any light is applied and never leaves it; one scalar that puts red on the
   reference necessarily takes blue off it. `sun_gain`/`ambient_gain` are `Color`s for that
   reason, and their blue components are near 1.0.
+- **Under Compatibility a shadow-casting light is drawn in a second pass, and that pass is
+  blended in sRGB.** It is a deliberate engine trade-off (godotengine/godot#77496, #90259) — a
+  shadowed light has to be in a pass of its own so it cannot flicker between the two blend spaces
+  — and `use_hdr_2d` does not change it. What arrives is `srgb(sun · albedo)` added to
+  `srgb(ambient)` instead of `srgb(ambient + sun) · albedo`. Two things follow and the second is
+  the bad one: the sun lands five to ten times too bright, **and the sRGB curve crushes its N·L
+  gradient**, because srgb is steepest near zero, so every slope facing the sun ends up at the
+  same value. That is a flat white bank with no form in it, and it is a framebuffer blend, so no
+  shader can reach it and no gain can fit around it. Measured on Bumpy Ride: ambient-only 0.4815
+  linear, sun-only 0.0624, both with shadows off 0.5441 — the sum — and both with shadows on
+  **0.9622**. It also explains, and retires, the old methodology note "do not tune by turning one
+  light off, the two frames do not sum to the full frame": setting an energy to zero culls the
+  light, which removes the additive pass, which removes the sRGB blend. The sum was fine; the
+  full frame was wrong. The fix is the renderer split — Mobile on the desktop has one light loop
+  in linear — and `RenderBackend` is where the whole story lives.
+- **Godot multiplies `DIFFUSE_LIGHT` by `ALBEDO` once, after the light loop.** A `light()` that
+  writes `DIFFUSE_LIGHT += ALBEDO * ...` therefore squares it. Nothing warns, and on snow it is a
+  16 % darkening of the sun term only — the ambient took the engine's single multiply — so it is
+  a perfectly plausible frame and it was quietly absorbed into `sun_gain` for two phases.
+  Measured rather than reasoned: `DIFFUSE_LIGHT += vec3(0.5)` over a surface of albedo 0.5 comes
+  back as 0.25. **Sweep a constant, do not reason about the formula** — both of the bugs in this
+  pair were found by writing a number into `light()` that could not be confused with anything
+  else and reading what came out, and both had survived being reasoned about.
+- **`EMISSION` does not mean the same thing on the two renderers, and `DIFFUSE_LIGHT` /
+  `SPECULAR_LIGHT` do.** `EMISSION = vec3(0.5)` reads back as 0.500 linear under Mobile and as
+  0.216 — which is `srgb_to_linear(0.5)` — under Compatibility. A value that reaches `ALBEDO`
+  through a `source_color` sampler round-trips and does not show it, which is why the terrain
+  matched between renderers to within a level while the ice did not: the ice's sky reflection was
+  the one term going through `EMISSION`, and it was 25 levels darker in the browser with the
+  reflected penguin half as visible. It rides `SPECULAR_LIGHT` now, added in `light()`, which is
+  the additive channel both renderers agree on. **Do not calibrate a shader against a constant
+  written to a colour output** — write the constant into `DIFFUSE_LIGHT` instead, or measure the
+  real shader.
+- **`--resolution` is logical, and a compositor with a fractional output scale multiplies it.**
+  This container's Wayland session runs at 1.25, so `tools/shot.sh`'s "1280x720" was writing
+  1600x900 PNGs and every region box in the tone-fitting notes (history §11, §22) was landing
+  somewhere else in the frame — the Bunny Hill lit near field measured 213 in the scaled box and
+  237 in the unscaled one, and neither was the number the fit was solved on. `SHOT_RESOLUTION=1024x576`
+  gets exactly 1280x720 back here. Check the size of the PNG you got before trusting a documented
+  rectangle.
 - **`Environment.ambient_light_sky_contribution` defaults to 1.0**, which hands the ambient term
   to the sky even when `ambient_light_source` is `AMBIENT_SOURCE_COLOR`. On a snow course the sky
   is a wall of sunlit snow — far brighter than the migrated `[amb]` it displaces, and scaled by
@@ -940,6 +1027,27 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   `snowy_ice`, `snowy_greenice` and `snowy_hockey_ice` ship without it, so the friction clause
   carries most of the set rather than a couple of stragglers. It catches them because every ETR
   ice terrain is `[friction] 0.2` and nothing else goes below 0.3.
+- **The illumination is summed and clamped before it touches the albedo**, which is ETR's
+  fixed-function order and not a PBR renderer's. `shaders/etr_illumination.gdshaderinc` is
+  `texture × clamp(ambient + diffuse · N·L, 0, 1)`, and every lit shader includes it: the terrain,
+  and both object shaders, each `ambient_light_disabled` so the two terms can meet inside
+  `light()` where the engine's ambient cannot reach them. This is what makes `sun_gain` a
+  derivation rather than a fit — ETR saturates red at `0.2 + 0.45 + 1.0·ndl ≥ 1`, i.e. `ndl` =
+  0.35, where the half-Lambert `shaped` is 0.210, so `sun = (1 − 0.591) / 0.210 = 1.95`, one
+  scalar on the migrated `[diff]`. Multiplying first and clamping the product instead sends a
+  slope to flat 255 white the moment the illumination passes `1/albedo`, which on snow is about
+  1.2; two courses under the same sun then want gains a factor of 1.75 apart, which is the shape
+  of a missing clamp and not of a constant that needs nudging.
+- **The sun casts a real shadow map, on the desktop only, and the original casts a blob.** ETR's
+  only shadow is `CCharShape::DrawShadow`, the character's own flattened body drawn under it at
+  `perf_level > 2` and skipped under `light_id` 1 and 3; `DrawTrees` emits no shadow geometry at
+  all. Here it is Godot's PSSM directional shadow, so the trees, the start banner and the hill
+  itself cast too — an addition of the same kind as the ice reflection, and off in the same three
+  ways: the renderer (`RenderBackend`, which refuses under Compatibility — see the trap list),
+  the sky (`EnvironmentPreset.casts_shadows`, which is ETR's `light_id` rule verbatim) and the
+  player (`GameConfig.shadows`, which is ETR's `perf_level`). **The web build therefore has no
+  shadows at all**, deliberately: the frame it gets instead is the same clamped illumination
+  without the shadow term, which measures within a level of the desktop's on snow.
 - **Linear tone mapper, no glow, no SSAO.** ETR clamps in display space and has neither effect;
   a filmic curve redistributes both ends of the snow's range and glow smears the highlights that
   snow is mostly made of. Reproducing a fixed-function look means reproducing its transfer curve.
