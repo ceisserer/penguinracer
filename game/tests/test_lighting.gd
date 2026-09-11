@@ -109,6 +109,12 @@ static func _the_mirror_takes_its_share(t: TestCase) -> void:
 	# at full strength.
 	t.ok(text.contains("max(1.0 - ice_roughness"),
 		"the grazing Fresnel is capped by the roughness the surface declares")
+	# The far field a low ray lands on is gated on distance as well as on the
+	# ray's elevation, and dropping the distance half is the silent half: it
+	# brightens a distant lake and *darkens* a near gully, because up close a low
+	# ray lands on the near bank rather than on fog.
+	t.ok(text.contains("ice_horizon_distance") and text.contains("far_off"),
+		"the distant-field reflection is gated on distance, not just elevation")
 
 static func _the_renderer_rule(t: TestCase) -> void:
 	t.begin("lighting/which renderer")

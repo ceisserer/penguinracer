@@ -267,6 +267,7 @@ Two masks, computed once, and everything material-dependent downstream is gated 
 | crystal glint | `snow_mask` | per-texel facet normals + a sharp lobe in `light()` |
 | wrap lighting | `snow_mask` | half-Lambert, standing in for the subsurface scattering Compatibility has no SSS for |
 | sky reflection (`SPECULAR_LIGHT`) | `ice_mask` | Fresnel-weighted two-colour ramp, both ends measured off the migrated skybox |
+| distant-field reflection (`ice_horizon_terrain`) | `ice_mask` | a *low* ray off *distant* ice reflects the fogged far field (`fog_color`), not the sky — gated on both, because up close the same ray lands on the near bank |
 | character reflection | `ice_mask` | the racers, mirrored through the ice under the player, *replacing* the sky ramp where the mirror has one — see `IceReflection` |
 | sun glare | `ice_mask` | tight lobe on the same Fresnel weight |
 | albedo cut (`ice_albedo` 0.82) | `ice_mask` | makes the ice terms visible at all |

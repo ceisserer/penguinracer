@@ -217,7 +217,50 @@ group_uniforms Ice_Shading;
 // is the one a grazing view reads, and it is the one that was wrong.
 uniform vec3 sky_zenith : source_color = vec3(0.24, 0.39, 0.75);
 uniform vec3 sky_horizon : source_color = vec3(0.75, 0.82, 0.92);
-uniform float ice_reflection : hint_range(0.0, 2.0) = 1.0;
+// How fast the surface hands itself over to the mirror as the view flattens.
+//
+// It scales the Fresnel weight, and the product is clamped to 1 — so above 1.0
+// this does not make the reflection *brighter*, it makes the ice reach a full
+// mirror before true grazing. 1.5 saturates at F = 0.67, which is a view about
+// 12 degrees off the surface. The clamp is what keeps that honest: at the top
+// the diffuse is zero and the ice is exactly its reflection, never more.
+uniform float ice_reflection : hint_range(0.0, 2.0) = 1.5;
+// What a low mirror ray off *distant* ice hits, and how much of it it gets.
+//
+// The ramp above is a *sky* ramp, and a ray that leaves at three degrees has not
+// reached the sky yet: it crosses a kilometre of sunlit snowfield and the
+// mountains behind it first. Handing that ray `sky_horizon` gives it the
+// dimmest thing in that direction, which is what flattened the far half of a
+// frozen lake into a single grey once the reflection stopped being unbounded.
+// The term was right to shrink; it was then reflecting the wrong thing.
+//
+// [b]The radiance is `fog_color`, and that is not the mistake it looks like.[/b]
+// `sky_horizon` was `fog_color` until the flat-angle fix, and swapping it out
+// was correct — as the radiance of the *sky* it was 1.6x too bright. As the
+// radiance of *distant terrain* it is very nearly exact, because distant
+// terrain is precisely what the fog has faded to `fog_color`. Same constant,
+// different question.
+//
+// **Two gates, and the distance one is load-bearing.** A low ray only lands on
+// the fogged far field if this fragment is far away to begin with; up close it
+// lands on the near bank, which is ordinary lit terrain and often darker than
+// the sky. Without the distance gate this brightens a distant lake and *darkens*
+// a near gully — measured, on `penguins_cant_fly`, where an early cut of this
+// took the shaded bowl from 150/167/193 down to 126/145/164 by mirroring the
+// rock blended into its own splat.
+//
+// It cannot reintroduce the blowout: this feeds `reflected`, which the Fresnel
+// split below mixes *into* the surface rather than adding on top, so the ice
+// still cannot exceed the brighter of its diffuse and its reflection. 0
+// restores the sky-only ramp.
+uniform vec3 ice_distant_tint : source_color = vec3(1.0);
+uniform float ice_horizon_terrain : hint_range(0.0, 1.0) = 1.0;
+// Elevation, in units of `refl.y`, over which the reflection hands off from the
+// far field to the sky. 0.5 is about 30 degrees.
+uniform float ice_horizon_span : hint_range(0.02, 1.0) = 0.5;
+// Metres at which the fragment counts as far enough for its low rays to be
+// landing in the fog. Fades in from a quarter of this.
+uniform float ice_horizon_distance : hint_range(1.0, 300.0) = 80.0;
 // Ice's real F0 is about 0.018, the same dielectric ballpark as snow. The
 // difference is roughness: snow scatters the lobe away and ice keeps it, so ice
 // gets the sun as a hard highlight rather than a wash.
@@ -517,6 +560,15 @@ void fragment() {
 			pow(1.0 - ndv, 5.0));
 		vec3 refl = mat3(INV_VIEW_MATRIX) * reflect(-VIEW, NORMAL);
 		vec3 reflected = mix(sky_horizon, sky_zenith, smoothstep(0.0, 0.6, refl.y));
+		// Hand the lowest rays off distant ice to the fogged far field instead
+		// of to the sky — see `ice_distant_tint`. Both gates have to agree: the
+		// ray has to be low, *and* the fragment has to be far enough away that
+		// a low ray lands in the fog rather than on the near bank.
+		float low_ray = 1.0 - smoothstep(0.0, ice_horizon_span, refl.y);
+		float far_off = smoothstep(ice_horizon_distance * 0.25,
+			ice_horizon_distance, view_dist);
+		reflected = mix(reflected, ice_distant_tint,
+			ice_horizon_terrain * low_ray * far_off);
 
 		// The racers, where there are any. This *replaces* the sky rather than
 		// adding to it, which is both the physics and the reason it reads: a

@@ -904,7 +904,10 @@ func _apply_environment(preset: EnvironmentPreset) -> void:
 		# "ice at a flat angle is almost white". The nadir average is no use for
 		# it either: that is a downward direction, and the bottom of an ETR
 		# skybox face is mountains.
-		terrain.set_sky_tint(preset.sky_zenith_color, preset.sky_horizon_color)
+		# ... and `fog_color` still has a job here: it is what a low ray off
+		# *distant* ice lands on, because distant terrain is what the fog fades.
+		terrain.set_sky_tint(preset.sky_zenith_color, preset.sky_horizon_color,
+			preset.fog_color)
 
 ## Whether the sun casts a shadow map at all, which three separate things have
 ## to agree on.

@@ -488,7 +488,13 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   solved at one incidence and the term that was wrong is the one that grows by 6.5x outside it.
   This is the second bug the old `EMISSION` path was hiding: sRGB-decoding under Compatibility was
   quietly scaling the reflection to 43 % of itself, so moving it to `SPECULAR_LIGHT` fixed the
-  units and delivered the missing energy split at full strength.
+  units and delivered the missing energy split at full strength. **The sequel is worth knowing too**: with the
+  term bounded, the far field went flat, and the fix was not to loosen the bound but to notice the
+  ramp was still answering the wrong question. `fog_color` is a bad radiance for the *sky* and a
+  very good one for *distant terrain*, which is what it fades. It came back as `ice_distant_tint`,
+  gated on distance — and the cut without that gate darkened the reported course, because up close
+  a low ray lands on the near bank. Same constant, three different answers depending on which
+  direction and how far you are asking about.
 - **`EMISSION` does not mean the same thing on the two renderers, and `DIFFUSE_LIGHT` /
   `SPECULAR_LIGHT` do.** `EMISSION = vec3(0.5)` reads back as 0.500 linear under Mobile and as
   0.216 — which is `srgb_to_linear(0.5)` — under Compatibility. A value that reaches `ALBEDO`
@@ -1013,8 +1019,12 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   takes comes out of the diffuse under it (`1 - mirror_share`), so the two sum to the surface and
   not past it, and the grazing end of Schlick is capped at `1 - ice_roughness` rather than 1,
   because a rough dielectric never becomes a perfect mirror. Both of those are load-bearing only
-  at a flat angle — see the trap list. All of it is behind uniforms; `ice_albedo = 1.0` and
-  `detail_relief_* = 0` restore the previous look.
+  at a flat angle — see the trap list. The other half of that angle is *what* a grazing ray
+  reflects: a ray leaving at three degrees has not reached the sky, so from distant ice it takes
+  the fogged far field (`fog_color`, as `ice_distant_tint`) instead of the haze band — gated on
+  distance as well as elevation, because up close the same ray lands on the near bank and that is
+  often darker than the sky. All of it is behind uniforms; `ice_albedo = 1.0`,
+  `ice_horizon_terrain = 0` and `detail_relief_* = 0` restore the previous look.
 
 - **The ice reflects the racers standing on it**, and ETR reflects nothing at all — its
   `DrawCharacter` draws the penguin exactly once and its ice differs from its snow only by

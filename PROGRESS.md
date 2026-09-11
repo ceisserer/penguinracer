@@ -1097,10 +1097,24 @@ Ice at chase incidence does drop 13–17 levels, which is the fit moving because
 was wrong, not the fit being abandoned: it was solved against a white sky the frame never had.
 `ice_albedo` is the knob if the mid-tone wants to come back — putting the white sky back is not.
 
-`TestLighting` asserts the energy split and the roughness cap textually, for the same reason it
-asserts the clamp that way: adding rather than mixing renders a perfectly plausible frame at the
-angle anyone would check. `TestEnvironments` asserts that all eight presets reflect something
-below white, and that it is not `fog_color`.
+Then, on request, some of the far-field sheen came back — not by loosening the bound, but by
+fixing what a grazing ray reflects. The ramp is a *sky* ramp, and a mirror ray that leaves at three
+degrees has not reached the sky: from distant ice it crosses the far field first, and the far field
+is by definition what the fog has faded to `fog_color`. So `fog_color` returns as
+`ice_distant_tint` — the same constant the horizon end was wrongly using, now answering the
+question it actually answers. **Two gates, and the distance one is the load-bearing half.** A first
+cut used the terrain's own albedo with no distance gate and went the wrong way on the very course
+that was reported: the shaded gully bowl fell from 150/167/193 to 126/145/164, because up close a
+low ray lands on the near bank, which on `penguins_cant_fly` is the rock blended into its own
+splat. Gated on distance, the same term lifts far ice down the gully from 168/180/202 to
+186/195/212 and the worst grazing point from 138/155/185 to 188/197/215, against the 220/229/245
+the unbounded build had there — with the frame's fully-white fraction going 0.12 % to 0.15 %.
+
+`TestLighting` asserts the energy split, the roughness cap and the distance gate textually, for the
+same reason it asserts the clamp that way: adding rather than mixing renders a perfectly plausible
+frame at the angle anyone would check, and dropping the distance gate renders a plausible one at
+the *distance* anyone would check. `TestEnvironments` asserts that all eight presets reflect
+something below white, and that it is not `fog_color`.
 
 4307 assertions, 0 failures.
 

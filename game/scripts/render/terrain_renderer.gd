@@ -106,11 +106,17 @@ static func _set_layer_table(mat: ShaderMaterial, name: String, v: Array) -> voi
 ## [member EnvironmentPreset.sky_horizon_color]. It used to be `fog_color`,
 ## which is a fade target and not a radiance — see that member, and the ice
 ## block in `shaders/terrain.gdshader`.
-func set_sky_tint(zenith: Color, horizon: Color) -> void:
+##
+## [param distant] is `fog_color` after all, and for the other question the ramp
+## asks: what a *low* ray off *distant* ice lands on is not sky but the far
+## field, and the far field is by definition what the fog has faded to. Same
+## constant, different direction. See the shader's `ice_distant_tint`.
+func set_sky_tint(zenith: Color, horizon: Color, distant: Color) -> void:
 	if _material == null:
 		return
 	_material.set_shader_parameter("sky_zenith", zenith)
 	_material.set_shader_parameter("sky_horizon", horizon)
+	_material.set_shader_parameter("ice_distant_tint", distant)
 
 ## Hand the terrain the environment's ambient, in the linear units the shader
 ## works in.
