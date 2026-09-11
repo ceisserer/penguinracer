@@ -38,6 +38,17 @@ var _null_probability: float = 0.0
 func _rand(a: float, b: float) -> float:
 	return _rng.randf_range(a, b)
 
+## Where the wind is blowing, in degrees from `+z` toward `+x`. `CWind::Angle`.
+## The HUD's wind rose is the only thing that asks: the physics wants
+## [member vector], which is this and [method speed] resolved.
+func angle() -> float:
+	return _w_angle
+
+## How hard it is blowing. `CWind::Speed`. Not the length of [member vector] —
+## that one has the original's 0.2 weight on the `z` component in it.
+func speed() -> float:
+	return _w_speed
+
 ## `wind_id` 0 = calm, 1..3 = the original's wind grades.
 func init_wind(wind_id: int, seed_value: int = 0) -> void:
 	_rng.seed = seed_value

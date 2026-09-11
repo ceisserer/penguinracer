@@ -38,9 +38,9 @@ paddle, and the roll normal. ODE23 (Bogacki–Shampine) with adaptive stepping, 
 `MAX_STEP_DIST` cap. Trees and herring go through a uniform spatial grid, fixing the original's
 O(items) scan per substep.
 
-**0 failures** — 2293 assertions when the phase closed, 4096 today across physics, surface,
-input, audio, the imported terrain library, the settings file, the character rig and the chase
-camera, in 3.9 s headless. Per-force golden values are
+**0 failures** — 2293 assertions when the phase closed, 4337 today across physics, surface,
+input, audio, the imported terrain library, the settings file, the character rig, the chase
+camera and the HUD's arithmetic, in 3.9 s headless. Per-force golden values are
 worked out by hand from the constants — air drag at 20 m/s, each of the three spring bands, the
 400 N lateral friction cap, the 30°/55° bank angles, the paddle's fade to nothing at 60 km/h — so
 a change in feel shows up as a test failure rather than as a vague complaint. Whole-simulation
@@ -88,7 +88,7 @@ Phase 1 and never once fired — nothing ever set it — and terrain layers, the
 can tune a material from the Inspector, had no guard at all. See materials.md §6.
 
 `bunny_hill` is drivable end to end with chunked terrain, splat-blended PBR, instanced trees,
-herring pickups, the chase camera and a HUD — **including in a browser**. The Phase 1 exit
+herring pickups, the chase camera and the HUD — **including in a browser**. The Phase 1 exit
 criterion is met: a `WebOneCourse` export loads and runs bunny_hill under Chromium/WebGL2,
 streaming 21 terrain chunks, on a 6.6 MB pck. Long courses work too — `wild_mountains`
 (100×1000) runs, and the per-course pck size was the shape Phase 6's streaming needed — real
@@ -98,7 +98,7 @@ per-course streaming (below, S6) has since replaced `WebOneCourse`.
 
 `game/scripts/render/` + `game/shaders/` — chunked terrain with splat-blended PBR, instanced
 course objects in the original's two shapes, the migrated three-quad skybox, per-environment
-fog and light, and a HUD.
+fog and light, and the original's HUD redrawn (below).
 
 **Trees are two fixed planes at 90°; items are billboards.** `DrawTrees` is two loops in one
 function: `CollArr` gets eight vertices — a quad across X and a quad across Z, from the ground to
@@ -196,6 +196,52 @@ shadows.
 
 No LightmapGI bake. The remaining gaps — the character's own material, seven untuned
 environments, ice under Compatibility, the camera framing — are in Known gaps below.
+
+#### The HUD is the original's, redrawn (2026-09-11)
+
+`RaceHUD` was a two-line text overlay — `12.34 s   56.7 km/h   herring 3` in the top-left corner —
+and it is now `hud.cpp`'s six controls, in `hud.cpp`'s places:
+
+- **The stopwatch and the time**, top left, as `MM:SS` with the hundredths trailing smaller.
+- **The herring count and the fish**, top right.
+- **The gauge**, bottom right: one dial carrying two unrelated numbers, which is most of what makes
+  the original's HUD read as a HUD rather than as a row of text. Inside it, the jump charge as a
+  translucent blue fill that rises up the disc while the key is held; around the outside, the speed
+  as an arc that fills green to the paddling ceiling, then yellow to 100 km/h, then red to 160,
+  with the speed itself in numbers at the centre. The band edges are fractions of the *sweep*, not
+  of the speed range, so they are the same three angles at every speed — which is what lets a
+  player read "past green" without reading the number.
+- **The course-position bar**, up the right edge, filling from the bottom as you descend.
+- **The wind rose**, bottom left, with a fat needle for the wind and a thin one for your heading.
+  Drawn only when the course has wind, which — as in the original's practice mode — is never,
+  because wind is a property of a cup race in `events.lst` and there are no cups. `--wind=1..3`
+  makes it reachable; the [WindField] behind it was already ported and already feeds air drag.
+- **The frame rate**, centred across the top, behind `--fps` where ETR has `param.display_fps`.
+
+**Redrawn, not copied.** All of it is textured quads in the original and none of that art is in
+this tree, for the same reason the menus wear ETR's palette without ETR's corner ornaments: the
+licence audit is open. What is portable is the geometry, which lives in `hud.cpp`'s constants
+rather than in the art, so the layout is the original's numbers and the shapes are
+[CanvasItem] primitives built from them. Two numbers had to be measured off the art instead,
+because the artist put them there and not in a `#define`: the jump disc's radius and the speed
+ring's two edges. The typeface is the one thing that could not be reproduced — ETR's numbers are a
+12-glyph bitmap strip — so the glyphs are the theme font emboldened, drawn on the strip's own
+fixed 22×32 cell so that a rolling hundredths digit still does not shove the seconds sideways.
+
+Three things on screen are not in the original and are marked `DEVIATION` where they are drawn:
+the status line under the time (the ghost delta, or the standings — this game has ghosts and
+opponents and ETR has neither), the `PRESS ANY KEY TO START` hint over the start animation, and
+`Race Over` beside the time for the three seconds between the line and the results panel, which
+the original does not need because it leaves the racing loop at the line.
+
+Positions are canvas pixels against the project's 1280×720 design resolution rather than against
+the real window. ETR anchors to the window corners, so its gauge is the same 128 px at 640×480 and
+at 1920×1080 and reads half the size on the second; `canvas_items` stretch scales ours, which is
+how the rest of this shell already works.
+
+What is still owed: the cup-racing half of the time and herring readouts, where the original
+counts *down* to the gold/silver/bronze thresholds and colours the number by which one is still in
+reach. The thresholds are imported and sitting on `RaceEvent`; there is no cup to race yet.
 
 ### Phase 3 — snow · **mechanism proven, integration partial**
 

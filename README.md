@@ -96,6 +96,8 @@ godot --path game spikes/s7_reflection/s7_spike.tscn # planar reflection spike
 godot --path game res://scenes/key_log.tscn          # keyboard delivery probe
 godot --path game -- --no-audio                      # play with the sound off
 godot --path game -- --no-intro                      # ... and without the start animation
+godot --path game -- --fps                           # ... showing the HUD's frame-rate readout
+godot --path game -- --wind=2                        # ... with weather, and so the HUD's wind rose
 godot --path game -- --host --course=bunny_hill      # host a session for others to join
 godot --path game -- --join=<address> --course=bunny_hill    # ... join one
 ```
@@ -106,6 +108,14 @@ waddles across to it, turns to face down the hill and drops onto his belly. Four
 seconds, and **any key skips it**. `R` mid-race goes straight back to racing without replaying it,
 and a scripted run — anything passing `--auto-input=`, `--no-intro`, or `?nointro=1` in a browser
 — never sees it at all, which is what keeps screenshot comparisons comparable.
+
+The HUD is the original's: the stopwatch and the time top left, the herring count top right, and
+bottom right the round gauge that carries two numbers at once — the jump charge as a blue fill
+rising up the disc while space is held, and the speed as an arc around it that runs green to
+60 km/h, yellow to 100 and red to 160, with the number itself in the middle. A bar up the right
+edge fills as you descend. It is drawn rather than migrated: ETR's HUD textures are not in this
+tree pending the licence audit, so the layout is `hud.cpp`'s own constants and the shapes are
+built from them.
 
 Controls: arrow keys steer/paddle/brake, space charges a jump, `Ctrl` plus a direction turns an
 air into a trick, `R` restarts, `P` freezes the race in place with a `PAUSED` banner and unfreezes
@@ -276,6 +286,9 @@ Development flags, useful for headless verification:
 godot --path game -- --capture=/tmp/shot.png --capture-frames=200 \
     --auto-input=carve --camera=above --course=wild_mountains
 ```
+
+`--auto-input=` is `carve`, `brake`, `paddle` or `jump`; the last charges and fires on a fixed
+cycle, which is the only way to capture the HUD gauge's inner half.
 
 `tools/shot.sh` wraps the same flags and pins the simulation to `--fixed-fps 60`, so the frame
 count *is* the race time and two runs are comparable:

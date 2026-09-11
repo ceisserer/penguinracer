@@ -470,6 +470,14 @@ func _build_simulation(racer: SimulatedRacer, course: CourseData) -> void:
 	sim.bounds_polygon = course.effective_play_bounds()
 	sim.play_length = course.play_size.y
 	sim.finish_brake = course.finish_brake
+	# ETR's `[wind]` grade belongs to a *cup race* in `events.lst`, and there
+	# are no cups here yet, so `--wind=` is the only thing that asks for
+	# weather — and the only way to see the HUD's wind rose. Every racer gets
+	# its own [WindField] on the same seed rather than sharing one: they are all
+	# stepped with the same [constant SIM_DT] on the same tick, so identical
+	# seeds evolve identically, where one shared field would be advanced once
+	# per racer and blow a field of ten about ten times too fast.
+	sim.wind.init_wind(LaunchArgs.current().wind)
 	racer.attach_physics(sim)
 	# One 64 m GPU window exists and it follows the view target, so only that
 	# racer can usefully stamp it. Everyone else deforms the CPU mirror, which

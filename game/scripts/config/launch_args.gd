@@ -44,6 +44,14 @@ var difficulty: String = ""
 var remote_keyboard: bool = false
 var no_audio: bool = false
 var no_intro: bool = false
+## `--fps` — the HUD's frame-rate readout, which is `param.display_fps` in the
+## original's config file. A flag rather than a setting because it is a debug
+## number you turn on for a session, not a preference worth keeping.
+var show_fps: bool = false
+## `--wind=1..3` — the wind grade, ETR's `[wind]` column in `events.lst`.
+## Nothing else sets it: wind belongs to a cup race and there are no cups yet,
+## so this is how the [WindField] and the HUD's rose are reachable at all.
+var wind: int = 0
 ## `?autostart` — the browser's way of saying "skip the menu" without naming a
 ## course, since it has no `--auto-input=` either.
 var autostart: bool = false
@@ -112,6 +120,10 @@ func parse(argv: PackedStringArray, query: Dictionary) -> void:
 			no_audio = true
 		elif arg == "--no-intro":
 			no_intro = true
+		elif arg == "--fps":
+			show_fps = true
+		elif arg.begins_with("--wind="):
+			wind = arg.trim_prefix("--wind=").to_int()
 		elif arg.begins_with("--capture="):
 			capture_path = arg.trim_prefix("--capture=")
 		elif arg.begins_with("--capture-frames="):
@@ -141,6 +153,9 @@ func parse(argv: PackedStringArray, query: Dictionary) -> void:
 	remote_keyboard = remote_keyboard or query.has("remotekeyboard")
 	no_audio = no_audio or query.has("noaudio")
 	no_intro = no_intro or query.has("nointro")
+	show_fps = show_fps or query.has("fps")
+	if wind == 0 and query.has("wind"):
+		wind = str(query["wind"]).to_int()
 	autostart = autostart or query.has("autostart")
 	capture_path = _str(query, "capture", capture_path)
 	if query.has("capture-frames"):

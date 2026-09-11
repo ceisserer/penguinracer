@@ -124,6 +124,8 @@ godot --path game -- --character=trixi                             # ... as one 
 godot --path game -- --remote-keyboard                             # ... over a pulsed remote keyboard
 godot --path game -- --no-audio                                    # ... silent, for captures
 godot --path game -- --no-intro                                    # ... skipping the start animation
+godot --path game -- --fps                                         # ... with the HUD's frame-rate readout
+godot --path game -- --wind=2                                      # ... with weather, and so the HUD's wind rose
 godot --path game -- --host --course=bunny_hill                    # ... hosting a session (ENet, desktop only)
 godot --path game -- --join=127.0.0.1 --course=bunny_hill          # ... joining one
 godot --path game res://scenes/key_log.tscn                        # what the link does to the keyboard
@@ -138,6 +140,8 @@ godot --path game spikes/s7_reflection/s7_spike.tscn               # planar refl
 # headless verification without a display
 godot --path game -- --capture=/tmp/shot.png --capture-frames=200 \
     --auto-input=carve --camera=above --course=wild_mountains
+# `--auto-input=` is carve | brake | paddle | jump; `jump` charges and fires on
+# a fixed cycle, which is the only way to capture the HUD gauge's inner half.
 
 # web — streamed build: base + one .pck per course + one for music
 ./tools/build_web_streamed.sh
@@ -194,9 +198,9 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 
 | Phase | State |
 |---|---|
-| 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 4096 assertions, 0 failures, 3.9 s headless. |
+| 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 4337 assertions, 0 failures, 3.9 s headless. |
 | 1 — importer + first course | **done** — all 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. bunny_hill drivable in a browser; wild_mountains (100×1000) runs. |
-| 2 — rendering | partial — **two renderers**: Mobile on the desktop, Compatibility on the web, split because a shadow-casting light under Compatibility is drawn in an sRGB-blended second pass (trap list). Every lit shader reproduces ETR's illumination clamp; the desktop additionally gets a PSSM directional shadow the original has no equivalent for. Splat PBR, chunked terrain, instanced course objects (trees are the original's two fixed planes at 90°, turned by a hashed yaw so a grid-placed forest does not share them; items are billboards), HUD, migrated skyboxes. Tone matched to the original on Bunny Hill at both ends of the range and in all three channels; no LightmapGI bake. Snow and ice carry procedural micro-relief, a twinkling crystal glint and a Fresnel sky reflection, and the ice reflects the racers standing on it — a planar mirror pass (`IceReflection`) the ice branch samples in place of the sky where there is a penguin. The carve spray draws ETR's textured, growing, fading puffs on a redrawn atlas. |
+| 2 — rendering | partial — **two renderers**: Mobile on the desktop, Compatibility on the web, split because a shadow-casting light under Compatibility is drawn in an sRGB-blended second pass (trap list). Every lit shader reproduces ETR's illumination clamp; the desktop additionally gets a PSSM directional shadow the original has no equivalent for. Splat PBR, chunked terrain, instanced course objects (trees are the original's two fixed planes at 90°, turned by a hashed yaw so a grid-placed forest does not share them; items are billboards), the original's HUD (`hud.cpp`'s six controls, redrawn from its constants as [CanvasItem] primitives — see [RaceHUD]), migrated skyboxes. Tone matched to the original on Bunny Hill at both ends of the range and in all three channels; no LightmapGI bake. Snow and ice carry procedural micro-relief, a twinkling crystal glint and a Fresnel sky reflection, and the ice reflects the racers standing on it — a planar mirror pass (`IceReflection`) the ice branch samples in place of the sky where there is a penguin. The carve spray draws ETR's textured, growing, fading puffs on a redrawn atlas. |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror both wired; a carve leaves a track with a shaded trench, a self-occluded floor and a bright ploughed lip. |
 | 4 — character | **done for all five characters** — welded ArrayMesh from `shape.lst` **skinned** to a Skeleton3D with ETR joint names, the four keyframe lists as an AnimationLibrary plus a `KeyframePath` of root motion each, the pre-race start animation (`CIntro`) wired into the race, the finish-line clip (`finish`/`wonrace`/`lostrace`, chosen by `RaceOutcome.clip` — see the game shell row) wired into the results screen, and the racing pose layer (`AdjustJoints`) on `CharacterRig.adjust_joints` — flippers out to brake and the inside one out through a turn, a stroke through them while paddling, a flap on a jump, legs that tuck with speed and brace against the ground, a tail and a head that follow the lean. It runs off a `RacerState` and nothing else, so a ghost and a remote peer animate too. Tux, Trixi, Boris, Samuel and Beastie each carry their own shape and their own clips; `resources/characters.tres` indexes them and `GameConfig.character` picks one. Both canned clips are played the same way — the `Animation` for the joints and the `KeyframePath` for the body — because in both of them the body is where the animation is: `finish.lst` opens lying on the belly and stands the penguin up entirely on node 0. See the trap list. |
 | 5 — game shell | partial — `main_menu.tscn` is the main scene: Practice opens the course list, *Race the computer* opens the same list with a field of 1–9 opponents behind it, *Race against ghost* opens a list of every saved run (`ghost_menu.tscn`), Configuration edits `penguinracer.cfg` graphically, and a race is a scene the shell hands over to and takes back. A finished race brings up `results_menu.tscn` over the course — time, herring, the `wonrace`/`lostrace`/`finish` clip playing, and a name field to keep the run — before the ordinary course menu takes over. `character_menu.tscn` is the character half of `CRegist` — arrows over a framed name with the migrated 128x128 preview under it. Every screen wears `themes/etr_menu.tres`, so the shell reads as the original's: the flat `colBackgr` blue, white text, `colDYell` on whatever has focus, square white-outlined frames. Generated course and character catalogs, 13 languages wired to `tr()`, audio (10 effects + 10 pieces + 3 racing themes on an `AudioDirector` autoload that reproduces ETR's one-voice-per-cue mixer). No cups, medals or profiles (data is imported and waiting; the player half of `CRegist` waits on them); no volume or language controls on the settings screen; none of ETR's menu art (corner ornaments, title logo), which waits on the licence audit. |
@@ -1133,7 +1137,35 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   `tools/shot.sh` always passes `--auto-input=`, so captures are unaffected either way.
 - **The HUD says `PRESS ANY KEY TO START` over the start animation.** The original draws its
   ordinary HUD there and never mentions that any key skips it. The string is a migrated one — it is
-  what ETR puts under its splash screen.
+  what ETR puts under its splash screen. The ordinary HUD is drawn under it now, as ETR does; the
+  hint moved from the top-left corner to low and centred, because the corner has a clock in it.
+- **ETR's HUD art is drawn upside down relative to the PNG, and reading it the other way inverts
+  a control.** `Setup2dScene` is `glOrtho(0, w, 0, h)` — y up — and `glTexGen` maps object y
+  straight to `t`, while `t = 0` is the *first* row uploaded, which is the PNG's top. So the gauge
+  textures appear vertically mirrored on screen, and the speed ring that looks like it starts
+  green at the upper left in `gaugespeedmask.png` actually starts green at the lower *left* and
+  sweeps clockwise over the top. Read it unflipped and the arc runs the wrong way round the dial
+  while still looking plausible in a still frame. The same reading is what puts the ring's centre
+  on `ENERGY_GAUGE_CENTER` — fit a circle to the mask's opaque pixels in the flipped frame and it
+  lands within half a pixel of `(71, 55)`, which is the proof that the ring and the wedge that
+  reveals it are concentric and the reveal is a plain angular sweep.
+  `DrawCoursePosition` has the mirror-image trap in arithmetic: `cpos.z` and
+  `GetPlayDimensions().y` make `fact` *negative* going down the hill, `DrawPercentBar` is handed
+  `-fact`, and the two negatives are what make the bar fill upward from the bottom of its frame.
+  Drop either one and the bar hangs out of the frame, downward, off the bottom of the screen.
+  [RaceHUD] does the flip once, in one place, the way [RacerState] already does
+  (`progress = -physics.pos.z`), and clamps — which the original does not, because its own clamp
+  is on the un-negated value and so never fires.
+- **A test that names a shell class stops the whole suite compiling.** `run_tests.gd` is the
+  `--script` entry point, so it is parsed before the autoloads exist; a `TestX.run(t)` line makes
+  it depend on `TestX` at parse time, and through it on whatever `TestX` names. Name [RaceHUD] and
+  the chain reaches [RaceScene] and [RacerRoster], both of which reach for `Config` and `Net` —
+  and the failure is not a missing autoload but "Identifier not found: Config" against two shell
+  scripts that are perfectly fine, with the suite quietly dropping to half its assertions because
+  everything downstream of them stopped loading. No test names a shell class: they write the
+  constant out (`TestAI` and `TestMultiplayer` both spell `SIM_HZ` rather than reach for it), and
+  `TestHUD` reaches [RaceHUD] with `load("res://scripts/shell/race_hud.gd")` so the dependency is
+  a runtime one. Static methods and `const`s both work off the loaded [GDScript].
 - **The drawn body is lifted by the trench it is standing in.** ETR has no snow deformation, so
   there is nothing here to port; ours is deliberately two fields that do not match (rule 3).
   `SnowField` takes the trench off the height the simulation stands on, so a carving racer really

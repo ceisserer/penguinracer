@@ -29,6 +29,7 @@ func _run() -> void:
 	TestCamera.run(t)
 	TestReflection.run(t)
 	TestConfig.run(t)
+	TestHUD.run(t)
 	TestInput.run(t)
 	TestMultiplayer.run(t)
 	TestSpray.run(t)

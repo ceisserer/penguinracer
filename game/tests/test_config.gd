@@ -273,7 +273,7 @@ static func _launch_args(t: TestCase) -> void:
 	cli.parse(PackedStringArray([
 		"--course=bunny_hill", "--character=trixi", "--auto-input=carve",
 		"--camera=above", "--opponents=5", "--difficulty=hard",
-		"--remote-keyboard", "--no-audio", "--no-intro",
+		"--remote-keyboard", "--no-audio", "--no-intro", "--fps", "--wind=2",
 		"--capture=/tmp/a.png", "--capture-frames=200",
 	]), {})
 	t.ok(cli.course == "bunny_hill", "the course is read")
@@ -287,6 +287,8 @@ static func _launch_args(t: TestCase) -> void:
 	t.ok(cli.difficulty == "hard", "the difficulty is read, unparsed")
 	t.ok(cli.remote_keyboard, "the remote-keyboard flag is read")
 	t.ok(cli.no_audio and cli.no_intro, "the two silencing flags are read")
+	t.ok(cli.show_fps, "the HUD's frame-rate readout is asked for")
+	t.ok(cli.wind == 2, "the wind grade is read")
 	t.ok(cli.capture_path == "/tmp/a.png" and cli.capture_frames == 200,
 		"the capture request is read")
 
@@ -295,7 +297,7 @@ static func _launch_args(t: TestCase) -> void:
 	url.parse(PackedStringArray(), {
 		"course": "bunny_hill", "character": "trixi", "auto-input": "carve",
 		"camera": "above", "opponents": "5", "difficulty": "hard",
-		"remotekeyboard": "", "noaudio": "", "nointro": "",
+		"remotekeyboard": "", "noaudio": "", "nointro": "", "fps": "", "wind": "2",
 		"capture": "/tmp/a.png", "capture-frames": "200",
 	})
 	t.ok(url.course == cli.course and url.character == cli.character,
@@ -306,6 +308,8 @@ static func _launch_args(t: TestCase) -> void:
 		"and the same field — which the URL could not ask for at all before")
 	t.ok(url.no_audio == cli.no_audio and url.no_intro == cli.no_intro
 		and url.remote_keyboard == cli.remote_keyboard, "and the same flags")
+	t.ok(url.show_fps == cli.show_fps and url.wind == cli.wind,
+		"and the same HUD readout and weather")
 	t.ok(url.capture_path == cli.capture_path
 		and url.capture_frames == cli.capture_frames, "and the same capture")
 
