@@ -113,7 +113,9 @@ The shading is deliberately not the original's: ETR gives all eight vertices one
 normal and lights the tree flat, and shading each quad by its own face normal instead would split
 it into a bright half and a dark half — so the cylinder impostor already used for the billboards
 is swept across both planes, which keeps the even brightness and adds the volume. Snow and ice carry two octaves of procedural micro-relief, a crystal
-glint built from per-texel facet normals, and a Fresnel sky reflection on ice.
+glint built from per-texel facet normals, and a Fresnel sky reflection on ice — the last of which
+is a *split* of the surface rather than an addition to it, and reflects a sky measured off the
+migrated skybox rather than the fog colour. See "Ice stopped going white at a flat angle".
 
 **The spray draws ETR's particles, not just ETR's particle counts.** The counts and velocities
 were ported in phase 0, but the first cut textured none of it: every particle was a flat white
@@ -1040,6 +1042,67 @@ back one metre down without sliding sideways, the racer meshes are on both visua
 setting round-trips through the hand-written settings file.
 
 4228 assertions, 0 failures.
+
+
+### Ice stopped going white at a flat angle · **done**
+
+Reported after the renderer split: *"when looked at a flat angle, ice now is very bright — almost
+white"*, from the opening seconds of **Who Says Penguins Can't Fly?**, which is a course with no
+snow layer in it at all (`rock`, `ice1`, `rock06`, `rock01`) and so shows the ice branch with
+nothing else in the way.
+
+It was one bug with two causes, and the renderer split only *revealed* it. Under the old
+`EMISSION` path Compatibility sRGB-decoded the reflection to 43 % of itself, which kept it
+accidentally inside budget; moving it to `SPECULAR_LIGHT` — correct, and done for the units —
+delivered it at full strength.
+
+**The term was added instead of split.** Fresnel divides incoming light between the mirror and the
+diffuse underneath; the shader added `F · sky` on top of a diffuse that had already been through
+ETR's illumination clamp, so the surface could exceed its own albedo — the one thing
+`etr_illumination.gdshaderinc` exists to prevent. Invisible at the ~65° incidence the ice look was
+*fitted* at, where `F` is 0.09 and the term is four levels. At 84°, sighting down a gully, `F`
+reaches 0.6.
+
+**And the radiance being mirrored was not a sky.** `sky_horizon` was the preset's `fog_color`, and
+ETR's `[fogcol]` is a fade target: 40 of the 44 shipped courses declare `1 1 1`. The ice was
+reflecting a sky at full radiance — brighter than the skybox drawn beside it in the same frame,
+and achromatic where the real one is blue. The migrated faces measure (184, 196, 218) across their
+horizon band and the frame draws that at linear 0.59/0.62/0.73, against the 1.0/1.0/1.0 the mirror
+was being handed.
+
+The fix is three lines and one new migrated field:
+
+- `mirror_share` comes out of `ALBEDO` (`1 - mirror_share`), which is the half Godot multiplies
+  the diffuse by, so the mirror and the diffuse sum to the surface instead of past it;
+- the grazing end of Schlick is `1 - ice_roughness` rather than 1, because a rough dielectric never
+  becomes a perfect mirror;
+- `EnvironmentPreset.sky_horizon_color`, averaged by the importer off the middle tenth of all three
+  faces. The band matters: the top of a face is deep blue and the bottom is mountains, which is why
+  `sky_nadir_color` — 40 % darker than the sky above it — could not stand in.
+
+Measured, on the real GPU at a true 1280×720:
+
+| | before | after | with the reflection off |
+|---|---|---|---|
+| `penguins_cant_fly`, worst grazing lift | +135 levels | +43 | — |
+| ... p99 lift | +80 | +15 | — |
+| ... frame fully white | 0.74 % | 0.12 % | 0.12 % |
+| `tuxway` far lake, grazing | 252/254/254, **74.5 % clipped** | 168/181/201, 0 % | — |
+| `tuxway` mid-lake, chase incidence | 200/205/212 | 183/190/199 | — |
+| `tuxway` foreground, near normal | 168/176/187 | 165/173/184 | — |
+| Bunny Hill lit near field (snow) | 237.1/246.2/255.0 | 237.1/246.2/255.0 | — |
+
+Snow is identical to the decimal because every line of the change is gated behind `ice_mask > 0`.
+Ice at chase incidence does drop 13–17 levels, which is the fit moving because one of its inputs
+was wrong, not the fit being abandoned: it was solved against a white sky the frame never had.
+`ice_albedo` is the knob if the mid-tone wants to come back — putting the white sky back is not.
+
+`TestLighting` asserts the energy split and the roughness cap textually, for the same reason it
+asserts the clamp that way: adding rather than mixing renders a perfectly plausible frame at the
+angle anyone would check. `TestEnvironments` asserts that all eight presets reflect something
+below white, and that it is not `fog_color`.
+
+4307 assertions, 0 failures.
 
 ---
 

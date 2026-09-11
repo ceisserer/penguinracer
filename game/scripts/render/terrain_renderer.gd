@@ -102,9 +102,10 @@ static func _set_layer_table(mat: ShaderMaterial, name: String, v: Array) -> voi
 ## Compatibility does not bind the `Sky` to a spatial shader and the environment
 ## reflection is deliberately off (it was pinning the snow at white — PROGRESS
 ## §11), so ice gets a two-colour vertical ramp instead of a real reflection.
-## The horizon end is the fog colour rather than the skybox's nadir: near the
-## horizon, which is where a grazing chase camera reflects, ETR's sky *is* its
-## fog — the skybox is a wall of the same white haze.
+## The horizon end is the skybox's own haze band, measured by the importer into
+## [member EnvironmentPreset.sky_horizon_color]. It used to be `fog_color`,
+## which is a fade target and not a radiance — see that member, and the ice
+## block in `shaders/terrain.gdshader`.
 func set_sky_tint(zenith: Color, horizon: Color) -> void:
 	if _material == null:
 		return

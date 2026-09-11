@@ -266,10 +266,11 @@ Two masks, computed once, and everything material-dependent downstream is gated 
 | micro-relief, coarse octave | `snow_mask` | wind-stretched drifts (sastrugi), ~5 cm, faded by 90 m |
 | crystal glint | `snow_mask` | per-texel facet normals + a sharp lobe in `light()` |
 | wrap lighting | `snow_mask` | half-Lambert, standing in for the subsurface scattering Compatibility has no SSS for |
-| sky reflection (`EMISSION`) | `ice_mask` | Fresnel-weighted two-colour ramp |
+| sky reflection (`SPECULAR_LIGHT`) | `ice_mask` | Fresnel-weighted two-colour ramp, both ends measured off the migrated skybox |
 | character reflection | `ice_mask` | the racers, mirrored through the ice under the player, *replacing* the sky ramp where the mirror has one — see `IceReflection` |
 | sun glare | `ice_mask` | tight lobe on the same Fresnel weight |
-| albedo cut (`ice_albedo` 0.82) | `ice_mask` | makes the additive ice terms visible at all |
+| albedo cut (`ice_albedo` 0.82) | `ice_mask` | makes the ice terms visible at all |
+| Fresnel split (`1 - mirror_share`) | `ice_mask` | takes what the mirror adds back out of the diffuse, so the two sum to the surface rather than past it |
 | trench albedo/roughness/AO/ridge | `snow_mask` | the trail map only affects snow |
 
 Note that roughness reaches the surface twice: through the per-layer table (0.25 for ice) and

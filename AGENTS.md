@@ -463,6 +463,32 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   back as 0.25. **Sweep a constant, do not reason about the formula** — both of the bugs in this
   pair were found by writing a number into `light()` that could not be confused with anything
   else and reading what came out, and both had survived being reasoned about.
+- **An additive term outside the illumination clamp can undo the clamp, and it will only show at
+  an angle nobody fitted.** The ice's Fresnel sky reflection was *added* to the surface instead of
+  taking its share out of it, so `mix(diffuse, sky, F)` was really `diffuse + F * sky` — and the
+  one invariant `etr_illumination.gdshaderinc` exists to hold is that light cannot brighten a
+  surface past its own albedo. It was invisible for a phase because the ice was fitted at the ~65
+  degree incidence a chase camera sits at, where `F` is 0.09 and the whole term is four levels.
+  Sight *down* a frozen gully and `F` reaches 0.6: measured on `penguins_cant_fly`, a bowl that
+  should read 115/132/150 came back 250/255/255, and three quarters of `tuxway`'s far lake was
+  flat 255 white with no form in it. Two things were wrong and both had to move. **The energy
+  split** — the mirror's share now comes out of `ALBEDO`, which is the half Godot applies it to.
+  **The radiance being mirrored** — `sky_horizon` was the environment's `fog_color`, and ETR's
+  `[fogcol]` is a fade target rather than a radiance: 40 of the 44 shipped courses declare
+  `1 1 1`, so the ice was reflecting a sky at full radiance, brighter than the skybox drawn beside
+  it in the same frame and achromatic where the real one is blue. It is
+  `EnvironmentPreset.sky_horizon_color` now, averaged by the importer off the middle tenth of the
+  three faces — the band where the haze is, since the top of a face is deep blue and the bottom is
+  mountains, which is also why `sky_nadir_color` could not stand in for it. Worst-case grazing lift
+  went 135 levels to 43 and the clipping went to exactly what the frame has with the reflection
+  switched off; Bunny Hill's lit snow is identical to the decimal, because every line of it is
+  gated behind `ice_mask > 0`. **Two reusable pieces.** A term that does not go through `light()`'s
+  clamp has to bound itself, and the way to bound a reflection is the energy split it already
+  physically is. And *a fit is only evidence at the angle it was taken at* — the ice look was
+  solved at one incidence and the term that was wrong is the one that grows by 6.5x outside it.
+  This is the second bug the old `EMISSION` path was hiding: sRGB-decoding under Compatibility was
+  quietly scaling the reflection to 43 % of itself, so moving it to `SPECULAR_LIGHT` fixed the
+  units and delivered the missing energy split at full strength.
 - **`EMISSION` does not mean the same thing on the two renderers, and `DIFFUSE_LIGHT` /
   `SPECULAR_LIGHT` do.** `EMISSION = vec3(0.5)` reads back as 0.500 linear under Mobile and as
   0.216 — which is `srgb_to_linear(0.5)` — under Compatibility. A value that reaches `ALBEDO`
@@ -977,13 +1003,18 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   as flat textured diffuse; what distinguishes them there is the texture and `[friction]`. Here
   snow gets two octaves of procedural micro-relief (wind crust and wind-stretched drifts, faded
   by distance) and a glint built from per-texel facet normals, so a different scatter of crystals
-  catches the sun as you ride past. Ice gets a Fresnel-weighted sky reflection through `EMISSION`
+  catches the sun as you ride past. Ice gets a Fresnel-weighted sky reflection on `SPECULAR_LIGHT`
   — Compatibility will not bind the `Sky` to a spatial shader and the environment reflection is
-  deliberately off, so the sky is a two-colour ramp from the preset — plus a tight sun glare on
-  the same Fresnel weight, and a diffuse albedo scaled to 0.82. The albedo cut is the part that
-  makes the rest visible: Schlick at the ~65 degree incidence a chase camera sits at is about
-  0.09, and 0.09 of sky over an already near-white albedo is four levels nobody sees. All of it
-  is behind uniforms; `ice_albedo = 1.0` and `detail_relief_* = 0` restore the previous look.
+  deliberately off, so the sky is a two-colour ramp whose ends are averaged off the migrated
+  skybox faces — plus a tight sun glare on the same Fresnel weight, and a diffuse albedo scaled
+  to 0.82. The albedo cut is the part that makes the rest visible: Schlick at the ~65 degree
+  incidence a chase camera sits at is about 0.09, and 0.09 of sky over an already near-white
+  albedo is four levels nobody sees. **Fresnel is a split, not an addition**: what the mirror
+  takes comes out of the diffuse under it (`1 - mirror_share`), so the two sum to the surface and
+  not past it, and the grazing end of Schlick is capped at `1 - ice_roughness` rather than 1,
+  because a rough dielectric never becomes a perfect mirror. Both of those are load-bearing only
+  at a flat angle — see the trap list. All of it is behind uniforms; `ice_albedo = 1.0` and
+  `detail_relief_* = 0` restore the previous look.
 
 - **The ice reflects the racers standing on it**, and ETR reflects nothing at all — its
   `DrawCharacter` draws the penguin exactly once and its ice differs from its snow only by

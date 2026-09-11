@@ -897,11 +897,14 @@ func _apply_environment(preset: EnvironmentPreset) -> void:
 		# [method TerrainRenderer.set_ambient]. The same two fields the
 		# [Environment] above got its ambient from, so the two cannot drift.
 		terrain.set_ambient(preset.ambient_illumination())
-		# What the ice reflects. The horizon end is the fog colour: at the
-		# grazing angle a chase camera reflects at, ETR's sky is its own white
-		# haze, and the skybox's nadir average is a downward direction ice
-		# never shows you.
-		terrain.set_sky_tint(preset.sky_zenith_color, preset.fog_color)
+		# What the ice reflects. The horizon end is the skybox's own haze band
+		# ([member EnvironmentPreset.sky_horizon_color]), not `fog_color` — the
+		# fog colour is a fade target and reads `1 1 1` on 40 of the 44 shipped
+		# courses, which put a full-radiance sky in the mirror and was half of
+		# "ice at a flat angle is almost white". The nadir average is no use for
+		# it either: that is a downward direction, and the bottom of an ETR
+		# skybox face is mountains.
+		terrain.set_sky_tint(preset.sky_zenith_color, preset.sky_horizon_color)
 
 ## Whether the sun casts a shadow map at all, which three separate things have
 ## to agree on.

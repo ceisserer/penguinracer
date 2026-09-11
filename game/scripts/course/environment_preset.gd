@@ -118,6 +118,19 @@ extends Resource
 ## three faces do not cover. See `shaders/etr_skybox.gdshader`.
 @export var sky_zenith_color: Color = Color(0.24, 0.39, 0.75)
 @export var sky_nadir_color: Color = Color(0.55, 0.6, 0.7)
+## The sky's own haze band, averaged across the middle of the three faces —
+## the direction a grazing reflection off the ice actually looks in.
+##
+## [b]Not [member fog_color], which is what the ice used to reflect.[/b] ETR's
+## `[fogcol]` is a fade target, not a radiance: 40 of the 44 shipped courses
+## declare `1 1 1`, meaning "distance washes out to white", and handing that to
+## the mirror told the ice it was reflecting a sky at full radiance. Measured on
+## `etr_sunny`, the skybox's horizon band is sRGB (184, 196, 218) and the frame
+## draws it at linear 0.59/0.62/0.73, so the ice was mirroring a sky about 1.6x
+## brighter than the one beside it — and achromatic where the real one is blue.
+## A mirror cannot out-brighten what it mirrors. See the ice block in
+## `shaders/terrain.gdshader`.
+@export var sky_horizon_color: Color = Color(0.75, 0.82, 0.92)
 ## Equirectangular sky, for authored replacements. Takes precedence over the
 ## migrated faces.
 @export var sky_panorama: Texture2D

@@ -1177,6 +1177,8 @@ func import_environments(stage: String) -> void:
 func _import_skybox(preset: EnvironmentPreset, dir: String, high_res: bool, stage: String) -> void:
 	const FACES: Array[String] = ["front", "left", "right"]
 	var out_dir: String = ASSET_ENV.path_join(String(preset.id))
+	var horizon_acc := Vector3.ZERO
+	var horizon_n: int = 0
 	for face: String in FACES:
 		var src: String = dir.path_join("%s%s.png" % [face, "H" if high_res else ""])
 		if not FileAccess.file_exists(src):
@@ -1191,10 +1193,10 @@ func _import_skybox(preset: EnvironmentPreset, dir: String, high_res: bool, stag
 			continue
 		var tex_path: String = out_dir.path_join("%s.png" % face)
 		var tex: Texture2D = load(tex_path) if ResourceLoader.exists(tex_path) else null
+		var img: Image = load_external_image(src)
 		match face:
 			"front":
 				preset.sky_front = tex
-				var img: Image = load_external_image(src)
 				if img != null:
 					preset.sky_zenith_color = _row_average(img, 0)
 					preset.sky_nadir_color = _row_average(img, img.get_height() - 1)
@@ -1202,6 +1204,39 @@ func _import_skybox(preset: EnvironmentPreset, dir: String, high_res: bool, stag
 				preset.sky_left = tex
 			"right":
 				preset.sky_right = tex
+		# The haze band, for what the ice reflects at a grazing angle. All three
+		# faces contribute — a mirror ray a few degrees above the horizon can
+		# point anywhere across the half-cube, and the front face is only the
+		# one looking down the course — so this accumulates outside the match
+		# rather than inside its `front` arm.
+		if img != null:
+			horizon_acc += _horizon_average(img)
+			horizon_n += 1
+	if horizon_n > 0:
+		var h: Vector3 = horizon_acc / float(horizon_n)
+		preset.sky_horizon_color = Color(h.x, h.y, h.z)
+
+## Mean colour of a skybox face's horizon band — the middle tenth of its height.
+##
+## The band is where the haze is, and it is bounded on both sides by things that
+## are not sky: above it the gradient climbs to the deep blue `_row_average` takes
+## the zenith from, and below it the face is mountains and ground, which is why
+## `sky_nadir_color` (the bottom row) is 40 % darker than the sky it sits under
+## and cannot stand in for this. Measured on `etr_sunny`: rows at 0.25 average
+## (75, 93, 138), the 0.5 band (184, 196, 218), rows at 0.75 (100, 106, 122).
+static func _horizon_average(img: Image) -> Vector3:
+	var w: int = img.get_width()
+	var h: int = img.get_height()
+	if w <= 0 or h <= 0:
+		return Vector3(0.75, 0.82, 0.92)
+	var y0: int = maxi(int(h * 0.45), 0)
+	var y1: int = mini(maxi(int(h * 0.55), y0 + 1), h)
+	var acc := Vector3.ZERO
+	for y: int in range(y0, y1):
+		for x: int in w:
+			var c: Color = img.get_pixel(x, y)
+			acc += Vector3(c.r, c.g, c.b)
+	return acc / float(w * (y1 - y0))
 
 ## Mean colour of one row of an image, used to extend a skybox face past its own
 ## edge without a visible join.

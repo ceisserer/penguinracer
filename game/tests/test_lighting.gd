@@ -37,6 +37,7 @@ static func run(t: TestCase) -> void:
 	_the_include_exists(t)
 	_every_lit_shader_clamps(t)
 	_nobody_multiplies_the_albedo_twice(t)
+	_the_mirror_takes_its_share(t)
 	_the_renderer_rule(t)
 	_the_project_ships_two_renderers(t)
 
@@ -85,6 +86,29 @@ static func _nobody_multiplies_the_albedo_twice(t: TestCase) -> void:
 				found = true
 		t.ok(not found,
 			"%s does not put ALBEDO into DIFFUSE_LIGHT — the engine does that" % name)
+
+## The ice reflection is the one term that lands outside the clamp the include
+## exists to enforce, so it has to bound itself: Fresnel splits the incoming
+## light between the mirror and the diffuse under it, and a shader that adds the
+## mirror without taking its share out of `ALBEDO` can push a surface past its
+## own albedo — which is the exact thing `etr_illumination` was written to stop.
+##
+## Textual for the same reason as the two above: adding rather than mixing
+## renders a completely plausible frame at the ~65 degree incidence the ice was
+## fitted at, where the term is four levels. It only shows at a grazing angle,
+## and then it is +135.
+static func _the_mirror_takes_its_share(t: TestCase) -> void:
+	t.begin("lighting/the ice mirror is a split, not an addition")
+	var text: String = _read("res://shaders/terrain.gdshader")
+	t.ok(text.contains("mirror_share"),
+		"terrain.gdshader names the share the mirror takes")
+	t.ok(text.contains("* (1.0 - mirror_share)"),
+		"and removes it from ALBEDO, so the two halves sum to the surface")
+	# The grazing end of Schlick is the roughness, not 1: a rough dielectric
+	# never becomes a perfect mirror, and unity here is what let a white sky in
+	# at full strength.
+	t.ok(text.contains("max(1.0 - ice_roughness"),
+		"the grazing Fresnel is capped by the roughness the surface declares")
 
 static func _the_renderer_rule(t: TestCase) -> void:
 	t.begin("lighting/which renderer")

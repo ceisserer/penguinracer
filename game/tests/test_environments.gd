@@ -27,6 +27,7 @@ static func run(t: TestCase) -> void:
 	_round_trip(t, presets)
 	_reaches_the_environment(t, presets)
 	_reaches_the_terrain(t, presets)
+	_the_ice_reflects_a_sky(t, presets)
 	_the_shadow_gate(t, presets)
 	_reaches_the_sun(t, presets)
 	_still_traceable(t, presets)
@@ -100,6 +101,36 @@ static func _reaches_the_terrain(t: TestCase, presets: Array[EnvironmentPreset])
 		for ch: int in range(3):
 			t.ok(absf(shader_side[ch] - engine_side[ch]) < EPS,
 				"%s: the terrain's ambient %s is the Environment's" % [preset.id, "RGB"[ch]])
+
+## What the ice reflects has to be a sky, and `fog_color` is not one.
+##
+## ETR's `[fogcol]` is a fade target — 40 of the 44 shipped courses declare
+## `1 1 1`, "distance washes out to white" — and for a phase that was handed
+## straight to the terrain shader as the radiance of the horizon. A mirror fed a
+## full-radiance sky out-brightens the skybox drawn beside it, which is what
+## "ice at a flat angle is almost white" was: measured on `penguins_cant_fly`, a
+## lit bowl reading 115/132/150 came back 250/255/255.
+##
+## The assertion is the invariant rather than a fitted number, so it survives a
+## re-import: the horizon the ice reflects must be dimmer than white, and it
+## must not be the fog. `etr_sunny`'s band measures (184, 196, 218).
+static func _the_ice_reflects_a_sky(t: TestCase, presets: Array[EnvironmentPreset]) -> void:
+	t.begin("environments/the ice reflects a sky, not the fog")
+	for preset: EnvironmentPreset in presets:
+		var sky: Color = preset.sky_horizon_color
+		# Headroom below white. Without it the Fresnel term at a grazing angle —
+		# which reaches 1 - `ice_roughness` — pins the surface at the ceiling
+		# whatever its own albedo is.
+		t.ok(maxf(maxf(sky.r, sky.g), sky.b) < 1.0 - EPS,
+			"%s: the reflected horizon is below white (%.3f)"
+				% [preset.id, maxf(maxf(sky.r, sky.g), sky.b)])
+		# The specific wrong answer, named so a future re-plumbing cannot walk
+		# back into it silently.
+		var is_fog: bool = absf(sky.r - preset.fog_color.r) < EPS \
+			and absf(sky.g - preset.fog_color.g) < EPS \
+			and absf(sky.b - preset.fog_color.b) < EPS
+		t.ok(not is_fog,
+			"%s: it is the skybox's haze band, not fog_color" % preset.id)
 
 ## `CCharShape::DrawShadow` opens with
 ## `if (g_game.light_id == 1 || g_game.light_id == 3) return;` and the light

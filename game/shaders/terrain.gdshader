@@ -207,6 +207,14 @@ group_uniforms Ice_Shading;
 // deliberately switched off (it was pinning the snow at white — PROGRESS §11).
 // A two-colour vertical ramp is enough, because what sells ice is not the
 // content of the reflection but that it is Fresnel-weighted and moves.
+//
+// Both ends are radiances measured off the migrated faces — the top row for the
+// zenith, the haze band across the middle for the horizon. The horizon end used
+// to be the environment's `fog_color`, and on 40 of the 44 shipped courses that
+// is `1 1 1`: the ice was mirroring a sky at full radiance, brighter than the
+// skybox drawn beside it in the same frame. Since a mirror ray off a surface
+// facing you always points *up* (`refl.y == N·V` for a plane), the horizon end
+// is the one a grazing view reads, and it is the one that was wrong.
 uniform vec3 sky_zenith : source_color = vec3(0.24, 0.39, 0.75);
 uniform vec3 sky_horizon : source_color = vec3(0.75, 0.82, 0.92);
 uniform float ice_reflection : hint_range(0.0, 2.0) = 1.0;
@@ -475,10 +483,11 @@ void fragment() {
 
 	// --- ice reflection -----------------------------------------------------
 	// Fresnel against the perturbed normal, so the ripples above shear the
-	// reflection the way a frozen lake does. This is an unshaded addition — the
-	// sky reaches ice regardless of where the sun is — so it is added rather
-	// than lit, and it is carried to light() as `ice_sky` rather than written
-	// to EMISSION.
+	// reflection the way a frozen lake does. It is unshaded — the sky reaches
+	// ice regardless of where the sun is — so it is carried to light() as
+	// `ice_sky` and added there, rather than written to EMISSION. Unshaded is
+	// not the same as unbounded: what it adds is taken back out of the diffuse
+	// at the bottom of this block.
 	//
 	// [b]Why not EMISSION, which is what this used for a phase.[/b] EMISSION
 	// does not land in the same units on the two renderers: a value written
@@ -496,7 +505,16 @@ void fragment() {
 		float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
 		// Schlick, with ice's F0 of about 0.018. Nearly all of the effect is in
 		// the grazing rise, which is the angle a chase camera lives at.
-		ice_fresnel = 0.018 + 0.982 * pow(1.0 - ndv, 5.0);
+		//
+		// The grazing end is `1 - ice_roughness`, not 1. Textbook Schlick is
+		// derived for a perfect plane and sends every rough surface to a
+		// mirror at 90 degrees; a real lake never gets there, because at that
+		// incidence the microfacets that face you are the ones tilted away
+		// from the specular direction. Ice is smooth enough that the cap is a
+		// small correction (0.88 here) and it is the physically honest place
+		// to put the roughness the surface already declares.
+		ice_fresnel = mix(0.018, max(1.0 - ice_roughness, 0.018),
+			pow(1.0 - ndv, 5.0));
 		vec3 refl = mat3(INV_VIEW_MATRIX) * reflect(-VIEW, NORMAL);
 		vec3 reflected = mix(sky_horizon, sky_zenith, smoothstep(0.0, 0.6, refl.y));
 
@@ -533,8 +551,34 @@ void fragment() {
 			}
 		}
 
-		ice_sky = reflected * ice_fresnel * ice_reflection * ice_mask;
-		ALBEDO = mix(ALBEDO, ALBEDO * ice_albedo, ice_mask);
+		// [b]Fresnel splits the light, it does not add to it.[/b] The share the
+		// mirror takes is the share the diffuse underneath it does *not* get,
+		// so the surface is `mix(diffuse, reflected, F)` and its total is
+		// bounded by the brighter of the two — never by their sum.
+		//
+		// This is the character reflection's rule applied one level out. The
+		// penguin occludes the sky it stands in front of; the sky in turn
+		// occludes the ice it is reflected in. Adding instead was invisible at
+		// the ~65 degree incidence a chase camera sits at, where F is 0.09 and
+		// the whole term is four levels, and that is the angle the ice was
+		// fitted at. It is not the angle a frozen gully is *seen* at: sight down
+		// one and F reaches 0.6, and 0.6 of a white sky over an already
+		// near-white surface is +135 levels, measured on `penguins_cant_fly` —
+		// a lit bowl that reads 115/132/150 came back 250/255/255. That was
+		// "ice at a flat angle is almost white".
+		//
+		// It stayed hidden for a phase because the old EMISSION path was
+		// sRGB-decoding this term to 43 % of itself under Compatibility (see
+		// above). Moving it onto `SPECULAR_LIGHT` fixed the units and the
+		// missing energy split arrived at full strength.
+		float mirror_share = clamp(ice_fresnel * ice_reflection * ice_mask,
+			0.0, 1.0);
+		ice_sky = reflected * mirror_share;
+		// Godot applies ALBEDO to the accumulated diffuse after the light loop
+		// and never to SPECULAR_LIGHT, so taking the mirror's share out here
+		// takes it out of exactly the half it should come from.
+		ALBEDO = mix(ALBEDO, ALBEDO * ice_albedo, ice_mask)
+			* (1.0 - mirror_share);
 	}
 
 	SPECULAR = specular_f0;
