@@ -134,6 +134,14 @@ var snow_gpu: SnowFieldGPU
 ## The mirror the ice reflects the racers in, or a pass that is switched off.
 ## Presentation only — nothing in the simulation may read it.
 var reflection: IceReflection
+## The weather. Presentation only, like the mirror: [SnowFall] draws what
+## [member RaceSetup.snowfall] asked for and the simulation never hears about it.
+var snowfall: SnowFall
+## The environment this course is lit by, kept because two things outside
+## [method _apply_environment] need it — the snowfall's `[partcol]` tint, and
+## anything else that has to be reapplied when the weather changes without the
+## course doing so.
+var _preset: EnvironmentPreset
 var camera: ChaseCamera
 
 ## Everyone on the hill: the player, the field, the ghost and any peers. See
@@ -271,6 +279,11 @@ func _ready() -> void:
 	reflection.name = "IceReflection"
 	reflection.enabled = Config.ice_reflections
 	add_child(reflection)
+	# Built here for the same reason the mirror is: it is a field of quads that
+	# follows the player, not a thing anyone would place in the editor.
+	snowfall = SnowFall.new()
+	snowfall.name = "SnowFall"
+	add_child(snowfall)
 	if not requested_course_path.is_empty():
 		course_scene_path = requested_course_path
 	# A `--course=` on the way in outranks it: a capture run names the course it
@@ -292,6 +305,12 @@ func _ready() -> void:
 		_cli_setup.opponents = clampi(args.opponents, 0, RaceSetup.MAX_OPPONENTS)
 	if not args.difficulty.is_empty():
 		_cli_setup.skill = AISkill.parse(args.difficulty)
+	# Weather for a race started without the shell: the settings file, unless
+	# `--snow=` names a grade for this run. A run that went through the menu has
+	# already been asked, and its answer is in `requested_setup`.
+	_cli_setup.snowfall = Config.snowfall
+	if args.snow != LaunchArgs.NO_SNOW:
+		_cli_setup.snowfall = clampi(args.snow, 0, SnowFall.MAX_GRADE)
 	# The shell outranks the command line here, unlike `--course=`: the two flags
 	# are a way to start a race without a menu, not a way to keep overriding a
 	# choice the player has just made on one.
@@ -458,6 +477,7 @@ func load_course(path: String) -> void:
 		preset = course.environment_preset
 	if preset != null:
 		_apply_environment(preset)
+	_apply_snowfall()
 
 	_setup_ghost()
 	restart()
@@ -577,6 +597,7 @@ func restart(with_intro: bool = true) -> void:
 	# Drop the authoring markers only once the batches and grids exist.
 	course_root.release_markers()
 	_stop_slide_sound()
+	snowfall.restart()
 	Audio.play_theme(course.music_theme, MusicTheme.Situation.RACE)
 	# Marker for the browser harness: the course is loaded and the first frame
 	# of simulation has run.
@@ -662,6 +683,11 @@ func _present(delta: float) -> void:
 	else:
 		camera.track(view.position, view.velocity, roster.view_target.surface_normal(), delta)
 	terrain.update_streaming(view.position)
+	# ETR updates the weather from `ctrl->cpos` — the racer being watched, which
+	# is the player unless something else is being spectated — and its `Paused`
+	# state draws the snow without updating it. `_process` returns before this
+	# whole function while paused, which is the same thing.
+	snowfall.update(view.position, _racer_wind(), delta)
 	if snow_deformation and snow_gpu != null:
 		snow_gpu.update(view.position.x, view.position.z, delta)
 		terrain.set_trail_map(snow_gpu.trail_texture(), snow_gpu.window_origin(),
@@ -812,6 +838,9 @@ func _on_course_chosen(listing: CourseListing, chosen: RaceSetup) -> void:
 	setup = chosen.copy()
 	# What the shell offers next time, and what a scene swap carries.
 	requested_setup = setup.copy()
+	# Not part of `matches()` — see [method RaceSetup.matches]. The weather is
+	# rebuilt in place, whoever is on the hill.
+	_apply_snowfall()
 	if field_changed:
 		_rebuild_opponents()
 	if listing.dir == current_course_dir:
@@ -880,6 +909,7 @@ func _result_line() -> String:
 	return "%s %s   —   %s" % [tr("POSITION"), place_label(place_of(roster.local)), line]
 
 func _apply_environment(preset: EnvironmentPreset) -> void:
+	_preset = preset
 	var we: WorldEnvironment = $WorldEnvironment
 	var env: Environment = preset.to_environment()
 	# The preset knows what `light.lst` said; the settings file knows how far
@@ -916,6 +946,30 @@ func _apply_environment(preset: EnvironmentPreset) -> void:
 		# *distant* ice lands on, because distant terrain is what the fog fades.
 		terrain.set_sky_tint(preset.sky_zenith_color, preset.sky_horizon_color,
 			preset.fog_color)
+
+## Put the weather the shell asked for on the course, at the tint this
+## environment gives it.
+##
+## Both halves are here because both can change without the other: picking
+## heavier snow from the in-race menu keeps the course, and picking another
+## course keeps the weather. [method SnowFall.set_grade] does nothing when the
+## grade has not moved, so this is safe to call on either path.
+func _apply_snowfall() -> void:
+	if snowfall == null:
+		return
+	if _preset != null:
+		# `[partcol]` — the same field the spray is tinted by, and the reason
+		# night snow is blue and evening snow is warm without anything here
+		# knowing which sky it is under.
+		snowfall.tint = _preset.particle_color
+	snowfall.set_grade(setup.snowfall if setup != null else 0)
+
+## The wind the weather is blown by: the local player's, since every racer is
+## given its own [WindField] on the same seed and they evolve identically. Null
+## on a course with no wind, which is all of them until `--wind=` says otherwise.
+func _racer_wind() -> WindField:
+	var sim: RacePhysics = physics
+	return sim.wind if sim != null else null
 
 ## Whether the sun casts a shadow map at all, which three separate things have
 ## to agree on.

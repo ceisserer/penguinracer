@@ -31,7 +31,9 @@ game/                     Godot project (project.godot; mobile on the desktop,
                           gl_compatibility on the web)
   scripts/physics/        RacePhysics + surface + snow — plain RefCounted, zero node deps
   scripts/course/         CourseData, TerrainLayer, prefabs, events, environments
-  scripts/render/         terrain chunks, GPU snow field, spray, and IceReflection —
+  scripts/render/         terrain chunks, GPU snow field, spray, SnowFall (the
+                          weather: falling flakes and ETR's distant curtains),
+                          and IceReflection —
                           the planar mirror pass the ice samples the racers from
   scripts/camera/         chase camera        scripts/shell/  main menu, course menu,
                                                               settings screen, HUD
@@ -84,7 +86,8 @@ game/                     Godot project (project.godot; mobile on the desktop,
   themes/                 etr_menu.tres — ETR's `common.cpp` palette as a Godot
                           theme, and the checkbox icons it binds
   tests/                  headless suite (physics, surface, input, audio, imported
-                          terrain library, environment presets, course objects,
+                          terrain library, generated splat maps, environment
+                          presets, course objects,
                           character rig, chase camera, racer layer, computer
                           opponents) + ODE
                           benchmark + tone_report.gd, which is not a test
@@ -125,7 +128,8 @@ godot --path game -- --remote-keyboard                             # ... over a 
 godot --path game -- --no-audio                                    # ... silent, for captures
 godot --path game -- --no-intro                                    # ... skipping the start animation
 godot --path game -- --fps                                         # ... with the HUD's frame-rate readout
-godot --path game -- --wind=2                                      # ... with weather, and so the HUD's wind rose
+godot --path game -- --wind=2                                      # ... with wind, and so the HUD's wind rose
+godot --path game -- --snow=3                                      # ... snowing hard (0..3; the course screen sets it too)
 godot --path game -- --host --course=bunny_hill                    # ... hosting a session (ENet, desktop only)
 godot --path game -- --join=127.0.0.1 --course=bunny_hill          # ... joining one
 godot --path game res://scenes/key_log.tscn                        # what the link does to the keyboard
@@ -154,10 +158,10 @@ Settings live in `user://penguinracer.cfg` — on Linux
 `~/.local/share/godot/app_userdata/PenguinRacer/`, written with its comments on first run.
 Window size, render scale, whether ice reflects the racers, whether anything casts a shadow, fog
 distance, the size and skill of
-the computer field, and the two multiplayer keys; delete it to get the defaults back. The main menu's **Configuration** screen
+the computer field, how hard it is snowing, and the two multiplayer keys; delete it to get the defaults back. The main menu's **Configuration** screen
 moves the seven a player can act on — `[multiplayer] player_name` and `port` are file-only until
-there is a lobby, and `opponents`/`opponent_skill` are set from the course screen instead, where
-the choice is actually made — and writes the same commented file back. The resolution row offers
+there is a lobby, and `opponents`/`opponent_skill`/`snowfall` are set from the course screen
+instead, where the choice is actually made — and writes the same commented file back. The resolution row offers
 the display's own modes (`DisplayModes`, filled from `DisplayServer` at open time), not a fixed
 list, and the resolution and fullscreen rows are hidden on the web build, where the page sizes the
 canvas and `apply_display` ignores both. The shadows row is hidden for the same reason wherever
@@ -198,13 +202,14 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 
 | Phase | State |
 |---|---|
-| 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 4337 assertions, 0 failures, 3.9 s headless. |
+| 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 4665 assertions, 0 failures, 13 s headless. |
 | 1 — importer + first course | **done** — all 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. bunny_hill drivable in a browser; wild_mountains (100×1000) runs. |
 | 2 — rendering | partial — **two renderers**: Mobile on the desktop, Compatibility on the web, split because a shadow-casting light under Compatibility is drawn in an sRGB-blended second pass (trap list). Every lit shader reproduces ETR's illumination clamp; the desktop additionally gets a PSSM directional shadow the original has no equivalent for. Splat PBR, chunked terrain, instanced course objects (trees are the original's two fixed planes at 90°, turned by a hashed yaw so a grid-placed forest does not share them; items are billboards), the original's HUD (`hud.cpp`'s six controls, redrawn from its constants as [CanvasItem] primitives — see [RaceHUD]), migrated skyboxes. Tone matched to the original on Bunny Hill at both ends of the range and in all three channels; no LightmapGI bake. Snow and ice carry procedural micro-relief, a twinkling crystal glint and a Fresnel sky reflection, and the ice reflects the racers standing on it — a planar mirror pass (`IceReflection`) the ice branch samples in place of the sky where there is a penguin. The carve spray draws ETR's textured, growing, fading puffs on a redrawn atlas. |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror both wired; a carve leaves a track with a shaded trench, a self-occluded floor and a bright ploughed lip. |
 | 4 — character | **done for all five characters** — welded ArrayMesh from `shape.lst` **skinned** to a Skeleton3D with ETR joint names, the four keyframe lists as an AnimationLibrary plus a `KeyframePath` of root motion each, the pre-race start animation (`CIntro`) wired into the race, the finish-line clip (`finish`/`wonrace`/`lostrace`, chosen by `RaceOutcome.clip` — see the game shell row) wired into the results screen, and the racing pose layer (`AdjustJoints`) on `CharacterRig.adjust_joints` — flippers out to brake and the inside one out through a turn, a stroke through them while paddling, a flap on a jump, legs that tuck with speed and brace against the ground, a tail and a head that follow the lean. It runs off a `RacerState` and nothing else, so a ghost and a remote peer animate too. Tux, Trixi, Boris, Samuel and Beastie each carry their own shape and their own clips; `resources/characters.tres` indexes them and `GameConfig.character` picks one. Both canned clips are played the same way — the `Animation` for the joints and the `KeyframePath` for the body — because in both of them the body is where the animation is: `finish.lst` opens lying on the belly and stands the penguin up entirely on node 0. See the trap list. |
 | 5 — game shell | partial — `main_menu.tscn` is the main scene: Practice opens the course list, *Race the computer* opens the same list with a field of 1–9 opponents behind it, *Race against ghost* opens a list of every saved run (`ghost_menu.tscn`), Configuration edits `penguinracer.cfg` graphically, and a race is a scene the shell hands over to and takes back. A finished race brings up `results_menu.tscn` over the course — time, herring, the `wonrace`/`lostrace`/`finish` clip playing, and a name field to keep the run — before the ordinary course menu takes over. `character_menu.tscn` is the character half of `CRegist` — arrows over a framed name with the migrated 128x128 preview under it. Every screen wears `themes/etr_menu.tres`, so the shell reads as the original's: the flat `colBackgr` blue, white text, `colDYell` on whatever has focus, square white-outlined frames. Generated course and character catalogs, 13 languages wired to `tr()`, audio (10 effects + 10 pieces + 3 racing themes on an `AudioDirector` autoload that reproduces ETR's one-voice-per-cue mixer). No cups, medals or profiles (data is imported and waiting; the player half of `CRegist` waits on them); no volume or language controls on the settings screen; none of ETR's menu art (corner ornaments, title logo), which waits on the licence audit. |
 | 6 — polish/ship | not started. |
+| weather — snow | **done for the snow, 0–3** — ETR's `snow_id`, the first of the three weather controls its race-select screen offers (light, snow, wind). `SnowFall` is both halves of the original: three nested boxes of wrapping flakes around the player (`CFlakes`, a `MultiMesh` whose whole per-frame motion is two uniforms, so it is deterministic where the spray is not) and three rings of big sparse tiles at 40–60 m (`CCurtain`). Chosen on the course screen in Practice and in a race alike, remembered as `[game] snowfall`, and `--snow=0..3`/`?snow=` for a capture. Presentation only — no racer drives differently in it, which is the original's arrangement too. Verified on both renderers. The other two controls are not offered: the sky is a property of the course's environment here (and the evening/night presets are unfitted — see Known gaps), and the wind is still `--wind=`. |
 | computer opponents | **done** — beyond the original, which has nobody on the hill. `RaceSetup` is the whole mode switch: 0 opponents is Practice and 1–9 is a race, chosen on the course screen and remembered in `penguinracer.cfg`. An opponent is a `SimulatedRacer` driven by an `AIInputSource` — the seam the racer layer was built for, used with no change to it. It plans an aim point every `AISkill.plan_interval` ticks by scoring nine candidate lines against trees, the play bounds, swerve cost, its own lane, the friction ahead, herring and the other racers. **The three levels move driving habits and never the physics**: lookahead, reaction, nerve, how long they paddle, how readily they brake. Measured over 30 s of a 22° slope: easy 231 m, medium 333 m, hard 422 m, a player holding the accelerator straight 413 m. Deterministic — the only randomness is a per-seat personality drawn once from a seed. Opponents are solid: everyone on the hill bounces off everyone else through the shared `RacerField` (see the deviations), which is why the steering term only has to keep them out of each other's way rather than out of each other. No jumps, no tricks, no cups. |
 | multiplayer foundation | seams built, ghosts working, network scaffold desktop-only — beyond the original, plan §8.4. The simulation runs on a fixed 60 Hz tick with interpolated presentation; `RaceScene` owns a list of `Racer`s, split into `SimulatedRacer` (a `RacePhysics` fed by an `InputSource`) and `PlaybackRacer` (a `RacerStateStream` read by time). Ghosts are finished end to end: every run is recorded, and a finished race brings up a results screen (`ResultsMenu`) where the player can name it and keep it (`SavedRunStore`, `user://runs/`, one file per save — nothing is written automatically any more). The main menu's **Race against ghost** entry (`GhostMenu`) lists every saved run and racing one draws it translucent with the gap in seconds on the HUD. `Net` hosts/joins an ENet session over `--host`/`--join=` and each peer broadcasts 20 snapshots a second. A peer is a body like any other — the local player collides with it against the snapshot stream, and the machine that owns it resolves the same contact from its side. No lobby, no countdown, no web (ENet is UDP). |
 
@@ -268,6 +273,11 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   against 176.6) after the `EMISSION` half of it was fixed — see the trap list. The residual is
   somewhere else in the ice branch and has not been chased; snow, which is most of every course,
   agrees to within a level.
+- **Two of ETR's three weather controls are missing**: the snow is on the course screen, the
+  light and the wind are not. The light one is blocked on the tone fit — only the sunny presets
+  have fitted gains, and the evening/night ones are known to be wrong in the other direction (see
+  the snow tone gap above). The wind one is only `--wind=`, because wind belongs to a cup race and
+  there are no cups; `RaceSetup` is where it would go.
 - Asset licence audit not started — blocks Phase 5, long lead time.
 
 ## Architecture rules
@@ -308,6 +318,31 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 
 ## Traps found the hard way
 
+- **Godot's texture importer edits a splat map, because a splat map looks like a picture.**
+  `process/fix_alpha_border` defaults on: it overwrites the RGB of every texel whose alpha is below
+  30/255 with the nearest one above it within four texels, which is exactly right for a cutout
+  sprite and ruinous for a weight field, where alpha is layer 3's weight and "nearly transparent"
+  means "not mostly layer 3" — most of the course. On penguins_cant_fly it rewrote 19 % of the map:
+  ice fell from 30 % of the course to 27 %, rock06 rose by half, and the earth walked a metre down
+  the valley wall while the PNG on disk stayed correct the whole time. It is silent by
+  construction, because the weights still blend and the result is still a plausible image; nothing
+  short of comparing the loaded texture against the file could see it. The importer now writes the
+  `.import` sidecar itself (`ETRImport.write_splat_import`, also pinning `detect_3d/compress_to` to
+  Disabled so BC never quantises the weights), and `tests/test_splat.gd` guards the *consumer*: the
+  weights must still sum to one, which the bleed breaks and an image never would. See
+  [`materials.md`](./materials.md) §1.2. The general lesson is the one below about grids: generated
+  data that shares a container with art inherits the art pipeline's opinions.
+- **A splat map and a heightmap are vertex grids; a texture is not.** Sample 0 is the near corner
+  and sample n-1 the far one, so mapping between two such grids is `x · (n-1)/(target-1)`, and
+  reading one as a texture means landing on texel centres, `(uv · (n-1) + 0.5) / n`. Both halves
+  were wrong at once: `build_splat()` used `x / target_w * nx`, which truncates where it should
+  round and stretches by a texel end to end, and `terrain.gdshader` sampled at `world / world_size`,
+  which pushes the last sample half a texel outside the texture. Each is a fraction of a metre and
+  neither is visible as an artefact — they show up as every material on the course being slightly
+  in the wrong place, and as the picture disagreeing with the friction, since `HeightmapSurface`
+  reads the same file as a vertex grid. With an even upsample factor, *rounding* is wrong too:
+  half the target samples sit exactly between two source vertices and nearest has to break the tie
+  one way. Interpolate instead — which also happens to be what ETR's per-vertex terrain alpha does.
 - **A tree in ETR is not a billboard.** `DrawTrees` emits eight fixed vertices per collidable
   object — a quad across X and a quad across Z, both from the ground to `[height]`, never turned
   toward anything — and only then walks `NocollArr` and emits four camera-facing vertices per
@@ -1067,6 +1102,32 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   effect is part of the port too. The spray tint is sunny's
   `[partcol] 0.85 0.9 1.0`, standing in until `EnvironmentPreset` carries the
   field.
+- **The falling snow is a `MultiMesh` with the motion in a vertex shader, where ETR translates
+  every flake on the CPU.** `TFlakeArea::Update` walks up to three thousand flakes a frame,
+  adding each one's fall to three coefficients the whole area shares and teleporting whatever
+  left the box to the opposite face. All of that is a pure function of a flake's base position,
+  the area's accumulated drift and elapsed fall, so `shaders/snow_flakes.gdshader` does it in
+  `vertex()` off two uniforms and the batch never changes. **It is also what makes the weather
+  reproducible**: a `GPUParticles3D` seeds itself per run (the spray is excluded from byte
+  comparisons for exactly that), and a snowing reference capture had to be comparable.
+  Three smaller deviations ride with it. Every area **billboards about Y**, where ETR turns only
+  the near one and leaves the outer two facing world +z — which is close enough to the camera
+  while the course runs down −z and edge-on the moment you look sideways, and a slalom is the
+  case the far areas exist for. A flake takes its **atlas quadrant from its index modulo four**
+  rather than `rand() % 4`, which is what that converges to over four hundred flakes whose
+  positions are already random. And the flakes are **soft-alpha rather than alpha-tested**: ETR's
+  `PARTICLES` mode is `glAlphaFunc(GL_GEQUAL, 0.5)` with `glDepthMask(GL_TRUE)`, i.e. hard-edged
+  flakes that write depth, which at 640x480 cost nothing and at a 16-pixel flake is a staircase.
+  Dropping the depth write is what that costs — flakes inside one area do not sort against each
+  other, and there is nothing in a sub-degree puff of flat colour to sort.
+- **The curtain tiles are redrawn, not copied, like the spray's atlas.** ETR's `snow1/2/3.png`
+  are 512² fields of specks at 1.5 %, 4.6 % and 14.7 % coverage — 251, 882 and 2184 blobs,
+  median four pixels of area, tailing to 380 — drawn on quads 15–32 m across at 40–60 m and
+  modulated by `[partcol]`. `SnowFall.make_curtain_image` generates that distribution instead:
+  the measured blob counts, a cubed uniform for the radius so the skew comes out, white with the
+  alpha doing the shaping so the tint is applied once and not twice, wrapped at the tile edges
+  because a flake-free border repeats across every quad of a ring and reads as a grid.
+  Deterministic, and `TestSnowFall` asserts the coverage against the originals' numbers.
 - **Which layers are ice is `TerrainLayer.is_ice()`, not `[shiny]`.** Seven records are ice and
   the data marks only three of them shiny — `ice1`, `ice2`, `greenice`. `hockey_ice`,
   `snowy_ice`, `snowy_greenice` and `snowy_hockey_ice` ship without it, so the friction clause

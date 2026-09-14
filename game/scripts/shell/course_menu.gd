@@ -18,6 +18,11 @@
 ## what lets someone who has just been beaten drop the difficulty and press
 ## Race! again without walking back out to the main menu.
 ##
+## The weather row is the same idea and is ETR's own arrangement: `CRaceSelect`
+## puts three icon buttons — light, snow, wind — under the course list, each
+## cycling four states. Only the snow one exists here ([SnowFall]); it is shown
+## in Practice too, because the weather is not the field.
+##
 ## Cups and events are imported and waiting in `res://resources/events/`; this
 ## screen only does free selection of a single course.
 class_name CourseMenu
@@ -43,6 +48,12 @@ signal back_requested()
 const SCREEN_COLOR := Color(0.4, 0.6, 0.8, 1.0)
 const OVER_RACE_COLOR := Color(0.2, 0.3, 0.6, 0.72)
 
+## What the four grades of [member RaceSetup.snowfall] are called. Not migrated
+## strings and not `tr()` keys: ETR says this with a four-state icon and has no
+## words for it in any of the thirteen translations, so a key would resolve to
+## nothing everywhere. Same standing as *Opponents* and *Skill* above.
+const SNOW_LABELS: Array[String] = ["None", "A little", "More", "A lot"]
+
 var _catalog: CourseCatalog
 ## The catalog rows that are actually present in this build. The `WebOneCourse`
 ## export ships one course against the full index; listing the other 43 would
@@ -65,6 +76,8 @@ var _entries: Array[CourseListing] = []
 @onready var _opponents: OptionButton = %OpponentsOption
 @onready var _skill_label: Label = %SkillLabel
 @onready var _skill: OptionButton = %SkillOption
+@onready var _snow_label: Label = %SnowLabel
+@onready var _snow: OptionButton = %SnowOption
 
 ## The field the panel is currently offering. Held rather than read back off the
 ## widgets on close, so that a Practice open cannot lose the race settings the
@@ -82,6 +95,7 @@ func _ready() -> void:
 	# all thirteen languages. Same call as `ghost` and *Race your best time*.
 	_opponents_label.text = "Opponents:"
 	_skill_label.text = "Skill:"
+	_snow_label.text = "Snowfall:"
 	_fill_field_options()
 
 	_list.item_selected.connect(_on_item_selected)
@@ -118,6 +132,9 @@ func _fill_field_options() -> void:
 	_skill.clear()
 	for index: int in AISkill.LABELS.size():
 		_skill.add_item(AISkill.label_of(AISkill.level_at(index)), index)
+	_snow.clear()
+	for grade: int in SNOW_LABELS.size():
+		_snow.add_item(SNOW_LABELS[grade], grade)
 
 ## Show the menu. `current_dir` is highlighted, `over_race` says whether there
 ## is a course loaded and rendered behind this panel — which is only true from
@@ -135,6 +152,7 @@ func open(current_dir: String, over_race: bool, setup: RaceSetup,
 	if _setup.is_race():
 		_opponents.select(_opponents.get_item_index(_setup.opponents))
 		_skill.select(_skill.get_item_index(_setup.skill))
+	_snow.select(_snow.get_item_index(clampi(_setup.snowfall, 0, SnowFall.MAX_GRADE)))
 	visible = true
 	var index: int = _index_of(current_dir)
 	if index < 0 and not _entries.is_empty():
@@ -182,13 +200,14 @@ func _choose(entry: CourseListing) -> void:
 	visible = false
 	course_chosen.emit(entry, _chosen_setup())
 
-## The field as the spinners now stand. Practice stays practice however the
-## spinners were last left: they are hidden and their values are last race's.
+## The field and the weather as the spinners now stand. Practice stays practice
+## however the field spinners were last left: they are hidden and their values
+## are last race's. The snow row is never hidden, so it always speaks.
 func _chosen_setup() -> RaceSetup:
 	if not _setup.is_race():
-		return RaceSetup.practice()
+		return RaceSetup.practice().in_snow(_snow.get_selected_id())
 	return RaceSetup.against(_opponents.get_selected_id(),
-		AISkill.level_at(_skill.get_selected_id()))
+		AISkill.level_at(_skill.get_selected_id())).in_snow(_snow.get_selected_id())
 
 func _show_details(entry: CourseListing) -> void:
 	_name.text = entry.title()

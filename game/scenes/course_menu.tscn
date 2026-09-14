@@ -133,6 +133,23 @@ custom_minimum_size = Vector2(150, 38)
 layout_mode = 2
 theme_override_font_sizes/font_size = 17
 
+[node name="WeatherRow" type="HBoxContainer" parent="Frame/Body/Columns/InfoPanel/Info"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="SnowLabel" type="Label" parent="Frame/Body/Columns/InfoPanel/Info/WeatherRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Snowfall:"
+
+[node name="SnowOption" type="OptionButton" parent="Frame/Body/Columns/InfoPanel/Info/WeatherRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 38)
+layout_mode = 2
+theme_override_font_sizes/font_size = 17
+
 [node name="Buttons" type="HBoxContainer" parent="Frame/Body/Columns/InfoPanel/Info"]
 layout_mode = 2
 alignment = 2

@@ -27,6 +27,10 @@ extends RefCounted
 ## Unset opponents. Zero is a real answer — it is Practice — so the sentinel
 ## cannot be zero.
 const NO_OPPONENTS := -1
+## Unset snowfall, for the same reason: zero is "clear sky", which is a thing a
+## command line can legitimately ask for over a settings file that says
+## otherwise.
+const NO_SNOW := -1
 
 ## Course directory name, e.g. `bunny_hill`. Empty means "ask the shell".
 var course: String = ""
@@ -52,6 +56,10 @@ var show_fps: bool = false
 ## Nothing else sets it: wind belongs to a cup race and there are no cups yet,
 ## so this is how the [WindField] and the HUD's rose are reachable at all.
 var wind: int = 0
+## `--snow=0..3` — how hard it is snowing, ETR's `g_game.snow_id`. Unlike the
+## wind this is also a settings key and a control on the course screen; the flag
+## is how a capture names the weather without going through either.
+var snow: int = NO_SNOW
 ## `?autostart` — the browser's way of saying "skip the menu" without naming a
 ## course, since it has no `--auto-input=` either.
 var autostart: bool = false
@@ -124,6 +132,8 @@ func parse(argv: PackedStringArray, query: Dictionary) -> void:
 			show_fps = true
 		elif arg.begins_with("--wind="):
 			wind = arg.trim_prefix("--wind=").to_int()
+		elif arg.begins_with("--snow="):
+			snow = arg.trim_prefix("--snow=").to_int()
 		elif arg.begins_with("--capture="):
 			capture_path = arg.trim_prefix("--capture=")
 		elif arg.begins_with("--capture-frames="):
@@ -156,6 +166,8 @@ func parse(argv: PackedStringArray, query: Dictionary) -> void:
 	show_fps = show_fps or query.has("fps")
 	if wind == 0 and query.has("wind"):
 		wind = str(query["wind"]).to_int()
+	if snow == NO_SNOW and query.has("snow"):
+		snow = str(query["snow"]).to_int()
 	autostart = autostart or query.has("autostart")
 	capture_path = _str(query, "capture", capture_path)
 	if query.has("capture-frames"):

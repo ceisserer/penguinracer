@@ -1,9 +1,17 @@
-## What kind of race the shell asked for: alone, or against a field.
+## What kind of race the shell asked for: alone or against a field, and in what
+## weather.
 ##
-## Two numbers and nothing else, but they are the two the shell has to carry
+## Three numbers and nothing else, but they are the ones the shell has to carry
 ## across a scene swap and hand back afterwards, and a value object is cheaper
-## to reason about than a second and third `static var` on [RaceScene] beside
+## to reason about than three more `static var`s on [RaceScene] beside
 ## [member RaceScene.requested_course_path].
+##
+## [b]Weather is here for the same reason the field is.[/b] ETR keeps
+## `light_id`, `snow_id` and `wind_id` in `g_game` beside the course, all four
+## set on the one screen (`CRaceSelect`) and read by whatever needs them; this
+## is that object, and [CourseMenu] is that screen. Only the snow is carried so
+## far — the sky is a property of the course's environment here and the wind is
+## still `--wind=` (see [member RacePhysics.wind]).
 ##
 ## Zero opponents is Practice — the mode the game had until now, and still the
 ## default. `--auto-input=` and every reference capture get it, which is what
@@ -27,6 +35,11 @@ const LANE_MARGIN := 2.5
 
 var opponents: int = 0
 var skill: AISkill.Level = AISkill.Level.MEDIUM
+## How hard it is snowing: ETR's `g_game.snow_id`, 0 (none) to
+## [constant SnowFall.MAX_GRADE]. Presentation only — see [SnowFall]. Zero is
+## the default and every reference capture, which is why the flag and the
+## settings key both have to name a grade to get one.
+var snowfall: int = 0
 
 static func practice() -> RaceSetup:
 	return RaceSetup.new()
@@ -37,6 +50,13 @@ static func against(count: int, level: AISkill.Level) -> RaceSetup:
 	s.skill = level
 	return s
 
+## The same setup with [member snowfall] set. A builder rather than an argument
+## on the two constructors above, because the weather is orthogonal to the field
+## and every caller that sets one leaves the other alone.
+func in_snow(grade: int) -> RaceSetup:
+	snowfall = clampi(grade, 0, SnowFall.MAX_GRADE)
+	return self
+
 ## Whether there is anyone else on the hill to beat.
 func is_race() -> bool:
 	return opponents > 0
@@ -44,11 +64,15 @@ func is_race() -> bool:
 ## Whether two setups would produce the same field. What [RaceScene] uses to
 ## decide whether picking a course from the in-race menu has to rebuild the
 ## opponents or can just put everyone back on the start line.
+##
+## [member snowfall] is deliberately not part of it: the weather is not the
+## field, and rebuilding nine [RacePhysics] because the player asked for heavier
+## snow would throw away the opponents for a change none of them can see.
 func matches(other: RaceSetup) -> bool:
 	return other != null and other.opponents == opponents and other.skill == skill
 
 func copy() -> RaceSetup:
-	return RaceSetup.against(opponents, skill)
+	return RaceSetup.against(opponents, skill).in_snow(snowfall)
 
 ## Where seat [param index] starts, relative to the course's own start point.
 ##
@@ -81,6 +105,7 @@ static func lane_x(x: float, bounds: PackedVector2Array) -> float:
 
 ## One line for the logs and the HUD's opening print.
 func describe() -> String:
+	var weather: String = "" if snowfall <= 0 else ", snow %d" % snowfall
 	if not is_race():
-		return "practice"
-	return "%d opponents, %s" % [opponents, AISkill.name_of(skill)]
+		return "practice%s" % weather
+	return "%d opponents, %s%s" % [opponents, AISkill.name_of(skill), weather]

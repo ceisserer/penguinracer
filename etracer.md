@@ -158,9 +158,14 @@ Data-driven from PNGs, no mesh files:
   `elev = ((pixel − 127)/255) × scale − (row/ny) × length × tan(angle)`, i.e. the course's overall
   downhill slope is added analytically on top of a local height field. `scale` ≈ 7–10 m,
   `angle` ≈ 10–25°.
-- `terrain.png` — per-vertex terrain type, matched to `terrains.lst` entries by RGB within ±30.
-  ~45 terrain types (ice, snow variants, rock, sand, mud, pave, grass), each with
-  `friction`, `depth`, `sound`, `particles`, `trackmarks`, `shiny`, and track-mark texture ids.
+- `terrain.png` — per-vertex terrain type, matched to `terrains.lst` entries by RGB within ±30
+  (`CCourse::GetTerrain`, first match wins, falling back to record 0). ~45 terrain types (ice, snow
+  variants, rock, sand, mud, pave, grass), each with `friction`, `depth`, `sound`, `particles`,
+  `trackmarks`, `shiny`, and track-mark texture ids. It is never blended as a texture: the course
+  is drawn once per terrain type in `terrains.lst` order and each vertex's alpha is
+  `terrain <= vertex_terrain` (`quadsquare::MakeTri`), so the lower-indexed type goes down opaque
+  across any triangle it touches and the higher-indexed one ramps in over exactly one cell —
+  putting the visible boundary in the middle of that cell.
 - `trees.png` — object placement by colour key (8 legacy colours), converted **once** at first load
   into `items.lst` (a text file, cached beside the course). Tree height/diam randomised from
   `g_game.treesize`/`treevar`.
@@ -201,10 +206,19 @@ solved problem in every modern engine and the single largest visual upgrade avai
    `turn_animation`. Initial velocity = plane normal rotated about the travel direction by up to
    `±MAX_PARTICLE_ANGLE` scaled by speed, magnitude `min(MAX_PARTICLE_SPEED, speed × mult)`.
    **This asymmetric left/right spray keyed to carve direction is the signature visual — keep it.**
-3. **`CFlakes` / `TFlakeArea`** — near-field 3D flakes in camera-relative boxes, recycled when they
-   leave the box, drawn as camera-facing quads clipped against the left/right frustum planes.
+3. **`CFlakes` / `TFlakeArea`** — near-field 3D flakes in three player-relative boxes (5/12/30 m
+   wide, the outer two staggered *ahead* down the hill), recycled when they leave the box, clipped
+   against the left/right frustum planes. Corrected 2026-09-14: they are **not** all camera-facing.
+   Only the near area carries `rotate_flake`, and it is a yaw-only turn by `atan(viewdir.x /
+   viewdir.z)`; the outer two are fixed quads in the world XY plane, which works because the course
+   runs down −z. The box follows the player exactly while the flakes inside it follow only
+   `YDRIFT` = 0.8 of the vertical travel and `ZDRIFT` = 0.6 of the travel down the hill — that
+   fraction, not the flake count, is what makes the effect read as snowfall rather than as a wall.
 4. **`CCurtain`** — far-field "snow curtains": a cylindrical shell of `≤16 × 8` billboards around the
-   camera at fixed angular positions, giving cheap depth to heavy snowfall.
+   camera at fixed angular positions, giving cheap depth to heavy snowfall. Three shells at 40/50/60
+   m, quads 15–32 m across textured from `snow1/2/3.png`, each turned to face the middle of its own
+   ring rather than the camera; they sink at 3 m/s and wrap, and drift angularly on six shared
+   triangle-wave oscillators.
 
 Plus **`CWind`** — a state machine that lerps wind speed and angle toward randomly chosen targets
 (`SetParams(grade)` per snow/wind level 0–3); feeds both air drag and flake drift.

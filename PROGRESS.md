@@ -38,9 +38,9 @@ paddle, and the roll normal. ODE23 (Bogacki–Shampine) with adaptive stepping, 
 `MAX_STEP_DIST` cap. Trees and herring go through a uniform spatial grid, fixing the original's
 O(items) scan per substep.
 
-**0 failures** — 2293 assertions when the phase closed, 4337 today across physics, surface,
+**0 failures** — 2293 assertions when the phase closed, 4665 today across physics, surface,
 input, audio, the imported terrain library, the settings file, the character rig, the chase
-camera and the HUD's arithmetic, in 3.9 s headless. Per-force golden values are
+camera, the HUD's arithmetic and the weather, in 13 s headless. Per-force golden values are
 worked out by hand from the constants — air drag at 20 m/s, each of the three spring bands, the
 400 N lateral friction cap, the 30°/55° bank angles, the paddle's fade to nothing at 60 km/h — so
 a change in feel shows up as a test failure rather than as a vague complaint. Whole-simulation
@@ -63,8 +63,10 @@ presets, 5 characters, the event/cup tables and 111 strings × 13 languages.
 
 - `elev.png` → float32 local relief, Catmull-Rom upsampled ×2 with an edge-preserving bilateral
   pass; the global slope stays analytic in `CourseData.base_angle`.
-- `terrain.png` → authored splat weights, one-hot then boundary-blurred, capped at 8 layers.
-  No surveyed course exceeds the cap.
+- `terrain.png` → authored splat weights: the one-hot index field bilinearly resampled onto the
+  heightmap grid, then boundary-blurred, capped at 8 layers. No surveyed course exceeds the cap.
+  The importer writes the splat's `.import` sidecar itself, because two of Godot's texture
+  defaults corrupt a weight field (2026-09-11, below).
 - `items.lst` (or `trees.png` for the 24 courses without one) → per-instance markers in
   `course.tscn`, batched into `MultiMesh` at load.
 - `course.dim`, `events.lst`, `terrains.lst`, `light.lst`, `object_types.lst`, `shape.lst`,
@@ -1166,6 +1168,109 @@ something below white, and that it is not `fog_color`.
 
 ---
 
+### The earth stopped reaching into the valley (2026-09-11) · **done**
+
+Reported against **Who Says Penguins Can't Fly?** again — the same course, for the same reason it
+found the ice bug: it is a bare ice gully between two rock plateaus and nothing else is in the way.
+*"The original has the whole valley covered by ice and the plateau top on both sides is earth; the
+Godot port lets the earth-material reach deeper into the valley."*
+
+The splat PNG on disk was correct. Measured against ETR's own field — the per-vertex terrain index
+from `terrain.png`, resolved through `GetTerrain`'s first-within-±30 scan and rendered by
+`quadsquare`'s ordered vertex alpha — the importer's output covered the course 58.5 % rock /
+30.5 % ice / 9.8 % rock06 / 1.2 % rock01 against ETR's 58.8 / 30.2 / 9.7 / 1.2.
+
+**The texture importer was editing it.** `process/fix_alpha_border` defaults on, and it rewrites
+the RGB of every texel whose alpha is below 30/255 with the RGB of the nearest texel above it
+within four texels. That is the right thing to do to a cutout sprite and the wrong thing to do to a
+weight field, where alpha is layer 3's weight; "nearly transparent" here means "not mostly rock01",
+which is 98.8 % of this course. Comparing the loaded `Texture2D` against the PNG byte for byte:
+**18.7 % of texels differed**, channel deltas up to 255. Ice fell to 26.9 % and rock06 rose to
+14.1 %, and because the rock01 slivers sit exactly along the rim — they are the antialiasing ramp
+in the source image — the bleed painted rock weights over the ice next to them, which is the earth
+walking down the wall. 20 of the 44 courses have four or more layers and all 20 were affected.
+
+Two grid errors were underneath it, each worth a fraction of a metre and both pushing the same way:
+`build_splat()` mapped the source grid onto the target with `x / target_w * nx`, truncating where it
+should round and stretching by a texel end to end, and `terrain.gdshader` read the result at
+`world / world_size` instead of on texel centres. Fixing the first by rounding only moved the bias
+to the other side — `HEIGHT_UPSAMPLE` is even, so half the target samples land exactly between two
+source vertices — so the resample is bilinear now, which is also what ETR's vertex alpha does across
+a boundary cell. Measured against ETR's 50 % crossing over 255 rows: **+0.28 cells mean before,
+−0.01 after**, worst case 0.60 → 0.30.
+
+The fix is three lines of arithmetic and a `.import` sidecar the importer now writes itself
+(`write_splat_import()`, which also pins `detect_3d/compress_to` to Disabled so the editor can never
+quietly re-import the weights block-compressed). `tests/test_splat.gd` guards the consumer rather
+than the settings: every texel's weights must still sum to one across all of a course's splat maps,
+which the bleed breaks by up to 85/255 and which no amount of legitimate image processing would.
+It also compares the loaded texture against the PNG wherever the PNG is reachable. See
+[`materials.md`](./materials.md) §1.2 and the trap list.
+
+4544 assertions, 0 failures.
+
+### It snows now, at four grades (2026-09-14) · **done**
+
+ETR's race-select screen offers three weather controls beside the course list — light, snow and
+wind, each an icon button cycling four states (`CRaceSelect`, `g_game.light_id/snow_id/wind_id`).
+The snow one is built.
+
+`SnowFall` is both of the original's layers, and they are two different effects:
+
+- **Flakes** (`CFlakes`) — three nested boxes around the player, 5 m, 12 m and 30 m wide, holding
+  400/500/1000 quads each depending on the grade. The boxes are staggered *ahead* of the racer —
+  the near one straddles them, the other two cover 2–10 m and 10–25 m down the hill — and the
+  flakes get bigger and fall faster the further out they are, so all three read as one field at
+  about the same size on screen. Nothing spawns and nothing dies: a flake that leaves the box is
+  teleported to the opposite face.
+- **Curtains** (`CCurtain`) — three rings of big tiles at 40, 50 and 60 m, each quad 15–32 m
+  across, drawn from a sparse field of specks, turning slowly around the player on six shared
+  oscillators and sinking at 3 m/s. This is what makes heavy snow read as weather rather than as
+  confetti in front of the camera: at that distance an individual flake is below a pixel and a
+  tile of them is not.
+
+**The flakes are a `MultiMesh` with the motion in a vertex shader**, where the original walks up
+to three thousand of them on the CPU every frame. It can be, because the whole of the per-frame
+motion is two numbers the area shares — the drift (wind, plus the part of the player's own travel
+the snow does not follow) and the integral of the fall speed, which a flake scales by its own
+size. `shaders/snow_flakes.gdshader` adds them, wraps with a `mod` and billboards, and the batch
+itself never changes. Two things fall out of that. It is **deterministic**, which the spray's
+`GPUParticles3D` is not — a snowing reference capture is comparable frame for frame, and a
+snow-free one is byte-identical to what the repository had (measured: the residual against a
+build with the node absent is 0.353 % of the frame at a mean |Δ| of 0.033/255, against a
+run-to-run noise floor of 0.367 % and 0.034 for two identical runs, all of it inside the spray
+plume). And it is **cheap**: 900 frames of Bunny Hill take the same wall time at grade 3 as at
+grade 0 on this GPU, and the CPU half — three uniform sets and 135 curtain transforms — is
+0.137 ms a frame, measured over 3600 updates.
+
+**The follow fraction is the whole feel of it.** `CFlakes::Update` moves every flake by 80 % of
+how far the player fell and 60 % of how far they travelled down the hill, and not at all
+sideways: at 100 % the snow is painted on the camera and at 0 % it is a wall you fly through at
+80 km/h with every flake a streak. That residue is what the shader's drift accumulates, and
+`TestSnowFall` asserts it as arithmetic because a still frame cannot show it.
+
+Chosen on the course screen, in Practice and in a race alike — ETR puts it there too — and
+remembered as `[game] snowfall` in `penguinracer.cfg`. `--snow=0..3` and `?snow=` name a grade for
+one run without going through the menu, which is how the captures above were taken. It is
+**presentation and nothing else**: no racer drives differently in it, which is the original's
+arrangement as well. The tint is the environment's `[partcol]`, the same field the spray is
+tinted by, so night snow would be blue without anything in the effect knowing which sky it is
+under.
+
+The art is redrawn rather than copied, like the spray's puff atlas and for the same reason: the
+flakes borrow `SprayEmitter.make_puff_image` (ETR binds the same `SNOW_PART` atlas for both), and
+the curtain tiles are generated to the originals' measured density — 251, 882 and 2184 specks
+over a 512² tile, covering 1.5 %, 4.6 % and 14.7 %. The deviations that ride with the port are in
+the trap list under AGENTS.md's deviations.
+
+Verified on both renderers: Mobile on the desktop and Compatibility, which is what the browser
+runs — the `MultiMesh`, the custom instance data and the vertex-stage billboard are all inside
+WebGL2's floor.
+
+4665 assertions, 0 failures.
+
+---
+
 ## Known gaps
 
 - **The near-field terrain mesh is too coarse for the trench to read as geometry.** Chunk
@@ -1329,6 +1434,16 @@ something below white, and that it is not `fog_color`.
   not in the tree: `pave04` wants a `pave04.png` nobody shipped and `snowy_hockey_ice` writes
   `snowy_ice02` without the extension. Untextured in the original too, and no shipped course
   paints either colour key, so this is a note rather than a bug — the importer warns.
+- **Two of ETR's three weather controls are still missing.** The race-select screen offers light,
+  snow and wind; only the snow is on the course screen. The **light** one cannot simply be added:
+  it picks one of four `light.lst` presets, and only the *sunny* ones have had their
+  `sun_gain`/`ambient_gain` pair fitted — the display-space fix moved evening and night the wrong
+  way (night's shaded snow reads about 105/255 against the original's 47), so offering them would
+  ship a course that is visibly wrong. Nothing selects them today, which is why nothing has
+  regressed. The **wind** one is only `--wind=`: `WindField` and the HUD's rose are built and
+  feed air drag, but wind belongs to a cup race in `events.lst` and there are no cups yet, so
+  there has been nowhere for the player to ask for it. Adding it to the same row the snow is on
+  is now a small job — `RaceSetup` is the object that carries this.
 - **`[starttex]`, `[tracktex]` and `[stoptex]` are still unported.** They are the original's
   trackmark decal atlas indices, and the GPU trail map replaced the thing they index. Nothing
   needs them; listed so the gap in `terrains.lst` coverage is deliberate.

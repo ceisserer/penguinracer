@@ -189,6 +189,7 @@ static func _round_trip(t: TestCase) -> void:
 	c.fog_distance_scale = 1.3
 	c.character = "boris"
 	c.shadows = false
+	c.snowfall = 2
 
 	var back: GameConfig = _read(c.file_text())
 	t.ok(back.resolution == Vector2i(1920, 1080), "a chosen resolution comes back")
@@ -197,6 +198,9 @@ static func _round_trip(t: TestCase) -> void:
 	t.eq_f(back.fog_start_distance, 15.0, 1e-6, "and where fog starts")
 	t.eq_f(back.fog_distance_scale, 1.3, 1e-6, "and how far it reaches")
 	t.ok(back.character == "boris", "and who the next race is run as")
+	# Zero is the default and a real answer, so a key that fails to round-trip
+	# looks exactly like a player who asked for clear weather.
+	t.ok(back.snowfall == 2, "and how hard it was snowing last time")
 	# A bool that is written as `false` and read back as its `true` default is
 	# the failure mode here, and it looks exactly like a setting nobody wired up.
 	t.ok(not back.shadows, "and a player who has turned the shadows off")
@@ -274,6 +278,7 @@ static func _launch_args(t: TestCase) -> void:
 		"--course=bunny_hill", "--character=trixi", "--auto-input=carve",
 		"--camera=above", "--opponents=5", "--difficulty=hard",
 		"--remote-keyboard", "--no-audio", "--no-intro", "--fps", "--wind=2",
+		"--snow=3",
 		"--capture=/tmp/a.png", "--capture-frames=200",
 	]), {})
 	t.ok(cli.course == "bunny_hill", "the course is read")
@@ -289,6 +294,7 @@ static func _launch_args(t: TestCase) -> void:
 	t.ok(cli.no_audio and cli.no_intro, "the two silencing flags are read")
 	t.ok(cli.show_fps, "the HUD's frame-rate readout is asked for")
 	t.ok(cli.wind == 2, "the wind grade is read")
+	t.ok(cli.snow == 3, "and so is the snowfall grade")
 	t.ok(cli.capture_path == "/tmp/a.png" and cli.capture_frames == 200,
 		"the capture request is read")
 
@@ -298,6 +304,7 @@ static func _launch_args(t: TestCase) -> void:
 		"course": "bunny_hill", "character": "trixi", "auto-input": "carve",
 		"camera": "above", "opponents": "5", "difficulty": "hard",
 		"remotekeyboard": "", "noaudio": "", "nointro": "", "fps": "", "wind": "2",
+		"snow": "3",
 		"capture": "/tmp/a.png", "capture-frames": "200",
 	})
 	t.ok(url.course == cli.course and url.character == cli.character,
@@ -308,8 +315,8 @@ static func _launch_args(t: TestCase) -> void:
 		"and the same field — which the URL could not ask for at all before")
 	t.ok(url.no_audio == cli.no_audio and url.no_intro == cli.no_intro
 		and url.remote_keyboard == cli.remote_keyboard, "and the same flags")
-	t.ok(url.show_fps == cli.show_fps and url.wind == cli.wind,
-		"and the same HUD readout and weather")
+	t.ok(url.show_fps == cli.show_fps and url.wind == cli.wind
+		and url.snow == cli.snow, "and the same HUD readout and weather")
 	t.ok(url.capture_path == cli.capture_path
 		and url.capture_frames == cli.capture_frames, "and the same capture")
 
@@ -321,6 +328,8 @@ static func _launch_args(t: TestCase) -> void:
 	t.ok(not empty.wants_direct_race(), "a bare run opens the menu")
 	t.ok(empty.opponents == LaunchArgs.NO_OPPONENTS,
 		"an unset field is not zero, which is a real answer")
+	t.ok(empty.snow == LaunchArgs.NO_SNOW,
+		"and neither is an unset sky — 0 is `--snow=0`, which overrides the file")
 	var shot := LaunchArgs.new()
 	shot.parse(PackedStringArray(["--capture=/tmp/menu.png"]), {})
 	t.ok(not shot.wants_direct_race(), "a bare capture screenshots the menu")

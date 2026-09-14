@@ -572,17 +572,45 @@ func build_splat(terr_img: Image, colors: Array[Color], names: Array[String],
 
 	var layer_count: int = layer_indices.size()
 
-	# One-hot at the target resolution (nearest from the source grid), then a
-	# separable blur across the boundaries.
+	# The one-hot source field, bilinearly resampled onto the target grid, then
+	# a separable blur across the boundaries.
+	#
+	# Both are *vertex* grids over the same world rectangle — sample 0 on the
+	# near corner, sample n-1 on the far one, which is where
+	# `upsample_catmull_rom` puts the heightmap this is paired with. Mapping
+	# `x / target_w * nx` instead treated them as texel grids of different
+	# sizes: it truncated where it should have rounded and stretched by a
+	# further texel across the course, which slid every material boundary a
+	# third of a metre downhill.
+	#
+	# Rounding is not enough either. An even upsample factor lands half its
+	# samples exactly between two source vertices, and a nearest lookup has to
+	# hand each of those to one side or the other — a quarter-cell bias in
+	# whichever direction the tie breaks. Splitting them is both unbiased and
+	# the more faithful blend: interpolating a one-hot field linearly across a
+	# cell is what the original's per-vertex terrain alpha does (`quadsquare::
+	# MakeTri`), so the boundary ends up at the middle of the cell, where ETR
+	# draws it.
+	var last_x: int = maxi(target_w - 1, 1)
+	var last_y: int = maxi(target_h - 1, 1)
 	var weights := PackedFloat32Array()
 	weights.resize(target_w * target_h * layer_count)
 	weights.fill(0.0)
 	for y: int in target_h:
-		var sy: int = clampi(int(float(y) / float(target_h) * float(ny)), 0, ny - 1)
+		var fy: float = float(y) * float(ny - 1) / float(last_y)
+		var y0: int = clampi(int(fy), 0, ny - 1)
+		var y1: int = mini(y0 + 1, ny - 1)
+		var ty: float = fy - float(y0)
 		for x: int in target_w:
-			var sx: int = clampi(int(float(x) / float(target_w) * float(nx)), 0, nx - 1)
-			var layer: int = remap[index_map[sy * nx + sx]]
-			weights[(y * target_w + x) * layer_count + layer] = 1.0
+			var fx: float = float(x) * float(nx - 1) / float(last_x)
+			var x0: int = clampi(int(fx), 0, nx - 1)
+			var x1: int = mini(x0 + 1, nx - 1)
+			var tx: float = fx - float(x0)
+			var base: int = (y * target_w + x) * layer_count
+			weights[base + remap[index_map[y0 * nx + x0]]] += (1.0 - tx) * (1.0 - ty)
+			weights[base + remap[index_map[y0 * nx + x1]]] += tx * (1.0 - ty)
+			weights[base + remap[index_map[y1 * nx + x0]]] += (1.0 - tx) * ty
+			weights[base + remap[index_map[y1 * nx + x1]]] += tx * ty
 	weights = _blur_weights(weights, target_w, target_h, layer_count)
 
 	var images: Array[Image] = []
@@ -606,6 +634,41 @@ func build_splat(terr_img: Image, colors: Array[Color], names: Array[String],
 		"layer_indices": layer_indices,
 		"layer_count": layer_count,
 	}
+
+## A splat map is a weight field that happens to be stored as an image, and two
+## of the texture importer's defaults are wrong for it in ways that are invisible
+## in the PNG and only show up on the hill.
+##
+## `process/fix_alpha_border` is for transparent *sprites*: it overwrites the RGB
+## of every near-transparent texel with the colour of the nearest opaque one
+## within four texels, so bilinear filtering cannot pull a halo out of the
+## undefined colour behind the cutout. Here alpha is not transparency, it is
+## layer 3's weight — so on every course with four or more layers it rewrites
+## layers 0..2 wherever layer 3 is thin, which is nearly everywhere. On
+## penguins_cant_fly that hit 19 % of the map: ice fell from 30 % of the course
+## to 27 % and rock06 rose by half, which is the earth creeping down the valley
+## wall.
+##
+## `detect_3d/compress_to` would re-import the map as VRAM-compressed the first
+## time the editor saw it on a 3D material. BC block compression shares two
+## colour endpoints across each 4x4 block — precisely the boundary the weights
+## exist to carry. It has not fired yet; pinning it to Disabled is what keeps it
+## from firing.
+##
+## Mipmaps stay on: the shader samples this across the whole course at grazing
+## angles and needs the chain (see `shaders/terrain.gdshader`).
+static func write_splat_import(png_path: String) -> void:
+	var cfg := ConfigFile.new()
+	if cfg.load(png_path + ".import") != OK:
+		# First import of this course. Godot fills in `[remap]`'s paths and
+		# `[deps]` itself; it only needs to know which importer owns the file.
+		cfg.set_value("remap", "importer", "texture")
+		cfg.set_value("remap", "type", "CompressedTexture2D")
+	cfg.set_value("params", "compress/mode", 0)          # Lossless
+	cfg.set_value("params", "mipmaps/generate", true)
+	cfg.set_value("params", "process/fix_alpha_border", false)
+	cfg.set_value("params", "detect_3d/compress_to", 0)  # Disabled
+	cfg.save(png_path + ".import")
 
 ## Two 1-D box passes, then renormalise so the weights still sum to one.
 static func _blur_weights(w: PackedFloat32Array, width: int, height: int,
@@ -825,8 +888,9 @@ func import_course(group: String, dir_name: String,
 				uw, uh)
 			var imgs: Array[Image] = splat["images"]
 			for m: int in imgs.size():
-				imgs[m].save_png(ProjectSettings.globalize_path(
-					out_dir.path_join("splat_%d.png" % m)))
+				var splat_path: String = out_dir.path_join("splat_%d.png" % m)
+				imgs[m].save_png(ProjectSettings.globalize_path(splat_path))
+				write_splat_import(splat_path)
 			var meta := ConfigFile.new()
 			meta.set_value("splat", "layer_names", splat["layer_names"])
 			meta.set_value("splat", "layer_indices", splat["layer_indices"])

@@ -359,7 +359,16 @@ float trail_depth(vec2 world_xz) {
 
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	splat_uv = vec2(world_pos.x / world_size.x, -world_pos.z / world_size.y);
+	// The splat is a *vertex* grid, not a texel grid: the importer writes it at
+	// the heightmap's resolution with sample 0 on the near corner and sample
+	// n-1 on the far one, and `HeightmapSurface` reads it back that way for
+	// friction. Sampling it as `world / world_size` puts sample n-1 half a
+	// texel outside the texture and slides everything between, so the picture
+	// and the physics disagree about where a material ends by up to a quarter
+	// of a metre. Land on texel centres instead.
+	vec2 splat_grid = vec2(textureSize(splat_0, 0)) - 1.0;
+	splat_uv = (vec2(world_pos.x / world_size.x, -world_pos.z / world_size.y)
+		* splat_grid + 0.5) / (splat_grid + 1.0);
 
 	ridge_lip = 0.0;
 	if (trail_enabled) {

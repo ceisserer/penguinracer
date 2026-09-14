@@ -48,6 +48,9 @@ Three properties of this layout matter and are easy to get wrong:
   changing snow's friction changes it on all 44 courses.
 - **A course's layer array is positional.** `terrain_layers[3]` is the alpha channel of
   `splat_0.png` and nothing else. Reordering the array repaints the course.
+- **A splat map is a weight field wearing a PNG.** Layer 3's weight lives in the alpha channel and
+  is not transparency; the file is data that happens to decode as an image. §1.2 is what follows
+  from that.
 
 ### 1.1 Why 43 records and not three
 
@@ -106,6 +109,47 @@ Meanwhile the renderer *does* collapse them, to exactly the three the question p
 everything else is albedo, and the physics reduces the whole file to one continuous friction
 scalar. The 43 is the lookup table; the three are what the game runs on.
 
+### 1.2 Where the boundary goes, and who is allowed to move it
+
+`terrain.png` is a per-vertex index map: one colour key per vertex of the course grid, matched by
+`GetTerrain`'s first-within-±30 scan. ETR never blends it as a texture. It renders the course once
+per terrain type in `terrains.lst` order and sets each vertex's alpha to `terrain <= vertex_terrain`
+(`quadsquare::MakeTri`), so the lower-indexed type is laid down opaque across any triangle it
+touches and the higher-indexed one ramps in over exactly one cell. The visible line therefore sits
+**in the middle of the boundary cell**, and that is the target `build_splat()` has to hit.
+
+It hits it by resampling the one-hot source field *bilinearly* onto the target grid, then blurring.
+Both grids are vertex grids over the same rectangle — sample 0 on the near corner, sample n-1 on
+the far one, the placement `upsample_catmull_rom` gives the heightmap the splat is paired with.
+Two ways of getting that wrong have both been shipped and both moved every material on the course:
+
+- `x / target_w * nx` treats them as *texel* grids of different sizes. It truncates where it should
+  round and stretches by a further texel end to end.
+- Rounding instead is not enough. `HEIGHT_UPSAMPLE` is even, so half the target samples land
+  exactly between two source vertices, and a nearest lookup has to hand each of those to one side
+  — a quarter-cell bias in whichever direction the tie breaks. Splitting them is both unbiased and
+  the more faithful blend, because linear interpolation of a one-hot field across a cell is
+  precisely what ETR's vertex alpha does.
+
+The shader has to read it on the same grid. `splat_uv` lands on texel *centres*
+(`(uv · (n-1) + 0.5) / n`) rather than on `world / world_size`, which would put the last sample half
+a texel outside the texture and slide everything in between — and would put the picture half a texel
+away from the friction, since `HeightmapSurface` reads the same file as a vertex grid.
+
+Two of Godot's texture-import defaults are also wrong for a weight field, so the importer writes the
+`.import` sidecar itself (`write_splat_import()`) rather than letting them be inferred:
+
+| Setting | Default | Here | Why |
+|---|---|---|---|
+| `process/fix_alpha_border` | on | **off** | Overwrites the RGB of every texel whose alpha is below 30/255 with the nearest one above it, within 4 texels. For a cutout sprite that suppresses halos; here alpha is layer 3's weight, so it rewrites layers 0–2 across most of any course with four or more layers. |
+| `detect_3d/compress_to` | VRAM | **Disabled** | Would re-import the map block-compressed the first time the editor saw it on a 3D material. BC shares two colour endpoints per 4×4 block — exactly the boundary the weights carry. |
+| `mipmaps/generate` | on | **on** | Kept. The shader reads this across the whole course at grazing angles and needs the chain. |
+
+`tests/test_splat.gd` guards the result rather than the settings: the importer renormalises every
+texel to one, and anything that mixes texels without preserving alpha breaks that sum while leaving
+a plausible-looking image. It also checks the loaded texture byte-for-byte against the PNG wherever
+the PNG is reachable.
+
 ---
 
 ## 2. The fields, and who reads them
@@ -155,7 +199,9 @@ each one samples the surface, so this is on the hottest path in the game.
 
 The weights come from `_decode_splat()`, which nearest-resamples the RGBA8 splat textures onto the
 heightmap grid. Today the importer writes both at the same resolution, so the resample is an
-identity; the code does not assume that, because the v2 format deliberately decouples them.
+identity; the code does not assume that, because the v2 format deliberately decouples them. Note
+that this path reads the splat as a **vertex grid** — sample *j* is heightmap vertex *j* — which is
+why the shader's `splat_uv` has to land on texel centres to agree with it (§1.2).
 
 ### 3.2 Per-query
 
@@ -420,10 +466,11 @@ place with its units — or adding a `set_shader_parameter` in `terrain_renderer
 material asset to drag onto anything.
 
 **The splat map cannot be painted.** `splat_0.png` is generated by `build_splat()` from ETR's
-colour-keyed `terrain.png` — one-hot at the heightmap resolution, then boundary-blurred so a
-designer inherits something paintable rather than an index map. But nothing in this project paints
-it. Editing means an external image editor and a re-import that respects the change, and there is
-no such guard for splat PNGs today.
+colour-keyed `terrain.png` — the one-hot index field resampled onto the heightmap grid and
+boundary-blurred (§1.2), so a designer inherits something paintable rather than an index map. But
+nothing in this project paints it. Editing means an external image editor and a re-import that
+respects the change; the `.import` sidecar the importer writes survives that, and
+`tests/test_splat.gd` will say so if the edit leaves weights that no longer sum to one.
 
 **Per-layer visual overrides beyond roughness and tiling are not expressible.** The shader has four
 per-layer slots and two of them are computed. Making a layer, say, glint harder than other snow

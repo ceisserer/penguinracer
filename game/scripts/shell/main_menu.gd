@@ -131,13 +131,14 @@ func _show_root() -> void:
 	_practice_button.grab_focus()
 
 func _open_practice_menu() -> void:
-	_open_course_menu(RaceSetup.practice())
+	_open_course_menu(RaceSetup.practice().in_snow(Config.snowfall))
 
 ## The same screen with the field spinners showing, opened on whatever the
 ## player last raced — [GameConfig] holds it so that the answer survives a
 ## restart of the game, not just of the scene.
 func _open_race_menu() -> void:
-	_open_course_menu(RaceSetup.against(Config.opponents, Config.opponent_skill))
+	_open_course_menu(RaceSetup.against(Config.opponents,
+		Config.opponent_skill).in_snow(Config.snowfall))
 
 func _open_course_menu(setup: RaceSetup) -> void:
 	_frame.visible = false
@@ -186,10 +187,16 @@ func _on_course_chosen(listing: CourseListing, setup: RaceSetup) -> void:
 	# for the next time this screen opens. A practice run leaves the stored
 	# field alone: choosing to race alone is not choosing zero opponents.
 	RaceScene.requested_setup = setup
+	# The weather is kept whichever mode this was: the snow row is offered on the
+	# Practice screen too, so a practice run really is the player saying so.
+	var changed: bool = setup.snowfall != Config.snowfall
+	Config.snowfall = setup.snowfall
 	if setup.is_race() and (setup.opponents != Config.opponents
 			or setup.skill != Config.opponent_skill):
 		Config.opponents = setup.opponents
 		Config.opponent_skill = setup.skill
+		changed = true
+	if changed:
 		Config.save()
 	# ETR's loading screen: the course in yellow, "please wait" in white under
 	# it, both centred on the same flat blue every other screen is cleared to.
@@ -214,7 +221,7 @@ func _on_ghost_run_chosen(recording: RaceRecording) -> void:
 		# to load.
 		_show_root()
 		return
-	RaceScene.requested_setup = RaceSetup.practice()
+	RaceScene.requested_setup = RaceSetup.practice().in_snow(Config.snowfall)
 	RaceScene.requested_ghost = recording
 	_loading_label.text = "%s '%s'" % [tr("LOADING"), listing.title()]
 	_loading.visible = true

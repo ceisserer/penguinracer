@@ -509,6 +509,13 @@ that dependency entirely.)
 3. **`terrain.png` → splat maps.** Match RGB against `terrains.lst` (±30, as the original), collect
    the distinct types actually used by *this* course, assign to ≤8 layers, write one-hot weights,
    then blur the boundaries to produce authored-quality blending. Warn + merge if >8.
+   **Correction 2026-09-11:** *bilinearly resample* the one-hot field onto the target grid rather
+   than taking the nearest sample, and map corner to corner — both the splat and the heightmap are
+   vertex grids, and the even upsample factor puts half the target samples exactly between two
+   source vertices, where nearest has to invent a tie-break. Interpolating is also what the
+   original draws (`quadsquare::MakeTri`). And write the `.import` sidecar with the texture
+   importer's sprite-oriented defaults off: `process/fix_alpha_border` treats layer 3's weight as
+   transparency and rewrites the other three layers around it. See `materials.md` §1.2.
 4. **`items.lst` → scene nodes.** Prefer `items.lst` over `trees.png` — it carries float `height`/`diam`
    the pixel map lacks. Positions are grid-snapped in the source; **preserve them exactly on import**
    (tree placement is gameplay), leave de-gridding to a designer in-editor.

@@ -111,6 +111,15 @@ var opponents: int = 3
 ## habits, never the physics.
 var opponent_skill: AISkill.Level = AISkill.Level.MEDIUM
 
+## How hard it is snowing, 0 (clear) to [constant SnowFall.MAX_GRADE]. ETR's
+## `g_game.snow_id`, and on the same screen it is on there: the course screen
+## sets it and this is where the answer is kept between sessions.
+##
+## Zero by default, which is both the original's `main.cpp` and the reason every
+## reference capture in the repository still means what it meant — snow in front
+## of the camera would move the frame on all 44 courses.
+var snowfall: int = 0
+
 # --- multiplayer ---
 
 ## What other racers see this player called. ETR has `players.lst` and an avatar
@@ -163,6 +172,8 @@ func read(cfg: ConfigFile) -> void:
 		1, RaceSetup.MAX_OPPONENTS)
 	opponent_skill = AISkill.parse(str(cfg.get_value("game", "opponent_skill",
 		AISkill.name_of(opponent_skill))))
+	snowfall = clampi(int(cfg.get_value("game", "snowfall", snowfall)),
+		0, SnowFall.MAX_GRADE)
 	player_name = str(cfg.get_value("multiplayer", "player_name",
 		player_name)).strip_edges()
 	if player_name.is_empty():
@@ -261,6 +272,12 @@ character = "%s"
 opponents = %d
 opponent_skill = "%s"
 
+; How hard it is snowing [0...3]: none, a little, more, a lot. The original
+; offers the same four on its race screen, and so does the course screen here.
+; It is weather and nothing else — no racer drives differently in it.
+; Also `--snow=2` on the command line, which outranks this for one run.
+snowfall = %d
+
 [multiplayer]
 
 ; What other racers see you called.
@@ -274,7 +291,7 @@ port = %d
 """ % [_resolution_text(), str(fullscreen).to_lower(), render_scale,
 		str(ice_reflections).to_lower(), str(shadows).to_lower(),
 		fog_start_distance, fog_distance_scale, character,
-		opponents, AISkill.name_of(opponent_skill),
+		opponents, AISkill.name_of(opponent_skill), snowfall,
 		player_name, multiplayer_port]
 
 ## `"auto"` when the window is the platform's to size, `"1280x720"` otherwise.
