@@ -27,6 +27,11 @@
 # own size or ask for `SHOT_RESOLUTION=1024x576` and get exactly 1280x720 back.
 # Check the size of what you got before trusting a documented rectangle.
 #
+# The *shape* is yours to choose too, and it changes what is in frame rather
+# than just how big it is: `window/stretch/aspect="expand"` means a 4:3 request
+# shows more hill above and below and a 21:9 one more to either side. Ask for
+# 16:9 when comparing against an existing capture.
+#
 # Either way `--fixed-fps` makes the simulation advance by frame count rather
 # than by how slowly it happens to draw, which is what makes two runs — and the
 # two paths — comparable at all. `--no-audio` keeps the run silent, which a

@@ -22,12 +22,24 @@
 ## hundredths digit still does not shove the seconds sideways.
 ## See [method _font] and [method _draw_digits].
 ##
-## [b]Positions are canvas pixels, and the canvas is 1280x720.[/b] ETR anchors
+## [b]Positions are canvas pixels, and the canvas is 720 tall.[/b] ETR anchors
 ## the HUD to the corners of the real window, so at 1920x1080 its gauge is the
 ## same 128 px it is at 640x480 and reads half the size. `canvas_items` stretch
 ## means the numbers below are a *design* resolution that scales with the
 ## window, which is how the rest of this shell already works — see the results
 ## panel's 80 px in the trap list.
+##
+## [b]The canvas is not always 1280 wide.[/b] `project.godot` ships
+## `window/stretch/aspect="expand"`, so the canvas keeps the 1280x720 base's
+## short side and grows along the long one: a 21:9 window draws this HUD on a
+## 1680x720 canvas and a 4:3 one on a 1280x960 canvas. Only the top-left pieces
+## — the clock, and the status line under it — are at a fixed offset; everything
+## else is measured back from the edge it belongs to, one piece at a time. There
+## is no single scale factor that could do it, because a wider canvas has to
+## move the gauge right without moving the stopwatch and without making either
+## of them bigger. The anchors are
+## [method gauge_center] and the functions beside it, kept static and free of
+## the node so [TestHUD] can check they track the canvas rather than the base.
 ##
 ## [b]Three things here are not in the original[/b], and each is marked
 ## `DEVIATION` where it is drawn: the status line under the time (the ghost
@@ -227,6 +239,64 @@ func _on_face_draw() -> void:
 	_draw_status(size)
 
 # ==================================================================
+#                    where each piece is anchored
+# ==================================================================
+# One function per piece that is not top-left, each measuring back from the edge
+# that piece belongs to. They are what make the HUD survive
+# `window/stretch/aspect="expand"`, where the canvas they are handed is 1280x720
+# only when the window happens to be 16:9 — see the class doc.
+#
+# Static, and taking the canvas rather than reading `_face.size`, so [TestHUD]
+# can ask where the gauge would sit on a 21:9 screen no machine in this
+# container has. A wrong anchor is invisible in a 16:9 screenshot and obvious
+# to nobody until somebody plays on a laptop.
+
+## Centre of the gauge's disc and ring, off the bottom-right corner.
+static func gauge_center(canvas: Vector2) -> Vector2:
+	return Vector2(canvas.x - GAUGE_SIZE + GAUGE_CENTER.x, canvas.y - GAUGE_CENTER.y)
+
+## Top-left of the three speed digits, which sit inside the gauge and so hang
+## off the same corner.
+static func speed_digits_at(canvas: Vector2) -> Vector2:
+	return canvas - SPEED_DIGITS_INSET
+
+## Top-left of the herring count, off the top-right corner.
+static func herring_digits_at(canvas: Vector2) -> Vector2:
+	return Vector2(canvas.x - HERRING_DIGITS_INSET, HERRING_DIGITS_TOP)
+
+## Top-left of the fish beside it.
+static func herring_icon_at(canvas: Vector2) -> Vector2:
+	return Vector2(canvas.x - HERRING_ICON_INSET, HERRING_DIGITS_TOP)
+
+## The course-position bar: hung off the right edge, and off the bottom rather
+## than centred on the height, because it belongs to the gauge's corner and not
+## to the middle of the screen.
+static func position_bar_rect(canvas: Vector2) -> Rect2:
+	return Rect2(
+		Vector2(canvas.x - POSITION_BAR_INSET,
+			canvas.y - POSITION_BAR_BOTTOM - POSITION_BAR_SIZE.y),
+		POSITION_BAR_SIZE)
+
+## Centre of the wind rose, off the bottom-left corner.
+static func wind_center(canvas: Vector2) -> Vector2:
+	return Vector2(WIND_INSET + WIND_DIAMETER * 0.5,
+		canvas.y - WIND_INSET - WIND_DIAMETER * 0.5)
+
+## Top-left of the wind speed beside the rose: left edge fixed, bottom edge
+## tracked, the same two the rose itself is hung from.
+static func wind_digits_at(canvas: Vector2) -> Vector2:
+	return Vector2(WIND_DIGITS_AT.x, canvas.y - WIND_DIGITS_AT.y)
+
+## Top-left of the frame-rate readout, centred across the top.
+static func fps_digits_at(canvas: Vector2) -> Vector2:
+	return Vector2((canvas.x - FPS_DIGITS_INSET) * 0.5, FPS_DIGITS_TOP)
+
+## Where the `PRESS ANY KEY TO START` hint sits: up from the bottom, so the
+## start animation stays clear of it however tall the canvas is.
+static func hint_top(canvas: Vector2) -> float:
+	return canvas.y - HINT_FROM_BOTTOM
+
+# ==================================================================
 #                            the time
 # ==================================================================
 
@@ -263,9 +333,8 @@ func _draw_time(_size: Vector2) -> void:
 ## the right edge. Cup racing colours this by how many are still owed for a
 ## medal; practice draws it white, and practice is all there is here.
 func _draw_herring(size: Vector2) -> void:
-	_draw_digits("%03d" % race.herring,
-		Vector2(size.x - HERRING_DIGITS_INSET, HERRING_DIGITS_TOP), 1.0, Color.WHITE)
-	_draw_fish(Vector2(size.x - HERRING_ICON_INSET, HERRING_DIGITS_TOP), HERRING_ICON_SIZE)
+	_draw_digits("%03d" % race.herring, herring_digits_at(size), 1.0, Color.WHITE)
+	_draw_fish(herring_icon_at(size), HERRING_ICON_SIZE)
 
 # ==================================================================
 #                            the gauge
@@ -280,7 +349,7 @@ func _draw_herring(size: Vector2) -> void:
 ## which is what the original's three textures amount to — a mask, a mask and
 ## the line art over them.
 func _draw_gauge(size: Vector2) -> void:
-	var center := Vector2(size.x - GAUGE_SIZE + GAUGE_CENTER.x, size.y - GAUGE_CENTER.y)
+	var center: Vector2 = gauge_center(size)
 	var bottom: float = size.y
 
 	# --- jump charge -------------------------------------------------
@@ -363,7 +432,7 @@ static func speedbar_fraction(speed_kmh: float) -> float:
 func _draw_speed(size: Vector2) -> void:
 	var speed_kmh: int = int(race.physics.vel.length() * 3.6)
 	_draw_digits("%03d" % clampi(speed_kmh, 0, 999),
-		size - SPEED_DIGITS_INSET, 1.0, Color.WHITE)
+		speed_digits_at(size), 1.0, Color.WHITE)
 
 # ==================================================================
 #                        course position
@@ -384,9 +453,7 @@ func _draw_course_position(size: Vector2) -> void:
 	if course == null or course.play_size.y <= 0.0:
 		return
 	var fraction: float = clampf(-race.physics.pos.z / course.play_size.y, 0.0, 1.0)
-	var rect := Rect2(
-		Vector2(size.x - POSITION_BAR_INSET, size.y - POSITION_BAR_BOTTOM - POSITION_BAR_SIZE.y),
-		POSITION_BAR_SIZE)
+	var rect: Rect2 = position_bar_rect(size)
 	var pill: PackedVector2Array = _stadium(rect)
 	_face.draw_colored_polygon(pill, POSITION_BACK)
 	if fraction > 0.0:
@@ -415,8 +482,7 @@ func _draw_wind(size: Vector2) -> void:
 	var wind: WindField = race.physics.wind
 	if wind == null or not wind.windy:
 		return
-	var center := Vector2(WIND_INSET + WIND_DIAMETER * 0.5,
-		size.y - WIND_INSET - WIND_DIAMETER * 0.5)
+	var center: Vector2 = wind_center(size)
 	var speed: float = wind.speed()
 	_face.draw_arc(center, WIND_DIAMETER * 0.5, 0.0, TAU, 64, OUTLINE, OUTLINE_WIDTH, true)
 
@@ -437,8 +503,7 @@ func _draw_wind(size: Vector2) -> void:
 
 	_face.draw_circle(center, WIND_KNOB_SIZE * 0.5, ICON_FILL)
 	_face.draw_arc(center, WIND_KNOB_SIZE * 0.5, 0.0, TAU, 24, OUTLINE, 2.0, true)
-	_draw_digits("%03d" % clampi(int(speed), 0, 999),
-		Vector2(WIND_DIGITS_AT.x, size.y - WIND_DIGITS_AT.y), 1.0, Color.WHITE)
+	_draw_digits("%03d" % clampi(int(speed), 0, 999), wind_digits_at(size), 1.0, Color.WHITE)
 
 ## One needle of the wind rose: a rectangle [param half_width] either side of
 ## the centre, [param length] long — the original's vertex list, rotated.
@@ -467,8 +532,7 @@ func _draw_needle(center: Vector2, angle: float, half_width: float, length: floa
 func _draw_fps(size: Vector2) -> void:
 	if not LaunchArgs.current().show_fps or _fps_average < 1.0:
 		return
-	_draw_digits("%d" % int(_fps_average),
-		Vector2((size.x - FPS_DIGITS_INSET) * 0.5, FPS_DIGITS_TOP), 1.0, Color.WHITE)
+	_draw_digits("%d" % int(_fps_average), fps_digits_at(size), 1.0, Color.WHITE)
 
 func _accumulate_fps(delta: float) -> void:
 	if _fps_frames >= FPS_AVERAGE_FRAMES:
@@ -500,7 +564,7 @@ func _draw_status(size: Vector2) -> void:
 	# a line of text. It sits low and centred rather than in the corner now that
 	# the corner has a clock in it.
 	if race.intro_running:
-		_draw_centered(tr("PRESS_ANY_KEY_TO_START"), size.y - HINT_FROM_BOTTOM, size,
+		_draw_centered(tr("PRESS_ANY_KEY_TO_START"), hint_top(size), size,
 			HINT_FONT_SIZE, Color.WHITE)
 		return
 	var delta: float = race.ghost_delta()

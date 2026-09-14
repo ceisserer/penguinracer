@@ -1,7 +1,9 @@
 ## [ChaseCamera] tests. What the camera does is presentation and normally shows
-## up in a capture rather than in an assertion, but the lean has one property
-## that is cheap to state and was silently wrong for a phase: it must not move
-## the camera sideways.
+## up in a capture rather than in an assertion, but two of its properties are
+## cheap to state: the lean must not move the camera sideways, which was
+## silently wrong for a phase, and no window shape may show less of the hill
+## than another, which is what `window/stretch/aspect="expand"` made the
+## camera's business rather than the letterbox's.
 class_name TestCamera
 extends RefCounted
 
@@ -11,6 +13,7 @@ static func run(t: TestCase) -> void:
 	_lean_has_no_sideways_half(t)
 	_lean_still_leans_with_the_pitch(t)
 	_a_jump_does_not_swing_the_camera(t)
+	_the_lens_follows_the_window_shape(t)
 
 ## The invariant the fix is: whatever the terrain under the racer is doing, the
 ## height offset stays in the vertical plane the racer is travelling in.
@@ -75,6 +78,47 @@ static func _a_jump_does_not_swing_the_camera(t: TestCase) -> void:
 ## Drive the real physics down a real course, jump at [param release_at], and
 ## report what the camera did over the first airborne stretch after it. Empty
 ## when the run never left the ground.
+## The invariant `expand` needs from the lens: the 16:9 design frustum is a
+## subset of what any window shape draws. Wider windows get it by opening the
+## horizontal angle at a fixed vertical one, which is [constant
+## Camera3D.KEEP_HEIGHT] doing nothing; narrower ones get it by opening the
+## vertical angle, which is [method ChaseCamera.fov_for_aspect] doing something.
+static func _the_lens_follows_the_window_shape(t: TestCase) -> void:
+	t.begin("the lens follows the window's shape")
+	var design: float = 70.0
+	var base: float = ChaseCamera.DESIGN_ASPECT
+	t.eq_f(ChaseCamera.fov_for_aspect(design, base), design, 1e-5,
+		"a 16:9 window is the design lens unchanged — captures stay comparable")
+	t.eq_f(ChaseCamera.fov_for_aspect(design, 3440.0 / 1440.0), design, 1e-5,
+		"and so is a 21:9 one: the extra width is the aspect's, not the lens's")
+
+	# 4:3 and portrait. The vertical angle grows; what it grows to is whatever
+	# keeps the horizontal angle at the design value.
+	var design_half_width: float = tan(deg_to_rad(design) * 0.5) * base
+	for aspect: float in [4.0 / 3.0, 5.0 / 4.0, 1.0, 1080.0 / 1920.0]:
+		var widened: float = ChaseCamera.fov_for_aspect(design, aspect)
+		t.ok(widened > design, "a %.2f window opens the lens past %.0f°" % [aspect, design])
+		t.eq_f(tan(deg_to_rad(widened) * 0.5) * aspect, design_half_width, 1e-5,
+			"and opens it exactly far enough to keep the 16:9 width")
+
+	# Monotone, because the resolution drop-down offers a run of shapes and a
+	# dip anywhere in it is a window size that sees less than its neighbours.
+	var previous: float = 1e9
+	var monotone: bool = true
+	for step: int in 40:
+		var aspect: float = lerpf(0.5, base, float(step) / 39.0)
+		var widened: float = ChaseCamera.fov_for_aspect(design, aspect)
+		if widened > previous + 1e-5:
+			monotone = false
+			break
+		previous = widened
+	t.ok(monotone, "and never narrows anywhere between 1:2 and 16:9")
+
+	# Degenerate viewports: a window with no area reports one for a frame or
+	# two on some platforms, and a division by it would put NaN on the lens.
+	t.eq_f(ChaseCamera.fov_for_aspect(design, 0.0), design, 1e-5,
+		"a zero-area window leaves the lens alone rather than making it NaN")
+
 static func _fly(course_dir: String, release_at: float) -> Dictionary:
 	var course: CourseData = load("res://courses/%s/course.tres" % course_dir)
 	if course == null:

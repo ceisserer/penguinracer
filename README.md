@@ -257,11 +257,19 @@ Delete the file to get the defaults and the comments back. Godot's own `--resolu
 says — though `--resolution` is *logical*, and a compositor running a fractional output scale
 multiplies it, so check the size of the PNG before trusting a pixel rectangle in it.
 
+**The window can be any shape.** `project.godot` stretches the 1280x720 design canvas with
+`aspect="expand"`, which keeps its 720-pixel short side and grows along the long one: a 21:9
+window draws on 1680x720 and shows more of the hill to either side, a 4:3 window draws on 1280x960
+and shows more of it above and below, and nothing is ever letterboxed. The HUD anchors each of its
+pieces to the edge it belongs to, and the camera widens its own lens on anything narrower than
+16:9 so no window shape sees less of the course than another.
+
 The **Configuration** screen's resolution list is the display's, not a fixed one: the screen's own
 resolution, the standard modes that share its shape and fit beside the taskbar, and whatever the
-file already says. A size of a shape the panel does not have would only letterbox itself, so it is
-not offered. In a browser the resolution and fullscreen rows are not shown at all — the page sizes
-the canvas there and the `resolution` key is ignored.
+file already says. The shape filter is about the monitor rather than the game — nothing renders
+wrong at any shape now — and it is there because a panel's own aspect ratio is the only evidence
+Godot offers about which modes it really has. In a browser the resolution and fullscreen rows are
+not shown at all — the page sizes the canvas there and the `resolution` key is ignored.
 
 The two fog keys are the only place a shipped default deliberately differs from the original's
 data. ETR's sunny and night environments say `[fogstart] 0 [fogend] 75`, so its white haze starts

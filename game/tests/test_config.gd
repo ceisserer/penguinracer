@@ -11,9 +11,33 @@ static func run(t: TestCase) -> void:
 	_defaults(t)
 	_parsing(t)
 	_resolution_choices(t)
+	_window_match(t)
 	_round_trip(t)
 	_fog_range(t)
 	_launch_args(t)
+
+## The slack in [method GameConfig.window_sizes_match], which is how
+## [method GameConfig.apply_display] tells a window the command line sized from
+## one nobody has touched.
+##
+## It has to be that and not an exact comparison because the comparison is made
+## in logical pixels: a fractional output scale hands back a window bigger than
+## the one that was asked for, and dividing the scale back out does not land on
+## a whole number. This container's session is at 1.25, where the untouched
+## 1280x720 base is reported as 1600x900 and a `--resolution 1200x514` window
+## comes back as 1500x643 — 514.4 logical, not 514.
+static func _window_match(t: TestCase) -> void:
+	t.begin("config/window match")
+	var base := Vector2(1280.0, 720.0)
+	t.ok(GameConfig.window_sizes_match(base, base), "a window nobody touched is the base")
+	t.ok(GameConfig.window_sizes_match(Vector2(1600.0, 900.0) / 1.25, base),
+		"and so is the same window seen through a 1.25 output scale")
+	t.ok(GameConfig.window_sizes_match(Vector2(1500.0, 643.0) / 1.25, Vector2(1200.0, 514.0)),
+		"a scaled size that does not divide back out evenly still matches itself")
+	t.ok(not GameConfig.window_sizes_match(Vector2(1024.0, 768.0), base),
+		"a 4:3 window from the command line is not the base")
+	t.ok(not GameConfig.window_sizes_match(Vector2(1280.0, 800.0), base),
+		"and neither is one 80 px taller, which is the closest a standard mode gets")
 
 ## A [GameConfig] that has not read a file: what a fresh install renders at.
 static func _defaults(t: TestCase) -> void:

@@ -30,6 +30,11 @@ const FULL_INTERP_SPEED := 4.5
 const MIN_CAMERA_HEIGHT := 1.5
 const MAX_PITCH_DEGREES := 40.0
 
+## The shape the lens is designed at: `project.godot`'s 1280x720 base. Every
+## capture in the notes was taken at it, and [member Camera3D.fov] in
+## `race.tscn` is the vertical angle that belongs to it.
+const DESIGN_ASPECT := 1280.0 / 720.0
+
 @export var mode: Mode = Mode.BEHIND
 @export var distance: float = 4.0
 @export var height: float = 1.4
@@ -49,6 +54,64 @@ var surface: SurfaceProvider
 var _position: Vector3 = Vector3.ZERO
 var _aim: Vector3 = Vector3.ZERO
 var _initialized: bool = false
+
+## [member Camera3D.fov] as the scene authored it, at [constant DESIGN_ASPECT].
+## Kept separately because `fov` itself is rewritten every time the window
+## changes shape, and reading a value back that this has already widened would
+## widen it again on the next resize.
+var _design_fov: float = 0.0
+
+func _ready() -> void:
+	_design_fov = fov
+	# Stated rather than inherited from the scene, because everything below
+	# reads `fov` as the *vertical* angle and [constant Camera3D.KEEP_WIDTH]
+	# would quietly make it the horizontal one.
+	keep_aspect = Camera3D.KEEP_HEIGHT
+	var viewport: Viewport = get_viewport()
+	if viewport != null:
+		viewport.size_changed.connect(_match_viewport_shape)
+	_match_viewport_shape()
+
+## Keep the design frustum inside the window's, whatever shape the window is.
+##
+## `window/stretch/aspect="expand"` lets the canvas be any shape: it keeps the
+## 1280x720 base's short side and grows along the long one. Wider than 16:9 the
+## camera's own default does the right thing on its own — [constant
+## Camera3D.KEEP_HEIGHT] holds the vertical angle and the horizontal one opens
+## up, so a 21:9 window really does see more hill to either side, which is the
+## whole reason for expanding rather than letterboxing.
+##
+## Narrower than 16:9 that same default is backwards: it would hold the vertical
+## angle and *close* the horizontal one, so a 4:3 window would see less of the
+## hill to the sides than a 16:9 one — less, in fact, than the letterboxed 4:3
+## window this replaced, which at least kept the whole 16:9 picture between its
+## black bars. Losing peripheral vision is the one thing a downhill racer cannot
+## afford to a window shape, so below [constant DESIGN_ASPECT] the vertical
+## angle is opened instead and the horizontal one held at the design value.
+##
+## Either way the 16:9 frame is a subset of what is drawn and no window shape
+## shows less of the course than another.
+func _match_viewport_shape() -> void:
+	var viewport: Viewport = get_viewport()
+	if viewport == null:
+		return
+	var size: Vector2 = viewport.get_visible_rect().size
+	if size.x <= 0.0 or size.y <= 0.0:
+		return
+	fov = fov_for_aspect(_design_fov, size.x / size.y)
+
+## The vertical field of view to use at [param aspect] for a lens that is
+## [param design_fov] degrees vertically at [constant DESIGN_ASPECT].
+##
+## Static and pure so [TestCamera] can check the two branches without a window:
+## at or above the design shape the answer is the design angle unchanged, and
+## below it the angle that keeps `tan(h/2) = tan(design_fov/2) * DESIGN_ASPECT`
+## — the design *horizontal* half-angle — true at the narrower aspect.
+static func fov_for_aspect(design_fov: float, aspect: float) -> float:
+	if aspect >= DESIGN_ASPECT or aspect <= 0.0:
+		return design_fov
+	var half_width: float = tan(deg_to_rad(design_fov) * 0.5) * DESIGN_ASPECT
+	return rad_to_deg(2.0 * atan(half_width / aspect))
 
 func reset() -> void:
 	_initialized = false

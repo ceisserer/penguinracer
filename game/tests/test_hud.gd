@@ -28,6 +28,7 @@ static func run(t: TestCase) -> void:
 	_time_components(t)
 	_wind(t)
 	_scripted_jump(t)
+	_anchors(t, hud)
 
 ## `draw_gauge`'s ramp. Half the sweep is spent below the paddling ceiling,
 ## where a racer spends most of a run; the rest is split between two bands
@@ -139,3 +140,70 @@ static func _scripted_jump(t: TestCase) -> void:
 		"the charge is held past the top of the gauge, so a capture can hold still in it")
 	t.ok(charged, "the key is still down at the end of the charge window")
 	t.ok(released, "and comes up after it")
+
+## Where every piece of the HUD sits when the canvas is not 1280x720.
+##
+## `window/stretch/aspect="expand"` made that the ordinary case rather than the
+## impossible one: the canvas keeps the base's short side and grows along the
+## long one, so a 21:9 window hands the HUD 1680x720 and a 4:3 window 1280x960.
+## Each piece has to move to its own corner — one shared scale factor cannot do
+## it, since the gauge must go right while the stopwatch stays put and neither
+## may change size.
+##
+## This is the one part of the layout worth an assertion rather than a
+## screenshot, because the screenshots are all 16:9: a capture at the design
+## size is exactly the case where a piece anchored to the base instead of to the
+## canvas still looks right.
+static func _anchors(t: TestCase, hud: GDScript) -> void:
+	t.begin("hud/anchors")
+	var base := Vector2(1280.0, 720.0)
+	# 16:9 as it has always been, then the same canvas made wider (21:9) and
+	# taller (4:3) — the two directions `expand` can grow in.
+	var wide := Vector2(1680.0, 720.0)
+	var tall := Vector2(1280.0, 960.0)
+
+	# Golden values at the design size. If these move, every screenshot in the
+	# notes moved with them.
+	t.ok(hud.gauge_center(base) == Vector2(1223.0, 665.0),
+		"the gauge sits 57 px in from the right and 55 up from the bottom")
+	t.ok(hud.herring_digits_at(base) == Vector2(1150.0, 12.0),
+		"the herring count hangs off the right")
+	t.ok(hud.wind_center(base) == Vector2(60.5, 659.5), "the wind rose off the bottom left")
+	t.ok(hud.fps_digits_at(base) == Vector2(610.0, 10.0),
+		"the frame rate across the middle of the top")
+
+	# The invariant: a right-anchored piece keeps its distance from the right
+	# edge, a bottom-anchored one from the bottom, and a centred one stays
+	# centred. Written as distances rather than as positions so a failure says
+	# which edge was lost.
+	for canvas: Vector2 in [base, wide, tall]:
+		t.eq_f(canvas.x - hud.gauge_center(canvas).x, 57.0, 1e-4,
+			"the gauge stays 57 px off the right edge of a %.0fx%.0f canvas" % [canvas.x, canvas.y])
+		t.eq_f(canvas.y - hud.gauge_center(canvas).y, 55.0, 1e-4,
+			"and 55 px off the bottom")
+		t.ok(hud.speed_digits_at(canvas) == canvas - Vector2(87.0, 73.0),
+			"the speed reading goes with it")
+		t.eq_f(canvas.x - hud.herring_digits_at(canvas).x, 130.0, 1e-4,
+			"the herring count stays off the right edge")
+		t.eq_f(hud.herring_digits_at(canvas).y, 12.0, 1e-4, "and stays at the top")
+		t.eq_f(canvas.x - hud.position_bar_rect(canvas).position.x, 48.0, 1e-4,
+			"the course-position bar stays off the right edge")
+		t.eq_f(canvas.y - hud.position_bar_rect(canvas).end.y, 152.0, 1e-4,
+			"and its foot stays 152 px off the bottom")
+		t.eq_f(hud.wind_center(canvas).x, 60.5, 1e-4, "the wind rose stays on the left")
+		t.eq_f(canvas.y - hud.wind_center(canvas).y, 60.5, 1e-4, "and off the bottom")
+		t.eq_f(canvas.y - hud.wind_digits_at(canvas).y, 45.0, 1e-4,
+			"the wind speed beside it tracks the bottom, not the base's 720")
+		t.eq_f(hud.fps_digits_at(canvas).x * 2.0 + 60.0, canvas.x, 1e-4,
+			"the frame rate stays centred")
+		t.eq_f(canvas.y - hud.hint_top(canvas), 150.0, 1e-4,
+			"and the start hint stays up from the bottom")
+
+	# Nothing anchored to an edge may collide with the piece in the other
+	# corner, which is the failure mode of a canvas narrower than the base:
+	# 640 px of width with a 130 px herring count and a 215 px `Race Over`.
+	var narrow := Vector2(640.0, 360.0)
+	t.ok(hud.herring_digits_at(narrow).x > hud.FINISH_AT.x,
+		"even at the 640x360 floor the herring count clears the top-left block")
+	t.ok(hud.gauge_center(narrow).x - hud.SPEEDBAR_OUTER_RADIUS > hud.WIND_DIAMETER,
+		"and the gauge clears the wind rose")

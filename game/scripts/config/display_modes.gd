@@ -14,10 +14,20 @@
 ## in practice, and it is the set a windowed game can actually use — the two
 ## differ only in the modes nobody has wanted since CRTs.
 ##
-## Shape matters as much as size here because `project.godot` ships
-## `window/stretch/mode="canvas_items"` with the default `aspect="keep"`: a
-## window that is not the 1280x720 base's 16:9 renders letterboxed inside
-## itself. Offering a 4:3 mode on a 16:9 panel is offering black bars.
+## Shape here is the *display's*, and that is a deliberate reading of the word.
+## `project.godot` ships `window/stretch/mode="canvas_items"` with
+## `aspect="expand"`, so no window shape letterboxes any more — the canvas keeps
+## the 1280x720 base's short side and grows along the long one, and the camera
+## shows more of the hill to match (see [ChaseCamera.fov_for_aspect]). What is
+## left to filter for is the panel: a 4:3 window on a 16:9 monitor is a window
+## that leaves a third of the desktop unused, and fullscreen renders at the
+## panel's shape whatever the drop-down says. Offering a mode the display does
+## not have is offering a window nobody asked for.
+##
+## This is the second answer here. The first filtered by the *game's* 16:9
+## instead, on the theory that a window off 16:9 letterboxes itself — true under
+## `aspect="keep"`, which is what this shipped with until `expand` made the
+## letterbox impossible. See the trap list.
 ##
 ## Pure and node-free on purpose — it names no autoload, so a test can call
 ## [method sizes_for] with screens no machine here has. See the trap list on
@@ -53,6 +63,11 @@ const STANDARD_SIZES: Array[Vector2i] = [
 ## How far off the screen's own aspect ratio a size may be and still count as
 ## the same shape, as a fraction of it. 1366x768 misses 16:9 by 0.05 % and is
 ## one of its modes; 16:10 misses it by 10 % and is not.
+##
+## Nothing renders wrong on the far side of this number now that the stretch
+## expands — a 16:10 window on a 16:9 panel is a correct picture in a badly
+## chosen window — so the tolerance is about what the monitor plausibly
+## advertises, not about what the renderer can survive.
 const ASPECT_TOLERANCE := 0.02
 
 ## Below this many same-shape modes, [constant FILL_FRACTIONS] makes up the
@@ -62,9 +77,10 @@ const ASPECT_TOLERANCE := 0.02
 const MIN_OFFERED := 3
 
 ## What a display nothing standard fits is offered instead: itself, scaled.
-## Shape is the thing being preserved — a window the panel's own shape never
-## letterboxes and always fits on it — so a size the monitor does not advertise
-## as a mode is the better answer here than a standard mode of the wrong shape.
+## Shape is the thing being preserved — a window the panel's own shape always
+## fits on it, and fills the whole of it when maximised — so a size the monitor
+## does not advertise as a mode is the better answer here than a standard mode
+## of the wrong shape.
 ## Rounded to even pixels, because half a pixel of viewport is a seam.
 const FILL_FRACTIONS: PackedFloat32Array = [0.9, 0.75, 0.6, 0.5]
 
@@ -97,7 +113,9 @@ static func for_current_screen(current: Vector2i) -> Array[Vector2i]:
 ##
 ## Every row therefore has the display's shape, [constant FILL_FRACTIONS]
 ## included — that is the invariant, and it is what stops a 21:9 desktop being
-## handed a page of 4:3.
+## handed a page of 4:3. It is not a rendering constraint: `aspect="expand"`
+## draws any of these correctly. It is that a monitor's own shape is the only
+## evidence available about which sizes it really has.
 ##
 ## [param current] is added when the display disagrees with it, because a
 ## drop-down that cannot show what the file says would move someone's window the

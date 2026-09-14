@@ -236,10 +236,20 @@ opponents and ETR has neither), the `PRESS ANY KEY TO START` hint over the start
 `Race Over` beside the time for the three seconds between the line and the results panel, which
 the original does not need because it leaves the racing loop at the line.
 
-Positions are canvas pixels against the project's 1280×720 design resolution rather than against
-the real window. ETR anchors to the window corners, so its gauge is the same 128 px at 640×480 and
-at 1920×1080 and reads half the size on the second; `canvas_items` stretch scales ours, which is
-how the rest of this shell already works.
+Positions are canvas pixels against the project's 720-pixel design height rather than against the
+real window. ETR anchors to the window corners, so its gauge is the same 128 px at 640×480 and at
+1920×1080 and reads half the size on the second; `canvas_items` stretch scales ours, which is how
+the rest of this shell already works.
+
+The canvas is 720 tall and *not* always 1280 wide. `window/stretch/aspect="expand"` grows it along
+whichever side the window is longer on, so the HUD is drawn on 1280×960 in a 4:3 window and on
+1680×720 in a 21:9 one. Each piece that is not top-left is therefore anchored to its own edge at
+paint time — `gauge_center`, `speed_digits_at`, `herring_digits_at`, `position_bar_rect`,
+`wind_center`, `wind_digits_at`, `fps_digits_at`, `hint_top`, all static and all taking the canvas
+— because one shared scale factor cannot move the gauge right while leaving the stopwatch where it
+is and leaving both the same size. `test_hud.gd` checks the distances rather than the positions, on
+16:9, 21:9 and 4:3 canvases: a piece anchored to the base instead of to the canvas looks perfectly
+correct in every screenshot in these notes, all of which are 16:9.
 
 What is still owed: the cup-racing half of the time and herring readouts, where the original
 counts *down* to the gold/silver/bronze thresholds and colours the number by which one is still in
@@ -530,12 +540,21 @@ window it cannot show, and a 4K monitor was never offered its own resolution. `D
 builds the list instead: the screen's own size, plus the standard modes that share its shape and
 fit inside `DisplayServer.screen_get_usable_rect` (the desktop minus its taskbar), plus whatever
 the file already says, so opening the screen still cannot resize anybody's window. There is no
-mode enumeration in Godot to call — `DisplayServer` has no `SDL_GetDisplayMode` — so shape and
-fit are what stand in for one, and a panel nothing standard shares a shape with (21:9, portrait)
-is offered fractions of itself. Everything on the list has the display's shape on purpose:
-`stretch/aspect="keep"` letterboxes a window that does not, so a 4:3 mode on a 16:9 panel is a
-row that can only make the game smaller. On the 1600x900 screen in this container the drop-down
-comes out `auto, 854x480, 1024x576, 1280x720, 1366x768, 1600x900` and stops there.
+mode enumeration in Godot to call — `DisplayServer` has no `SDL_GetDisplayMode` — so shape and fit
+are what stand in for one, and a panel nothing standard shares a shape with (21:9, portrait) is
+offered fractions of itself. On the 1600x900 screen in this container the drop-down comes out
+`auto, 854x480, 1024x576, 1280x720, 1366x768, 1600x900` and stops there.
+
+Every row has the display's shape, and that is now the only thing the filter is for. It spent a
+day meaning something else: the list was briefly filtered by the *game's* 16:9 instead, on the
+argument that `stretch/aspect="keep"` letterboxes any window that is not, so a 16:10 laptop
+offering 16:10 sizes was offering black bars whichever shape it matched. That argument was sound
+and the conclusion was wrong — the answer was to stop letterboxing. `project.godot` now ships
+`window/stretch/aspect="expand"`: the canvas keeps the 720-pixel short side of the base and grows
+along the long one, so a 16:10 window is 1280x800 of canvas, a 21:9 one is 1680x720, and a 4:3 one
+is 1280x960. Nothing is letterboxed at any shape, the drop-down can go back to offering what the
+monitor actually has, and the two pieces that were relying on a fixed canvas — the HUD's corners
+and the camera's lens — were changed to carry it (see the HUD section, and `ChaseCamera`).
 `DisplayModes` is pure and node-free — the list-building could not stay on `SettingsMenu`, which
 names the `Config` autoload, without the static call from `tests/test_config.gd` breaking its
 compile; that is the `RaceOutcome` trap a second time. The resolution and fullscreen rows are
@@ -1268,6 +1287,49 @@ runs — the `MultiMesh`, the custom instance data and the vertex-stage billboar
 WebGL2's floor.
 
 4665 assertions, 0 failures.
+
+### The window can be any shape · **done**
+
+`project.godot` now ships `window/stretch/mode="canvas_items"` with `aspect="expand"` instead of
+the default `keep`. The canvas holds the 1280x720 base's 720-pixel short side and grows along the
+long one, so a 16:10 laptop draws on 1280x800, a 21:9 monitor on 1680x720 and a 4:3 panel on
+1280x960, and no window shape is letterboxed against a design resolution any more. Two things had
+to change to carry that, one in each dimension of the problem: the HUD's corners (see the HUD
+section) and the camera's lens.
+
+`window/stretch/aspect="expand"` made the window's shape the camera's business. Wider than 16:9 it
+already was: `Camera3D` keeps the vertical angle by default and opens the horizontal one, so a
+21:9 window really does see more hill to either side, which is the whole reason for expanding
+rather than letterboxing. Narrower than 16:9 that same default is backwards — it would hold the
+vertical angle and *close* the horizontal one, so a 4:3 window would see less of the course to the
+sides than a 16:9 window, and less than the letterboxed 4:3 window it replaced, which at least kept
+the entire 16:9 picture between its black bars. Peripheral vision is not a thing to lose to a
+window shape in a downhill racer.
+
+`ChaseCamera.fov_for_aspect` opens the vertical angle instead below 16:9, by exactly enough to hold
+the horizontal angle at the design value: 70° vertical at 16:9 becomes 75.8° at 16:10, 86.1° at
+4:3 and 102.5° at 1:1, and the 16:9 frame stays a subset of what every shape draws. At and above
+16:9 it returns the design angle untouched, so every capture in these notes is of the same lens it
+always was. It is static and pure and `TestCamera` drives it directly, including the zero-area
+window a platform reports for a frame or two, which an unguarded division would answer with NaN.
+
+Checking any of it needed a bug fixed first. `GameConfig.apply_display` is supposed to stand aside
+when the command line has already sized the window — that is what lets `tools/shot.sh` capture at
+a size the developer's own settings file does not name — and it guarded itself with
+`OS.get_cmdline_args().has("--resolution")`, which is never true: the engine consumes the arguments
+it recognises and hands the script only what is left. The file had quietly been winning every
+capture, so the first three screenshots taken at three different shapes came back as three
+identical 1280x720 PNGs. It measures the window against the `project.godot` base now, in logical
+pixels because a fractional output scale does not hand back the size that was asked for, and the
+settings screen passes `forced` so that a player naming a size still outranks the launch.
+
+Then checked at three shapes — 1280x720, 1280x960 and 1500x643, all of Bunny Hill at the same
+frame of the same scripted run. The 4:3 frame keeps the same hill between the same trees and adds
+sky above and snow below; the 21:9 frame adds slope to either side; both wear the HUD in their own
+four corners. The 16:9 capture is byte-identical to the one taken before any of this, which is the
+check that matters: the anchors and the lens are exact no-ops at the design shape.
+
+4724 assertions, 0 failures.
 
 ---
 

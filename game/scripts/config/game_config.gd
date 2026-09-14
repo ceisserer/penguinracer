@@ -27,6 +27,12 @@ const PATH := "user://penguinracer.cfg"
 ## pushed past the end is fog that switches on like a wall.
 const MAX_START_FRACTION := 0.75
 
+## How far apart two window sizes may be and still be the same window, in
+## logical pixels. A fractional output scale does not divide back out exactly —
+## 1500 physical at 1.25 is 1200 logical, but 643 is 514.4 — so an exact
+## comparison would call every scaled window somebody else's doing.
+const WINDOW_MATCH_SLACK := 2.0
+
 # --- display ---
 
 ## Window size in pixels. `Vector2i.ZERO` means "leave it alone" — the project
@@ -130,9 +136,61 @@ var player_name: String = "Racer"
 ## address does not carry its own.
 var multiplayer_port: int = RaceNetwork.DEFAULT_PORT
 
+## Set once, before the file has touched anything: true when the window we were
+## handed is not the one `project.godot` asks for, which on the desktop means
+## `--resolution` or `--fullscreen` was on the command line. [method
+## apply_display] then leaves the window alone, so a capture comes out the size
+## it was asked for whatever this file says. A bare `-w`/`--windowed` is the one
+## flag this cannot see, since it changes no size — a file asking for fullscreen
+## still gets it.
+##
+## It is [i]measured[/i] rather than read off the command line because
+## [method OS.get_cmdline_args] does not carry `--resolution`: the engine
+## consumes the arguments it recognises and hands the script only what is left.
+## The `argv.has("--resolution")` that used to stand here was therefore never
+## once true, and a settings file naming a size silently won every
+## `tools/shot.sh`. See the trap list.
+var _window_preset: bool = false
+
 func _ready() -> void:
 	load_or_create()
+	_window_preset = _window_already_chosen()
 	apply_display()
+
+## Whether something other than this file has already decided the window's size
+## or mode. Only meaningful before the first [method apply_display] — after one,
+## the window is whatever we last set it to and this would always be true.
+##
+## The comparison is in logical pixels, because a compositor running a
+## fractional output scale hands back a window bigger than the size anyone
+## asked for: this container's Wayland session is at 1.25, where the untouched
+## 1280x720 base is reported as 1600x900. The same scale is what makes
+## `--resolution` logical for `tools/shot.sh`, so dividing it out compares like
+## with like. [constant WINDOW_MATCH_SLACK] is the rounding that survives. This
+## assumes `display/window/dpi/allow_hidpi`, Godot's default and what makes
+## [method DisplayServer.window_get_size] a real pixel count on a Retina panel
+## as well as on a scaled Wayland one.
+func _window_already_chosen() -> bool:
+	if DisplayServer.get_name() == "headless" or OS.has_feature("web"):
+		return false
+	var root: Window = get_tree().root
+	if root.mode == Window.MODE_FULLSCREEN or root.mode == Window.MODE_EXCLUSIVE_FULLSCREEN:
+		return true
+	var base := Vector2(
+		float(ProjectSettings.get_setting("display/window/size/viewport_width", 0)),
+		float(ProjectSettings.get_setting("display/window/size/viewport_height", 0)))
+	if base.x <= 0.0 or base.y <= 0.0:
+		return false
+	var screen: int = DisplayServer.window_get_current_screen()
+	var scale: float = maxf(DisplayServer.screen_get_scale(screen), 0.01)
+	var logical: Vector2 = Vector2(DisplayServer.window_get_size()) / scale
+	return not window_sizes_match(logical, base)
+
+## Whether [param a] and [param b] are the same window size to within
+## [constant WINDOW_MATCH_SLACK]. Static and pure so [TestConfig] can check the
+## rounding without a display server.
+static func window_sizes_match(a: Vector2, b: Vector2) -> bool:
+	return absf(a.x - b.x) <= WINDOW_MATCH_SLACK and absf(a.y - b.y) <= WINDOW_MATCH_SLACK
 
 # ------------------------------------------------------------------
 #                              the file
@@ -334,18 +392,24 @@ func apply_fog(env: Environment, preset: EnvironmentPreset) -> void:
 ## reason, and leaving fullscreen is as explicit as entering it.
 ##
 ## Skipped wherever the setting is not ours to make: a headless run has no
-## window, the web build's canvas is sized by the page, and an explicit
-## `--resolution`/`--fullscreen` on the command line outranks the file — which
-## is what keeps `tools/shot.sh` capturing at 1280x720 whatever this file says.
-func apply_display() -> void:
+## window, the web build's canvas is sized by the page, and a window the command
+## line has already sized or fullscreened outranks the file — which is what
+## keeps `tools/shot.sh` capturing at the size it asked for whatever this file
+## says. See [member _window_preset] for why that last one is measured rather
+## than read off `OS.get_cmdline_args()`.
+##
+## [param forced] is the settings screen pressing Ok: the player has just named
+## a size, and a window the command line chose at launch stops outranking them
+## the moment they do.
+func apply_display(forced: bool = false) -> void:
 	var root: Window = get_tree().root
 	root.scaling_3d_scale = render_scale
 
 	if DisplayServer.get_name() == "headless" or OS.has_feature("web"):
 		return
-	var argv: PackedStringArray = OS.get_cmdline_args()
-	if argv.has("--resolution") or argv.has("-w") or argv.has("--windowed") \
-			or argv.has("-f") or argv.has("--fullscreen"):
+	if forced:
+		_window_preset = false
+	if _window_preset:
 		return
 	if fullscreen:
 		root.mode = Window.MODE_FULLSCREEN

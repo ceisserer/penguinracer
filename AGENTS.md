@@ -202,7 +202,7 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 
 | Phase | State |
 |---|---|
-| 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 4665 assertions, 0 failures, 13 s headless. |
+| 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 4724 assertions, 0 failures, 13 s headless. |
 | 1 — importer + first course | **done** — all 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. bunny_hill drivable in a browser; wild_mountains (100×1000) runs. |
 | 2 — rendering | partial — **two renderers**: Mobile on the desktop, Compatibility on the web, split because a shadow-casting light under Compatibility is drawn in an sRGB-blended second pass (trap list). Every lit shader reproduces ETR's illumination clamp; the desktop additionally gets a PSSM directional shadow the original has no equivalent for. Splat PBR, chunked terrain, instanced course objects (trees are the original's two fixed planes at 90°, turned by a hashed yaw so a grid-placed forest does not share them; items are billboards), the original's HUD (`hud.cpp`'s six controls, redrawn from its constants as [CanvasItem] primitives — see [RaceHUD]), migrated skyboxes. Tone matched to the original on Bunny Hill at both ends of the range and in all three channels; no LightmapGI bake. Snow and ice carry procedural micro-relief, a twinkling crystal glint and a Fresnel sky reflection, and the ice reflects the racers standing on it — a planar mirror pass (`IceReflection`) the ice branch samples in place of the sky where there is a penguin. The carve spray draws ETR's textured, growing, fading puffs on a redrawn atlas. |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror both wired; a carve leaves a track with a shaded trench, a self-occluded floor and a bright ploughed lip. |
@@ -746,18 +746,31 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   `AudioStreamPlayer` refuses to start outside one. `tests/run_tests.gd` runs everything on the
   first `_process` for that reason — do not move it back.
 - **A window size from a settings file is not the size anything renders at.** `project.godot`
-  ships `window/stretch/mode="canvas_items"`, so the root viewport keeps the 1280x720 base
-  aspect: ask for a 1024x768 window and the capture comes out 1024x576, letterboxed. The window
-  really is the size that was asked for — do not go looking for a bug in the sizing code. Godot's
-  own `--resolution`/`--fullscreen` also outrank the file, deliberately, which is what keeps
-  `tools/shot.sh` capturing at 1280x720 whatever the developer's own settings say.
+  ships `window/stretch/mode="canvas_items"` with `aspect="expand"`, so the canvas keeps the
+  1280x720 base's *short* side and grows along the long one: a 1024x768 window renders on a
+  1280x960 canvas and a 1200x514 one on 1679x720. Neither is letterboxed and neither is
+  1280x720 — a capture is only the design size when the window happens to be 16:9, so check the
+  PNG before trusting a pixel rectangle in it. (It used to be `aspect="keep"`, where a 1024x768
+  window came back letterboxed at 1024x576 instead. Notes written before that change assume a
+  1280x720 canvas everywhere.)
+- **`OS.get_cmdline_args()` does not carry `--resolution`.** The engine consumes the arguments it
+  recognises — `--path`, `--resolution`, `--display-driver`, `--fullscreen` — and hands the script
+  only what is left, which for `tools/shot.sh` is the `--capture=`/`--course=` block after `--`.
+  `GameConfig.apply_display` guarded itself with `argv.has("--resolution")` for two phases; the
+  condition was never once true, so a settings file naming a size silently overrode the command
+  line and every `SHOT_RESOLUTION=` capture came back at the file's resolution. It now *measures*
+  the window instead: anything other than the `project.godot` base at startup is somebody else's
+  doing, and the file keeps its hands off. The comparison is in logical pixels, because a
+  fractional output scale means the untouched base comes back bigger than it went in (1280x720 is
+  reported as 1600x900 at this container's 1.25).
 - **Nothing in Godot enumerates a display's modes.** `DisplayServer` reports a screen's size,
   usable rect, DPI, scale and refresh rate and stops there — there is no `SDL_GetDisplayMode`, on
   any platform. `DisplayModes` derives the settings screen's list instead: the panel's own
   resolution plus the standard modes that share its shape and fit inside the usable rect, with
   fractions of the panel where nothing standard shares its shape (21:9, portrait). Shape is the
-  invariant and it is not cosmetic — with `stretch/aspect="keep"` a window of the wrong shape
-  letterboxes itself, which is the trap above seen from the menu.
+  invariant, but it is the *display's* shape and the reason is no longer a rendering one: under
+  `aspect="expand"` every one of those sizes draws correctly, and a monitor's own shape is simply
+  the only evidence available about which modes it really has.
 - **`change_scene_to_file()` called from `_ready` prints "Parent node is busy adding/removing
   children" and carries on.** The shell decides in its own `_ready` whether a scripted run should
   skip the menu, which is exactly that case: the tree is still adding the scene that is asking to
@@ -1017,6 +1030,16 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   skips the ODE solve once a finished, grounded racer is this slow, which is what the original's
   state change gave it for free. The lesson: when a DEVIATION note says "only X is retained," check
   what else the removed behaviour was quietly doing before trusting X to do all of it alone.
+- **A fixed 16:9 canvas is a choice, and the choice was wrong.** The resolution drop-down spent a
+  day being filtered first by the display's aspect ratio and then by the game's own 16:9, both
+  arguing about which letterbox to hand the player. Neither is the answer: `aspect="expand"` is,
+  and the argument goes away with the black bars. Note what it costs, because "expand" is not
+  free — the canvas is no longer a known size, so every 2D position anchored to an edge has to be
+  measured from *that* edge at paint time (`RaceHUD.gauge_center` and the anchors beside it), and
+  the 3D camera has to widen its own lens on a canvas narrower than 16:9 or a 4:3 window ends up
+  seeing less of the hill than a 16:9 one (`ChaseCamera.fov_for_aspect`). A single scale factor
+  cannot do either job: a wider canvas must move the gauge right while the stopwatch stays where
+  it is, and neither may change size.
 
 ## Deliberate deviations from ETR
 

@@ -157,7 +157,10 @@ func _accept() -> void:
 	Config.shadows = _shadows.button_pressed
 	Config.fog_start_distance = _fog_start.value
 	Config.fog_distance_scale = _fog_scale.value
-	Config.apply_display()
+	# `forced`: the player has just named a window size, which outranks the
+	# `--resolution` this run may have been launched with. Everywhere else the
+	# command line wins — see [method GameConfig.apply_display].
+	Config.apply_display(true)
 	Config.save()
 	_close()
 
