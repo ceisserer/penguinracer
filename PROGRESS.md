@@ -295,6 +295,18 @@ The scene the importer writes is now a `CharacterRig`: skeleton, skinned mesh, `
 and one `KeyframePath` per clip. The race scene owns the clock and asks the rig to pose itself at
 a time; nothing about the character reaches back into the simulation.
 
+**Each sphere is tessellated at the original's own resolution** (2026-09-14). `[vis]` is a level
+of detail rather than a visibility flag — `CCharShape::VisibleNode` reads it as `gluSphere`'s
+stack count — and welding every node at a fixed 8×12 about +Y instead left Tux's belly notched
+along the black/white seam: the black body and the white belly are overlapping ellipsoids about
+0.07 apart at the front, so a facet of the coarse black sphere bulging past the white one won the
+depth test and broke the boundary into blocks. `_sphere_divisions` now ports the original's
+`clamp(3, round(tux_sphere_divisions * vis / 10), 16)` and the sphere is built about the node's
+own +Z, which is where `gluSphere` puts its poles and, for a belly ellipsoid, where the
+protrusion is. The seam is a clean curve on all five. It is also *cheaper* — detail lands where
+`[vis]` asks for it rather than everywhere, and Tux's mesh fell from 3978 vertices to 3593. See
+the trap list.
+
 **The start animation.** `CIntro` in the original, and the first thing the game does after a
 course finishes loading: Tux stands 1.25 m across the slope and a metre behind the line, waddles
 over in six steps, turns to face down the hill, drops onto his belly and the race begins. Four and

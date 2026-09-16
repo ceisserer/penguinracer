@@ -1,0 +1,5 @@
+# Upstream ETR 0.8.4, vendored verbatim and read-only: not PenguinRacer's code.
+# Keeps it out of GitHub's language stats and collapses it in pull request diffs.
+# Deliberately no `-diff`: that marks the tree binary and reduces `git grep` to
+# "Binary file ... matches", and src/ is grepped as a reference (etracer.md §4.1).
+etr-0.8.4/** linguist-vendored

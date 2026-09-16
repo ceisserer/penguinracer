@@ -1,370 +1,332 @@
 # PenguinRacer
 
-A Godot 4.7 rebuild of [Extreme Tux Racer](http://extremetuxracer.sourceforge.net/) 0.8.4:
-downhill penguin racing with the original's physics model and real snow deformation.
+A [Godot 4.7](https://godotengine.org/) rebuild of
+[Extreme Tux Racer](https://sourceforge.net/projects/extremetuxracer/) 0.8.4 — downhill penguin
+racing with the original's physics model, its 44 courses and its five characters, plus real snow
+deformation, computer opponents and ghost replays the original never had.
 
-Targets **web (WebGL2 / Compatibility renderer)** and **desktop native (Vulkan / Mobile
-renderer)** from one project.
+One project ships to two places: **the web** (WebGL2, Godot's Compatibility renderer) and
+**desktop native** (Vulkan, Godot's Mobile renderer). Both targets matter equally, and the
+difference between them is a deliberate, gated seam rather than an accident.
 
-- [`etracer.md`](./etracer.md) — analysis of the original C++ source. The reference for *what
-  the original does*, especially §4.1 (physics constants) and §5 (legacy file formats).
-- [`godot-port-plan.md`](./godot-port-plan.md) — the rebuild plan: architecture, new data model,
-  phases and risks.
-- [`materials.md`](./materials.md) — how a terrain material works end to end: one
-  `TerrainLayer` per `terrains.lst` record, friction pre-blended for the physics and
-  per-layer tables uploaded to the splat shader, why the file has seven kinds of ice, and
-  what Godot's editor can author.
-- [`PROGRESS.md`](./PROGRESS.md) — what is built and what is knowingly missing.
-- [`history.md`](./history.md) — how it got here: the de-risking spikes and the discoveries that
-  changed the plan.
+> **Status: playable, not finished.** Physics, the content pipeline, the characters and the game
+> shell are done or nearly so; rendering and snow integration are partial; polish has not started.
+> See [PROGRESS.md](./PROGRESS.md) for the running log and the known gaps, which are catalogued
+> honestly rather than quietly.
 
-## Layout
+---
 
-```
-game/                     Godot project
-  scripts/physics/        RacePhysics + surface + snow — no node dependencies
-  scripts/course/         CourseData, TerrainLayer, prefabs, events, environments
-  scripts/render/         terrain chunks, GPU snow field, spray, ice reflection
-  scripts/camera/         chase camera
-  scripts/character/      the character rig, the migrated keyframe root motion, and
-                          the catalog of the five playable characters
-  scripts/race/           the race scene and the racers on the hill: the player, up to
-                          nine computer opponents, an optional ghost of a saved run,
-                          and one per network peer
-  scripts/net/            the ENet session and the snapshots it carries
-  scripts/shell/          HUD, main menu, course menu, settings screen
-  scripts/audio/          the AudioDirector autoload and the sound/music banks
-  scripts/config/         GameConfig: the settings file, read once at startup
-  scenes/                 main_menu.tscn (the main scene), course_menu.tscn,
-                          character_menu.tscn, settings_menu.tscn, ghost_menu.tscn,
-                          race.tscn, results_menu.tscn
-  themes/                 etr_menu.tres — ETR's GUI palette as a Godot theme,
-                          plus the two checkbox icons it needs
-  addons/etr_import/      one-way, re-runnable importer from the ETR data tree
-  courses/<name>/         generated: course.tres, course.tscn, heightmap.res, splat_*.png
-  resources/              generated: terrain layers, object prefabs, environments, events,
-                          courses.tres and characters.tres (the two menu indexes),
-                          characters/<name>/ (rig, animations, preview), the sound
-                          bank and music library
-  assets/                 generated: textures, skyboxes and the migrated audio
-  tests/                  headless suite (physics, surface, input, audio, terrain
-                          library, course objects, settings, character rig,
-                          chase camera, recording and playback, computer opponents)
-                          + ODE benchmark
-  spikes/s1_pingpong/     the ping-pong render-target spike (risk S1)
-  spikes/s7_reflection/   the planar reflection spike (S7)
-etr-0.8.4/                the original source and data, read-only
-tools/                    importer driver and the browser test harness
-```
+## What this is, and what it is not
 
-## Prerequisites
+**This is a rebuild, not a port.** No C++ was translated line-for-line. The original is treated as
+two separable things:
 
-Godot 4.7.2 on `PATH` as `godot`, plus its export templates if you want to build for the web.
-The desktop build runs the **Mobile** renderer and so needs Vulkan; the web build runs
-**Compatibility**, which is what WebGL2 gives you and the only reason the project carries two.
-The split is not cosmetic — under Compatibility a shadow-casting light is drawn in a second pass
-blended in sRGB, so the desktop gets shadows and the browser does not. See
-`game/scripts/config/render_backend.gd`.
+* **A simulation.** ETR's force model and its tuned constants *are* the game — the way Tux
+  accelerates, the way a carve bites, how much a paddle stroke is worth at 40 km/h against what it
+  is worth at 90. That model is reproduced faithfully, from a written analysis of the original
+  source ([`etracer.md`](./etracer.md) §4.1) rather than from the source text itself, so the
+  implementation is a GDScript expression of the documented physics.
+* **Everything else.** Renderer, data formats, scene graph, menus, audio mixing, object placement
+  — all redesigned around Godot's grain, with the original's *content* imported into the new
+  shape by a one-way importer that never writes back.
+
+So: a 2026 codebase that drives like a 2010s game, on courses hand-built by people who are
+credited below.
+
+What it is **not**: it is not a fork of the ETR C++ tree, not a content reskin, and not a faithful
+reproduction of ETR's *looks* in every particular — a handful of places knowingly do better than
+the original, and each one is marked `DEVIATION` in the source with its reason.
+
+---
+
+## What is in the box
+
+| | |
+|---|---|
+| **Courses** | All 44, imported from the original data, with their events and difficulty thresholds |
+| **Characters** | Tux, Trixi, Boris, Samuel and Beastie — skinned rigs with the original's keyframe animations, start sequence and finish clips |
+| **Terrain** | 43 material types, friction blended per-texel, splat-mapped PBR over a float32 heightmap |
+| **Modes** | Practice against the clock, a field of 1–9 computer opponents, a ghost of any saved run, and LAN play between two desktops |
+| **Snow** | GPU trail deformation with a shaded trench and a ploughed lip, plus carve spray and four levels of falling snow |
+| **Shell** | Main menu, course and character screens, in-race HUD, results and settings, 13 languages |
+| **Tests** | 4724 headless assertions, 0 failures, 13 s — physics, surface, input, audio, terrain, camera, replay, opponents |
+
+---
+
+## Quick start
+
+Needs **Godot 4.7.2** on `PATH` as `godot`, and a read-only copy of the ETR 0.8.4 data tree — which
+is in this repository at `etr-0.8.4/`.
 
 ```bash
-curl -sLO https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
-unzip -q Godot_v4.7.2-stable_linux.x86_64.zip
-sudo mv Godot_v4.7.2-stable_linux.x86_64 /usr/local/bin/godot
-```
-
-## Import the original content
-
-```bash
-./tools/import_all.sh                 # all 44 courses
-./tools/import_all.sh --course=bunny_hill
-./tools/import_all.sh --force         # overwrite courses edited in-editor
-```
-
-Four passes: register scripts, write assets, let Godot import the new PNGs, then build the
-resource graph. The ETR tree is only ever read. A course that has been touched in the editor
-carries a provenance flag and is skipped unless `--force` is given.
-
-## Run
-
-```bash
-godot --path game                                    # play — opens on the main menu
-godot --path game -- --course=wild_mountains         # ... straight into a course, no menu
-godot --path game -- --character=trixi               # ... as someone other than Tux
-godot --headless --path game --script res://tests/run_tests.gd   # test suite + benchmark
-godot --path game spikes/s1_pingpong/s1_spike.tscn   # snow render-target spike
-godot --path game spikes/s7_reflection/s7_spike.tscn # planar reflection spike
-godot --path game res://scenes/key_log.tscn          # keyboard delivery probe
-godot --path game -- --no-audio                      # play with the sound off
-godot --path game -- --no-intro                      # ... and without the start animation
-godot --path game -- --fps                           # ... showing the HUD's frame-rate readout
-godot --path game -- --wind=2                        # ... with weather, and so the HUD's wind rose
-godot --path game -- --host --course=bunny_hill      # host a session for others to join
-godot --path game -- --join=<address> --course=bunny_hill    # ... join one
-```
-
-Every race opens with the original's start sequence: your character is standing off to one side of
-the line,
-waddles across to it, turns to face down the hill and drops onto his belly. Four and a half
-seconds, and **any key skips it**. `R` mid-race goes straight back to racing without replaying it,
-and a scripted run — anything passing `--auto-input=`, `--no-intro`, or `?nointro=1` in a browser
-— never sees it at all, which is what keeps screenshot comparisons comparable.
-
-The HUD is the original's: the stopwatch and the time top left, the herring count top right, and
-bottom right the round gauge that carries two numbers at once — the jump charge as a blue fill
-rising up the disc while space is held, and the speed as an arc around it that runs green to
-60 km/h, yellow to 100 and red to 160, with the number itself in the middle. A bar up the right
-edge fills as you descend. It is drawn rather than migrated: ETR's HUD textures are not in this
-tree pending the licence audit, so the layout is `hud.cpp`'s own constants and the shapes are
-built from them.
-
-Controls: arrow keys steer/paddle/brake, space charges a jump, `Ctrl` plus a direction turns an
-air into a trick, `R` restarts, `P` freezes the race in place with a `PAUSED` banner and unfreezes
-it again, `Esc` drops straight back to the course list — a race left this way is abandoned rather
-than resumed, and Back from the list returns to the main menu. A gamepad's left stick steers.
-
-Playing over a remote desktop, set its keyboard to a raw/map mode rather than a character
-translating one — a translating mode sends held keys as zero-length pulses, and steering, paddling
-and jump all stop working while `R` and `Esc` carry on. `res://scenes/key_log.tscn` says which one
-you are on. Where the remote cannot be changed, `godot --path game -- --remote-keyboard` bridges
-the pulses; it is off by default because it costs a tenth of a second on every release. The game
-notices a pulsed link on its own and prints one line naming the flag — but only once a run of
-pulses has arrived faster than a hand can tap, since a single sub-frame keystroke looks exactly
-the same and a quick flick of the steering is not a diagnosis.
-
-Sound and music are the original's, and so is the way they are mixed: the herring chime is three
-overlapping cues because ETR gives each sound a single voice, riding a terrain loops whatever
-`terrains.lst` names for it, and the racing track comes from the course's theme. Two of the
-original's quirks came along deliberately — the slide sound has no speed term (ETR wrote one and
-left it commented out) and 12 of its 43 terrains, `snow` included, name no sound at all.
-
-The game opens on a main menu with four entries. Three are ETR's own words for what they do:
-**Practice** is a single free race and opens the course list — all 44 courses with preview, author
-and description, arrows and Enter to pick one — **Select a character** is the five of them from
-`char/characters.lst`, arrows over a framed name with the original's 128x128 preview under it, and
-**Configuration** is the settings screen below. The fourth, **Race the computer**, is beyond the
-original and is the section after next. Picking a course draws a loading panel and then hands over to the race; `Esc` there brings
-the course list back over the live slope, so the next course is one keypress away, and it comes up
-by itself a few seconds after the finish line with the time and herring count. Cups, medals and
-profiles are still to come — selection is free, and the events are imported and waiting.
-
-A run that names a course or a scripted input (`--course=`, `--auto-input=`, and so every
-`tools/shot.sh`) skips the menu and lands on the slope, which is also true of `?course=<dir>` on
-the web build's URL.
-
-## Racing the computer
-
-ETR races the clock. **Race the computer** puts one to nine opponents on the hill with you, and
-opens the same course screen Practice does with two spinners on it: how many, and how well they
-drive — easy, medium or hard. Both are remembered, and both can be changed from the in-race menu,
-so being beaten and trying again at a different setting takes two keypresses.
-
-An opponent is not a special kind of racer. It runs the same physics you do, on the same tick, over
-the same terrain, and it collects the same herring — first one there takes it. It is also solid:
-ride into one and you both get shoved, at the cost of the speed you were closing at. A ghost is the
-one racer on the hill you cannot touch, because it is a recording of a run that has already
-happened and cannot be shoved back. The only thing a
-difficulty setting moves is how well it drives: how far ahead it looks, how quickly it reacts, how
-much room it insists on round a tree, how long it keeps paddling and how readily it brakes. Nothing
-in the force model is scaled for it, because every character in the original has identical physics
-and so does every character here. A hard opponent will beat a good line; an easy one brakes into
-corners it did not need to brake into and stops paddling at half the speed paddling still helps at.
-
-They start abreast, three metres apart, either side of the course's own start point — you begin
-exactly where a practice run begins. They wear the other characters and are called by them, so the
-HUD's second line reads `3 / 10   ↑ Trixi 8 m   ↓ Boris 14 m`: your place in the field, and who is
-either side of you. After the line the result panel leads with `Position 3rd`.
-
-A race never draws a ghost, whichever one was loaded — the HUD has one status line and in a race
-that line is the standings. Your time is still recorded either way, so it can still be saved
-afterwards.
-
-From the command line, without the menu:
-
-```bash
+./tools/import_all.sh                 # migrate the original content (once)
+godot --path game                     # play
 godot --path game -- --course=bunny_hill --opponents=5 --difficulty=hard
+godot --headless --path game --script res://tests/run_tests.gd   # the suite
 ```
 
-## Racing yourself, and racing other people
+The desktop build wants Vulkan; the web build wants Godot's export templates. Every flag, the
+web build, the settings file, the capture-and-compare harness and the project layout are in
+**[docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md)**.
 
-Every run you make is recorded — a couple of bytes per simulated frame, plus a pose twenty times a
-second, about 150 kB for a long course — but nothing is written to disk until you ask. Finish a
-race and a results screen comes up over the course with your time, your herring, and a field to
-name the run; press Save and it is kept, in `user://runs/`, under whatever name you gave it — as
-many runs as you like, on as many courses as you like, nothing overwritten.
+---
 
-**Race against ghost** on the main menu lists every run you have saved, across every course, with
-its time and herring, and a Delete button for the ones you no longer want. Pick one and it starts
-Practice on the course it was recorded on, with that run drawn as a translucent penguin taking the
-line it took — amber when you are behind it, green when you are ahead. Whatever you were racing, crossing the line
-stands your penguin up out of the racing pose and turns it round to face you. Beat the ghost and it
-dances there (`wonrace`); lose to it and it hangs its head (`lostrace`) — the same
-split a field race decides by place instead, since this rebuild has no cups to decide it by. A
-scripted run (`--auto-input=`) neither loads a ghost nor keeps one, which is what stops a
-screenshot comparison growing a second penguin.
+## Design decisions
 
-Two people on two machines can race the same course together:
+The eight decisions below are the ones that shaped everything else. Each is a rule the code is
+held to, not an aspiration.
+
+### 1. The physics core knows nothing about Godot
+
+`RacePhysics` is a plain `RefCounted` stepped against a `SurfaceProvider` interface. No nodes, no
+scene tree, no rendering. That single constraint is what makes a 4700-assertion headless golden
+test suite possible, lets the simulation run at a fixed rate independent of the frame rate, and
+means a computer opponent, a network peer and the player are literally the same code.
+
+The ODE integrator is adaptive (ODE23), and the stage-3 force evaluation is reused as the next
+step's first stage — three evaluations per accepted step instead of four. That, plus a uniform
+spatial grid where the original did a linear scan of every tree per substep, is what bought the
+headroom to run the whole thing in GDScript.
+
+### 2. GDScript, because the web target says so
+
+C# has no web export in Godot, and GDExtension on the web is fragile. So gameplay is GDScript,
+and the question of whether that is fast enough was answered before anything was built: a spike
+measured the integrator at **0.045 ms/frame native and 0.073 ms in a browser** — 0.44 % of a
+16.7 ms frame. The Rust-GDExtension contingency was cancelled on that number rather than carried
+around as an option.
+
+### 3. Two renderers, and the web one is the floor
+
+The desktop runs **Mobile** (Vulkan); the web runs **Compatibility** (WebGL2), which is the only
+thing a browser offers. The rule: nothing may *depend* on a feature Compatibility lacks — no
+compute shaders, no `RenderingDevice`, no HDR, no SSR/SDFGI/TAA — but a desktop build may **add**
+one behind a gate, as long as the web frame without it is still a frame worth shipping.
+
+This started as a single-renderer project and was corrected when the cost became measurable: under
+Compatibility a shadow-casting light is moved into a second additive pass that is blended in
+**sRGB** rather than linear, so the sun arrives five to ten times too bright with its N·L gradient
+crushed flat — and no shader can reach a framebuffer blend. Shadows are therefore desktop-only,
+`RenderBackend.supports_light_shadows()` is the gate, and they are the only thing through it so
+far.
+
+### 4. Snow is represented twice on purpose
+
+Gameplay never reads back from the GPU, because a readback stalls the browser. So the snow
+deformation field exists as two things that deliberately do not match:
+
+* **`SnowFieldGPU`** — 1024², a 64 m window that scrolls toroidally with the player, ping-ponged
+  between `SubViewport`s in a fragment shader. This is what you see: the trench, its self-occluded
+  floor, the bright ploughed lip.
+* **`SnowField`** — a 128² CPU mirror. This is what you feel: packed snow is faster than fresh,
+  and grooming left by nine opponents counts for the tenth.
+
+One is for pixels and one is for feel, and neither is authoritative over the other.
+
+### 5. The course format had to go
+
+ETR stores a course as PNGs: 8-bit elevation over a 7–10 m scale (2.7–3.9 cm of quantization, and
+visible terracing that the original masks with normal smoothing), terrain type as an RGB colour
+key matched within ±30, and objects as colour-keyed pixels in eight legacy colours — which means
+no rotation, no per-instance scale, everything snapped to the same ~1 m grid, and a course that is
+always an axis-aligned rectangle.
+
+Format v2 is a Godot scene plus a typed `Resource`: a **float32 heightmap**, **authored splat
+weight maps** with the three resolutions (elevation, material, object placement) decoupled,
+objects as **real scene nodes**, and play bounds as a polygon instead of a sub-rectangle. The
+original content is migrated into it; the format no longer limits what can be authored next.
+
+### 6. The importer is one-way and re-runnable
+
+`etr-0.8.4/` is read-only and is never written to, at import time or at runtime. Everything
+generated lands under `game/courses/` and `game/resources/`, and each generated resource carries an
+`import_fingerprint`. A course you have since edited in the Godot editor no longer hashes to its
+fingerprint and is skipped unless you pass `--force` — so re-running the importer after an upstream
+change cannot silently eat hand-authored work.
+
+### 7. A racer is whatever fills a `RacerState`
+
+The presentation layer reads one packed struct and nothing else, so it cannot tell the player from
+a computer opponent, from a replay ghost, from a network peer. Adding a new kind of racer means
+adding an `InputSource`, not a branch in the drawing code. This is the seam the opponents, the
+ghosts and the netcode were all built on, and none of the three required changing it.
+
+The struct is 18 floats, and it is a file format and a wire format at the same time: appending a
+field is a version bump, and moving one silently reinterprets every ghost anyone has saved.
+
+### 8. Fixed tick, interpolated presentation
+
+The simulation runs at a fixed 60 Hz and `_process` interpolates up to the frame. Nothing that
+affects the race may run on frame time — input is polled with the tick length. Only the camera lag,
+the streaming window, the particle rates and the deformation render target get the screen's rate.
+ETR stepped its ODE with the frame time, which makes a run un-reproducible; here a recorded input
+trace replays identically, which is what makes both the ghosts and the automated screenshot
+comparisons possible.
+
+### Beyond the original
+
+Four things here that ETR does not have, all of them falling out of the decisions above rather
+than bolted on: **snow that deforms**, **1–9 computer opponents** (same physics, same tick — only
+their driving habits change with difficulty; they are solid, and they collect herring first-come
+first-served), **ghost replays** of any saved run, and **LAN multiplayer** where every peer
+simulates only itself and broadcasts 20 snapshots a second, with no host authority over anyone's
+position.
+
+And one thing the web needed: the browser build is **streamed**. A slim ~65 MB base (engine, shell,
+44 preview thumbnails) plus one `.pck` per course fetched on demand, against 161 MB if it were all
+one bundle. A native build is unaffected.
+
+---
+
+## How this was built
+
+**Most of this codebase was written by large language models, under human direction.** That is
+worth saying plainly on the front page rather than leaving it to be inferred from the commit
+history.
+
+The bulk of the work — the GDScript, the shaders, the importer, the test suite and this
+documentation — came from **Claude Opus** and **Claude Sonnet**, with smaller contributions from
+**DeepSeek V4** and **GLM 5.x**. The direction, the architecture decisions, the physics analysis
+in [`etracer.md`](./etracer.md) and the judgement about what was actually finished were human.
+Commits are attributed to the repository's author in the ordinary way; there are no per-commit
+model trailers, because the disclosure belongs here, once, where someone will read it.
+
+What that means for you as a reader:
+
+* **The physics is the part that was checked hardest.** ETR's force model was reimplemented from
+  a written analysis of the original rather than translated, then held to 4724 headless golden
+  assertions. Where the constants are the game, the tests are the argument.
+* **The traps list is not decoration.** [`AGENTS.md`](./AGENTS.md) catalogues the mistakes this
+  process actually made — a shadow pass blended in the wrong colour space, a stripe of wrong
+  friction, three loops that did not need to be loops. They were found by running the thing and
+  comparing captures, not by reading the diff.
+* **[`PROGRESS.md`](./PROGRESS.md) is the honest ledger.** Generated code is confident about
+  everything, including the parts that do not work. The known gaps are written down deliberately
+  and in detail, and the status line above is kept in step with them.
+
+Review it as you would any other unfamiliar contribution: the tests and the capture harness are
+there to be run.
+
+---
+
+## Documentation
+
+This repository documents its own reasoning at length. The short version of where to look:
+
+| File | What it is for |
+|---|---|
+| [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md) | Commands, prerequisites, layout, the web build, the capture harness |
+| [`PROGRESS.md`](./PROGRESS.md) | What is built today and what is knowingly missing — the running log |
+| [`godot-port-plan.md`](./godot-port-plan.md) | The architecture and data model in full, with its dated corrections |
+| [`etracer.md`](./etracer.md) | Analysis of the original C++: §4.1 is the authoritative physics constants, §5 the legacy file formats |
+| [`materials.md`](./materials.md) | How a terrain material works end to end, and why `terrains.lst` has seven kinds of ice |
+| [`history.md`](./history.md) | How it got here: the de-risking spikes, and the nineteen things the plan did not know |
+| [`AGENTS.md`](./AGENTS.md) | The working rules for this codebase, including the traps found the hard way |
+
+---
+
+## Legal
+
+### Licence
+
+**PenguinRacer is licensed under the GNU General Public License, version 2 or (at your option) any
+later version** — the same terms as Extreme Tux Racer, which it is derived from. The full text is
+in [LICENSE](./LICENSE).
+
+This is not a free choice. The project's physics model is derived from ETR's GPL-2.0-or-later
+implementation, and the shipped courses, characters, textures, skyboxes, audio and translations are
+derivative works of ETR's data. A derivative of GPL-2.0-or-later work is distributed under
+GPL-2.0-or-later.
+
+```
+This program is free software; you can redistribute it and/or modify it under the terms of
+the GNU General Public License as published by the Free Software Foundation; either version
+2 of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+See the GNU General Public License for more details.
+```
+
+### Copyright
+
+Copyright in this repository is **layered, and held by many people**. The new work does not
+supersede or absorb anyone's rights in the original:
+
+* **Copyright © 2026 Clemens Eisserer** — the Godot rebuild: the GDScript, the shaders, the
+  importer, the new data model, and the features that have no ETR equivalent.
+* **Copyright © 2011–2024 The Extreme Tux Racer Team** — ETR 0.8.4, its courses, its data and its
+  assets, from which everything here is derived.
+* **Copyright © 1999–2000 Jasmin F. Patry** — the original Tux Racer that ETR itself continues.
+* **The individual contributors named in the credits below**, who hold copyright in their own
+  courses, models, music and translations.
+
+The complete unmodified upstream source and data tree is included at
+[`etr-0.8.4/`](./etr-0.8.4/), with its own `COPYING` and `AUTHORS`, so the provenance of every
+migrated asset can be traced and the GPL's source requirement is met for the derived work.
+
+### Asset licensing — an open item, read this before redistributing
+
+ETR's data assets have **mixed authorship**, recorded in `etr-0.8.4/data/credits.lst` and
+`etr-0.8.4/AUTHORS`. A per-asset licence audit **has not been completed**, and it is tracked as an
+open risk in [PROGRESS.md](./PROGRESS.md).
+
+In the meantime the project is conservative where it can be: ETR's menu ornaments, title logo and
+HUD textures are **deliberately not in this tree**. The HUD is redrawn from `hud.cpp`'s own layout
+constants as primitives, the spray atlas and the falling-snow curtain tiles are redrawn rather than
+copied, and the menus reproduce ETR's colour palette rather than its art.
+
+If you intend to redistribute a build, or to reuse an individual asset outside the GPL context it
+arrived in, check that asset's authorship yourself. Contributions to the audit are welcome.
+
+### Names
+
+"Tux Racer" has a commercial history — the name went to a closed-source release after the original
+free version — which is why the free continuations are named differently. The ETR team grants the
+use of theirs explicitly, in their own credits screen:
+
+> Use of the name "Extreme Tux Racer" is granted to any forks or continuations.
+
+This project nevertheless carries its own name, and claims no affiliation with or endorsement by
+the Extreme Tux Racer team, the Tux Racer authors, or the Godot Engine project. **Godot** is a
+trademark of the Godot Foundation; it is used here only to say which engine this runs on.
+
+**Tux** was created by Larry Ewing with The GIMP, and is used with the acknowledgement he asks for:
+credit to lewing@isc.tamu.edu and The GIMP.
+
+---
+
+## Credits
+
+This game exists because other people built it first.
+
+**Tux Racer** — Jasmin Patry, Eric Hall, Patrick Gilhuly, Rick Knowles, Vincent Ma, Mark Riddell.
+
+**The Extreme Tux Racer team** — Steven Bell, Kristian Picon, Nicosmos, R. Niehoff, Philipp Kloke,
+Marko Lindqvist.
+
+**Music** — Grady O'Connell, Kristian Picon, Karl Schroeder, Joseph Toscano.
+**Graphics** — Nicosmos (logo, HUD, interface), Kristian Picon (objects, skyboxes, characters),
+Daniel Poeira and K. Picon (Papercuts font).
+**Courses** — the many course creators credited upstream.
+**Translations** — Pavel Borecki (cs), Marko Lindqvist (fi), Sylvain St-Amand and Syl (fr),
+Philipp Kloke (de), Jonatan Nyberg (sv), Viliam Bur (eo), Rogonow (nl), Andrei Ionel (ro),
+Jorge Maldonado Ventura (es), João Frade (pt), and the translators before 0.6.0 whose names were
+not recorded.
+
+**And** Larry Ewing for Tux, Ulrich Thatcher for the quadtree algorithm ETR used, and everyone
+thanked in `etr-0.8.4/data/credits.lst`.
+
+## Contributing
+
+Issues and pull requests are welcome. Two things worth knowing first: the architecture rules in
+[AGENTS.md](./AGENTS.md) are load-bearing (particularly "the physics core has no node
+dependencies" and "nothing may depend on a feature the web renderer lacks"), and any intentional
+difference from the original's behaviour is marked `DEVIATION` in the source with a reason. Run
+the headless suite before opening a PR:
 
 ```bash
-godot --path game -- --host --course=bunny_hill              # one machine
-godot --path game -- --join=192.168.1.20 --course=bunny_hill # the other
+godot --headless --path game --script res://tests/run_tests.gd
 ```
 
-Each machine simulates only its own penguin and tells the others where it is twenty times a
-second; nobody's physics is second-guessed. **Desktop only** — the transport is ENet, which is
-UDP, and a browser cannot open a UDP socket. There is no lobby yet either, so both ends name the
-course themselves and start when they start; `[multiplayer] player_name` in the settings file is
-what the other players see you called.
-
-## Settings
-
-Written the first time the game runs, with its comments, read once at startup, and moved either by
-hand or from **Configuration** on the main menu — which writes the same file back, comments and
-all. Fog is read when a course loads, so a change to it shows on the next race; the window
-settings apply as soon as you press Ok. The file lives at:
-
-```
-Linux     ~/.local/share/godot/app_userdata/PenguinRacer/penguinracer.cfg
-Windows   %APPDATA%\Godot\app_userdata\PenguinRacer\penguinracer.cfg
-Web       IndexedDB, per origin
-```
-
-```ini
-[display]
-resolution = "1280x720"   ; or "auto"; ignored on the web, where the page sizes the canvas
-fullscreen = false
-render_scale = 1.00       ; fraction of the window the 3D scene renders at [0.25...2.0]
-ice_reflections = true    ; whether ice reflects the racers standing on it
-shadows = true            ; racers and trees cast a shadow. Desktop only — the browser's
-                          ; renderer cannot draw one without blowing the frame out — and
-                          ; off under a cloudy or a night sky either way
-
-[fog]
-start_distance = 40.0     ; metres of clear air before fog starts to build
-distance_scale = 2.00     ; multiplies the range migrated from the environment's light.lst
-
-[game]
-character = "tux"         ; tux, trixi, boris, samuel or beastie
-opponents = 3             ; how many computer racers "Race the computer" starts with [1...9]
-opponent_skill = "medium" ; easy, medium or hard
-
-[multiplayer]
-player_name = "Racer"     ; what other racers see you called
-port = 27015              ; the port --host listens on and --join= assumes
-```
-
-Delete the file to get the defaults and the comments back. Godot's own `--resolution` and
-`--fullscreen` outrank it, so `tools/shot.sh` captures at the size it asks for whatever the file
-says — though `--resolution` is *logical*, and a compositor running a fractional output scale
-multiplies it, so check the size of the PNG before trusting a pixel rectangle in it.
-
-**The window can be any shape.** `project.godot` stretches the 1280x720 design canvas with
-`aspect="expand"`, which keeps its 720-pixel short side and grows along the long one: a 21:9
-window draws on 1680x720 and shows more of the hill to either side, a 4:3 window draws on 1280x960
-and shows more of it above and below, and nothing is ever letterboxed. The HUD anchors each of its
-pieces to the edge it belongs to, and the camera widens its own lens on anything narrower than
-16:9 so no window shape sees less of the course than another.
-
-The **Configuration** screen's resolution list is the display's, not a fixed one: the screen's own
-resolution, the standard modes that share its shape and fit beside the taskbar, and whatever the
-file already says. The shape filter is about the monitor rather than the game — nothing renders
-wrong at any shape now — and it is there because a panel's own aspect ratio is the only evidence
-Godot offers about which modes it really has. In a browser the resolution and fullscreen rows are
-not shown at all — the page sizes the canvas there and the `resolution` key is ignored.
-
-The two fog keys are the only place a shipped default deliberately differs from the original's
-data. ETR's sunny and night environments say `[fogstart] 0 [fogend] 75`, so its white haze starts
-at the camera; the defaults here hold it off to 40 m and stretch the range to 150. That haze is
-load-bearing for the way the original's snow reads — `start_distance = 0` with
-`distance_scale = 1` renders exactly what `light.lst` says, and is one edit away.
-
-The character is the one ETR does not keep: its registration screen asks once per launch and
-`players.lst` has no column for the answer. There are no player profiles here yet, so the question
-has its own menu entry and the answer sticks — `--character=<dir>` (or `?character=` in a browser)
-overrides it for one run without touching the file.
-
-Sound and music volumes are still ETR's defaults on the audio director and are in neither the file
-nor the settings screen yet. The two multiplayer keys are in the file but not on the screen: a name
-you cannot see anyone use and a port with no session to open are settings for a lobby that does not
-exist. The two opponent keys are in the file and on the *course* screen rather than the settings
-one, because that is where the choice is actually made — beside the course you are about to race.
-
-Development flags, useful for headless verification:
-
-```bash
-godot --path game -- --capture=/tmp/shot.png --capture-frames=200 \
-    --auto-input=carve --camera=above --course=wild_mountains
-```
-
-`--auto-input=` is `carve`, `brake`, `paddle` or `jump`; the last charges and fires on a fixed
-cycle, which is the only way to capture the HUD gauge's inner half.
-
-`tools/shot.sh` wraps the same flags and pins the simulation to `--fixed-fps 60`, so the frame
-count *is* the race time and two runs are comparable:
-
-```bash
-tools/shot.sh /tmp/shot.png 200 bunny_hill paddle    # out, frames, course, scripted input
-SHOT_METHOD=gl_compatibility tools/shot.sh /tmp/web.png 200 bunny_hill paddle
-                                                     # ... as the browser will render it
-SHOT_RESOLUTION=1024x576 tools/shot.sh /tmp/shot.png  # ... at a true 1280x720 under a 1.25 scale
-```
-
-`SHOT_METHOD` is `mobile`, `gl_compatibility` or `forward_plus` and the driver follows it; unset
-takes the project's own setting for the platform. The same thing without a capture is
-`godot --path game --rendering-method gl_compatibility --rendering-driver opengl3`, which is how
-the web look is checked without opening a browser.
-
-It renders on the real GPU when the machine has a Wayland socket and a DRI render node — that
-needs `libegl1 libegl-mesa0 libdecor-0-0`, without which Godot misreports the missing EGL library
-as an unsupported OpenGL version — and falls back to Xvfb + llvmpipe otherwise. 120 frames of
-Bunny Hill take about 3 s on the GPU and a little over two minutes in software.
-`SHOT_FORCE_SOFTWARE=1` forces the slow path; the two rasterisers do not agree to the last level,
-so it is worth using before trusting a small tone measurement.
-
-To compare a capture against a reference screenshot rather than squinting at it — there is no
-Pillow in the container, so these are a small pure-Python PNG reader and two readers on top of it:
-
-```bash
-python3 tools/regionstats.py shot.png 200 550 500 700       # per-channel median/percentiles/clipping
-python3 tools/linstats.py shot.png 0.25 200 550 500 700     # pre-tonemap linear value, for a frame
-                                                            # rendered with tonemap_exposure = 0.25
-```
-
-## Web
-
-The web export is streamed: `Web` builds a slim base (engine + shell + all 44 course preview
-thumbnails, ~65 MB) that excludes every course's `course.tscn`/`course.tres`/`heightmap.res`/
-`splat_*.png` and all of `assets/music/`. Those are built as separate `.pck` files — one per
-course (268 KB–9.2 MB each, depending on the course) plus one for music (14 MB) — and fetched
-over HTTP at runtime by `PackStream` (`game/scripts/config/pack_stream.gd`) only when a course
-is actually chosen or a track first plays. A native build is unaffected: `PackStream.ensure()`
-is a single `ResourceLoader.exists()` check that is already true, since a native export still
-bundles everything in one pck.
-
-```bash
-./tools/build_web_streamed.sh
-(cd tools/webtest && npm install)   # first time only
-node tools/webtest/server.js build/web 8060 &
-node tools/webtest/run_web_test.js \
-    "http://127.0.0.1:8060/index.html?course=bunny_hill" /tmp/web.png RACE_READY
-```
-
-The server sets COOP/COEP and the right MIME types for `.wasm` and `.pck`; without them the
-export fails with an unhelpful console error.
-
-`?course=<dir>` is how a browser says what `--course=` says on a command line, since there is no
-command line in a page: it starts that course instead of the main menu, which is what lets the
-harness wait on `RACE_READY`. `?autostart` does the same for the default course, `?nointro=1`
-skips the start animation, and `?character=<dir>` races as one of the other four.
-
-Export presets: `Web` (the streamed base), one generated `Course_<dir>` per course plus
-`MusicPack` (owned by `tools/gen_course_export_presets.py` — re-run it whenever a course is
-added, removed or renamed; `tools/build_web_streamed.sh` does this automatically), and
-`WebSpike` (the S1 render-target spike).
-
-```bash
-godot --headless --path game --export-release "WebSpike" build/spike/index.html
-node tools/webtest/server.js build/spike 8061 &
-node tools/webtest/run_web_test.js http://127.0.0.1:8061/index.html /tmp/spike.png S1_DONE
-```
-
-The spike verifies itself and exits non-zero on failure, so it can gate CI.
+By contributing you agree that your contribution is licensed under GPL-2.0-or-later.

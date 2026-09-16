@@ -15,11 +15,12 @@ the game). Everything else is redesigned; original content is imported into the 
 | `etracer.md` | What the original C++ does. §4.1 = physics constants (authoritative), §5 = legacy file formats. |
 | `godot-port-plan.md` | Architecture, data model, phases, risks. |
 | `PROGRESS.md` | What is built today, and the known gaps. The running log. |
-| `history.md` | How it got here: the two spikes in full, and the nineteen things the plan did not know. Settled — read it for the reasoning behind a decision, not for current state. |
+| `history.md` | How it got here: the two spikes in full, and the discoveries that changed the plan (§1–§24). Settled — read it for the reasoning behind a decision, not for current state. |
 | `materials.md` | How a terrain material works: `terrains.lst` → `TerrainLayer` → friction on the CPU and shading on the GPU, why there are 43 records and not three, and what the editor can and cannot author. |
-| `README.md` | Commands, prerequisites, layout. |
+| `docs/DEVELOPMENT.md` | Commands, prerequisites, layout, the web build, the capture harness. |
+| `README.md` | The public front page: what the project is, the eight design decisions, licensing and credits. Keep the status claims in step with `PROGRESS.md`. |
 
-Keep all six current when you change things. State goes in `PROGRESS.md`; once a piece of it is
+Keep all seven current when you change things. State goes in `PROGRESS.md`; once a piece of it is
 settled and only the reasoning is still worth having, move it to `history.md` and leave the
 distilled lesson in the trap list below. Corrections to the plan go in `godot-port-plan.md`
 marked with a date.
@@ -489,11 +490,13 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   same value. That is a flat white bank with no form in it, and it is a framebuffer blend, so no
   shader can reach it and no gain can fit around it. Measured on Bumpy Ride: ambient-only 0.4815
   linear, sun-only 0.0624, both with shadows off 0.5441 — the sum — and both with shadows on
-  **0.9622**. It also explains, and retires, the old methodology note "do not tune by turning one
-  light off, the two frames do not sum to the full frame": setting an energy to zero culls the
-  light, which removes the additive pass, which removes the sRGB blend. The sum was fine; the
-  full frame was wrong. The fix is the renderer split — Mobile on the desktop has one light loop
-  in linear — and `RenderBackend` is where the whole story lives.
+  **0.9622**. It also settles what isolating a light is worth: zeroing an energy *culls* the light,
+  and under Compatibility that removes the additive pass and its sRGB blend, so two isolated frames
+  do not sum to the full one there. The sum was fine; the full frame was wrong. This list used to
+  carry "do not tune by turning one light off" as a rule of its own — it was this bug all along
+  (history §24), and under Mobile isolating a light is an ordinary technique. The fix is the
+  renderer split — Mobile on the desktop has one light loop in linear — and `RenderBackend` is
+  where the whole story lives.
 - **Godot multiplies `DIFFUSE_LIGHT` by `ALBEDO` once, after the light loop.** A `light()` that
   writes `DIFFUSE_LIGHT += ALBEDO * ...` therefore squares it. Nothing warns, and on snow it is a
   16 % darkening of the sun term only — the ambient took the engine's single multiply — so it is
@@ -504,36 +507,21 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   else and reading what came out, and both had survived being reasoned about.
 - **An additive term outside the illumination clamp can undo the clamp, and it will only show at
   an angle nobody fitted.** The ice's Fresnel sky reflection was *added* to the surface instead of
-  taking its share out of it, so `mix(diffuse, sky, F)` was really `diffuse + F * sky` — and the
-  one invariant `etr_illumination.gdshaderinc` exists to hold is that light cannot brighten a
-  surface past its own albedo. It was invisible for a phase because the ice was fitted at the ~65
-  degree incidence a chase camera sits at, where `F` is 0.09 and the whole term is four levels.
-  Sight *down* a frozen gully and `F` reaches 0.6: measured on `penguins_cant_fly`, a bowl that
-  should read 115/132/150 came back 250/255/255, and three quarters of `tuxway`'s far lake was
-  flat 255 white with no form in it. Two things were wrong and both had to move. **The energy
-  split** — the mirror's share now comes out of `ALBEDO`, which is the half Godot applies it to.
-  **The radiance being mirrored** — `sky_horizon` was the environment's `fog_color`, and ETR's
-  `[fogcol]` is a fade target rather than a radiance: 40 of the 44 shipped courses declare
-  `1 1 1`, so the ice was reflecting a sky at full radiance, brighter than the skybox drawn beside
-  it in the same frame and achromatic where the real one is blue. It is
-  `EnvironmentPreset.sky_horizon_color` now, averaged by the importer off the middle tenth of the
-  three faces — the band where the haze is, since the top of a face is deep blue and the bottom is
-  mountains, which is also why `sky_nadir_color` could not stand in for it. Worst-case grazing lift
-  went 135 levels to 43 and the clipping went to exactly what the frame has with the reflection
-  switched off; Bunny Hill's lit snow is identical to the decimal, because every line of it is
-  gated behind `ice_mask > 0`. **Two reusable pieces.** A term that does not go through `light()`'s
-  clamp has to bound itself, and the way to bound a reflection is the energy split it already
-  physically is. And *a fit is only evidence at the angle it was taken at* — the ice look was
-  solved at one incidence and the term that was wrong is the one that grows by 6.5x outside it.
-  This is the second bug the old `EMISSION` path was hiding: sRGB-decoding under Compatibility was
-  quietly scaling the reflection to 43 % of itself, so moving it to `SPECULAR_LIGHT` fixed the
-  units and delivered the missing energy split at full strength. **The sequel is worth knowing too**: with the
-  term bounded, the far field went flat, and the fix was not to loosen the bound but to notice the
-  ramp was still answering the wrong question. `fog_color` is a bad radiance for the *sky* and a
-  very good one for *distant terrain*, which is what it fades. It came back as `ice_distant_tint`,
-  gated on distance — and the cut without that gate darkened the reported course, because up close
-  a low ray lands on the near bank. Same constant, three different answers depending on which
-  direction and how far you are asking about.
+  taking its share out of it, so `mix(diffuse, sky, F)` was really `diffuse + F * sky` — against the
+  one invariant `etr_illumination.gdshaderinc` exists to hold, that light cannot brighten a surface
+  past its own albedo. It was invisible for a phase because the ice was fitted at the ~65 degree
+  incidence a chase camera sits at, where `F` is 0.09 and the whole term is four levels; sight
+  *down* a frozen gully and `F` reaches 0.6, which is a bowl that should read 115/132/150 coming
+  back 250/255/255. **Three reusable pieces.** A term that does not go through `light()`'s clamp has
+  to bound itself, and the way to bound a reflection is the energy split it already physically is —
+  the mirror's share comes out of `ALBEDO`, which is the half Godot applies it to. *A fit is only
+  evidence at the angle it was taken at*: the ice look was solved at one incidence and the term that
+  was wrong is the one that grows by 6.5x outside it. And the same constant can be the right answer
+  to one question and the wrong answer to another — `fog_color` is a bad radiance for the *sky*
+  (ETR's `[fogcol]` is a fade target, and 40 of the 44 shipped courses declare `1 1 1`) and a very
+  good one for *distant terrain*, which is what it fades, so it came back as `ice_distant_tint`
+  gated on distance. Both causes, the measurements and the three-line fix are in PROGRESS.md under
+  *Ice stopped going white at a flat angle*.
 - **`EMISSION` does not mean the same thing on the two renderers, and `DIFFUSE_LIGHT` /
   `SPECULAR_LIGHT` do.** `EMISSION = vec3(0.5)` reads back as 0.500 linear under Mobile and as
   0.216 — which is `srgb_to_linear(0.5)` — under Compatibility. A value that reaches `ALBEDO`
@@ -563,11 +551,6 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   exposure 1.0 comes back as 0.812 at 0.25, while a mid-tone agrees to 1 %, so a fit taken on the
   dim render lands several levels off. Fit on the exposure the game ships at, where the reference
   frame also lives; use the dim one to find out *which* channel has run out of range.
-- **Do not tune by turning one light off.** Rendering with the sun at zero and with the ambient at
-  zero gives two frames that do not sum to the full frame — the full frame is about twice their
-  sum — so zeroing an energy changes more than that one term. Fit on the full render instead:
-  move each energy a little, measure the gradient, solve. Two wrong conclusions came out of the
-  isolated frames before that was noticed.
 - **Terrain `SPECULAR` left at Godot's 0.5 default is what blows snow out.** `SPECULAR` remaps to
   F0 as `0.16 * s * s`, so 0.5 means F0 = 0.04 — snow's is nearer 0.02, and ETR gives its terrain
   light a black `[spec]`, i.e. none at all. On a surface already close to the ceiling that
@@ -707,21 +690,17 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   and Alt+F4 get the same wait. This was read as a dummy-driver artefact for a phase, which it is
   not: the driver only makes it reproduce everywhere, since a container with no sound card falls
   back to it.
-- **`SceneTree.create_timer` is not a wall clock, so "wait 100 ms for the mixer" did not.** The
-  entry above used to end "the wait is wall-clock, not frames", which is true of what has to
-  elapse and false of what a scene-tree timer delivers: it counts down by the frame delta, so the
-  interval is however many whole frames fit, each measured with the *previous* frame's length.
-  The frame that asks to quit is the one that just wrote a PNG or tore down a course, so that
-  delta is nothing like the frames after it. Instrumented on the real path, a 100 ms timer
-  returned after **43 ms and four frames**, and the music playback was released on the fifth —
-  so every quit from the main menu still leaked `start1-jt.ogg`, its packet sequence and their
-  two playbacks, the exact "4 ObjectDB instances / 2 resources" the fix was written against. It
-  hid under `tools/shot.sh`, whose `--fixed-fps 60` makes the countdown synthetic and generous.
-  `AudioDirector.await_settled` waits for the objects instead: `begin_shutdown` takes a `weakref`
-  of every playback it stops, `settling()` counts the ones still alive, and the loop yields until
-  that is zero, with `QUIT_SETTLE_TIMEOUT` as a backstop rather than as the mechanism. **The
-  reusable part**: when you can name the object you are waiting for, wait for *it*; a duration
-  chosen to be comfortably more than enough is only as good as the clock that measures it.
+- **`SceneTree.create_timer` is not a wall clock, so "wait 100 ms for the mixer" did not.** It
+  counts down by the frame delta, so the interval is however many whole frames fit, each measured
+  with the *previous* frame's length — and the frame that asks to quit is the one that just wrote a
+  PNG or tore down a course. Instrumented on the real path, a 100 ms timer returned after **43 ms
+  and four frames** and the music playback was released on the fifth, so every quit still leaked the
+  stream and its packet sequence the wait had been written to stop. It hid under `tools/shot.sh`,
+  whose `--fixed-fps 60` makes the countdown synthetic and generous. `AudioDirector.await_settled`
+  waits for the objects instead: a `weakref` per stopped playback, yield until none are alive, with
+  `QUIT_SETTLE_TIMEOUT` as a backstop rather than as the mechanism. **The reusable part**: when you
+  can name the object you are waiting for, wait for *it*; a duration chosen to be comfortably more
+  than enough is only as good as the clock that measures it. (history §18, correction 2026-09-08.)
 - **A settle window is live, so silencing once is not silence.** The other half of the same
   warning: for as long as the shutdown waits, the tree is still processing, so anything that
   plays a cue on a timer is still asking for it — and `silence()` having just stopped the player
@@ -1041,6 +1020,30 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   cannot do either job: a wider canvas must move the gauge right while the stopwatch stays where
   it is, and neither may change size.
 
+- **`[vis]` on a character node is a level of detail, not a boolean**, and reading it as one put
+  notches all over Tux's belly. `CCharShape::VisibleNode` turns it into `gluSphere`'s stack count
+  — `clamp(3, round(tux_sphere_divisions * vis / 10), 16)`, and the shipped
+  `tux_sphere_divisions` is 10, so `[vis] 10` is 10 stacks and 20 slices while `[vis] 2` floors at
+  3. The importer tessellated every node at a fixed 8×12 instead. **The black body and the white
+  belly are two overlapping ellipsoids about 0.07 apart at the front, which is the same order as
+  the facet error of a coarse sphere**, so wherever a black facet bulged past a white one the
+  black won the depth test and the seam came apart into blocks — the artifact reads as a shading
+  or a material bug and is neither, it is the intersection of two solids sampled too coarsely to
+  intersect cleanly. The axis matters as much as the count: `gluSphere` stacks along the node's
+  own **+Z**, which is the belly direction, so the frontmost point of each belly ellipsoid is a
+  pole vertex and lands exactly; a +Y-pole parameterisation puts a facet centre there instead,
+  where the error is largest. Matching the original costs nothing — `[vis]` spends detail only
+  where it shows, so Tux went from 3978 vertices to 3593. Watch the winding when changing the
+  pole: Godot's front face is the clockwise one, which is `(a, b, d)` for a +Z pole and the
+  opposite order for a +Y pole.
+
+- **Re-importing to pick up a character change rewrites the object prefabs and every
+  `course.tscn` too**, and today that is not id churn: a fresh `objects/*.tres` gains
+  `shader_parameter/etr_ambient = null` that the committed one does not have, so the usual
+  "empty diff means ids only" check does not clear it. Revert everything outside
+  `resources/characters/` after a character-only import until somebody works out which side of
+  that is right.
+
 ## Deliberate deviations from ETR
 
 - **A tree is shaded as a cylinder across both of its planes**, where ETR gives all eight vertices
@@ -1353,6 +1356,16 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   opponents, so there is nothing to migrate and a `tr()` key would resolve to nothing in all 13
   languages. The finishing place reuses the migrated `POSITION` and `1ST`..`10TH`, which is also
   why the field stops at nine.
+
+## Commits
+
+Commits and pull requests here carry **no agent attribution** — no `Co-Authored-By:` trailer
+naming a model or a tool, no "Generated with ..." line or product link in a PR description.
+Several coding agents add one of these by default; turn it off rather than letting it through.
+The history was rewritten once to strip them out, and re-adding them undoes that.
+
+Authorship is the repository's configured `user.name` / `user.email`. The project's use of LLMs
+is disclosed once, in prose, in the README under *How this was built*.
 
 ## Licensing
 
