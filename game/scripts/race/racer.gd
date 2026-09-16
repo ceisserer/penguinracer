@@ -57,6 +57,19 @@ var state := RacerState.new()
 var previous := RacerState.new()
 
 var rig: CharacterRig
+
+## Whether this racer is in the ice mirror this frame.
+##
+## Not a property of the racer but of where it is standing: the mirror is one
+## plane and this racer may not be on it. [method RaceScene._update_reflection]
+## decides, once per frame, per racer — see [method IceReflection.admits].
+var reflected: bool = true:
+	set(value):
+		if reflected == value:
+			return
+		reflected = value
+		_apply_reflected()
+
 var herring: int = 0
 var finished: bool = false
 var finish_time: float = 0.0
@@ -229,7 +242,7 @@ func install_character(scene_path: String) -> bool:
 	var instance: Node3D = (load(scene_path) as PackedScene).instantiate()
 	add_child(instance)
 	rig = instance as CharacterRig
-	_join_reflection_layer()
+	_apply_reflected()
 	return rig != null
 
 ## The capsule the race drew before there were characters, and still draws when
@@ -255,20 +268,29 @@ func install_fallback_mesh() -> void:
 	# down to point the way the racer is going. Same turn the rig root bakes.
 	instance.transform = Transform3D(Basis(Vector3(1, 0, 0), -PI / 2.0), Vector3.ZERO)
 	add_child(instance)
-	_join_reflection_layer()
+	_apply_reflected()
 
 ## Put everything drawn for this racer on the layer the ice reflection renders,
-## in addition to the one everything else is on.
+## in addition to the one everything else is on — or take it off again.
 ##
 ## [IceReflection] narrows its camera to that layer alone, which is how the
 ## mirror pass draws the racers without drawing the terrain — the reflection of
 ## a slope in the slope itself is both wrong and expensive. Nothing else in the
-## game uses visual layers, so this line and that camera's `cull_mask` are the
-## whole convention.
-func _join_reflection_layer() -> void:
+## game uses visual layers, so this function and that camera's `cull_mask` are
+## the whole convention.
+##
+## The bit is cleared rather than set for a racer the mirror plane does not
+## speak for, which is the cheapest possible per-racer gate: no second material,
+## no second pass, one integer per rig per frame. Re-applied whenever a rig is
+## installed, so a character swapped in mid-race inherits the state the racer is
+## already in rather than appearing in a mirror it was excluded from.
+func _apply_reflected() -> void:
 	for node: Node in _mesh_instances(self):
 		var mesh_instance: MeshInstance3D = node
-		mesh_instance.layers |= IceReflection.RACER_VISUAL_LAYER
+		if reflected:
+			mesh_instance.layers |= IceReflection.RACER_VISUAL_LAYER
+		else:
+			mesh_instance.layers &= ~IceReflection.RACER_VISUAL_LAYER
 
 ## Render the rig as something you can see the course through.
 ##

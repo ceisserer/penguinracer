@@ -17,6 +17,10 @@ run/main_scene="res://scenes/main_menu.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 run/main_scene.spike="res://spikes/s1_pingpong/s1_spike.tscn"
 
+[audio]
+
+general/default_playback_type.web=0
+
 [autoload]
 
 Config="*res://scripts/config/game_config.gd"

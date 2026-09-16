@@ -12,6 +12,12 @@
 class_name PackStream
 extends RefCounted
 
+## What [method HTTPRequest.download_chunk_size] is set to for every fetch
+## here, against the default 64 KiB. See [method _fetch_and_mount]: the chunk
+## is read once a frame, so this is what decides whether a pack arrives at the
+## speed of the link or at the speed of the renderer.
+const DOWNLOAD_CHUNK_SIZE := 1 << 20
+
 ## `probe_path` already resolved this session, true or false — set once so a
 ## second `ensure()` for the same course does not refetch it every race.
 static var _resolved: Dictionary = {}
@@ -58,6 +64,17 @@ static func ensure(probe_path: String, pck_url: String,
 static func _fetch_and_mount(pck_url: String, on_progress: Callable) -> Error:
 	var url: String = _page_base_url() + pck_url
 	var http := HTTPRequest.new()
+	# `HTTPRequest` reads exactly one chunk per poll and it polls once a frame,
+	# so the default 64 KiB makes a download's speed the *frame rate* times
+	# 64 KiB and nothing to do with the link. The 14 MB music pack is 215
+	# chunks: fetched from the menu, where nothing is being drawn, that is half
+	# a second, but the pack the race asks for is fetched while the hill is
+	# rendering — measured at 117 s to arrive under a software GL browser, and
+	# a hard 215 frames however fast the connection is. A megabyte a poll makes
+	# the download bandwidth-bound again (14 polls) and costs the progress bar
+	# a granularity it never spends, since the bar is drawn over the loading
+	# screen, where frames are cheap.
+	http.download_chunk_size = DOWNLOAD_CHUNK_SIZE
 	# Deferred: the very first call (menu music, on `_ready`) lands while the
 	# root window is still busy adding the boot scene's own children, and a
 	# direct add_child there fails outright — same shape as the

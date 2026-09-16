@@ -40,12 +40,27 @@
 ## surface, over the metre or so of penguin above it. Everywhere else on the
 ## hill the error grows without bound, which is what
 ## [member fade_distance] is for: see [method TerrainRenderer.set_character_reflection].
+##
+## [b]And everybody else.[/b] `fade_distance` bounds the error in the *surface*
+## and does nothing about the error in the *subject*: it asks where the ice
+## being shaded is, never where the penguin being mirrored was standing. A field
+## of opponents is a field of racers on their own ice, mirrored through a plane
+## that belongs to the player, and the ones the hill has bent away from it come
+## back somewhere else entirely — the bug this fixed, which on a half-pipe put a
+## penguin's reflection up the far wall four metres from the penguin. There is
+## no second plane to give them: one pass, one camera, one plane, and nine of
+## them is nine half-screen targets on a WebGL2 budget. So the pass admits the
+## racers the plane is nearly true for and drops the rest — see
+## [method admits] and [member Racer.reflected]. A missing reflection is ETR's
+## own answer and reads as ice that is not quite mirror-smooth; a wrong one
+## reads as a bug, because it is one.
 class_name IceReflection
 extends Node
 
 ## The visual layer racers are drawn on in addition to layer 1, and the only
-## layer this pass renders. Set by [method Racer.install_character]; nothing
-## else in the game uses layers, so the whole convention is these two files.
+## layer this pass renders. Set and cleared by [method Racer._apply_reflected];
+## nothing else in the game uses layers, so the whole convention is these two
+## files.
 const RACER_VISUAL_LAYER := 1 << 1
 
 ## Fraction of the main viewport the mirror is rendered at. A reflection in ice
@@ -56,6 +71,46 @@ const RACER_VISUAL_LAYER := 1 << 1
 const RESOLUTION_SCALE := 0.5
 ## Never smaller than this on either axis, whatever the render scale is.
 const MIN_RESOLUTION := Vector2i(160, 90)
+
+## Metres a racer's own ice may sit off the mirror plane and still be reflected
+## in it.
+##
+## [b]The one plane is a lie for everybody except the racer it was taken
+## under.[/b] A racer standing [code]d[/code] off that plane is mirrored to
+## [code]2 d[/code] on the far side of it, and the image lands wherever that
+## puts it — which on a half-pipe is up the opposite wall, hanging in the air
+## next to a penguin it is supposed to be underneath. Measured on *Who Says
+## Penguins Can't Fly?* with a field of three, the offset is 0.0–0.2 m while the
+## field is on the open slope and 2–4 m the moment it spreads across the pipe,
+## so the artefact is exactly as intermittent as it looks: the reflections are
+## right until the hill bends, and then one of them is on the ceiling.
+##
+## 0.6 m is a little under the length of a penguin, so the worst image that gets
+## through is displaced by less than the thing casting it — visible only if you
+## know to look for it. Everything further off is not reflected at all, which is
+## the honest answer and is also ETR's: the original reflects nothing.
+const PLANE_TOLERANCE := 0.6
+
+## How far the ice under a racer may lean away from the mirror plane's normal.
+##
+## Height is not the whole test. A mirror plane tilted 50° — the player up the
+## wall of a pipe while the field is still in the trench — reflects a racer on
+## flat ice *sideways*, and a racer can pass the height test while standing on
+## ice facing somewhere else entirely. A reflection through a plane the surface
+## disagrees with by θ comes back rotated by 2θ; 15° is the point at which 30°
+## of wrongly-tipped penguin stops being a soft shape in the ice.
+const NORMAL_TOLERANCE_DEG := 15.0
+
+## Both tolerances, widened by this much for a racer already being reflected.
+##
+## Hysteresis, and it is load-bearing rather than tidy: an opponent holding the
+## player's line one hump behind sits *at* the tolerance for seconds at a time,
+## and a test with one threshold blinks its reflection on and off for every one
+## of them. There is no per-racer fade available to soften the transition — the
+## rigs share their materials with the main pass, so anything done to them to
+## dim the mirror dims the penguin — so the transition is a pop, and the only
+## thing to do about a pop is to make it happen once.
+const ADMIT_HYSTERESIS := 1.6
 
 ## Seconds for the mirror plane's normal to follow the terrain's by 1/e.
 ##
@@ -202,6 +257,34 @@ static func mirror_transform(t: Transform3D, point: Vector3,
 	var offset: Vector3 = t.origin - point
 	return Transform3D(reflect * t.basis,
 		point + offset - 2.0 * offset.dot(n) * n)
+
+## Whether a racer standing on ice at [param point] with normal [param normal]
+## is reflected honestly enough by the current plane to be drawn in the mirror.
+##
+## [param currently] is whether that racer is in the mirror now, and only widens
+## the tolerances — see [constant ADMIT_HYSTERESIS]. The racer the plane was
+## taken under is not asked at all: its offset is zero by construction but its
+## normal is only what the smoothing is *heading* toward, which is a test it can
+## fail on rough ground. [method RaceScene._admit_racers_to_reflection] says so
+## in the one place that knows who is being watched.
+##
+## Called per racer per frame from [method RaceScene._update_reflection], which
+## is the only place that has a [SurfaceProvider] to ask where the ice is.
+func admits(point: Vector3, normal: Vector3, currently: bool) -> bool:
+	if not _has_plane:
+		return false
+	return plane_admits(_plane_point, _plane_normal, point, normal, currently)
+
+## The test itself, free of the node — same reason [method mirror_transform] is:
+## the suite can pin the tolerances down without a viewport to render into.
+static func plane_admits(plane_point: Vector3, plane_normal: Vector3,
+		point: Vector3, normal: Vector3, currently: bool) -> bool:
+	var slack: float = ADMIT_HYSTERESIS if currently else 1.0
+	if absf((point - plane_point).dot(plane_normal)) > PLANE_TOLERANCE * slack:
+		return false
+	var n: Vector3 = normal.normalized() if normal.length_squared() > 0.0 else Vector3.UP
+	return n.dot(plane_normal.normalized()) >= cos(deg_to_rad(
+		minf(NORMAL_TOLERANCE_DEG * slack, 89.0)))
 
 ## Forget the plane, so the next frame establishes a fresh one rather than
 ## easing the normal across from wherever the last race left it.

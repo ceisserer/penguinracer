@@ -528,6 +528,22 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   good one for *distant terrain*, which is what it fades, so it came back as `ice_distant_tint`
   gated on distance. Both causes, the measurements and the three-line fix are in PROGRESS.md under
   *Ice stopped going white at a flat angle*.
+- **A screen-space effect derived from one object is wrong for every other object, and the guard
+  that looks like it bounds it does not.** `IceReflection` mirrors the camera through the tangent
+  plane under the racer being watched and the ice samples the result by `SCREEN_UV`.
+  `reflection_fade_distance` reads like the bound on that approximation and it is only half of
+  one: it asks where the *fragment being shaded* is relative to the plane and never where the
+  *thing that was mirrored* was standing. So the player's reflection was exact and an opponent's
+  was put `2d` off its own feet — measured at 2–4 m on a half-pipe, with the plane itself leaning
+  50° while the opponent's ice was flat, which is a penguin hanging in the air on the far wall.
+  It survived a phase because the case that is easy to look at is the one that is correct by
+  construction: **the subject the effect was derived from always looks right, so a screen-space
+  term has to be checked against the objects it was not derived from.** The fix is a per-object
+  admission test rather than a second pass (rule 2 — nine mirrors is nine half-screen targets),
+  and two things fell out of measuring it that would not have fallen out of reasoning about it:
+  the *tilt* of the far racer's ice matters more than its height, and the racer the plane came
+  from has to be exempted from its own test, because smoothing the plane normal (which the
+  reflection needs, or the image swims) opens 14° against the unsmoothed terrain on a fast carve.
 - **`EMISSION` does not mean the same thing on the two renderers, and `DIFFUSE_LIGHT` /
   `SPECULAR_LIGHT` do.** `EMISSION = vec3(0.5)` reads back as 0.500 linear under Mobile and as
   0.216 — which is `srgb_to_linear(0.5)` — under Compatibility. A value that reaches `ALBEDO`
@@ -685,6 +701,37 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   `AudioStreamPlayer.get_playback_position()` over frames: broken it stays at 0.000 and
   `playing` goes false, fixed it advances. That works under the headless Dummy driver, which is
   the only way to test audio here at all.
+- **The web export mixes through the browser, not through `AudioServer`, and that is silence
+  here.** Godot ships `audio/general/default_playback_type.web` = **Sample**, so on the web every
+  `AudioStreamPlayer` left on `PLAYBACK_TYPE_DEFAULT` is taken off the engine's mixer and handed
+  to the page's own Web Audio graph. Sample playback carries `AudioStreamWAV` and nothing else, so
+  all ten pieces of music — Ogg Vorbis — were silent with no error anywhere, and the effects that
+  *are* WAVs lost the two things `AudioDirector` does to them at play time: the loop window
+  `_set_loop` writes (the trap above, undone again by a copy the browser took at load) and the
+  per-cue `race_gain` that reaches the voice through the `SFX` bus. The game was doing everything
+  right the whole time — measured in Chromium, `_music.playing` true, the stream loaded off the
+  streamed `music.pck`, `get_playback_position()` advancing — while every bus read its
+  **-200 dB floor**, which is `AudioServer`'s "nothing was mixed into this channel at all", and an
+  analyser tapped onto `AudioContext.destination` read an RMS of exactly 0. `project.godot` now
+  sets `audio/general/default_playback_type.web=0` (the setting's own enum is `Stream,Sample`, not
+  `AudioServer.PlaybackType`), which puts the web build back on the same mixer as the desktop, and
+  `TestAudio._web_playback_type` asserts it. **The reusable part**: a platform override in
+  `ProjectSettings` is engine behaviour that a headless run on your own machine cannot see —
+  `godot --rendering-method gl_compatibility` reproduces what the browser *draws* but not what it
+  *is*, because there is no `.web` feature tag on a desktop binary. The measurement that settles
+  it is two numbers, both available from outside the game: the bus peaks, and the RMS at the page's
+  `AudioContext.destination` with an oscillator through the same tap as a control.
+- **`HTTPRequest` reads one chunk per frame, so a download's speed is the frame rate.**
+  `download_chunk_size` defaults to 64 KiB and the node polls once per idle frame, which makes the
+  ceiling `fps x 64 KiB` however fast the link is. It hid for as long as the only thing being
+  fetched was a course pack, which arrives over the loading screen where nothing is being drawn:
+  549 KB of `bunny_hill.pck` in 14 frames and half a second. The 14 MB music pack is 215 chunks,
+  and the race asks for it *while the hill is rendering* — timed in-browser, it arrived
+  **117 s** after the race started, so a player raced two minutes in silence and the fetch looked
+  for all the world like a hung coroutine. `PackStream.DOWNLOAD_CHUNK_SIZE` is a megabyte now: 14
+  polls, bandwidth-bound again, and the same fetch completes in about 6 s under software GL. **The
+  reusable part**: when a poll loop moves a fixed quantum per iteration, the frame rate is in the
+  units of the result — check what the quantum is before concluding the loop has stopped.
 - **`AudioServer` frees a stopped playback a frame later, so a quit has to wait for it.** `stop()`
   only marks the playback for deletion; the mixer thread has to fade it out and the object is
   freed by the `AudioServer::update()` at the end of a later main-loop iteration. Neither happens
@@ -874,8 +921,15 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   the camera had moved 5 m and then built *every* newly-in-range chunk in that one frame. The gate
   makes the average cheap and does nothing at all about the peak. It now queues nearest-first and
   drains under [constant TerrainRenderer.BUILD_BUDGET_MS], with an `immediate` flag for the course
-  load, where the shell's "please wait" panel is already up. Threads are not an option: all three
-  web presets ship `variant/thread_support=false`.
+  load, where the shell's "please wait" panel is already up. The budget is what makes this work
+  and should stay whatever the threading answer is. Correction 2026-09-16: the sentence that used
+  to end this entry — "Threads are not an option: all three web presets ship
+  `variant/thread_support=false`" — is not what the file says. Only `WebSpike` and the 44 generated
+  `Course_*` packs ship `false`; the **`Web` base preset, the one that carries the engine, ships
+  `variant/thread_support=true`** and has since 6ceb233, and a browser reports it as
+  "Build configuration: … multi-threaded". The pack presets' value is inert — a `.pck` carries no
+  engine variant — so the base is the only one that decides. Nobody has taken threads up, and
+  whether to is open; what is settled is that the reason recorded here for not doing so was wrong.
 - **A new `class_name` does not exist until the editor has scanned for it.**
   `.godot/global_script_class_cache.cfg` is gitignored and only rewritten by an editor pass, so
   every headless run after adding a class fails with *"Could not find type X in the current
@@ -1141,8 +1195,15 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   the contact point, where the eye checks it, and wrong at a rate that grows with distance.
   `reflection_fade_distance` (8 m) is what confines it: the lookup is by `SCREEN_UV`, so without
   it a frozen lake elsewhere in frame would show a penguin reflected in a plane it has nothing to
-  do with. `[display] ice_reflections = false` is off, and `character_reflection_opacity = 0` is
-  the same thing in the shader.
+  do with. **And the plane belongs to one racer, so every other racer is admitted to the mirror
+  or refused it, per frame**: `IceReflection.admits` asks whether the ice under *that* racer is
+  within 0.6 m and 15° of the plane (widened 1.6x once it is already in, or its reflection
+  strobes at the threshold) and `Racer.reflected` clears the layer bit for the ones it refuses —
+  because there is no second plane to give them and nine mirror passes is nine half-screen
+  targets. The racer being watched is exempt: the plane's normal is smoothed and the terrain's is
+  not, and 14° opens between them on a fast carve. See the trap list, and PROGRESS.md under *An
+  opponent's reflection stopped floating off its penguin*. `[display] ice_reflections = false` is
+  off, and `character_reflection_opacity = 0` is the same thing in the shader.
 - **The spray's puff atlas is redrawn, not copied.** ETR textures every spray
   particle from `data/textures/snowparticles.png` — a 64×64, 2×2 atlas of four
   soft puffs, one quadrant per particle chosen at birth and kept — grows each

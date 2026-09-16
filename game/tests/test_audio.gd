@@ -20,6 +20,7 @@ static func run(t: TestCase) -> void:
 	_music_library(t)
 	_terrain_cues(t)
 	_director_behaviour(t)
+	_web_playback_type(t)
 
 static func _sound_bank(t: TestCase) -> void:
 	t.begin("audio/sound bank")
@@ -258,3 +259,26 @@ static func _director_behaviour(t: TestCase) -> void:
 
 	tree.root.remove_child(director)
 	director.free()
+
+## The one project setting the whole of the web build's audio hangs on.
+##
+## Godot ships `audio/general/default_playback_type.web` = Sample, which takes
+## every player off `AudioServer`'s mixer and hands the stream to the browser's
+## own Web Audio graph instead. Sample playback carries no [AudioStreamOggVorbis]
+## — all ten pieces of music — and it does not carry the two things this
+## director does to a [AudioStreamWAV] at play time either: the loop window
+## `_set_loop` writes, and the per-cue `race_gain` that reaches the voice
+## through the `SFX` bus. The web build was silent end to end because of it.
+##
+## Asserted on the setting rather than on a player, because this is the
+## quantity the engine actually reads and there is no web export in a headless
+## run to read a player off. Both halves are checked: a `.web` override that
+## says Stream is only meaningful next to a base that does too.
+static func _web_playback_type(t: TestCase) -> void:
+	t.begin("audio/web playback type")
+	# The setting's own enum is "Stream,Sample" — 0 and 1 — and is not
+	# `AudioServer.PlaybackType`, where 0 is DEFAULT and 1 is STREAM.
+	t.ok(ProjectSettings.get_setting("audio/general/default_playback_type.web", 1) == 0,
+		"the web build mixes through AudioServer, not the browser's sampler")
+	t.ok(ProjectSettings.get_setting("audio/general/default_playback_type", 1) == 0,
+		"and so does every other build, which is the engine default")

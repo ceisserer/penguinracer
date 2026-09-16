@@ -474,6 +474,28 @@ the window as well as the mode; `TestAudio` asserts `loop_end > loop_begin` and 
 spans the sample, because `loop_mode` read correct the whole time and the old assertion on it
 passed throughout. See the trap in AGENTS.md.
 
+**Fixed 2026-09-16 — the web build had no audio at all.** Not the game's doing: Godot ships
+`audio/general/default_playback_type.web` = Sample, which takes every player off `AudioServer`'s
+mixer and gives the stream to the browser's own Web Audio graph. Sample playback carries
+`AudioStreamWAV` and nothing else, so all ten pieces of music went silent, and the effects that
+survive it lose the loop window `_set_loop` writes and the `race_gain` that reaches the voice
+through the `SFX` bus. Measured in Chromium: `_music.playing` true, the stream loaded off the
+streamed `music.pck`, `get_playback_position()` advancing — and every bus at its -200 dB floor,
+with an analyser on `AudioContext.destination` reading an RMS of exactly 0 against 0.21 for a
+control oscillator through the same tap. `project.godot` now sets
+`audio/general/default_playback_type.web=0`, which is the desktop's mixer on both platforms;
+`TestAudio._web_playback_type` asserts it, because nothing else in a headless run can see a `.web`
+override. Menu music, the racing theme, the pickups and the terrain slide all sound in a browser
+now, and the bus peaks match the desktop's to within the frame. See the trap in AGENTS.md.
+
+**Fixed alongside it — the racing theme took two minutes to arrive.** `HTTPRequest` reads one
+`download_chunk_size` per idle frame, so at the default 64 KiB a download's speed is the *frame
+rate*, not the link. The course pack never showed it (549 KB, fetched over the loading screen, 14
+frames), but the 14 MB music pack is 215 chunks and the race asks for it while the hill is
+rendering: timed in-browser under software GL it landed **117 s** after the start, which read as a
+hung fetch rather than a slow one. `PackStream.DOWNLOAD_CHUNK_SIZE` is 1 MiB now — 14 polls, and
+the same fetch completes about 6 s in.
+
 `-- --no-audio` gates the whole thing, for capture runs where a soundtrack is only a slow start.
 Volumes are the original's `param.sound_volume` 90 / `param.music_volume` 20 and live on the
 director. The configuration screen does not move them yet — they are two more keys the settings
@@ -1065,7 +1087,7 @@ glare, which is what distinguished it from snow. It now also reflects the pengui
 
 `IceReflection` is a `SubViewport` on the **same `World3D`** as the race, holding one camera: the
 chase camera reflected through the ice plane under whoever is being watched, with `cull_mask`
-narrowed to the layer `Racer._join_reflection_layer` puts the rigs on. Because the world is
+narrowed to the layer `Racer._apply_reflected` puts the rigs on. Because the world is
 shared, the mirror draws the rigs the main pass already posed — no duplicate rig, no pose copy,
 and a ghost, an opponent and a remote peer are reflected without any of them being mentioned. The
 ice branch of `terrain.gdshader` samples the result by `SCREEN_UV`.
@@ -1113,7 +1135,9 @@ plane and the terrain is a heightmap. The plane is the tangent under the racer b
 which is exact at the contact point — where the feet are, and where the eye checks it — and wrong
 at a rate that grows with distance from it. `reflection_fade_distance` (8 m) confines the term to
 the patch the plane came from. Without it the `SCREEN_UV` lookup would put a penguin into any ice
-anywhere in frame, at any height and any slope.
+anywhere in frame, at any height and any slope. It bounds the error in the *surface* and not the
+one in the *subject*, which is the half that went wrong later — see *An opponent's reflection
+stopped floating off its penguin*.
 
 `TestReflection` asserts the geometry rather than the pixels: the plane is fixed, the mirror is
 its own inverse, the determinant is −1 and the basis stays orthogonal, a camera one metre up comes
@@ -1387,6 +1411,82 @@ is what was measured.)
 
 4724 assertions, 0 failures.
 
+
+### An opponent's reflection stopped floating off its penguin (2026-09-16) · **done**
+
+Reported from *Who Says Penguins Can't Fly?* with a field of three: a few seconds after the
+start, one opponent's reflection is hanging on the far wall of the pipe, several metres from the
+penguin it belongs to, while the player's own sits correctly under their feet.
+
+**One plane, and it only ever belonged to one racer.** `IceReflection` mirrors the chase camera
+through the tangent plane under the racer *being watched* — exact at that racer's contact point,
+which is the whole of why the feature reads. Everybody else is mirrored through it too. A racer
+standing `d` off that plane is put `2d` the other side of it, and the image lands wherever that
+projects. `reflection_fade_distance` does not catch it: it asks where the *ice being shaded* is,
+never where the *penguin being mirrored* was standing, so a bogus reflection is accepted by any
+ice within 8 m of the plane.
+
+Instrumented on the reported course, three opponents, 60 Hz:
+
+| | offset from the mirror plane | tilt of their ice against it |
+|---|---|---|
+| field on the open slope | 0.0–0.2 m | a few degrees |
+| field spread across the pipe | 2–4 m | 30–107° |
+
+So the artefact is exactly as intermittent as it looked. The tilt column is the worse half and it
+is easy to miss: when the player is halfway up a wall the mirror plane itself leans 50° off
+vertical, and an opponent on the flat trench floor — which can pass a height test — comes back
+rotated by twice the disagreement.
+
+**The fix is a per-racer admission test, because there is no second plane to give them.** One
+pass, one camera, one plane; nine of them would be nine half-screen targets on a WebGL2 budget
+(rule 2). So `IceReflection.admits` asks, per racer per drawn frame, whether the plane is nearly
+true for the ice *that* racer is standing on — within `PLANE_TOLERANCE` (0.6 m, a little under
+the length of a penguin, so the worst image that survives is displaced by less than the thing
+casting it) and `NORMAL_TOLERANCE_DEG` (15°) — and `Racer.reflected` clears the rig's reflection
+layer bit for the ones it refuses. A missing reflection is ETR's own answer and reads as ice that
+is not quite mirror-smooth. A wrong one reads as a bug, because it is one.
+
+Both tolerances widen by `ADMIT_HYSTERESIS` (1.6) for a racer already in the mirror. That is not
+tidiness: an opponent holding your line one hump behind sits *at* the threshold for seconds at a
+time, and a single-threshold test strobes its reflection. There is no per-racer fade to soften
+the transition with — the rigs share their materials with the main pass, so anything done to dim
+the mirror dims the penguin — so the transition is a pop, and the thing to do about a pop is make
+it happen once.
+
+**The watched racer is exempt, and measuring is what said so.** Its offset is zero by
+construction, but the plane's normal is *smoothed* (`NORMAL_TAU`) and the terrain's is not:
+carving across the pipe at 78 km/h opens **14.2°** between the sampled normal and the smoothed
+one, against a 15° tolerance. The test would have started dropping the one reflection in the
+frame that must never blink. `RaceScene._admit_racers_to_reflection` skips it and says why.
+
+Verified by capture, `penguins_cant_fly`, 3 opponents, `--auto-input=carve`, 1280x720:
+
+| | pixels changed | max delta | where |
+|---|---|---|---|
+| frame 340, before vs after | 536 (0.06 %) | 48 levels | one box, (529,311)–(552,342) |
+| frame 260 (field bunched on the open slope) | 0 | 0 | byte-identical |
+
+The changed box is the floating penguin and nothing else; the player's own reflection, the rigs
+and the terrain are untouched to the byte. And on `tuxway` — 100 % ice, the course the feature
+was measured on in the first place — **no opponent is refused in 600 frames, and a 300-frame
+carve with a field of three comes back pixel-identical** (A/B with `game/` stashed, every one of
+the 921 600 pixels equal). The gate costs nothing where the reflection was already right.
+
+What it does cost is on bent terrain: on the reported course the median opponent sits 0.63 m off
+the plane on ice tilted 20° from it, so over a 600-frame run each of the three is refused 52–66 %
+of the time, with 5–7 transitions each. That is the honest read of the geometry rather than a
+tuning failure — at 0.63 m and 20° the reflection that *was* being drawn was a metre and a quarter
+from its penguin and rotated 40° — and most of those refusals are invisible either way, because
+the image they would have drawn lands off the ice or off the screen.
+
+`TestReflection` gained four cases: a racer can be taken out of the mirror and put back without
+ever leaving layer 1, the plane admits its own ground and anywhere along it, it refuses the 2–4 m
+and 25–60° cases measured above, and the hysteresis band holds a racer in that it would not let
+in.
+
+4764 assertions, 0 failures.
+
 ---
 
 ## Known gaps
@@ -1562,6 +1662,15 @@ is what was measured.)
   feed air drag, but wind belongs to a cup race in `events.lst` and there are no cups yet, so
   there has been nowhere for the player to ask for it. Adding it to the same row the snow is on
   is now a small job — `RaceSetup` is the object that carries this.
+- **Nothing occludes a racer in the ice mirror.** The mirror pass narrows `cull_mask` to the
+  racer layer, which is what keeps the reflection of a slope out of the slope, and the cost is
+  that the pass contains no occluders at all: a penguin behind a tree, a rock or a rise is drawn
+  into the mirror as if the line were clear. The per-racer admission test takes most of it away
+  incidentally — it confines the mirror to racers standing within 0.6 m and 15° of one plane, and
+  there is not much course between two points in a slab that thin — but it is not a fix for this,
+  and a real one wants depth in the mirror pass, which Compatibility will not cheaply give
+  (rule 2). No capture has been made that shows it; it is listed because it is a property of the
+  design rather than a suspicion.
 - **`[starttex]`, `[tracktex]` and `[stoptex]` are still unported.** They are the original's
   trackmark decal atlas indices, and the GPU trail map replaced the thing they index. Nothing
   needs them; listed so the gap in `terrains.lst` coverage is deliberate.

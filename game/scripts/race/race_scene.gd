@@ -134,6 +134,9 @@ var snow_gpu: SnowFieldGPU
 ## The mirror the ice reflects the racers in, or a pass that is switched off.
 ## Presentation only — nothing in the simulation may read it.
 var reflection: IceReflection
+## Scratch for [method _admit_racers_to_reflection], which runs once per racer
+## per drawn frame and has no business allocating in either loop.
+var _reflect_sample := SurfaceSample.new()
 ## The weather. Presentation only, like the mirror: [SnowFall] draws what
 ## [member RaceSetup.snowfall] asked for and the simulation never hears about it.
 var snowfall: SnowFall
@@ -755,9 +758,44 @@ func _update_reflection(view: RacerState, delta: float) -> void:
 	reflection.update(camera,
 		Vector3(view.position.x, height, view.position.z),
 		roster.view_target.surface_normal(), delta)
+	_admit_racers_to_reflection()
 	terrain.set_character_reflection(reflection.texture(),
 		reflection.plane_point(), reflection.plane_normal(),
 		reflection.fade_distance)
+
+## Decide, for each racer on the hill, whether the mirror plane speaks for the
+## ice it is standing on — and take the ones it does not out of the pass.
+##
+## The plane is the one under the racer being watched and nobody else, so a
+## field spread across a bend is a field of racers being mirrored through
+## somebody else's ground. [method IceReflection.admits] is the test and
+## [member Racer.reflected] is the switch; this function is only the part that
+## needs a [SurfaceProvider], which is why it lives here and not there.
+##
+## The surface is asked directly rather than through [method Racer.surface_normal]
+## because that answers [constant Vector3.UP] for anyone not simulated locally —
+## a ghost, a remote peer — and a mirror does not care who is driving. Same
+## drawn-not-simulated height as above, for the same reason.
+func _admit_racers_to_reflection() -> void:
+	for racer: Racer in roster.all:
+		# The racer the plane was taken under is in the mirror unconditionally.
+		# Not quite a tautology and that is why it is written down: the plane's
+		# normal is *smoothed* ([constant IceReflection.NORMAL_TAU]) and the
+		# terrain's is not, so carving across a pipe at 78 km/h opens 14° between
+		# the two — measured — and a tolerance test would drop the one reflection
+		# in the frame that must never blink. The lag is deliberate and the
+		# shader already fades around this plane; see [method IceReflection.update].
+		if racer == roster.view_target:
+			racer.reflected = true
+			continue
+		var at: RacerState = racer.view_state()
+		course_root.surface.sample_into(at.position.x, at.position.z, _reflect_sample)
+		var ground: float = _reflect_sample.height
+		if snow_cpu != null:
+			ground += snow_cpu.depth_at(at.position.x, at.position.z)
+		racer.reflected = reflection.admits(
+			Vector3(at.position.x, ground, at.position.z),
+			_reflect_sample.normal, racer.reflected)
 
 # ==================================================================
 #                          the start animation

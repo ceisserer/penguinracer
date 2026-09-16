@@ -16,6 +16,10 @@ static func run(t: TestCase) -> void:
 	_it_reflects_the_way_a_mirror_does(t)
 	_an_off_axis_plane_behaves(t)
 	_racers_are_on_the_layer_the_mirror_renders(t)
+	_a_racer_can_be_taken_out_of_the_mirror(t)
+	_the_plane_admits_its_own_ground(t)
+	_the_plane_refuses_ground_it_does_not_speak_for(t)
+	_admission_has_hysteresis(t)
 	_the_setting_survives_the_file(t)
 
 const PLANES: Array[Array] = [
@@ -126,8 +130,8 @@ static func _an_off_axis_plane_behaves(t: TestCase) -> void:
 
 ## The mirror pass renders one visual layer and one only. A racer that is not on
 ## it is a racer with no reflection, silently — so this is the assertion that
-## [method Racer._join_reflection_layer] is still being called, and still
-## reaching the meshes that hang under the rig rather than only the top node.
+## [method Racer._apply_reflected] is still being called, and still reaching the
+## meshes that hang under the rig rather than only the top node.
 static func _racers_are_on_the_layer_the_mirror_renders(t: TestCase) -> void:
 	t.begin("racers are drawn on the layer the mirror renders")
 	var racer := Racer.new()
@@ -141,6 +145,90 @@ static func _racers_are_on_the_layer_the_mirror_renders(t: TestCase) -> void:
 		# And still on the ordinary one, or the main camera stops drawing it.
 		t.ok((mesh.layers & 1) != 0, "%s is still on layer 1" % mesh.name)
 	racer.free()
+
+## And off again. [member Racer.reflected] is how a racer the plane does not
+## speak for is kept out of the mirror, and it has to reach every mesh and leave
+## layer 1 alone — clearing both would take the penguin out of the frame, which
+## is a far worse bug than the one this fixes.
+static func _a_racer_can_be_taken_out_of_the_mirror(t: TestCase) -> void:
+	t.begin("a racer can be taken out of the mirror and put back")
+	var racer := Racer.new()
+	racer.install_fallback_mesh()
+	var meshes: Array[Node] = Racer._mesh_instances(racer)
+	for pass_state: bool in [false, true, false, true]:
+		racer.reflected = pass_state
+		for node: Node in meshes:
+			var mesh: MeshInstance3D = node
+			t.ok(((mesh.layers & IceReflection.RACER_VISUAL_LAYER) != 0) == pass_state,
+				"%s on the reflection layer = %s" % [mesh.name, pass_state])
+			t.ok((mesh.layers & 1) != 0,
+				"%s is still on layer 1 either way" % mesh.name)
+	racer.free()
+
+## Ground that *is* the plane is admitted, and so is ground anywhere along it —
+## a straight slope ahead of you is the same plane, however far ahead. (The
+## racer the plane was taken under never reaches this test at all: see
+## [method RaceScene._admit_racers_to_reflection] for the 14° of smoothing lag
+## that is why.)
+static func _the_plane_admits_its_own_ground(t: TestCase) -> void:
+	t.begin("the plane admits the ground it was taken from")
+	for plane: Array in PLANES:
+		var point: Vector3 = plane[0]
+		var n: Vector3 = (plane[1] as Vector3).normalized()
+		t.ok(IceReflection.plane_admits(point, n, point, n, false),
+			"the anchor point itself is admitted (normal %v)" % n)
+		# And anywhere along the plane, which is a straight slope ahead of you.
+		var along: Vector3 = n.cross(Vector3(1.0, 2.0, 3.0)).normalized()
+		for distance: float in [3.0, 20.0, -45.0]:
+			t.ok(IceReflection.plane_admits(point, n, point + along * distance, n,
+				false), "%.0f m along the same plane is admitted" % distance)
+
+## The bug, as an assertion. A racer whose own ice is metres off the plane, or
+## tipped away from it, is mirrored to somewhere that is not under it — so it is
+## not mirrored at all.
+static func _the_plane_refuses_ground_it_does_not_speak_for(t: TestCase) -> void:
+	t.begin("the plane refuses ground it does not speak for")
+	var point := Vector3(20.0, -7.0, -17.0)
+	var n := Vector3.UP
+	# Measured on Who Says Penguins Can't Fly?: 2–4 m off the plane the moment
+	# the field spreads across the pipe. That is the case in the bug report.
+	for off: float in [2.0, 3.0, 4.0]:
+		t.ok(not IceReflection.plane_admits(point, n,
+			point + Vector3(6.0, off, 0.0), n, false),
+			"%.0f m off the plane is refused" % off)
+		t.ok(not IceReflection.plane_admits(point, n,
+			point + Vector3(6.0, -off, 0.0), n, false),
+			"%.0f m under the plane is refused too" % off)
+	# On the plane but on ice facing somewhere else — the trench floor under a
+	# mirror plane taken from halfway up the wall. Comes back rotated by 2θ.
+	for degrees: float in [25.0, 40.0, 60.0]:
+		var tilted: Vector3 = Vector3.UP.rotated(Vector3.FORWARD, deg_to_rad(degrees))
+		t.ok(not IceReflection.plane_admits(point, n, point, tilted, false),
+			"ice leaning %.0f° away is refused" % degrees)
+	# A hand's breadth and a couple of degrees is the same slope, and stays in.
+	t.ok(IceReflection.plane_admits(point, n, point + Vector3(4.0, 0.1, 2.0),
+		Vector3.UP.rotated(Vector3.FORWARD, deg_to_rad(4.0)), false),
+		"the same slope a few metres away is still admitted")
+
+## The tolerances are wider for a racer already in the mirror than for one
+## coming into it. Without that, an opponent holding your line one hump behind
+## sits on the threshold and its reflection strobes.
+static func _admission_has_hysteresis(t: TestCase) -> void:
+	t.begin("admission has hysteresis")
+	var point := Vector3.ZERO
+	var n := Vector3.UP
+	# Between the two thresholds: out stays out, in stays in.
+	var between: float = IceReflection.PLANE_TOLERANCE \
+		* (1.0 + IceReflection.ADMIT_HYSTERESIS) * 0.5
+	t.ok(IceReflection.ADMIT_HYSTERESIS > 1.0, "the band is a band")
+	t.ok(not IceReflection.plane_admits(point, n, Vector3(0.0, between, 0.0), n,
+		false), "%.2f m off does not get in" % between)
+	t.ok(IceReflection.plane_admits(point, n, Vector3(0.0, between, 0.0), n,
+		true), "%.2f m off does not get thrown out" % between)
+	# Far enough out and being in already does not save it.
+	var far: float = IceReflection.PLANE_TOLERANCE * IceReflection.ADMIT_HYSTERESIS + 0.5
+	t.ok(not IceReflection.plane_admits(point, n, Vector3(0.0, far, 0.0), n, true),
+		"%.2f m off is refused even to a racer already in" % far)
 
 ## The setting is only useful if it survives the round trip through the file,
 ## and the file is written by hand — see [method GameConfig.file_text].
