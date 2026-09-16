@@ -1673,8 +1673,9 @@ func _build_character(src: String) -> Dictionary:
 		if not joint_name.is_empty():
 			joints.push_back({"name": joint_name, "node": node, "parent": parent,
 				"transform": world})
-		if SPList.get_float(rec, "vis", -1.0) > 0.0:
-			spheres.push_back({"node": node, "transform": world,
+		var vis: float = SPList.get_float(rec, "vis", -1.0)
+		if vis > 0.0:
+			spheres.push_back({"node": node, "transform": world, "divisions": _sphere_divisions(vis),
 				"color": colors.get(SPList.get_str(rec, "mat"), Color(0.8, 0.8, 0.8))})
 
 	if spheres.is_empty():
@@ -1741,13 +1742,32 @@ static func _nearest_bone(node: int, parents: Dictionary[int, int],
 		guard += 1
 	return 0
 
+## `tux.h`'s `MIN_SPHERE_DIV` / `MAX_SPHERE_DIV`, and the config default that
+## `CCharShape::VisibleNode` scales `[vis]` by (`tux_sphere_divisions`, 10).
+const MIN_SPHERE_DIV := 3
+const MAX_SPHERE_DIV := 16
+const TUX_SPHERE_DIVISIONS := 10
+
+## How finely one ellipsoid is tessellated, from its `[vis]` level.
+##
+## `[vis]` is not a boolean: `CCharShape::VisibleNode` reads it as a level of
+## detail and turns it into `gluSphere`'s stack count, so Tux's body (`[vis] 10`)
+## is drawn at 10 stacks and 20 slices while an iris (`[vis] 2`) floors at 3.
+## A fixed count for every node is what put the notches on his belly — [b]the
+## black body and the white belly are two overlapping ellipsoids about 0.07
+## apart at the front, which is the same order as the facet error of a coarse
+## sphere[/b], so wherever a black facet bulged past a white one the black won
+## the depth test and the seam came apart into blocks. At the original's counts
+## the facet error is small enough that the intersection reads as the curve it
+## is.
+static func _sphere_divisions(vis: float) -> int:
+	return clampi(int(roundf(TUX_SPHERE_DIVISIONS * vis / 10.0)), MIN_SPHERE_DIV, MAX_SPHERE_DIV)
+
 ## Each visible node is a unit sphere under its accumulated transform. Welding
 ## them into one [ArrayMesh] turns 34 draw calls into one, and binding each
 ## sphere's vertices rigidly to one bone keeps the articulation the hierarchy
 ## was there for.
 static func _weld_spheres(spheres: Array[Dictionary]) -> ArrayMesh:
-	const RINGS := 8
-	const SEGMENTS := 12
 	var verts := PackedVector3Array()
 	var normals := PackedVector3Array()
 	var colors := PackedColorArray()
@@ -1764,23 +1784,30 @@ static func _weld_spheres(spheres: Array[Dictionary]) -> ArrayMesh:
 		# inverting those is a divide by zero. Fall back to the rotation alone.
 		var normal_basis: Basis = xf.basis.orthonormalized() if absf(xf.basis.determinant()) < 1e-9 \
 			else xf.basis.inverse().transposed()
-		for r: int in RINGS + 1:
-			var phi: float = PI * float(r) / float(RINGS)
-			for c: int in SEGMENTS + 1:
-				var theta: float = TAU * float(c) / float(SEGMENTS)
-				var p := Vector3(sin(phi) * cos(theta), cos(phi), sin(phi) * sin(theta))
+		# `gluSphere(1.0, 2 * divisions, divisions)`: stacks along the node's own
+		# +Z, slices about it, at twice the count.
+		var rings: int = int(s.get("divisions", MIN_SPHERE_DIV))
+		var segments: int = rings * 2
+		for r: int in rings + 1:
+			var phi: float = PI * float(r) / float(rings)
+			for c: int in segments + 1:
+				var theta: float = TAU * float(c) / float(segments)
+				var p := Vector3(sin(phi) * cos(theta), sin(phi) * sin(theta), cos(phi))
 				verts.push_back(xf * p)
 				normals.push_back((normal_basis * p).normalized())
 				colors.push_back(col)
 				bones.append_array([bone, 0, 0, 0])
 				weights.append_array([1.0, 0.0, 0.0, 0.0])
-		for r: int in RINGS:
-			for c: int in SEGMENTS:
-				var a: int = base + r * (SEGMENTS + 1) + c
+		for r: int in rings:
+			for c: int in segments:
+				var a: int = base + r * (segments + 1) + c
 				var b: int = a + 1
-				var d: int = a + SEGMENTS + 1
+				var d: int = a + segments + 1
 				var e: int = d + 1
-				indices.append_array([a, d, b, b, d, e])
+				# Godot's front face is the clockwise winding, which for a
+				# +Z-pole parameterisation is (a, b, d) — the opposite order to
+				# the +Y-pole one this replaced.
+				indices.append_array([a, b, d, b, e, d])
 
 	var arrays: Array = []
 	arrays.resize(Mesh.ARRAY_MAX)
