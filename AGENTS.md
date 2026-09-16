@@ -1119,6 +1119,21 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   pole: Godot's front face is the clockwise one, which is `(a, b, d)` for a +Z pole and the
   opposite order for a +Y pole.
 
+- **A `[node]` id in `shape.lst` is not unique**, and keying the hierarchy by one put a bubble on
+  Trixi's belly. Her bow reuses 72/73/74 and Beastie's horns reuse 72–79 — ids the body and the
+  breast took seventy lines earlier. `CCharShape` does not care: `CreateCharNode` writes
+  `Index[node_name] = numNodes` and the tree itself is pointers, so the id is only ever read while
+  the line that names it is being applied and the earlier node keeps the parent it was born with.
+  The importer kept one `parents` dictionary per id and resolved each sphere's bone *after* the
+  loop, by which time `parents[72]` meant the bow — so the body and the breast rode the **head**
+  bone and swung off the belly the moment `AdjustJoints` leaned the head. Beastie lost his left
+  foot to the same thing, to a horn. `_build_character` now numbers every record and keeps `slots`
+  as the shadowing id→record map, which is exactly `Index`. Nothing about the broken scene looked
+  wrong — right bones, one bind each, right rests, and it drew correctly at rest, because the bind
+  pose cancels until something moves. `TestCharacter._bound_near_its_bone` catches it
+  geometrically: the body ellipsoid reaches 0.392 m from its bone on all five characters, and the
+  two broken rigs measured 0.737 and 0.968.
+
 - **Re-importing to pick up a character change rewrites the object prefabs and every
   `course.tscn` too**, and today that is not id churn: a fresh `objects/*.tres` gains
   `shader_parameter/etr_ambient = null` that the committed one does not have, so the usual

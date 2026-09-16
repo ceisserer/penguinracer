@@ -20,6 +20,9 @@ const RIG_SCENE := "res://resources/characters/tux/tux.tscn"
 ## Sum of `[time]` over every frame of `char/tux/start.lst` but the last: the
 ## original goes inactive the moment its cursor reaches the final key.
 const START_LENGTH := 4.5
+## How far a vertex may sit from the origin of the bone it rides — see
+## [method _bound_near_its_bone].
+const BIND_REACH := 0.5
 
 static func run(t: TestCase) -> void:
 	var tree: SceneTree = Engine.get_main_loop() as SceneTree
@@ -403,6 +406,7 @@ static func _every_character(t: TestCase, tree: SceneTree) -> void:
 			# reach for when the procedural layer lands.
 			for joint: String in ["neck", "head", "left_shldr", "left_hip", "left_knee"]:
 				t.ok(sk.find_bone(joint) >= 0, "%s: has a %s" % [name, joint])
+			_bound_near_its_bone(t, name, sk, mi)
 
 		# The two halves of a migrated clip are sampled off one clock, so a
 		# length that disagrees with its root motion is a rig that drifts.
@@ -451,3 +455,39 @@ static func _every_character(t: TestCase, tree: SceneTree) -> void:
 
 		tree.root.remove_child(rig)
 		rig.free()
+
+## Every vertex rides a bone it actually hangs off, caught geometrically: a
+## sphere bound to a joint it is not below sits a whole limb away from that
+## joint's origin, and nothing else about the rig gives it away.
+##
+## [b]A `[node]` id in `shape.lst` is not unique.[/b] Trixi's bow reuses 72/73/74
+## and Beastie's horns reuse 72–79, both on ids the body and the breast already
+## took. `CCharShape` survives that because `Index[node_name]` is only read while
+## the line naming it is being applied — the tree itself is pointers — but an
+## importer that keys the hierarchy by the id re-parents the earlier node onto
+## the later one's parent. That put Trixi's whole body and breast on the head
+## bone, where they swung off her belly as a bubble the moment the head followed
+## the lean. The generated scene looks perfect: the right bones, one bind each,
+## the right rests, and at rest the mesh even draws correctly, because the bind
+## pose cancels until something moves.
+##
+## [constant BIND_REACH] is the body ellipsoid's own reach with margin. It
+## measures 0.392 m on all five characters and is the largest honest distance in
+## any of them; the two broken rigs measured 0.737 and 0.968.
+static func _bound_near_its_bone(t: TestCase, name: String, sk: Skeleton3D,
+		mi: MeshInstance3D) -> void:
+	if mi == null or mi.mesh == null:
+		return
+	var arrays: Array = (mi.mesh as ArrayMesh).surface_get_arrays(0)
+	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var bones: PackedInt32Array = arrays[Mesh.ARRAY_BONES]
+	var worst: float = 0.0
+	var worst_bone: int = 0
+	for i: int in verts.size():
+		var b: int = bones[i * 4]
+		var d: float = verts[i].distance_to(sk.get_bone_global_rest(b).origin)
+		if d > worst:
+			worst = d
+			worst_bone = b
+	t.ok(worst < BIND_REACH, "%s: every vertex is within %.2f m of the bone it rides (worst %.3f on %s)"
+		% [name, BIND_REACH, worst, sk.get_bone_name(worst_bone)])

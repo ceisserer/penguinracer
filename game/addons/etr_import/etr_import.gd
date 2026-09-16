@@ -1614,11 +1614,22 @@ func _write_character_catalog(listings: Array[CharacterListing]) -> void:
 ##
 ## Returns the welded mesh, the bone table (see [method _build_bones]) and the
 ## per-node bookkeeping the scene writer needs.
+##
+## [b]A `[node]` id is not unique, so nothing here is keyed by one.[/b] Trixi
+## reuses 72/73/74 for her bow and Beastie reuses 72–79 for his horns, both
+## times on ids the body and the breast already took. `CCharShape` survives that
+## because `Index[node_name]` is only ever read while the line that names it is
+## being applied — the tree itself is pointers, so the earlier node keeps its
+## parent — and `slots` below is that same shadowing map. Everything that
+## outlives the loop (`transforms`, `parents`, and the `node` on a joint or a
+## sphere) is keyed by the record's own index instead.
 func _build_character(src: String) -> Dictionary:
 	var recs: Array[Dictionary] = SPList.load_file(src.path_join("shape.lst"))
 	if recs.is_empty():
 		return {}
 
+	var slots: Dictionary[int, int] = {0: 0}
+	var next_index: int = 1
 	var transforms: Dictionary[int, Transform3D] = {0: Transform3D.IDENTITY}
 	var parents: Dictionary[int, int] = {0: -1}
 	var joints: Array[Dictionary] = []
@@ -1634,9 +1645,12 @@ func _build_character(src: String) -> Dictionary:
 			continue
 
 		var node: int = SPList.get_int(rec, "node", -1)
-		var parent: int = SPList.get_int(rec, "par", -1)
-		if node < 0 or not transforms.has(parent):
+		var parent_name: int = SPList.get_int(rec, "par", -1)
+		if node < 0 or not slots.has(parent_name):
 			continue
+		# Resolved before the node registers its own id, exactly as
+		# `CreateCharNode` calls `GetNode(parent_name)` before writing `Index`.
+		var parent: int = slots[parent_name]
 
 		var local := Transform3D.IDENTITY
 		var trans: PackedFloat64Array = SPList.get_numbers(rec, "trans")
@@ -1665,17 +1679,21 @@ func _build_character(src: String) -> Dictionary:
 				"9":
 					if rot.size() >= 3:
 						local = local.rotated_local(Vector3.UP, deg_to_rad(float(rot[2])))
+		var index: int = next_index
+		next_index += 1
 		var world: Transform3D = transforms[parent] * local
-		transforms[node] = world
-		parents[node] = parent
+		transforms[index] = world
+		parents[index] = parent
+		slots[node] = index
 
 		var joint_name: String = SPList.get_str(rec, "joint")
 		if not joint_name.is_empty():
-			joints.push_back({"name": joint_name, "node": node, "parent": parent,
+			joints.push_back({"name": joint_name, "node": index, "parent": parent,
 				"transform": world})
 		var vis: float = SPList.get_float(rec, "vis", -1.0)
 		if vis > 0.0:
-			spheres.push_back({"node": node, "transform": world, "divisions": _sphere_divisions(vis),
+			spheres.push_back({"node": index, "transform": world,
+				"divisions": _sphere_divisions(vis),
 				"color": colors.get(SPList.get_str(rec, "mat"), Color(0.8, 0.8, 0.8))})
 
 	if spheres.is_empty():

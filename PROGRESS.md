@@ -686,6 +686,17 @@ children, the five joints they all have, a clip whose length matches its root mo
 finish-family clip that stands the character up) rather
 than Tux's sixteen-bone list, which is only Tux's. 4047 assertions, 0 failures.
 
+A third disagreement surfaced later, as a bubble on Trixi's belly: the `[node]` ids in a
+`shape.lst` are not unique. Her bow reuses 72/73/74 and Beastie's horns reuse 72–79, on ids the
+body and the breast already took. `CCharShape` is unbothered — `Index[node_name]` is only read
+while the line that names it is being applied, and the tree is pointers — but `_build_character`
+kept one `parents` dictionary per id and resolved each sphere's bone after the loop, so the body
+and the breast came out riding the **head** bone and swung off the belly whenever the head leaned.
+It numbers every record now and keeps the id map as the shadowing lookup it is in the original.
+Only Trixi's and Beastie's meshes changed; the other three re-imported byte-identical.
+`TestCharacter._bound_near_its_bone` is the guard — no vertex further from its bone than the body
+ellipsoid's own reach — and it fails on both old rigs and on neither new one.
+
 Verified end to end: all five race on Bunny Hill under `--character=`, natively on the GPU and in
 Chromium through `?character=beastie` against the `WebOneCourse` export. The previews are ETR data
 art and go into the licence audit with the rest of the imported assets.
