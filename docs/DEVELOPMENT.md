@@ -352,7 +352,16 @@ node tools/webtest/run_web_test.js \
 ```
 
 The server sets COOP/COEP and the right MIME types for `.wasm` and `.pck`; without them the
-export fails with an unhelpful console error.
+export fails with an unhelpful console error. It also sets `Content-Length`, which Node does not
+do on its own for these responses — without it the loading screen's progress bar has no total to
+divide by and falls back to counting megabytes, so the harness would be testing a path a real
+static host never takes.
+
+To watch the loading screen rather than the race, throttle the link *after* the engine has
+booted — otherwise the 28 MB base bundle eats the whole budget before a course is ever
+requested. Puppeteer does it through CDP (`Network.emulateNetworkConditions`) on the console line
+that marks boot; 2 Mbit/s makes a 9 MB course take about forty seconds, which is the case the bar
+exists for.
 
 `?course=<dir>` is how a browser says what `--course=` says on a command line, since there is no
 command line in a page: it starts that course instead of the main menu, which is what lets the

@@ -65,9 +65,9 @@ static var _boot_handled: bool = false
 @onready var _character_menu: CharacterMenu = $CharacterMenu
 @onready var _settings: SettingsMenu = $SettingsMenu
 @onready var _ghost_menu: GhostMenu = $GhostMenu
-@onready var _loading: CanvasLayer = $Loading
-@onready var _loading_label: Label = %LoadingLabel
-@onready var _wait_label: Label = %WaitLabel
+## ETR's loading panel. Shared with [RaceScene] rather than built twice — see
+## [LoadingScreen]: the work this covers finishes in the other scene.
+@onready var _loading: LoadingScreen = $LoadingScreen
 
 func _ready() -> void:
 	var first_run: bool = not _boot_handled
@@ -96,11 +96,10 @@ func _ready() -> void:
 	_ghost_button.text = "Race against ghost"
 	_settings_button.text = tr("CONFIGURATION")
 	_quit_button.text = tr("QUIT")
-	_wait_label.text = tr("PLEASE_WAIT")
 	_refresh_character_button()
 	# The browser owns the tab; a quit button there does nothing useful.
 	_quit_button.visible = not OS.has_feature("web")
-	_loading.visible = false
+	_loading.finish()
 
 	_practice_button.pressed.connect(_open_practice_menu)
 	_opponents_button.pressed.connect(_open_race_menu)
@@ -200,8 +199,10 @@ func _on_course_chosen(listing: CourseListing, setup: RaceSetup) -> void:
 		Config.save()
 	# ETR's loading screen: the course in yellow, "please wait" in white under
 	# it, both centred on the same flat blue every other screen is cleared to.
-	_loading_label.text = "%s '%s'" % [tr("LOADING"), listing.title()]
-	_loading.visible = true
+	# The race scene puts up the identical panel on the other side of the swap
+	# and takes it down once the hill is actually there, so this is the start of
+	# one continuous screen rather than a panel that vanishes with the menu.
+	_loading.begin(listing.title())
 	Audio.halt_all()
 	# Building a course blocks the main thread for long enough to be seen as a
 	# freeze, so the panel has to have been drawn before the load starts — one
@@ -223,8 +224,7 @@ func _on_ghost_run_chosen(recording: RaceRecording) -> void:
 		return
 	RaceScene.requested_setup = RaceSetup.practice().in_snow(Config.snowfall)
 	RaceScene.requested_ghost = recording
-	_loading_label.text = "%s '%s'" % [tr("LOADING"), listing.title()]
-	_loading.visible = true
+	_loading.begin(listing.title())
 	Audio.halt_all()
 	await RenderingServer.frame_post_draw
 	_start_race(listing.scene_path)

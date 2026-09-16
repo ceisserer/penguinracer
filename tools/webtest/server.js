@@ -22,6 +22,11 @@ http.createServer((req, res) => {
     if (err) { res.writeHead(404); res.end('not found'); return; }
     res.writeHead(200, {
       'Content-Type': types[path.extname(file)] || 'application/octet-stream',
+      // Without this Node answers chunked, HTTPRequest.get_body_size() is -1,
+      // and the loading screen's progress bar has no total to divide by — so
+      // the harness would only ever exercise the no-Content-Length fallback,
+      // which is not what a static host serving the real build does.
+      'Content-Length': data.length,
       'Cross-Origin-Opener-Policy': 'same-origin',
       'Cross-Origin-Embedder-Policy': 'require-corp',
       'Cache-Control': 'no-store',

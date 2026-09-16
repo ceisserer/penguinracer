@@ -1343,6 +1343,50 @@ check that matters: the anchors and the lens are exact no-ops at the design shap
 
 4724 assertions, 0 failures.
 
+### The streamed build says what it is doing (2026-09-16) · **done**
+
+On a web build a course arrives over the network (risk S6, `PackStream`), and until now the
+player watched it arrive from inside the race: `race.tscn` was already drawing, so the rig stood
+on nothing for the length of the download with a bare centred `Loading course…` label over it.
+The menu *did* raise ETR's proper loading panel — the course in yellow, "please wait" under it —
+but `change_scene_to_file` tore it down with the menu, one scene before the wait actually
+happened.
+
+That panel is now a scene of its own, `scenes/loading_screen.tscn` / `LoadingScreen`, instanced
+in both `main_menu.tscn` and `race.tscn`. Same markup, same theme, opaque backdrop, so the swap
+between the two is invisible and there is no frame in which a penguin is standing on an empty
+hillside. It comes down after `restart()`, not after the download — everything it covers has to
+be finished, and the three blocking steps between those two points (`load()`, `build_runtime()`,
+`TerrainRenderer.setup` plus the first streaming pass) are most of the freeze on a slow machine.
+
+The bar under it is the download for its first three quarters and then four fixed marks, because
+those four steps cannot report from the inside. Getting a *total* to divide by took finding out
+that **`HTTPRequest.get_body_size()` is -1 for the whole of a download on the web export** — the
+web `HTTPClient` wraps `fetch` and never surfaces `Content-Length`, confirmed against this
+project's own server with the header verified present by `curl`, nineteen consecutive polls all
+reading `total=-1` while `downloaded` climbed correctly. `PackStream` asks the page instead, with
+a `HEAD` through `JavaScriptBridge` fired beside the real request; if that comes back empty the
+bar is taken away and the note counts megabytes rather than parking at a number that is not true.
+`tools/webtest/server.js` gained `Content-Length` in the same pass — Node answers chunked without
+it, so the harness had only ever been exercising the fallback.
+
+Verified in Chromium against the streamed build, throttled to 2 Mbit/s after boot so that only
+the course pack is slow: Snow Run 2 (9.0 MB) draws "Loading 'Snow Run 2'", a live `4.1 / 9.0 MB`
+and a bar that fills, then holds at the phase marks through the build, then hands over to a
+complete hillside. `RACE_READY` still arrives.
+
+**The native path is unmoved, and that was the thing to be careful about.** `DebugCapture` counts
+frames from the moment the process starts, so a frame spent painting a panel on the way in would
+renumber every reference capture in the repository. The phase steps wait for a composited frame
+only when `PackStream.is_streamed()` says this build is actually fetching; on native `ensure`
+never suspends and `load_course` still runs start to finish inside one frame.
+`Engine.get_process_frames()` at `RACE_READY` reads 0 before the change and 0 after. (A capture
+off this container's real GPU is not byte-reproducible run to run — two runs of unchanged code
+differ, with snowfall off as well — so `md5sum` cannot settle that question and the frame count
+is what was measured.)
+
+4724 assertions, 0 failures.
+
 ---
 
 ## Known gaps

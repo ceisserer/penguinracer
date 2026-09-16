@@ -37,7 +37,10 @@ game/                     Godot project (project.godot; mobile on the desktop,
                           and IceReflection —
                           the planar mirror pass the ice samples the racers from
   scripts/camera/         chase camera        scripts/shell/  main menu, course menu,
-                                                              settings screen, HUD
+                                                              settings screen, HUD,
+                                                              LoadingScreen (the one
+                                                              panel the menu and the
+                                                              race both put up)
   scripts/race/           RaceScene (the tick loop and the course) + RacerRoster
                           (who is on the hill, and who is winning) +
                           IntroSequence (the start animation) + the racer
@@ -79,7 +82,8 @@ game/                     Godot project (project.godot; mobile on the desktop,
   assets/sounds|music/    GENERATED: the 10 effects and 10 pieces, copied verbatim
   scenes/                 main_menu.tscn (the main scene), course_menu.tscn,
                           character_menu.tscn, settings_menu.tscn, ghost_menu.tscn,
-                          race.tscn, results_menu.tscn, key_log.tscn
+                          race.tscn, results_menu.tscn, loading_screen.tscn,
+                          key_log.tscn
   user://runs/            NOT in the repo: every run the player named and kept from
                           the results screen, written by SavedRunStore and — when
                           one is chosen from the main menu's Race against ghost
@@ -233,7 +237,9 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   (engine + shell + all 44 preview thumbnails, ~65 MB against the old 161 MB) plus one `.pck`
   per course (268 KB–9.2 MB) and one for music (14 MB), fetched and mounted at runtime by
   `PackStream` only when a course is chosen or a track first plays. See Commands and the
-  `game/scripts/config/pack_stream.gd` doc comment.
+  `game/scripts/config/pack_stream.gd` doc comment. The wait has a face: [LoadingScreen] is
+  instanced in both `main_menu.tscn` and `race.tscn`, so the panel the menu raises survives the
+  scene swap, and it stays up — over an opaque backdrop — until the hill is actually built.
 
 ### Known gaps
 
@@ -714,6 +720,28 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   part**: when a teardown has to wait, the thing it waited for has to be *unable* to come back,
   not merely stopped; a shutdown flag is cheaper than auditing every caller. The web build wants
   it checked on the far side of an `await` too, where `PackStream.ensure` is a real round trip.
+- **`HTTPRequest.get_body_size()` is -1 for the whole of a download on the web export**, however
+  the server answers. Godot's web `HTTPClient` is a wrapper over `fetch` and never surfaces
+  `Content-Length`, so the bytes arriving can be counted (`get_downloaded_bytes()` works) but not
+  divided by anything — which is a progress bar with no total. Measured against the project's own
+  test server with `Content-Length` confirmed present by `curl`: nineteen consecutive polls of a
+  9 MB course pack all read `total=-1` while `downloaded` climbed correctly. The fix is to ask the
+  one component on that platform that *can* read the header — the page: `PackStream` fires a
+  `fetch(url, {method: 'HEAD'})` through `JavaScriptBridge` beside the real request and picks the
+  answer up whenever it lands. **The reusable part**: on the web export the browser knows things
+  the engine's own wrapper does not expose, and `JavaScriptBridge` is the documented way to ask;
+  before building a manifest to carry a fact around the engine, check whether the page already
+  has it. `tools/webtest/server.js` now sends `Content-Length` too — Node answers chunked without
+  it, so the harness was only ever exercising the no-total fallback.
+- **`DebugCapture` counts frames from the moment the process starts, not from the moment the race
+  does.** So a frame spent anywhere on the way in — a loading panel given a frame to paint, a
+  settle wait, an extra deferred hop — renumbers every reference capture in the repository. The
+  progress bar's phase steps `await RenderingServer.frame_post_draw` for that reason only when
+  `PackStream.is_streamed()` says this build is actually fetching: on native `PackStream.ensure`
+  never suspends and the whole of `load_course` still runs inside one frame. Verified by printing
+  `Engine.get_process_frames()` at `RACE_READY` — 0 before the change and 0 after. Note that a
+  capture off the container's real GPU is *not* byte-reproducible run to run, so `md5sum` cannot
+  settle this kind of question; measure the frame, not the pixels.
 - **The headless suite's own "N ObjectDB instances were leaked at exit" is not the game's.** It is
   pre-existing and it wanders — 34–37 over repeated runs of an unchanged tree — because
   `run_tests.gd` calls `SceneTree.quit()` directly and the audio group leaves a director and its

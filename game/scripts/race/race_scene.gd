@@ -165,10 +165,15 @@ var paused: bool = false
 ## on screen saying so.
 var _key_paused: bool = false
 var _paused_label: Label
-## Covers the network round trip a web build's [PackStream] does when a
-## course was not in the base bundle. Absent on native, where [method
-## PackStream.ensure] never actually suspends.
-var _loading_label: Label
+## Covers the whole of building a course: the network round trip a web build's
+## [PackStream] does when the course was not in the base bundle, and the four
+## blocking steps after it. The same panel [MainMenu] put up before the scene
+## swap — see [LoadingScreen] — so the handover between the two is invisible.
+##
+## Never drawn on a native build, where [method PackStream.ensure] does not
+## actually suspend and the whole of [method load_course] runs inside one
+## frame.
+@onready var _loading: LoadingScreen = $LoadingScreen
 
 var menu: CourseMenu
 var results_menu: ResultsMenu
@@ -333,7 +338,6 @@ func _ready() -> void:
 	Net.snapshot_received.connect(_on_snapshot_received)
 	Net.roster_changed.connect(roster.sync_remote)
 	_paused_label = _make_paused_label()
-	_loading_label = _make_loading_label()
 	await load_course(course_scene_path)
 
 ## `P`'s freeze has no panel of its own, so it needs its own text — nothing
@@ -354,28 +358,6 @@ func _make_paused_label() -> Label:
 	label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-	label.visible = false
-	layer.add_child(label)
-	return label
-
-## Same shape as [method _make_paused_label]: the one sign on screen that a
-## web build is fetching a course's `.pck` rather than having stalled. `main_menu.gd`'s
-## own "please wait" panel belongs to the menu scene, which
-## [method SceneTree.change_scene_to_file] has already torn down by the time
-## [method load_course] starts waiting on the network, so this scene needs its
-## own.
-func _make_loading_label() -> Label:
-	var layer := CanvasLayer.new()
-	add_child(layer)
-	var label := Label.new()
-	label.text = "Loading course…"
-	label.add_theme_font_size_override("font_size", 32)
-	label.add_theme_color_override("font_color", Color.WHITE)
-	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
-	label.add_theme_constant_override("shadow_offset_x", 2)
-	label.add_theme_constant_override("shadow_offset_y", 2)
-	label.set_anchors_preset(Control.PRESET_CENTER)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.visible = false
 	layer.add_child(label)
 	return label
@@ -427,14 +409,32 @@ func _rebuild_opponents() -> void:
 #                          loading a course
 # ==================================================================
 
+## Fractions of the whole load the four marks below sit at.
+##
+## The download owns most of the bar because on the only build that draws one
+## it owns most of the wait: a course pack is megabytes over the player's link,
+## where everything after it is tens of milliseconds of local work. The four
+## steps after it cannot report from the inside — `load()`, `build_runtime()`,
+## `TerrainRenderer.setup` and the first streaming pass each block until they
+## are done — so each one simply ends at its mark. A bar that jumps in four
+## steps at the end is honest about that; a smoothly faked one would not be.
+const LOAD_DOWNLOADED := 0.75
+const LOAD_INSTANTIATED := 0.82
+const LOAD_RUNTIME_BUILT := 0.90
+const LOAD_TERRAIN_READY := 0.95
+
 func load_course(path: String) -> void:
 	var dir: String = path.get_base_dir().get_file()
-	_loading_label.visible = true
-	var err: Error = await PackStream.ensure(path, "courses/%s.pck" % dir)
+	var listing: CourseListing = CourseCatalog.load_default().find(dir)
+	_loading.begin(listing.title() if listing != null else dir)
+	# Asked before the fetch, because it governs the whole of what follows: see
+	# [method _load_step].
+	var streaming: bool = PackStream.is_streamed(path)
+	var err: Error = await PackStream.ensure(path, "courses/%s.pck" % dir,
+		_on_pack_progress if streaming else Callable())
 	if err != OK:
-		_loading_label.text = "Could not load %s (%s)" % [dir, error_string(err)]
+		_loading.fail("Could not load %s (%s)" % [dir, error_string(err)])
 		return
-	_loading_label.visible = false
 
 	_stop_slide_sound()
 	Audio.halt_all()
@@ -447,10 +447,13 @@ func load_course(path: String) -> void:
 
 	current_course_dir = dir
 	requested_course_path = path
+	await _load_step(LOAD_DOWNLOADED, streaming)
 	var packed: PackedScene = load(path)
 	course_root = packed.instantiate()
 	add_child(course_root)
+	await _load_step(LOAD_INSTANTIATED, streaming)
 	course_root.build_runtime()
+	await _load_step(LOAD_RUNTIME_BUILT, streaming)
 
 	var course: CourseData = course_root.course_data
 
@@ -468,6 +471,7 @@ func load_course(path: String) -> void:
 	terrain.name = "Terrain"
 	add_child(terrain)
 	terrain.setup(course, course_root.surface)
+	await _load_step(LOAD_TERRAIN_READY, streaming)
 
 	camera.surface = course_root.surface
 	camera.reset()
@@ -480,7 +484,44 @@ func load_course(path: String) -> void:
 	_apply_snowfall()
 
 	_setup_ghost()
+	# `restart()` builds the whole terrain backlog in one go and prints
+	# RACE_READY. The panel comes down after it, not before: everything it is
+	# covering has to be finished, or the player is handed a penguin standing
+	# on an empty hillside — which is exactly what the bare "Loading course…"
+	# label this replaced used to do on a streamed build.
 	restart()
+	_loading.finish()
+
+## Mark one blocking step of the load done, and — only on a build that is
+## actually streaming — give the panel a frame to draw it in.
+##
+## [b]Every frame spent here moves every reference capture.[/b] `DebugCapture`
+## counts frames from the moment the process starts, not from the moment the
+## race does, so waiting unconditionally would renumber all of them. There is
+## nothing to wait for on a native build in any case: [method
+## PackStream.ensure] never suspends there, so the panel is never composited,
+## and `load_course` has always run start to finish inside a single frame. It
+## still does.
+func _load_step(fraction: float, streaming: bool) -> void:
+	_loading.set_progress(fraction)
+	if not streaming:
+		return
+	await RenderingServer.frame_post_draw
+
+## Bytes off the wire, mapped onto the first [constant LOAD_DOWNLOADED] of the
+## bar. Handed to [method PackStream.ensure] only when there is a download to
+## watch.
+func _on_pack_progress(downloaded: int, total: int) -> void:
+	var mb: float = float(downloaded) / 1048576.0
+	if total <= 0:
+		# The size is not known yet, or never will be — see [method
+		# PackStream._begin_size_probe]. There is no fraction to be had, so say
+		# how much has arrived and let [method LoadingScreen.set_progress] drop
+		# the bar rather than park it at a number that is not true.
+		_loading.set_progress(-1.0, "%.1f MB" % mb)
+		return
+	_loading.set_progress(LOAD_DOWNLOADED * float(downloaded) / float(total),
+		"%.1f / %.1f MB" % [mb, float(total) / 1048576.0])
 
 func _build_simulation(racer: SimulatedRacer, course: CourseData) -> void:
 	var sim := RacePhysics.new()
