@@ -112,6 +112,31 @@ const NORMAL_TOLERANCE_DEG := 15.0
 ## thing to do about a pop is to make it happen once.
 const ADMIT_HYSTERESIS := 1.6
 
+## The screen-space downwardness of the mirror's offset at which the character
+## term is gone, and the one at which it is back at full strength.
+##
+## [b]What keeps a reflection readable is that it hides behind its subject.[/b]
+## A racer's mirror image sits `2 h` off its own feet along the plane normal —
+## `h` being how far the drawn body floats over the ice, about a third of a
+## metre. On a floor that offset points *down the screen*: it lands under the
+## belly, mostly occluded, and reads as a reflection. On a banked wall the same
+## offset points *sideways*, the image slides out from under its penguin, and
+## what the player sees is a second translucent penguin beside or above the
+## first — with Fresnel at its strongest on that very wall, so it is drawn
+## near-opaque. That is the "reflection above the character" report, and it is
+## not a bug in the mirror: it is what a mirror does to a penguin lying on a
+## vertical pane of ice.
+##
+## The quantity that separates the two is not the incidence — measured, that is
+## 0.27–0.30 on a flat lake *and* on the wall, because a chase camera is always
+## near-grazing — but how much of the offset projects to screen-down rather than
+## screen-sideways. Measured over a run: 0.97–1.00 the whole length of `tuxway`,
+## the flat-lake course the feature was fitted on, and 0.67 then 0.54 on exactly
+## the two frames of `penguins_cant_fly` that were reported. The band below is
+## outside the first range and inside the second.
+const ATTACHMENT_FADE_LOW := 0.80
+const ATTACHMENT_FADE_HIGH := 0.94
+
 ## Seconds for the mirror plane's normal to follow the terrain's by 1/e.
 ##
 ## The plane is re-derived every frame from the surface under a racer who is
@@ -285,6 +310,32 @@ static func plane_admits(plane_point: Vector3, plane_normal: Vector3,
 	var n: Vector3 = normal.normalized() if normal.length_squared() > 0.0 else Vector3.UP
 	return n.dot(plane_normal.normalized()) >= cos(deg_to_rad(
 		minf(NORMAL_TOLERANCE_DEG * slack, 89.0)))
+
+## How much of the mirror is worth drawing from where the camera is standing.
+##
+## 1 where the reflection falls behind its penguin, 0 where it has slid out
+## beside it — see [constant ATTACHMENT_FADE_LOW]. A whole-frame scalar, so it
+## is computed once here and handed to the shader rather than derived per
+## fragment; nothing about it varies across the frame.
+func attachment(source: Camera3D) -> float:
+	if not _has_plane or source == null:
+		return 0.0
+	return attachment_of(source.global_transform.basis, _plane_normal)
+
+## The scalar on its own, for the suite — same reason [method mirror_transform]
+## is static.
+##
+## [param basis] is the camera's, so its inverse takes the plane normal into
+## view space, where `y` is screen-up and the offset the reflection is drawn at
+## runs along `-normal`. The ratio of that offset's downward part to its whole
+## screen-space length is the number; a camera looking straight along the normal
+## has no screen-space offset at all and is perfectly attached.
+static func attachment_of(basis: Basis, plane_normal: Vector3) -> float:
+	var n: Vector3 = basis.inverse() * plane_normal.normalized()
+	var lateral: float = sqrt(n.x * n.x + n.y * n.y)
+	if lateral < 1e-4:
+		return 1.0
+	return smoothstep(ATTACHMENT_FADE_LOW, ATTACHMENT_FADE_HIGH, n.y / lateral)
 
 ## Forget the plane, so the next frame establishes a fresh one rather than
 ## easing the normal across from wherever the last race left it.

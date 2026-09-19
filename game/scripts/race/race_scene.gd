@@ -761,7 +761,7 @@ func _update_reflection(view: RacerState, delta: float) -> void:
 	_admit_racers_to_reflection()
 	terrain.set_character_reflection(reflection.texture(),
 		reflection.plane_point(), reflection.plane_normal(),
-		reflection.fade_distance)
+		reflection.fade_distance, reflection.attachment(camera))
 
 ## Decide, for each racer on the hill, whether the mirror plane speaks for the
 ## ice it is standing on — and take the ones it does not out of the pass.

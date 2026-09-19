@@ -142,8 +142,13 @@ func set_ambient(ambient: Vector3) -> void:
 ## lookup is by SCREEN_UV, so without it every ice fragment in frame would take
 ## the reflection regardless of where it was. See the shader's
 ## `reflection_fade_distance`.
+##
+## [param attachment] is the same idea in the other axis — not where the ice is
+## but where the reflection of a penguin standing on it lands on screen. See
+## [method IceReflection.attachment].
 func set_character_reflection(tex: Texture2D, plane_point: Vector3,
-		plane_normal: Vector3, fade_distance: float) -> void:
+		plane_normal: Vector3, fade_distance: float,
+		attachment: float = 1.0) -> void:
 	if _material == null:
 		return
 	_material.set_shader_parameter("character_reflection_enabled", tex != null)
@@ -153,6 +158,7 @@ func set_character_reflection(tex: Texture2D, plane_point: Vector3,
 	_material.set_shader_parameter("reflection_plane_point", plane_point)
 	_material.set_shader_parameter("reflection_plane_normal", plane_normal)
 	_material.set_shader_parameter("reflection_fade_distance", fade_distance)
+	_material.set_shader_parameter("character_reflection_attachment", attachment)
 
 # ------------------------------------------------------------------
 #                        procedural noise bakes

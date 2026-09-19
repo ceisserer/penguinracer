@@ -1498,6 +1498,64 @@ in.
 
 4764 assertions, 0 failures.
 
+
+### ... and the player's own stopped climbing the wall (2026-09-17) · **done**
+
+The same report came back with a second picture: not an opponent this time, but a reflection
+directly *above* the racer it belongs to, with the racer still visibly on the ground. Reliably,
+within the first few seconds of *Who Says Penguins Can't Fly?*, with no steering at all.
+
+**Reproducing it needed the intro.** `RaceScene` sets `_intro_enabled = play_intro and
+_auto_input.is_empty()`, so every `--auto-input=` capture in this repository skips the start
+animation, and the whole first act of that course happens on a different clock than the one the
+player sees. A run with no input source at all — `--course=… --character=trixi --opponents=3`
+and nothing else — is what "just let it run, no steering" actually means, and it puts the
+artefact at frame 655, byte-reproducible.
+
+**Neither obvious cause was the cause**, which is why they were measured instead of assumed:
+
+| suspected | result |
+|---|---|
+| the fragment is far off the mirror plane (`reflection_fade_distance` 8 m is loose) | tightening it to 2 m changes **0 pixels** — the ice showing the reflection is within a metre of the plane |
+| `character_reflection_shear` (0.02 screen widths ≈ 20 px) drags it | removing it entirely moves 328 px by at most **8 levels** |
+
+What it is instead is the mirror working exactly as specified. A racer's image sits `2 h` off its
+own feet along the plane normal — `h` is how far the drawn body floats over the ice, about a
+third of a metre, so the separation is of the order of a body. **On a floor that offset points
+down the screen and lands under the belly, which is the only reason the effect has ever read as a
+reflection. On a wall it points sideways.** Measured at the reported frame: the mirror plane is
+**51–58° off vertical** — the racer is traversing a banked pipe — so the image slides out from
+under its penguin and stands beside it. And Fresnel is at its strongest on that same wall, so the
+thing that slides out is drawn nearly opaque: a solid second penguin rather than a shape in the
+ice.
+
+**The discriminator is not the incidence.** The first attempt faded the term toward grazing,
+on the theory that the sky has no parallax and a penguin has plenty. It moved 4414 pixels of
+`tuxway` by up to 126 levels — because a chase camera is *always* near-grazing, measured at
+0.27–0.30 against the plane on the flat lake and on the wall alike. The quantity that does
+separate them is how much of the offset projects to screen-*down* rather than screen-sideways:
+
+| | screen-downwardness of the mirror offset |
+|---|---|
+| `tuxway`, 300 frames | 0.969 – 1.000, never lower |
+| `penguins_cant_fly`, the two reported frames | 0.665 and 0.542 |
+
+`IceReflection.attachment()` is that number, faded to nothing between 0.94 and 0.80 — outside the
+first range, inside the second — and handed to the shader as one scalar for the whole frame,
+since nothing about it varies across one. The sky ramp does not see it at any angle.
+
+Verified by capture, frame 655, A/B in one session with the scalar pinned to 1.0 for the control:
+**579 pixels changed (0.16 %), max 35 levels, all of them inside one box** — the floating twin,
+which is gone. And `tuxway`, 300 frames with a field of three, the course the whole feature was
+fitted on: unchanged.
+
+`TestReflection` gained a case for the scalar: a level plane under a camera at any pitch is fully
+attached, one banked 50–90° across the view is dropped, looking straight down the normal is
+attached by definition, and the band is asserted against the two measurements above so that
+moving it has to move them too.
+
+4781 assertions, 0 failures.
+
 ---
 
 ## Known gaps

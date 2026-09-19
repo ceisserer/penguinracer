@@ -314,6 +314,12 @@ uniform vec3 reflection_plane_normal = vec3(0.0, 1.0, 0.0);
 uniform float reflection_fade_distance : hint_range(0.5, 40.0) = 8.0;
 // How far the micro-relief drags the reflection sideways, in screen widths.
 uniform float character_reflection_shear : hint_range(0.0, 0.2) = 0.02;
+// Whether the mirror is falling behind its penguin or out beside it, as one
+// number for the whole frame. Computed on the CPU — nothing about it varies
+// across a frame — by [method IceReflection.attachment], which is where the
+// measurements and the reasoning are. 0 takes the penguin term away and leaves
+// the sky ramp exactly as it was.
+uniform float character_reflection_attachment : hint_range(0.0, 1.0) = 1.0;
 
 varying vec3 world_pos;
 varying vec2 splat_uv;
@@ -607,6 +613,7 @@ void fragment() {
 				// dark edge that is the background bleeding through, not ice.
 				vec3 mirror_rgb = mirror.rgb / max(mirror.a, 0.001);
 				float cover = clamp(mirror.a * plane_fade
+					* character_reflection_attachment
 					* character_reflection_opacity, 0.0, 1.0);
 				reflected = mix(reflected, mirror_rgb, cover);
 			}

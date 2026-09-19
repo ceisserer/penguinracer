@@ -151,6 +151,14 @@ godot --path game -- --capture=/tmp/shot.png --capture-frames=200 \
     --auto-input=carve --camera=above --course=wild_mountains
 # `--auto-input=` is carve | brake | paddle | jump; `jump` charges and fires on
 # a fixed cycle, which is the only way to capture the HUD gauge's inner half.
+# It also *disables the start animation* (`RaceScene._intro_enabled`), so every
+# capture above is on a different clock from the one a player sees. To reproduce
+# something a player reported in the first seconds of a course, leave it off and
+# pass no input source at all — `--capture=` plus `--course=` is a run that
+# starts by itself, plays the intro and steers nowhere, which is what "just let
+# it run" means:
+godot --path game -- --capture=/tmp/shot.png --capture-frames=655 \
+    --course=penguins_cant_fly --opponents=3 --character=trixi --no-audio
 
 # web — streamed build: base + one .pck per course + one for music
 ./tools/build_web_streamed.sh
@@ -544,6 +552,23 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   the *tilt* of the far racer's ice matters more than its height, and the racer the plane came
   from has to be exempted from its own test, because smoothing the plane normal (which the
   reflection needs, or the image swims) opens 14° against the unsmoothed terrain on a fast carve.
+- **A planar reflection is a lie that only holds while it stays behind its subject, and the thing
+  that hides it is not the thing you would gate on.** The ice mirror puts a racer's image `2 h`
+  off its own feet along the plane normal. On a floor that is straight down the screen, so it
+  lands under the belly and reads as a reflection; on a banked wall it is sideways, and the same
+  correct image reads as a second penguin standing beside the first — nearly opaque, because a
+  wall is seen at grazing incidence and that is where Fresnel gives the mirror its whole budget.
+  **The geometry that is most wrong is drawn most strongly.** Two gates that looked obviously
+  right were measured and were not it: the fragment's distance from the plane (tightening
+  `reflection_fade_distance` from 8 m to 2 m changed *zero* pixels) and the micro-relief shear
+  (removing it entirely moved 328 pixels by 8 levels). Fading toward grazing — the first fix —
+  broke the flat-lake showcase instead, 4414 pixels by up to 126 levels, because **a chase camera
+  is always near-grazing**: incidence against the plane measures 0.27–0.30 on the lake and on the
+  wall alike. The quantity that actually separates them is how much of the offset projects to
+  screen-down rather than screen-sideways, 0.97–1.00 against 0.54–0.67. The lesson is the
+  measurement discipline, not the number: **the variable that distinguishes the good case from
+  the bad one is the one you have measured in both, and a plausible mechanism that has only been
+  measured in the broken frame is not a diagnosis.**
 - **`EMISSION` does not mean the same thing on the two renderers, and `DIFFUSE_LIGHT` /
   `SPECULAR_LIGHT` do.** `EMISSION = vec3(0.5)` reads back as 0.500 linear under Mobile and as
   0.216 — which is `srgb_to_linear(0.5)` — under Compatibility. A value that reaches `ALBEDO`
@@ -1216,9 +1241,17 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   strobes at the threshold) and `Racer.reflected` clears the layer bit for the ones it refuses —
   because there is no second plane to give them and nine mirror passes is nine half-screen
   targets. The racer being watched is exempt: the plane's normal is smoothed and the terrain's is
-  not, and 14° opens between them on a fast carve. See the trap list, and PROGRESS.md under *An
-  opponent's reflection stopped floating off its penguin*. `[display] ice_reflections = false` is
-  off, and `character_reflection_opacity = 0` is the same thing in the shader.
+  not, and 14° opens between them on a fast carve. **And the whole term is faded out where the
+  mirror stops hiding behind its penguin** — a racer's image sits `2 h` off its own feet along
+  the plane normal, which points down the screen on a floor (under the belly, which is the only
+  reason the effect reads) and sideways on a banked wall (a second penguin standing next to the
+  first, at full Fresnel strength because the wall is grazing). `IceReflection.attachment()` is
+  how much of that offset falls down-screen rather than across it: 0.97–1.00 the length of
+  `tuxway`, 0.54–0.67 on the frames that were reported, faded to nothing between 0.94 and 0.80,
+  one scalar for the whole frame. See the trap list, and PROGRESS.md under *An opponent's
+  reflection stopped floating off its penguin* and *... and the player's own stopped climbing the
+  wall*. `[display] ice_reflections = false` is off, and `character_reflection_opacity = 0` is
+  the same thing in the shader.
 - **The spray's puff atlas is redrawn, not copied.** ETR textures every spray
   particle from `data/textures/snowparticles.png` — a 64×64, 2×2 atlas of four
   soft puffs, one quadrant per particle chosen at birth and kept — grows each

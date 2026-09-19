@@ -20,6 +20,7 @@ static func run(t: TestCase) -> void:
 	_the_plane_admits_its_own_ground(t)
 	_the_plane_refuses_ground_it_does_not_speak_for(t)
 	_admission_has_hysteresis(t)
+	_a_floor_keeps_its_reflection_and_a_wall_loses_it(t)
 	_the_setting_survives_the_file(t)
 
 const PLANES: Array[Array] = [
@@ -229,6 +230,47 @@ static func _admission_has_hysteresis(t: TestCase) -> void:
 	var far: float = IceReflection.PLANE_TOLERANCE * IceReflection.ADMIT_HYSTERESIS + 0.5
 	t.ok(not IceReflection.plane_admits(point, n, Vector3(0.0, far, 0.0), n, true),
 		"%.2f m off is refused even to a racer already in" % far)
+
+## The other axis: not where the ice is, but where the reflection of a penguin
+## standing on it lands on screen.
+##
+## A mirror image sits off its subject along the plane normal. Pointed down the
+## screen it hides behind the belly and reads as a reflection; pointed sideways
+## it slides out and reads as a second penguin. [method
+## IceReflection.attachment_of] is that distinction as a number, and these are
+## the two ends of it plus the measurements the band was set from.
+static func _a_floor_keeps_its_reflection_and_a_wall_loses_it(t: TestCase) -> void:
+	t.begin("the mirror is kept on a floor and dropped on a wall")
+	# A chase camera: behind and a little above, looking slightly down. The
+	# plane under it is level, so the offset is straight down the screen.
+	var level: Basis = Basis(Vector3.RIGHT, deg_to_rad(-15.0))
+	t.eq_f(IceReflection.attachment_of(level, Vector3.UP), 1.0, 1e-4,
+		"a level plane under a level camera is fully attached")
+	for pitch: float in [0.0, -10.0, -25.0, -40.0]:
+		t.eq_f(IceReflection.attachment_of(
+			Basis(Vector3.RIGHT, deg_to_rad(pitch)), Vector3.UP), 1.0, 1e-4,
+			"... and at any pitch (%.0f°), because the offset stays vertical"
+				% pitch)
+	# Roll the camera — or bank the plane away from it, which is the same
+	# relative geometry — and the offset swings into the horizontal.
+	for roll: float in [50.0, 70.0, 90.0]:
+		t.eq_f(IceReflection.attachment_of(
+			Basis(Vector3.BACK, deg_to_rad(roll)), Vector3.UP), 0.0, 1e-4,
+			"a plane banked %.0f° across the view is dropped" % roll)
+	# Looking straight down the normal there is no screen-space offset at all,
+	# so there is nothing to slide out from behind anything.
+	t.eq_f(IceReflection.attachment_of(
+		Basis(Vector3.RIGHT, deg_to_rad(-90.0)), Vector3.UP), 1.0, 1e-4,
+		"straight down the normal is attached by definition")
+	# The band itself, against what was measured in a race: `tuxway` never fell
+	# below 0.969 over 300 frames and the two reported frames of
+	# `penguins_cant_fly` read 0.665 and 0.542.
+	t.ok(IceReflection.ATTACHMENT_FADE_HIGH < 0.969,
+		"the flat-lake course stays at full strength")
+	t.ok(IceReflection.ATTACHMENT_FADE_LOW > 0.665,
+		"the reported frames are taken all the way to zero")
+	t.ok(IceReflection.ATTACHMENT_FADE_LOW < IceReflection.ATTACHMENT_FADE_HIGH,
+		"the band is a band")
 
 ## The setting is only useful if it survives the round trip through the file,
 ## and the file is written by hand — see [method GameConfig.file_text].

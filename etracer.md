@@ -314,7 +314,7 @@ Linux and Intel Macs are the notable stragglers, so **a WebGL2 fallback path is 
 | **PlayCanvas 2.x** | JS/TS | native web | first-class, production | yes | MIT | **Top pick for fastest time-to-playable** |
 | **Babylon.js 8** | JS/TS | native web | mature, GLSL→WGSL auto-translation | yes | Apache-2.0 | Very strong; best docs |
 | **Three.js (WebGPURenderer + TSL)** | JS/TS | native web | production-ready as of r171+, still labelled experimental | yes | MIT | Renderer, not an engine — you build the game layer |
-| **Godot 4.7** | GDScript/C# | wasm, wasm64 since 4.7 | **no** — official web export is Compatibility/WebGL2 only. Unofficial "Godot WebGPU" fork in public beta since May 2026 | no on web | MIT | Great editor, but the web+WebGPU requirement is unmet officially |
+| **Godot 4.7** | GDScript/C# | wasm, wasm64 since 4.7 | **no officially** — official web export is Compatibility/WebGL2 only. Two unofficial forks do it: GodotWebGPU (4.6.2, public beta May 2026) and hogdot (4.7.2) — see below | no on web officially; yes in the forks | MIT | Great editor, but the web+WebGPU requirement is unmet officially |
 | **Fyrox 1.0** | Rust | wasm32-unknown-unknown | WebGL2-era renderer; WebGPU not established | no | MIT | Has a real editor; smaller ecosystem, weaker web story |
 | **Cocos Creator** | TS | web | yes | yes | MIT (engine) | Viable, but 2D/mobile-oriented culture |
 
@@ -364,6 +364,66 @@ WebGPU when exporting to web."* But that is from July 2022, floated for "Godot 5
 reservations about bundling Dawn — and four years on, official web export is still WebGL2-only
 (4.7 shipped wasm64, not WebGPU). **Right direction, no committed date; do not schedule against it.**
 Migration cost when it lands is a shader-review exercise, not a rewrite.
+
+### The unofficial WebGPU forks — added 2026-09-16
+
+The bet above has been partly settled by other people, outside the Godot project. Two forks now put
+**WebGPU behind `RenderingDevice`** exactly as proposal #4806 described, and the consequence is the
+one the proposal predicted: **the Mobile renderer runs in the browser.** Not Compatibility over
+WebGPU — Mobile, the same renderer this project's desktop build already uses.
+
+| | [GodotWebGPU](https://github.com/dwalter/godotwebgpu) (dwalter) | [hogdot](https://github.com/hogdanish/hogdot) (hogdanish) |
+|---|---|---|
+| Base | Godot 4.6.2 | **Godot 4.7.2** — the version this project pins |
+| Lineage | the original implementation, ~2 months of work | dwalter's work ported forward to 4.7.2, plus fixes |
+| Web renderer | Forward Mobile | Mobile, and **only** Mobile |
+| Compute / `RenderingDevice` | yes, with compute demos | yes; `RDShaderFile` and direct `RenderingDevice` use were broken and are fixed |
+| Licence | MIT | MIT |
+| Status | public beta 2026-05-10; 146 shaders precompiled, 10 demos, 6 benchmarks | ships templates for one game ([COMMONGROUNDS](https://commongrounds.fun)); "not battle tested" |
+| Editor | Windows and Linux marked TODO | Linux editor built in CI, with `tint_convert_cli` for shader baking |
+| Browsers | Chrome 113+, Firefox 120+, Safari 18+; Android/iOS "mostly (wip)" | Chrome tested; Safari and Firefox confirmed working but not thoroughly |
+
+hogdot is the relevant one here, being on 4.7.2. What it adds beyond the port: **HDR output on the
+web** via extended tone mapping on the WebGPU canvas (the author's own caveat: "in theory. HDR is
+really complicated"), threaded builds worth ~2.86× (rendering still on the browser's main thread,
+since that is where the JS render thread is locked), and custom `.glsl` shaders baking to portable
+SPIR-V at import. It reports ~80 % of native FPS and ~5× WebGL for the underlying WebGPU work.
+
+**What adopting it would do to this build.** Most of the cost of the two-renderer split is
+Compatibility-specific and would simply stop existing:
+
+- The **sRGB additive shadow pass** ([godot#77496](https://github.com/godotengine/godot/issues/77496),
+  [#90259](https://github.com/godotengine/godot/issues/90259)) is the whole reason
+  `game/scripts/config/render_backend.gd` exists. Mobile has one light loop, in linear, with the
+  shadow arriving as `ATTENUATION` — which is what `shaders/terrain.gdshader` wants anyway.
+  `Sun.shadow_enabled` could just be on.
+- The gate **flips itself correctly with no code change**: `RenderBackend.is_compatibility()` asks
+  `RenderingServer.get_rendering_device() == null`, and under WebGPU there *is* a device.
+- The renderer-divergence traps go with it — ice 16 levels darker on the web, `EMISSION` and
+  `DIFFUSE_LIGHT` meaning different things on the two renderers, and the 13-of-16 WebGL2 sampler
+  ceiling that closes off any further texture binding.
+- **Compute, `RenderingDevice` and HDR arrive.** The ping-pong `SubViewport` snow field becomes
+  compute dispatches — the migration note in [`godot-port-plan.md`](./godot-port-plan.md) §4.3
+  anticipates precisely this. HDR was named above as the real cost of Compatibility, and snow is the
+  worst possible subject for an LDR pipeline.
+
+**Why it is still not scheduled against.** The engine becomes a third party's unofficial build: every
+Godot point release becomes a question of whether the fork rebased, and the fork's own README says
+its bugs are its own and are not to be reported upstream or to GodotWebGPU. Its CI deliberately
+builds only web templates and a Linux editor — the other platforms are expected to ship on official
+Godot, which means **desktop and web would come from two different engines**. The documented build
+line is `webgpu=yes opengl3=no`, so one template cannot also carry the WebGL2 path: shipping both
+APIs means two bundles and a feature-detect loader, the same shape as
+[bevy#13168](https://github.com/bevyengine/bevy/issues/13168) above, and the 5–15 % of users without
+WebGPU (Linux, Intel Macs — see the platform note at the top of this section) are exactly who the
+fallback is for.
+
+**So: a real option, not a scheduled one.** Adopting it would invert architecture rule 2 in
+[`AGENTS.md`](./AGENTS.md) — "the web one is the floor" — rather than amend it, and that is a
+decision to take deliberately and once. Nothing in the current design blocks it: the ping-pong render
+targets were chosen to port forward to compute unchanged, and the `RenderBackend` gate asks the
+device rather than the platform, so both survive the move without edits. **Do not build against the
+fork until the desktop and web builds can come from the same engine.**
 
 **Alternatives, if the decision is revisited:**
 
@@ -454,6 +514,6 @@ Open questions for the user before committing:
 - [PlayCanvas Engine](https://github.com/playcanvas/engine) · [PlayCanvas compute shaders](https://developer.playcanvas.com/user-manual/graphics/shaders/compute-shaders/)
 - [Babylon.js compute shaders](https://doc.babylonjs.com/features/featuresDeepDive/materials/shaders/computeShader) · [Babylon.js GPU particles](https://doc.babylonjs.com/features/featuresDeepDive/particles/particle_system/gpu_particles/) · [snowflow_demo — WebGPU/Babylon.js snow deformation](https://github.com/Noniv/snowflow_demo)
 - [three.js WebGPURenderer manual](https://threejs.org/manual/en/webgpurenderer.html)
-- [Godot web platform export](https://deepwiki.com/godotengine/godot-docs/7.4-web-platform-export) · [Godot WebGPU fork (unofficial)](https://godotwebgpu.com/)
+- [Godot web platform export](https://deepwiki.com/godotengine/godot-docs/7.4-web-platform-export) · [GodotWebGPU fork (unofficial)](https://godotwebgpu.com/) · [dwalter/godotwebgpu](https://github.com/dwalter/godotwebgpu) · [hogdanish/hogdot — the same work on 4.7.2](https://github.com/hogdanish/hogdot)
 - [Fyrox 1.0.0](https://fyrox.rs/blog/post/fyrox-game-engine-1-0-0/)
 - [Real-time Interactive Snow Simulation using Compute Shaders (FDG 2020)](https://dl.acm.org/doi/10.1145/3402942.3402995) · [GDC 2014 — Deformable Snow Rendering in Batman: Arkham Origins](https://www.slideshare.net/slideshow/gdc2014-deformable-snow-rendering-in-batman-arkham-origins/32839706)
