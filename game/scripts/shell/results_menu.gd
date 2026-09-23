@@ -8,6 +8,11 @@
 ## nothing is written to disk until this screen's Save button is pressed —
 ## see [SavedRunStore].
 ##
+## In a network race there is a clip behind this panel only for the winner, and
+## the note under the result is the whole finishing order rather than a ghost
+## gap — see `RaceScene._on_network_race_over`. Neither is something this screen
+## knows about: it is handed a result line, a note and a recording to keep.
+##
 ## [b]The panel sits at the top of the screen and dims nothing.[/b] Both are
 ## `CGameOver` — `topframe = 80` over a course it goes on rendering at full
 ## brightness — and both are load-bearing rather than taste: the chase camera

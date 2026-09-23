@@ -116,14 +116,58 @@ var _next_room_id: int = 1
 ## A peer connected, or told us its name again. Idempotent: a second
 ## announcement from a peer already in a room renames it in place rather than
 ## throwing it out of the race it is in.
-func add_peer(id: int, player_name: String, character: String) -> void:
+##
+## [b]A name is held by one peer at a time, server-wide.[/b] Two penguins
+## called "Clemens" on the same hill is a results screen that cannot be read,
+## a standings row that names neither of them and a room list that says who is
+## hosting and means nothing by it — the name is the only thing one player
+## knows another by here, so it has to pick somebody out. Refused
+## case-insensitively, the same way two races cannot share a name (see
+## [method create_room]), because "clemens" and "Clemens" are the same claim.
+##
+## Refusing the *name* is not refusing the *peer*: a caller the server has
+## never heard of is still seated, under a name nobody holds, because every
+## other call it could make answers `unknown_peer` otherwise. It is told
+## `name_taken` and it is [RaceNetwork.cli_error] that decides what to do about
+## it.
+func add_peer(id: int, player_name: String, character: String) -> Dictionary:
 	var entry: Peer = peers.get(id, null)
+	var clean: String = sanitize_name(player_name, "racer %d" % id, PLAYER_NAME_MAX)
+	var holder: int = name_holder(clean)
+	if holder != 0 and holder != id:
+		if entry == null:
+			entry = Peer.new()
+			entry.id = id
+			entry.name = _free_name("racer %d" % id)
+			entry.character = character
+			peers[id] = entry
+		return _error("name_taken")
 	if entry == null:
 		entry = Peer.new()
 		entry.id = id
 		peers[id] = entry
-	entry.name = sanitize_name(player_name, "racer %d" % id, PLAYER_NAME_MAX)
+	entry.name = clean
 	entry.character = character
+	return {"ok": true, "name": clean}
+
+## Which peer is called [param player_name], or 0 for a name going spare.
+func name_holder(player_name: String) -> int:
+	var wanted: String = player_name.to_lower()
+	for entry: Peer in peers.values():
+		if entry.name.to_lower() == wanted:
+			return entry.id
+	return 0
+
+## [param base], or the first `base (2)`, `base (3)`, … nobody holds. Only ever
+## asked for the provisional `racer <id>` a peer is seated under before it says
+## hello, which a player would have to have deliberately taken to collide with.
+func _free_name(base: String) -> String:
+	if name_holder(base) == 0:
+		return base
+	var n: int = 2
+	while name_holder("%s (%d)" % [base, n]) != 0:
+		n += 1
+	return "%s (%d)" % [base, n]
 
 ## A peer dropped. Returns the room it was in, or 0.
 ##
@@ -478,4 +522,5 @@ static func explain(code: String) -> String:
 		"bad_room_name": return "Give the race a name."
 		"no_course": return "Choose a course."
 		"unknown_peer": return "The server does not know who you are — reconnect."
+		"name_taken": return "Somebody on this server is already racing under that name."
 	return code

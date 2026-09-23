@@ -242,7 +242,7 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 | weather — snow | **done for the snow, 0–3** — ETR's `snow_id`, the first of the three weather controls its race-select screen offers (light, snow, wind). `SnowFall` is both halves of the original: three nested boxes of wrapping flakes around the player (`CFlakes`, a `MultiMesh` whose whole per-frame motion is two uniforms, so it is deterministic where the spray is not) and three rings of big sparse tiles at 40–60 m (`CCurtain`). Chosen on the course screen in Practice and in a race alike, remembered as `[game] snowfall`, and `--snow=0..3`/`?snow=` for a capture. Presentation only — no racer drives differently in it, which is the original's arrangement too. Verified on both renderers. The other two controls are not offered: the sky is a property of the course's environment here (and the evening/night presets are unfitted — see Known gaps), and the wind is still `--wind=`. |
 | computer opponents | **done** — beyond the original, which has nobody on the hill. `RaceSetup` is the whole mode switch: 0 opponents is Practice and 1–9 is a race, chosen on the course screen and remembered in `penguinracer.cfg`. An opponent is a `SimulatedRacer` driven by an `AIInputSource` — the seam the racer layer was built for, used with no change to it. It plans an aim point every `AISkill.plan_interval` ticks by scoring nine candidate lines against trees, the play bounds, swerve cost, its own lane, the friction ahead, herring and the other racers. **The three levels move driving habits and never the physics**: lookahead, reaction, nerve, how long they paddle, how readily they brake. Measured over 30 s of a 22° slope: easy 231 m, medium 333 m, hard 422 m, a player holding the accelerator straight 413 m. Deterministic — the only randomness is a per-seat personality drawn once from a seed. Opponents are solid: everyone on the hill bounces off everyone else through the shared `RacerField` (see the deviations), which is why the steering term only has to keep them out of each other's way rather than out of each other. No jumps, no tricks, no cups. |
 | multiplayer foundation | **done** — the seams the rest of this table rests on. The simulation runs on a fixed 60 Hz tick with interpolated presentation; `RaceScene` owns a list of `Racer`s, split into `SimulatedRacer` (a `RacePhysics` fed by an `InputSource`) and `PlaybackRacer` (a `RacerStateStream` read by time). `RacerState` — 18 floats — is the only thing the presentation reads, and is the ghost file format and the wire format at once. Ghosts are finished end to end: every run is recorded, a finished race brings up a results screen (`ResultsMenu`) where the player can name it and keep it (`SavedRunStore`, `user://runs/`), and the main menu's **Race against ghost** entry (`GhostMenu`) lists every saved run and racing one draws it translucent with the gap in seconds on the HUD. |
-| network multiplayer | **done** — beyond the original, plan §8.4, and it works in a browser. One **dedicated server** (`scenes/server.tscn`, this same project run headless) serves the WebAssembly build over HTTP *and* accepts race sessions over WebSocket, so a desktop player and a player in a tab are in the same room on the same protocol. `LobbyServer` owns the rooms — create one with a name and an optional password, see every race not yet started, join, and the creator is its admin and the only one who may pick the course or press Start. `RaceNetwork` (`Net`) is the socket, the protocol and the snapshot stream; the server relays snapshots and validates nothing else about them, so every peer still simulates only itself and draws the rest as `PlaybackRacer`s. No start animation: everyone reports the hill built, the server waits for the last of them, and a three-second countdown starts the field together. **The race is over when the last racer crosses the line, not the first** — between your own finish and theirs the camera spectates whoever is still coming down, and the results screen carries the server's finishing order. Esc is a forfeit rather than a pause; `P` and `r` are off. See the deviations. |
+| network multiplayer | **done** — beyond the original, plan §8.4, and it works in a browser. One **dedicated server** (`scenes/server.tscn`, this same project run headless) serves the WebAssembly build over HTTP *and* accepts race sessions over WebSocket, so a desktop player and a player in a tab are in the same room on the same protocol. `LobbyServer` owns the rooms — create one with a name and an optional password, see every race not yet started, join, and the creator is its admin and the only one who may pick the course or press Start. `RaceNetwork` (`Net`) is the socket, the protocol and the snapshot stream; the server relays snapshots and validates nothing else about them, so every peer still simulates only itself and draws the rest as `PlaybackRacer`s. **A name belongs to one player at a time, server-wide** — a second hello under a name somebody already holds is refused and the client drops the session back to the lobby's CONNECT page, because the name is the only thing one player knows another by here. No start animation: everyone reports the hill built, the server waits for the last of them, and a three-second countdown starts the field together. **The race is over when the last racer crosses the line, not the first** — between your own finish and theirs the camera spectates whoever is still coming down, and the results screen carries the server's finishing order, and only the winner is shown the finish-line clip. Esc is a forfeit rather than a pause; `P` and `r` are off. See the deviations. |
 
 ### Spikes
 
@@ -874,6 +874,13 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   be replaced. `change_scene_to_file.call_deferred(...)` waits the one frame it takes. The error is
   not fatal — the race loads, `RACE_READY` prints, the capture is correct — so it is a red line
   above a working screenshot rather than anything that fails.
+- **A scene handed to `change_scene_to_file()` leaves the tree at once but is freed later — and
+  hears autoload signals until it is.** In between, `current_scene` is null and the old scene is
+  alive, off-tree and still connected to `Net`. Forfeiting as the last racer on the hill makes the
+  server's `race_over` come straight back into that window; the race opened its results screen
+  off-tree and printed `Condition "!is_inside_tree()" is true` from `grab_focus` on every forfeit.
+  `RaceScene.leave_to_main_menu` now disconnects everything in `_network_links()` before it swaps.
+  Any new autoload connection on a scene that can be swapped away belongs in a list like that.
 - **A run that wants a rendered course has to name one.** The main scene is `main_menu.tscn`, and
   `--course=` or `--auto-input=` is what hands over to the race before the menu is ever shown —
   `tools/shot.sh` passes both, so captures are unaffected. A bare `--capture=` screenshots the
@@ -1219,6 +1226,25 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   different question. The one backstop is `LobbyServer.ABANDON_AFTER_MSEC`, five minutes after the
   first finisher, for a window nobody is sitting at; a disconnect or a deliberate exit already ends
   that racer's race in the tick it happens.
+
+- **Only the winner plays the finish-line clip in a network race.** The original has one penguin
+  and plays `CGameOver`'s animation to them whatever they did, and a solo race here still does.
+  In a field of eight it lands differently: seven people are shown four seconds of `lostrace`
+  while the one thing they are waiting for — the server's finishing order, on the panel above it
+  — is already on screen behind it, so the clip is the last thing that happens rather than the
+  answer. The loser's penguin is left where it came to rest. The *outcome* is still computed for
+  everybody, because the music sting is chosen by it: a loss still sounds like one, it just does
+  not dance about it. `RaceScene._on_network_race_over`.
+
+- **A player name is held by one player at a time on a server.** Not a deviation from ETR, which
+  has nobody to collide with — a rule this rebuild needs because the name is the whole of what one
+  player knows another by: the room list's host column, the member list, the HUD standings and the
+  finishing order are all names and nothing else, and two penguins called "Clemens" make every one
+  of them unreadable. Refused case-insensitively at `LobbyServer.add_peer`, the same way two races
+  cannot share a name. Refusing the name is not refusing the peer — a caller the server has never
+  heard of is still seated, under a name nobody holds, or every later call it makes answers
+  `unknown_peer` — and it is `RaceNetwork.cli_error` that turns the refusal into a dropped session
+  and a lobby back on its CONNECT page with the name field still filled in.
 
 - **Esc leaves a network race instead of opening the course list, and `P` and `r` do nothing.**
   The course belongs to the room and its admin, so there is nothing for the in-race course list to

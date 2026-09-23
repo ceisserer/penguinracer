@@ -383,11 +383,8 @@ func _ready() -> void:
 	menu.back_requested.connect(leave_to_main_menu)
 	results_menu = $ResultsMenu
 	results_menu.continue_pressed.connect(_on_results_continue)
-	Net.snapshot_received.connect(_on_snapshot_received)
-	Net.roster_changed.connect(roster.sync_remote)
-	Net.race_go.connect(_on_race_go)
-	Net.race_over.connect(_on_network_race_over)
-	Net.session_ended.connect(_on_session_ended)
+	for link: Array in _network_links():
+		(link[0] as Signal).connect(link[1])
 	_paused_label = _make_paused_label()
 	await load_course(course_scene_path)
 
@@ -1030,6 +1027,17 @@ func _on_local_network_finish(recording: RaceRecording) -> void:
 ## The last racer is in. Now the race is over for everybody at once, which is
 ## the point: the order on this screen is the server's, not eight machines'
 ## separate opinions of who was where.
+##
+## DEVIATION: [b]only the winner plays the finish-line clip.[/b] The original
+## has one penguin and plays it to them whatever they did, and in a solo race
+## this build still does. In a field of eight it lands differently: seven people
+## are shown a four-second `lostrace` while the one result they are waiting for
+## — the order, on the panel above it — is already on screen behind it, and the
+## clip is the last thing that happens rather than the answer. The loser's
+## penguin is left where it came to rest, which is where it was a moment ago
+## anyway. The *outcome* is still computed for everyone, because the music sting
+## is chosen by it (see [method _open_results]) and a loss should still sound
+## like one.
 func _on_network_race_over(standings: Array) -> void:
 	if setup == null or not setup.networked or paused:
 		return
@@ -1040,8 +1048,10 @@ func _on_network_race_over(standings: Array) -> void:
 	_recall_camera()
 	var clip: StringName = &""
 	if roster.local.finished:
-		clip = RaceOutcome.clip(true, _won_network_race(standings), false, false)
-		_start_finish_clip(clip)
+		var won: bool = _won_network_race(standings)
+		clip = RaceOutcome.clip(true, won, false, false)
+		if won:
+			_start_finish_clip(clip)
 	_open_results(_net_recording, clip, _finishing_order(standings))
 	_net_recording = null
 
@@ -1236,7 +1246,34 @@ func _on_course_chosen(listing: CourseListing, chosen: RaceSetup) -> void:
 func leave_to_main_menu() -> void:
 	_stop_slide_sound()
 	Audio.halt_all()
+	_stop_listening_to_network()
 	get_tree().change_scene_to_file(MAIN_MENU_SCENE)
+
+## [b]A scene on its way out is still alive, and still connected.[/b]
+## `change_scene_to_file` takes this node out of the tree at once but frees it
+## only when the swap is flushed, a frame or more later — the main menu is
+## loaded in between. The autoload's signals are not severed until the free, so
+## anything [Net] says in that window lands here, on a race that has no tree to
+## put it in. Forfeiting as the last racer on the hill is exactly that: the
+## server's `race_over` comes straight back, and the results screen tried to
+## take focus off-tree ("Condition !is_inside_tree() is true" in `grab_focus`).
+## The race is over for this scene the moment it asks to leave, so it stops
+## listening then.
+func _stop_listening_to_network() -> void:
+	for link: Array in _network_links():
+		if (link[0] as Signal).is_connected(link[1]):
+			(link[0] as Signal).disconnect(link[1])
+
+## Every [Net] signal this scene listens to, and what hears it — one list, so
+## the connect in `_ready` and the disconnect above cannot drift apart.
+func _network_links() -> Array[Array]:
+	return [
+		[Net.snapshot_received, _on_snapshot_received],
+		[Net.roster_changed, roster.sync_remote],
+		[Net.race_go, _on_race_go],
+		[Net.race_over, _on_network_race_over],
+		[Net.session_ended, _on_session_ended],
+	]
 
 ## Esc drops back to the course list mid-race — the original's "abort race",
 ## not a toggle: there is no Continue button to resume from, so a second press

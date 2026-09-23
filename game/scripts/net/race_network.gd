@@ -322,7 +322,8 @@ func _on_peer_connected(id: int) -> void:
 	if _lobby == null:
 		return
 	# Nothing is known about them until they say hello; they are not in the
-	# room list's world yet either.
+	# room list's world yet either. The provisional name is unique by
+	# construction, so this one cannot be refused.
 	_lobby.add_peer(id, "racer %d" % id, CharacterCatalog.DEFAULT_DIR)
 	_push_rooms(id)
 
@@ -449,7 +450,13 @@ func srv_hello(peer_name: String, peer_character: String) -> void:
 	if _lobby == null:
 		return
 	var id: int = multiplayer.get_remote_sender_id()
-	_lobby.add_peer(id, peer_name, peer_character)
+	# A name already spoken for on this server is the one hello that comes
+	# back refused — see [method LobbyServer.add_peer]. The peer stays
+	# connected under the provisional name it was seated with; what it does
+	# next is the client's business, and our client leaves.
+	if not _accepted(id, _lobby.add_peer(id, peer_name, peer_character)):
+		_log("refused peer %d — \"%s\" is already racing here" % [id, peer_name])
+		return
 	var current: LobbyServer.Room = _lobby.room_of(id)
 	if current != null:
 		_push_room(current)
@@ -621,6 +628,16 @@ func cli_room(state: Dictionary) -> void:
 
 @rpc("authority", "call_remote", "reliable")
 func cli_error(code: String) -> void:
+	# `name_taken` is the one refusal that is not about a room: the server will
+	# not have us under the name we gave it, and there is nothing on this
+	# session worth keeping while that is true — a player left standing in the
+	# browser as "racer 1394852" would open a race under it. Dropping the
+	# session puts [LobbyMenu] back on its CONNECT page with the name field
+	# filled in and the reason on the status line, which is the one screen that
+	# can do anything about it.
+	if code == "name_taken":
+		leave(LobbyServer.explain(code))
+		return
 	lobby_error.emit(LobbyServer.explain(code))
 
 @rpc("authority", "call_remote", "reliable")

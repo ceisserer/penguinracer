@@ -38,7 +38,7 @@ paddle, and the roll normal. ODE23 (Bogacki–Shampine) with adaptive stepping, 
 `MAX_STEP_DIST` cap. Trees and herring go through a uniform spatial grid, fixing the original's
 O(items) scan per substep.
 
-**0 failures** — 2293 assertions when the phase closed, 4665 today across physics, surface,
+**0 failures** — 2293 assertions when the phase closed, 4870 today across physics, surface,
 input, audio, the imported terrain library, the settings file, the character rig, the chase
 camera, the HUD's arithmetic and the weather, in 13 s headless. Per-force golden values are
 worked out by hand from the constants — air drag at 20 m/s, each of the three spring bands, the
@@ -850,6 +850,17 @@ two races is two credentials. That digest *is* the credential and the server sto
 arrives; the claim is "this keeps strangers out", not "this is a secret", and it is written down
 that way because ws:// is plaintext.
 
+**A name belongs to one player at a time, server-wide.** The name is the whole of what one player
+knows another by here — the browser's host column, the member list, the HUD standings and the
+finishing order are all names and nothing else — so two penguins called "Clemens" make every one
+of those unreadable and a results screen that cannot be argued about. `LobbyServer.add_peer`
+refuses a hello under a name somebody already holds, case-insensitively, the same way two races
+cannot share a name; `RaceNetwork.cli_error` turns that one refusal into a dropped session, so the
+lobby lands back on its CONNECT page with the name field still filled in and *Somebody on this
+server is already racing under that name* on the status line. Refusing the name is not refusing the
+peer: a caller the server has never heard of is still seated, under a name nobody holds, because
+every other call it could make would answer `unknown_peer` otherwise.
+
 **Starting is a handshake, not a broadcast.** A 9 MB course pack is twenty seconds on one link and
 half a second on another, so a race that began when the admin's hill was ready would be a race two
 people had already lost. Everyone loads, everyone reports ready (`RaceNetwork.report_ready`), the
@@ -867,6 +878,15 @@ read. The HUD says how many are left. When the last one is in, every client gets
 finishing order and the results screen shows it — the *server's* order, eight reported times,
 rather than this machine's standings, which are eight interpolated positions and a different
 question.
+
+**Only the winner is shown the finish-line clip.** A solo race plays `wonrace`/`lostrace`/`finish`
+to whoever ran it, which is what `CGameOver` does; a network race plays it to first place and
+nobody else. Seven people watching four seconds of `lostrace` are watching it *over* the one thing
+they were waiting for — the server's finishing order, on the panel above the penguin — and the
+clip reads as the last thing that happens rather than as the answer. Everyone else's penguin stays
+where it came to rest, which is where it was a moment earlier anyway. The outcome is still worked
+out for every client, because the results screen's music sting is chosen by it: a loss still sounds
+like one. `RaceScene._on_network_race_over`.
 
 Two things stop a race hanging on somebody who has stopped playing: a disconnect ends that racer's
 race in the tick the transport notices it, and Esc is a forfeit (`RaceNetwork.forfeit`) rather than

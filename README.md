@@ -50,7 +50,7 @@ the original, and each one is marked `DEVIATION` in the source with its reason.
 | **Snow** | GPU trail deformation with a shaded trench and a ploughed lip, plus carve spray and four levels of falling snow |
 | **Shell** | Main menu, course and character screens, the multiplayer lobby, in-race HUD, results and settings, 13 languages |
 | **Server** | One headless process serves the web build over HTTP and the race sessions over WebSocket — `tools/serve.sh` |
-| **Tests** | 4860 headless assertions, 0 failures, 11 s — physics, surface, input, audio, terrain, camera, replay, opponents, the lobby server |
+| **Tests** | 4870 headless assertions, 0 failures, 11 s — physics, surface, input, audio, terrain, camera, replay, opponents, the lobby server |
 
 ---
 

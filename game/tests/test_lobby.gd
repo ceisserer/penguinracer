@@ -23,6 +23,7 @@ static func run(t: TestCase) -> void:
 	_the_last_racer_in(t)
 	_leaving_mid_race(t)
 	_standings(t)
+	_one_name_one_player(t)
 	_names_and_digests(t)
 	_addresses(t)
 	_static_files(t)
@@ -198,6 +199,44 @@ static func _standings(t: TestCase) -> void:
 		"and whoever did not finish is last rather than first with a time of zero")
 	t.ok(int(order[0]["herring"]) == 1 and str(order[1]["character"]) == "trixi",
 		"each row carries what the results screen draws")
+
+## A name picks out one player, server-wide.
+static func _one_name_one_player(t: TestCase) -> void:
+	t.begin("lobby: a name belongs to one player at a time")
+	var lobby := LobbyServer.new()
+	t.ok(bool(lobby.add_peer(1, "Clemens", "tux")["ok"]), "the first Clemens is seated")
+
+	var second: Dictionary = lobby.add_peer(2, "Clemens", "trixi")
+	t.ok(not bool(second["ok"]) and str(second["error"]) == "name_taken",
+		"the second is turned away by name")
+	var shouted: Dictionary = lobby.add_peer(3, "  CLEMENS  ", "boris")
+	t.ok(not bool(shouted["ok"]),
+		"however it is capitalised, and whatever padding it arrives with")
+
+	# Refusing the name is not refusing the peer: everything else it can ask
+	# for would answer `unknown_peer` if it were.
+	t.ok(lobby.peers.has(2) and lobby.peer_name(2) != "Clemens",
+		"a refused newcomer is still seated, under a name nobody holds")
+	t.ok(bool(lobby.create_room(2, "Race", "", "bunny_hill", 0)["ok"]),
+		"and can still be talked to")
+
+	t.ok(bool(lobby.add_peer(2, "Bob", "trixi")["ok"]), "a free name is taken")
+	t.ok(bool(lobby.add_peer(2, "Bob", "boris")["ok"]),
+		"and saying it again is a rename in place, not a collision with itself")
+	t.ok(lobby.peer_character(2) == "boris", "which is how a character change arrives")
+
+	# The name goes back in the pool when its holder does.
+	lobby.remove_peer(1)
+	t.ok(bool(lobby.add_peer(3, "Clemens", "boris")["ok"]),
+		"a name whose player has gone is free again")
+
+	# The provisional name a peer is seated with before it says hello, in the
+	# one case a player has deliberately taken it.
+	var awkward := LobbyServer.new()
+	awkward.add_peer(1, "racer 77", "tux")
+	awkward.add_peer(77, "racer 77", "tux")
+	t.ok(awkward.peers.has(77) and awkward.peer_name(77) != "racer 77",
+		"and even the fallback name cannot be two people")
 
 static func _names_and_digests(t: TestCase) -> void:
 	t.begin("lobby: names and passwords on the wire")
