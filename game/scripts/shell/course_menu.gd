@@ -23,6 +23,17 @@
 ## cycling four states. Only the snow one exists here ([SnowFall]); it is shown
 ## in Practice too, because the weather is not the field.
 ##
+## [b]It is also the network lobby's course picker.[/b] [LobbyMenu] carries an
+## instance of this scene of its own and opens it with [method open_network]:
+## in [constant Mode.NET_CREATE] to open a room — the field row gives way to a
+## race name and a password — and in [constant Mode.NET_ROOM] for the room's
+## admin to change what it races. Neither mode starts anything. The choice goes
+## out on [signal room_course_chosen] and the lobby turns it into a request to
+## the server; this screen never talks to [RaceNetwork]. Creating a room can be
+## refused (the name is taken, the session dropped), so in that mode the panel
+## stays up until the lobby either takes it down or hands it the reason with
+## [method show_error].
+##
 ## Cups and events are imported and waiting in `res://resources/events/`; this
 ## screen only does free selection of a single course.
 class_name CourseMenu
@@ -36,6 +47,16 @@ signal closed()
 ## The player asked to leave: to the main menu from a race, out of the course
 ## list from the main menu.
 signal back_requested()
+## A course was picked in one of the network modes. `race_name` and `password`
+## are what the player typed, and empty in [constant Mode.NET_ROOM], which has
+## no such row. The panel is still up: see [method open_network].
+signal room_course_chosen(listing: CourseListing, snowfall: int, race_name: String,
+	password: String)
+
+## What the panel is for, which is what decides the rows under the preview and
+## what the Race button says. The first two are the main menu's and the race's;
+## the last two are only ever opened by [LobbyMenu].
+enum Mode { PRACTICE, RACE, NET_CREATE, NET_ROOM }
 
 ## What is behind the panel, and therefore what the backdrop has to be.
 ##
@@ -78,6 +99,16 @@ var _entries: Array[CourseListing] = []
 @onready var _skill: OptionButton = %SkillOption
 @onready var _snow_label: Label = %SnowLabel
 @onready var _snow: OptionButton = %SnowOption
+@onready var _room_row: Control = %RoomRow
+@onready var _race_name: LineEdit = %RaceNameEdit
+@onready var _password: LineEdit = %PasswordEdit
+
+## Which of the four screens this is right now. Read by [LobbyMenu] to tell a
+## create in flight from an admin changing the course.
+var mode: Mode = Mode.PRACTICE
+## A room was asked for and the server has not answered. The Race button is
+## off until it does, so a second Enter cannot ask twice.
+var _waiting: bool = false
 
 ## The field the panel is currently offering. Held rather than read back off the
 ## widgets on close, so that a Practice open cannot lose the race settings the
@@ -86,10 +117,7 @@ var _setup := RaceSetup.new()
 
 func _ready() -> void:
 	_catalog = CourseCatalog.load_default()
-	_title.text = tr("SELECT_A_RACE")
-	_race_button.text = tr("RACE")
 	_back_button.text = tr("BACK")
-	_hint.text = "↑↓  •  Enter: %s  •  Esc: %s" % [tr("RACE"), tr("BACK")]
 	# Neither of these is a migrated string: ETR has no computer opponents, so
 	# there is nothing to migrate and a `tr()` key would resolve to nothing in
 	# all thirteen languages. Same call as `ghost` and *Race your best time*.
@@ -102,6 +130,8 @@ func _ready() -> void:
 	_list.item_activated.connect(_on_item_activated)
 	_race_button.pressed.connect(_race_selected)
 	_back_button.pressed.connect(_go_back)
+	_race_name.text_submitted.connect(func(_t: String) -> void: _race_selected())
+	_password.text_submitted.connect(func(_t: String) -> void: _race_selected())
 
 	_fill_list()
 	visible = false
@@ -145,13 +175,75 @@ func _fill_field_options() -> void:
 func open(current_dir: String, over_race: bool, setup: RaceSetup,
 		result_text: String = "") -> void:
 	_setup = setup.copy() if setup != null else RaceSetup.new()
-	_result.text = result_text
-	_result.visible = not result_text.is_empty()
+	_apply_mode(Mode.RACE if _setup.is_race() else Mode.PRACTICE)
+	_set_result(result_text)
 	_dim.color = OVER_RACE_COLOR if over_race else SCREEN_COLOR
-	_field_row.visible = _setup.is_race()
 	if _setup.is_race():
 		_opponents.select(_opponents.get_item_index(_setup.opponents))
 		_skill.select(_skill.get_item_index(_setup.skill))
+	_present(current_dir)
+	_list.grab_focus()
+
+## Show the menu as the network lobby's course picker — `net_mode` is
+## [constant Mode.NET_CREATE] or [constant Mode.NET_ROOM]. There is never a
+## race behind it: the lobby is a screen of its own.
+func open_network(net_mode: Mode, current_dir: String, snowfall: int,
+		race_name: String = "") -> void:
+	_setup = RaceSetup.networked_race().in_snow(snowfall)
+	_apply_mode(net_mode)
+	_set_result("")
+	_dim.color = SCREEN_COLOR
+	_race_name.text = race_name
+	_password.text = ""
+	_present(current_dir)
+	if net_mode == Mode.NET_CREATE:
+		_race_name.grab_focus()
+		_race_name.select_all()
+	else:
+		_list.grab_focus()
+
+## The server would not have it. Say why and let the player try again.
+func show_error(message: String) -> void:
+	_waiting = false
+	_race_button.disabled = false
+	_set_result(message)
+
+## Take the panel down without a word to anyone — the lobby's way of saying
+## that what it was open for has been settled elsewhere.
+func dismiss() -> void:
+	_waiting = false
+	_race_button.disabled = false
+	visible = false
+
+## The rows, the title and the button's word for each [enum Mode].
+func _apply_mode(new_mode: Mode) -> void:
+	mode = new_mode
+	_waiting = false
+	_race_button.disabled = false
+	_field_row.visible = mode == Mode.RACE
+	_room_row.visible = mode == Mode.NET_CREATE
+	# None of the network words is a migrated string, for the reason [LobbyMenu]
+	# gives: ETR has no multiplayer to have migrated them from.
+	var action: String = tr("RACE")
+	match mode:
+		Mode.NET_CREATE:
+			_title.text = "Create a race"
+			action = "Create"
+		Mode.NET_ROOM:
+			_title.text = "Choose the course"
+			action = "Choose"
+		_:
+			_title.text = tr("SELECT_A_RACE")
+	_race_button.text = action
+	_hint.text = "↑↓  •  Enter: %s  •  Esc: %s" % [action, tr("BACK")]
+
+func _set_result(text: String) -> void:
+	_result.text = text
+	_result.visible = not text.is_empty()
+
+## Everything [method open] and [method open_network] share: the weather, and
+## the list with `current_dir` highlighted.
+func _present(current_dir: String) -> void:
 	_snow.select(_snow.get_item_index(clampi(_setup.snowfall, 0, SnowFall.MAX_GRADE)))
 	visible = true
 	var index: int = _index_of(current_dir)
@@ -163,7 +255,6 @@ func open(current_dir: String, over_race: bool, setup: RaceSetup,
 		# Scrolling to the selection needs the list laid out, which has not
 		# happened yet on the frame the menu becomes visible.
 		_list.ensure_current_is_visible.call_deferred()
-	_list.grab_focus()
 
 func close() -> void:
 	if not visible:
@@ -197,6 +288,16 @@ func _race_selected() -> void:
 	_choose(_entries[selected[0]])
 
 func _choose(entry: CourseListing) -> void:
+	if mode == Mode.NET_CREATE or mode == Mode.NET_ROOM:
+		if _waiting:
+			return
+		if mode == Mode.NET_CREATE:
+			_waiting = true
+			_race_button.disabled = true
+			_set_result("Creating the race…")
+		room_course_chosen.emit(entry, _snow.get_selected_id(), _race_name.text,
+			_password.text)
+		return
 	visible = false
 	course_chosen.emit(entry, _chosen_setup())
 

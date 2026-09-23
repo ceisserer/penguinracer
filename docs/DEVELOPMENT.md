@@ -252,9 +252,10 @@ how many are in it, who created it, and whether it is locked. From there:
 - **Join** one. If it is locked, type the password first. The password never leaves your machine:
   what goes on the wire is a SHA-256 digest of it salted with the race's name, so a password reused
   from somewhere else is not sent anywhere.
-- **Create a race**. Name it, choose the course and the snowfall, and set a password or leave it
-  empty for an open race. You are that race's admin: you are the only one who can change the
-  course and the only one who can press Start. Close the window and the race is handed to whoever
+- **Create a race**. This opens the same course screen Practice uses: choose the course and the
+  snowfall, name the race, and set a password or leave it empty for an open race. You are that
+  race's admin: you are the only one who can change the course (*Change course*, the same screen
+  again) and the only one who can press Start. Close the window and the race is handed to whoever
   has been in it longest rather than collapsing.
 
 Press Start and everyone loads the course. Nobody races until the last machine has it built — a

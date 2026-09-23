@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/shell/lobby_menu.gd" id="1_lobby"]
 [ext_resource type="Theme" path="res://themes/etr_menu.tres" id="2_theme"]
+[ext_resource type="PackedScene" path="res://scenes/course_menu.tscn" id="3_courses"]
 
 [node name="LobbyMenu" type="CanvasLayer"]
 layer = 10
@@ -198,92 +199,6 @@ custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
 
-[node name="CreatePage" type="VBoxContainer" parent="Frame/Body"]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_vertical = 3
-theme_override_constants/separation = 12
-
-[node name="TopSpacer" type="Control" parent="Frame/Body/CreatePage"]
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="Fields" type="GridContainer" parent="Frame/Body/CreatePage"]
-layout_mode = 2
-size_flags_horizontal = 4
-theme_override_constants/h_separation = 14
-theme_override_constants/v_separation = 12
-columns = 2
-
-[node name="RaceNameLabel" type="Label" parent="Frame/Body/CreatePage/Fields"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 22
-
-[node name="RaceNameEdit" type="LineEdit" parent="Frame/Body/CreatePage/Fields"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(420, 40)
-layout_mode = 2
-theme_override_font_sizes/font_size = 20
-max_length = 32
-
-[node name="NewPasswordLabel" type="Label" parent="Frame/Body/CreatePage/Fields"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 22
-
-[node name="NewPasswordEdit" type="LineEdit" parent="Frame/Body/CreatePage/Fields"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(420, 40)
-layout_mode = 2
-theme_override_font_sizes/font_size = 20
-secret = true
-placeholder_text = "leave empty for an open race"
-
-[node name="CourseLabel" type="Label" parent="Frame/Body/CreatePage/Fields"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 22
-
-[node name="CourseOption" type="OptionButton" parent="Frame/Body/CreatePage/Fields"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(420, 40)
-layout_mode = 2
-theme_override_font_sizes/font_size = 20
-
-[node name="SnowLabel" type="Label" parent="Frame/Body/CreatePage/Fields"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 22
-
-[node name="SnowOption" type="OptionButton" parent="Frame/Body/CreatePage/Fields"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(420, 40)
-layout_mode = 2
-theme_override_font_sizes/font_size = 20
-
-[node name="BottomSpacer" type="Control" parent="Frame/Body/CreatePage"]
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="Buttons" type="HBoxContainer" parent="Frame/Body/CreatePage"]
-layout_mode = 2
-alignment = 2
-theme_override_constants/separation = 10
-
-[node name="CreateConfirmButton" type="Button" parent="Frame/Body/CreatePage/Buttons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 42)
-layout_mode = 2
-theme_override_font_sizes/font_size = 22
-
-[node name="CancelButton" type="Button" parent="Frame/Body/CreatePage/Buttons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 42)
-layout_mode = 2
-theme_override_font_sizes/font_size = 22
-
 [node name="RoomPage" type="VBoxContainer" parent="Frame/Body"]
 unique_name_in_owner = true
 visible = false
@@ -303,35 +218,6 @@ layout_mode = 2
 theme_type_variation = &"DimLabel"
 theme_override_font_sizes/font_size = 19
 horizontal_alignment = 1
-
-[node name="RoomCourseRow" type="HBoxContainer" parent="Frame/Body/RoomPage"]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 4
-theme_override_constants/separation = 12
-
-[node name="RoomCourseLabel" type="Label" parent="Frame/Body/RoomPage/RoomCourseRow"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 19
-
-[node name="RoomCourseOption" type="OptionButton" parent="Frame/Body/RoomPage/RoomCourseRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(320, 38)
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-
-[node name="RoomSnowLabel" type="Label" parent="Frame/Body/RoomPage/RoomCourseRow"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 19
-
-[node name="RoomSnowOption" type="OptionButton" parent="Frame/Body/RoomPage/RoomCourseRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(160, 38)
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
 
 [node name="MembersPanel" type="PanelContainer" parent="Frame/Body/RoomPage"]
 layout_mode = 2
@@ -354,6 +240,12 @@ layout_mode = 2
 alignment = 2
 theme_override_constants/separation = 10
 
+[node name="ChangeCourseButton" type="Button" parent="Frame/Body/RoomPage/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
 [node name="StartButton" type="Button" parent="Frame/Body/RoomPage/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 42)
@@ -374,3 +266,7 @@ theme_override_font_sizes/font_size = 22
 
 [node name="RefreshTimer" type="Timer" parent="."]
 unique_name_in_owner = true
+
+[node name="CoursePicker" parent="." instance=ExtResource("3_courses")]
+unique_name_in_owner = true
+layer = 11

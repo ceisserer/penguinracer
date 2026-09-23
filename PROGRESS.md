@@ -830,16 +830,27 @@ What the server owns: the room list, who may enter a room, who may start a race,
 is over. What it does not own: any position. A snapshot arrives from one member and is forwarded
 to the others unread.
 
-**The lobby is four pages behind one panel** (`LobbyMenu`), and the page is never chosen by a
+**The lobby is three pages behind one panel** (`LobbyMenu`), and the page is never chosen by a
 button — it is chosen by what `Net` says is true, which is what makes the screen survive things
 that happen *to* it rather than through it:
 
 ```
 CONNECT   your name, and the server               → Net.connect_to_server
 BROWSE    every race not yet started              → Net.join_room
-CREATE    name it, lock it, choose the course     → Net.create_room
 ROOM      who is here, and the Start button       → Net.start_race
 ```
+
+**The course is picked on the course screen, not on a page of the lobby.** *Create a race* and the
+admin's *Change course* open `CourseMenu` — the same list, preview and details Practice and *Race
+the computer* use — in one of two network modes: `NET_CREATE` swaps the opponents row for a race
+name and a password and says *Create*, `NET_ROOM` shows only the snow row and says *Choose*.
+`LobbyMenu` carries its own instance of it one layer up and makes the `Net` call itself; the
+course screen never talks to the network. A create is answered asynchronously and can be refused,
+so the picker stays up saying *Creating the race…* until the room arrives or the server's reason
+does, which it then shows in place. It is taken down by the same news that moves the pages: the
+session dropping, or the admin's seat passing to somebody else mid-choice. Until 2026-09-23 the
+lobby had a CREATE page and two dropdowns of its own, and a player opening a room never saw what
+the course looked like.
 
 A race carries a name, a course, a snowfall grade and an optional password. The creator is its
 admin: only they can change the course and only they can start it, and when they close the window

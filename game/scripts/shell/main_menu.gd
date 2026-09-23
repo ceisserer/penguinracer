@@ -24,7 +24,8 @@
 ##
 ## ... and *Network multiplayer*, which opens [LobbyMenu] rather than the course
 ## list, because in a network race the course is not this player's to choose: it
-## belongs to the room, and the room belongs to whoever created it. Everything
+## belongs to the room, and the room belongs to whoever created it. The lobby
+## still picks it on a [CourseMenu] — its own instance, in a network mode. Everything
 ## else about such a race is a race against the computer with the field arriving
 ## over a socket — see [RaceSetup] and [RaceNetwork].
 ##

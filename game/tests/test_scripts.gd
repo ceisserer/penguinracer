@@ -26,6 +26,7 @@ const SCENES: PackedStringArray = [
 	"res://scenes/main_menu.tscn",
 	"res://scenes/race.tscn",
 	"res://scenes/course_menu.tscn",
+	"res://scenes/lobby_menu.tscn",
 	"res://scenes/character_menu.tscn",
 	"res://scenes/settings_menu.tscn",
 	"res://scenes/key_log.tscn",

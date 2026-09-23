@@ -133,6 +133,40 @@ custom_minimum_size = Vector2(150, 38)
 layout_mode = 2
 theme_override_font_sizes/font_size = 17
 
+[node name="RoomRow" type="HBoxContainer" parent="Frame/Body/Columns/InfoPanel/Info"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="RaceNameLabel" type="Label" parent="Frame/Body/Columns/InfoPanel/Info/RoomRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Race name:"
+
+[node name="RaceNameEdit" type="LineEdit" parent="Frame/Body/Columns/InfoPanel/Info/RoomRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 38)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 17
+max_length = 32
+
+[node name="PasswordLabel" type="Label" parent="Frame/Body/Columns/InfoPanel/Info/RoomRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Password:"
+
+[node name="PasswordEdit" type="LineEdit" parent="Frame/Body/Columns/InfoPanel/Info/RoomRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(160, 38)
+layout_mode = 2
+theme_override_font_sizes/font_size = 17
+placeholder_text = "none"
+secret = true
+
 [node name="WeatherRow" type="HBoxContainer" parent="Frame/Body/Columns/InfoPanel/Info"]
 unique_name_in_owner = true
 layout_mode = 2

@@ -1,23 +1,32 @@
 ## **Network multiplayer** — the server, the list of open races, and the room
 ## you stand in until the admin starts one.
 ##
-## Four pages behind one panel, because they are four steps of one errand and a
-## player walking it should never lose their place:
+## Three pages behind one panel, because they are three steps of one errand
+## and a player walking it should never lose their place:
 ##
 ## [codeblock]
 ## CONNECT   who you are, and which server          → Net.connect_to_server
-## BROWSE    every race not yet started             → Net.join_room / create
-## CREATE    name it, lock it, choose the course    → Net.create_room
+## BROWSE    every race not yet started             → Net.join_room
 ## ROOM      who is here, and the Start button      → Net.start_race
 ## [/codeblock]
 ##
 ## The page is never chosen by a button — it is chosen by what [RaceNetwork]
 ## says is true. Connected and in a room is ROOM, connected and not is BROWSE,
-## not connected is CONNECT, and the one exception is CREATE, which is the only
-## page a player asks for. That is what makes the screen survive things that
+## not connected is CONNECT. That is what makes the screen survive things that
 ## happen to it rather than through it: the admin leaves and the room lands on
 ## somebody else, the server goes away mid-browse, a race ends and eight people
 ## are put back in the room they were in.
+##
+## [b]The course is chosen on the course screen[/b], the same [CourseMenu]
+## Practice and *Race the computer* use, with its preview and its details —
+## this scene carries an instance of it of its own (`%CoursePicker`, one layer
+## up). *Create a race* opens it in [constant CourseMenu.Mode.NET_CREATE], with
+## a race name and a password where the field would be; *Change course* opens
+## it for the room's admin in [constant CourseMenu.Mode.NET_ROOM]. It is a
+## panel over this one rather than a page of it, and it is taken down by the
+## same [RaceNetwork] news that moves the pages: the room that was being
+## created arriving, the session dropping, the admin's seat passing to
+## somebody else.
 ##
 ## [b]The password never leaves this machine.[/b] What goes on the wire is
 ## [method LobbyServer.digest] of the room name and the password together; the
@@ -38,7 +47,7 @@ signal race_starting(course_dir: String, snowfall: int)
 ## room is not something you should lose by looking at the settings screen.
 signal closed()
 
-enum Page { CONNECT, BROWSE, CREATE, ROOM }
+enum Page { CONNECT, BROWSE, ROOM }
 
 ## How often the browser asks for a fresh list, in seconds. The server pushes
 ## one at every change already; this is for the change that happened while the
@@ -46,18 +55,15 @@ enum Page { CONNECT, BROWSE, CREATE, ROOM }
 ## since before the room it is looking at filled up.
 const REFRESH_SECONDS := 5.0
 
-## What the four grades of snowfall are called. The same four [CourseMenu]
-## offers, named the same way and for the same reason — see
-## [constant CourseMenu.SNOW_LABELS].
-const SNOW_LABELS: Array[String] = ["None", "A little", "More", "A lot"]
-
 var _page: Page = Page.CONNECT
 var _catalog: CourseCatalog
-## Course directories offered, in the order the option button lists them.
-var _courses: PackedStringArray = PackedStringArray()
+## What the next room this player opens is called, kept between opens of the
+## picker so a refused name can be fixed rather than typed again.
+var _race_name: String = ""
 ## The rooms behind the rows of [member _list], as the server sent them.
 var _rooms: Array[Dictionary] = []
 
+@onready var _frame: Control = $Frame
 @onready var _title: Label = %Title
 @onready var _status: Label = %Status
 
@@ -78,27 +84,18 @@ var _rooms: Array[Dictionary] = []
 @onready var _refresh_button: Button = %RefreshButton
 @onready var _disconnect_button: Button = %DisconnectButton
 
-@onready var _create_page: Control = %CreatePage
-@onready var _race_name_edit: LineEdit = %RaceNameEdit
-@onready var _new_password_edit: LineEdit = %NewPasswordEdit
-@onready var _course_option: OptionButton = %CourseOption
-@onready var _snow_option: OptionButton = %SnowOption
-@onready var _create_confirm: Button = %CreateConfirmButton
-@onready var _cancel_button: Button = %CancelButton
-
 @onready var _room_page: Control = %RoomPage
 @onready var _room_title: Label = %RoomTitle
 @onready var _room_course: Label = %RoomCourse
 @onready var _member_list: ItemList = %MemberList
 @onready var _room_hint: Label = %RoomHint
-@onready var _room_course_option: OptionButton = %RoomCourseOption
-@onready var _room_snow_option: OptionButton = %RoomSnowOption
-@onready var _room_course_row: Control = %RoomCourseRow
+@onready var _change_course_button: Button = %ChangeCourseButton
 @onready var _start_button: Button = %StartButton
 @onready var _leave_button: Button = %LeaveButton
 
 @onready var _back_buttons: Array[Button] = [%BackButton1, %BackButton2, %BackButton3]
 @onready var _refresh_timer: Timer = %RefreshTimer
+@onready var _picker: CourseMenu = %CoursePicker
 
 func _ready() -> void:
 	_catalog = CourseCatalog.load_default()
@@ -114,23 +111,12 @@ func _ready() -> void:
 	_disconnect_button.text = "Disconnect"
 	%PasswordLabel.text = "Password:"
 	_empty.text = "No races waiting. Create one and the others will see it."
-	%RaceNameLabel.text = "Race name:"
-	%NewPasswordLabel.text = "Password:"
-	%CourseLabel.text = "Course:"
-	%SnowLabel.text = "Snowfall:"
-	%RoomCourseLabel.text = "Course:"
-	%RoomSnowLabel.text = "Snowfall:"
-	_create_confirm.text = "Create"
-	_cancel_button.text = tr("CANCEL")
+	_change_course_button.text = "Change course"
 	_start_button.text = "Start the race"
 	_leave_button.text = "Leave this race"
 	for button: Button in _back_buttons:
 		button.text = tr("BACK")
 		button.pressed.connect(close)
-	_fill_courses(_course_option)
-	_fill_courses(_room_course_option)
-	_fill_snow(_snow_option)
-	_fill_snow(_room_snow_option)
 
 	_connect_button.pressed.connect(_do_connect)
 	_address_edit.text_submitted.connect(func(_t: String) -> void: _do_connect())
@@ -139,15 +125,13 @@ func _ready() -> void:
 	_password_edit.text_submitted.connect(func(_t: String) -> void: _do_join())
 	_join_button.pressed.connect(_do_join)
 	_create_button.pressed.connect(_open_create)
+	_change_course_button.pressed.connect(_open_change_course)
 	_refresh_button.pressed.connect(Net.refresh_rooms)
 	_disconnect_button.pressed.connect(_do_disconnect)
-	_create_confirm.pressed.connect(_do_create)
-	_race_name_edit.text_submitted.connect(func(_t: String) -> void: _do_create())
-	_cancel_button.pressed.connect(func() -> void: _show(Page.BROWSE))
 	_start_button.pressed.connect(_do_start)
 	_leave_button.pressed.connect(_do_leave)
-	_room_course_option.item_selected.connect(_on_room_course_changed)
-	_room_snow_option.item_selected.connect(_on_room_course_changed)
+	_picker.room_course_chosen.connect(_on_picker_chosen)
+	_picker.back_requested.connect(_close_picker)
 	_refresh_timer.wait_time = REFRESH_SECONDS
 	_refresh_timer.timeout.connect(_on_refresh_tick)
 
@@ -169,7 +153,7 @@ func open() -> void:
 	_name_edit.text = Config.player_name
 	_address_edit.text = Config.multiplayer_server if not Config.multiplayer_server.is_empty() \
 		else RaceNetwork.default_address(Config.multiplayer_port)
-	_race_name_edit.text = "%s's race" % Config.player_name
+	_race_name = "%s's race" % Config.player_name
 	_status.text = ""
 	_refresh_timer.start()
 	if Net.in_room():
@@ -188,16 +172,19 @@ func close() -> void:
 		return
 	visible = false
 	_refresh_timer.stop()
+	_close_picker()
 	closed.emit()
 
-## The one thing on this screen that is not decided by [RaceNetwork]: which of
-## the four pages is up. Everything else follows from it.
+## Which of the three pages is up. Everything else follows from it.
 func _show(page: Page) -> void:
 	_page = page
 	_connect_page.visible = page == Page.CONNECT
 	_browse_page.visible = page == Page.BROWSE
-	_create_page.visible = page == Page.CREATE
 	_room_page.visible = page == Page.ROOM
+	# The pages are drawn and focused under the picker too, so that taking it
+	# down lands on the right one; only a panel nobody can see keeps the focus.
+	if _picker.visible:
+		return
 	match page:
 		Page.CONNECT:
 			_address_edit.grab_focus()
@@ -207,9 +194,6 @@ func _show(page: Page) -> void:
 				_list.grab_focus()
 			else:
 				_create_button.grab_focus()
-		Page.CREATE:
-			_race_name_edit.grab_focus()
-			_race_name_edit.select_all()
 		Page.ROOM:
 			_fill_room()
 			if Net.is_admin():
@@ -258,11 +242,18 @@ func _on_session_ended(reason: String) -> void:
 	_rooms.clear()
 	if not visible:
 		return
+	_close_picker()
 	_status.text = reason
 	_show(Page.CONNECT)
 
 func _on_lobby_error(message: String) -> void:
-	if visible:
+	if not visible:
+		return
+	# A refused create is the picker's to explain — the player is still looking
+	# at it, with the name the server did not like in front of them.
+	if _picker.visible and _picker.mode == CourseMenu.Mode.NET_CREATE:
+		_picker.show_error(message)
+	else:
 		_status.text = message
 
 # ==================================================================
@@ -339,28 +330,56 @@ func _do_join() -> void:
 #                          creating a race
 # ==================================================================
 
+## The course screen, as the place a room is opened from. It starts on the
+## course this player last raced, the way *Race the computer* does, and on the
+## weather they last chose.
 func _open_create() -> void:
 	_status.text = ""
-	_new_password_edit.text = ""
-	if _race_name_edit.text.strip_edges().is_empty():
-		_race_name_edit.text = "%s's race" % Config.player_name
-	_snow_option.select(_snow_option.get_item_index(
-		clampi(Config.snowfall, 0, SnowFall.MAX_GRADE)))
-	_show(Page.CREATE)
+	if _race_name.strip_edges().is_empty():
+		_race_name = "%s's race" % Config.player_name
+	_open_picker(CourseMenu.Mode.NET_CREATE,
+		RaceScene.requested_course_path.get_base_dir().get_file(), Config.snowfall)
 
-func _do_create() -> void:
-	var name: String = LobbyServer.sanitize_name(_race_name_edit.text, "",
-		LobbyServer.ROOM_NAME_MAX)
-	if name.is_empty():
-		_status.text = LobbyServer.explain("bad_room_name")
-		_race_name_edit.grab_focus()
-		return
-	var course: String = _chosen_course(_course_option)
-	if course.is_empty():
-		_status.text = LobbyServer.explain("no_course")
+## The admin wants the room to race something else. The picker opens on what
+## it races now.
+func _open_change_course() -> void:
+	var room: Dictionary = Net.room
+	if room.is_empty() or not Net.is_admin():
 		return
 	_status.text = ""
-	Net.create_room(name, _new_password_edit.text, course, _snow_option.get_selected_id())
+	_open_picker(CourseMenu.Mode.NET_ROOM, str(room.get("course", "")),
+		int(room.get("snowfall", 0)))
+
+func _open_picker(mode: CourseMenu.Mode, course_dir: String, snow: int) -> void:
+	# Hidden rather than covered: the picker's backdrop lets the mouse through,
+	# and a click on its empty margin must not land on a button under it.
+	_frame.visible = false
+	_picker.open_network(mode, course_dir, snow, _race_name)
+
+## Down again, back on whichever page [RaceNetwork] now says is the one.
+func _close_picker() -> void:
+	if not _picker.visible and _frame.visible:
+		return
+	_picker.dismiss()
+	_frame.visible = true
+	if visible:
+		_show(_page)
+
+func _on_picker_chosen(listing: CourseListing, snow: int, race_name: String,
+		password: String) -> void:
+	if _picker.mode == CourseMenu.Mode.NET_ROOM:
+		_close_picker()
+		if Net.is_admin():
+			Net.set_course(listing.dir, snow)
+		return
+	var clean: String = LobbyServer.sanitize_name(race_name, "", LobbyServer.ROOM_NAME_MAX)
+	_race_name = clean
+	if clean.is_empty():
+		_picker.show_error(LobbyServer.explain("bad_room_name"))
+		return
+	# The picker stays up, saying so, until the room arrives
+	# ([method _on_room_changed]) or the reason it will not ([method _on_lobby_error]).
+	Net.create_room(clean, password, listing.dir, snow)
 
 # ==================================================================
 #                             the room
@@ -370,15 +389,25 @@ func _on_room_changed() -> void:
 	if not visible:
 		return
 	if Net.in_room():
-		if _page != Page.ROOM:
+		# The room being created has arrived — or the room somebody was
+		# choosing a course for is no longer theirs to choose it for.
+		if _picker.visible and (_picker.mode == CourseMenu.Mode.NET_CREATE
+				or not Net.is_admin()):
+			_page = Page.ROOM
+			_close_picker()
+		elif _page != Page.ROOM:
 			_show(Page.ROOM)
 		else:
 			_fill_room()
 		return
 	# Dropped out of a room — by leaving it, or by being the last one in it
-	# when the server tidied it away. CREATE is left alone: a player halfway
-	# through naming a race has not lost anything worth taking the page for.
-	if _page == Page.ROOM:
+	# when the server tidied it away. A create still in flight is left alone:
+	# a player halfway through naming a race has not lost anything worth
+	# taking the screen for.
+	if _picker.visible and _picker.mode == CourseMenu.Mode.NET_ROOM:
+		_page = Page.BROWSE
+		_close_picker()
+	elif _page == Page.ROOM:
 		_show(Page.BROWSE)
 
 func _fill_room() -> void:
@@ -390,15 +419,11 @@ func _fill_room() -> void:
 		"   (password)" if bool(room.get("locked", false)) else ""]
 	var listing: CourseListing = _catalog.find(str(room.get("course", "")))
 	var course: String = listing.title() if listing != null else str(room.get("course", ""))
-	var grade: int = clampi(int(room.get("snowfall", 0)), 0, SNOW_LABELS.size() - 1)
-	_room_course.text = "%s   —   snow: %s" % [course, SNOW_LABELS[grade]]
-	# The admin gets the course as a control and everyone else as a line of
-	# text, which is the whole of what being the admin means on this page.
-	_room_course_row.visible = admin
-	_room_course.visible = not admin
-	if admin:
-		_select_course(_room_course_option, str(room.get("course", "")))
-		_room_snow_option.select(_room_snow_option.get_item_index(grade))
+	var grade: int = clampi(int(room.get("snowfall", 0)), 0, CourseMenu.SNOW_LABELS.size() - 1)
+	_room_course.text = "%s   —   snow: %s" % [course, CourseMenu.SNOW_LABELS[grade]]
+	# The admin gets a way to change the course and everyone else only reads
+	# it, which is the whole of what being the admin means on this page.
+	_change_course_button.visible = admin
 	_member_list.clear()
 	for entry: Variant in Net.members():
 		if entry is Dictionary:
@@ -417,11 +442,6 @@ func _member_row(entry: Dictionary) -> String:
 	return "%s  —  %s%s" % [str(entry.get("name", "?")),
 		str(entry.get("character", "")), suffix]
 
-func _on_room_course_changed(_index: int) -> void:
-	if not Net.is_admin():
-		return
-	Net.set_course(_chosen_course(_room_course_option), _room_snow_option.get_selected_id())
-
 func _do_start() -> void:
 	_status.text = ""
 	Net.start_race()
@@ -438,6 +458,7 @@ func _on_race_starting(course_dir: String, snow: int) -> void:
 	if not visible:
 		return
 	_refresh_timer.stop()
+	_close_picker()
 	visible = false
 	race_starting.emit(course_dir, snow)
 
@@ -451,41 +472,15 @@ func _on_race_over(_standings: Array) -> void:
 
 # ==================================================================
 
-func _fill_courses(option: OptionButton) -> void:
-	option.clear()
-	_courses = PackedStringArray()
-	for entry: CourseListing in _catalog.entries:
-		# `preview_path`, not `scene_path`: a streamed web build has no
-		# `course.tscn` bundled until the course is chosen, and every preview
-		# ships up front. Same filter [CourseMenu] uses, for the same reason.
-		if not ResourceLoader.exists(entry.preview_path):
-			continue
-		option.add_item(entry.title(), _courses.size())
-		_courses.push_back(entry.dir)
-
-func _fill_snow(option: OptionButton) -> void:
-	option.clear()
-	for grade: int in SNOW_LABELS.size():
-		option.add_item(SNOW_LABELS[grade], grade)
-
-func _chosen_course(option: OptionButton) -> String:
-	var id: int = option.get_selected_id()
-	return _courses[id] if id >= 0 and id < _courses.size() else ""
-
-func _select_course(option: OptionButton, dir: String) -> void:
-	var at: int = _courses.find(dir)
-	if at >= 0:
-		option.select(option.get_item_index(at))
-
 func _unhandled_input(event: InputEvent) -> void:
 	if not visible or not event.is_action_pressed("menu"):
 		return
 	get_viewport().set_input_as_handled()
-	# Esc backs out one page rather than off the screen, wherever there is a
-	# page behind: out of Create to the browser, out of the browser to the main
-	# menu. A room is left with its own button — Esc is not how you leave a race
-	# eight people are waiting in.
-	if _page == Page.CREATE:
-		_show(Page.BROWSE)
+	# Esc backs out one screen rather than off the lobby, wherever there is one
+	# behind: out of the course picker to the page under it, out of the browser
+	# to the main menu. A room is left with its own button — Esc is not how you
+	# leave a race eight people are waiting in.
+	if _picker.visible:
+		_close_picker()
 		return
 	close()
