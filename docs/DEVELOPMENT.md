@@ -235,7 +235,8 @@ To run it on another machine, `tools/build_server.sh` assembles `build/server/`:
 dedicated-server export of the project (the `Server` preset: no courses, no textures, no music,
 main scene `scenes/server.tscn` through the `dedicated_server` feature tag), a copy of
 `build/web`, and a `start.sh` that takes the same `PORT` / `WEB_PORT` / `WEB_ROOT` overrides.
-The host needs no Godot and no checkout:
+The host needs no Godot and no checkout; the build machine needs Godot's Linux release export
+template (a distribution's `godot` package ships none — the script says how to install it):
 
 ```bash
 tools/build_server.sh [--build-web]         # --build-web runs build_web_streamed.sh first

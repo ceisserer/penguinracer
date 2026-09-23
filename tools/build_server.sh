@@ -43,6 +43,28 @@ if [[ ! -f "$WEB/index.html" ]]; then
     exit 1
 fi
 
+# The binary is Godot's Linux release export template with the project
+# appended, so the template has to be installed — a distribution's own `godot`
+# package does not ship one. Checked here because Godot's own complaint comes
+# after a full filesystem scan and only in the editor's language.
+VERSION="$("$GODOT" --version | grep -oE '^[0-9.]+\.[a-z]+[0-9]*')"   # 4.7.2.stable
+TEMPLATES="${XDG_DATA_HOME:-$HOME/.local/share}/godot/export_templates/$VERSION"
+if [[ ! -f "$TEMPLATES/linux_release.x86_64" ]]; then
+    TAG="${VERSION%.*}-${VERSION##*.}"                                  # 4.7.2-stable
+    cat >&2 <<EOF
+no Linux export template for Godot $VERSION in
+    $TEMPLATES
+install it once (the download is the full template set, ~1.3 GB; only the
+Linux release binary is kept):
+    curl -L -o /tmp/tpl.tpz https://github.com/godotengine/godot/releases/download/$TAG/Godot_v${TAG}_export_templates.tpz
+    mkdir -p "$TEMPLATES"
+    unzip -j /tmp/tpl.tpz templates/linux_release.x86_64 templates/version.txt -d "$TEMPLATES"
+    rm /tmp/tpl.tpz
+or in the editor: Editor > Manage Export Templates > Download and Install
+EOF
+    exit 1
+fi
+
 rm -rf "$OUT"
 mkdir -p "$OUT"
 
