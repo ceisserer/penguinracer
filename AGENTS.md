@@ -115,7 +115,9 @@ game/                     Godot project (project.godot; mobile on the desktop,
                           mirror works here, and what Fresnel costs
 etr-0.8.4/                original source + data — READ-ONLY, never write here
 tools/                    import_all.sh, serve.sh (the dedicated server, with the
-                          web export behind it), shot.sh (deterministic
+                          web export behind it), build_server.sh (the same
+                          server as a Linux dedicated-server export plus
+                          build/web, in build/server/ for a host), shot.sh (deterministic
                           screenshot, real GPU when there is one),
                           png.py + regionstats.py + linstats.py (compare a
                           capture against a reference numerically — pure Python
@@ -165,6 +167,7 @@ godot --path game spikes/s7_reflection/s7_spike.tscn               # planar refl
 godot --headless --path game res://scenes/server.tscn -- --port=27015 \
     --web-root=../build/web --web-port=8060
 ./tools/serve.sh                                                   # ... the same, absolute, with defaults
+./tools/build_server.sh [--build-web]                              # ... packaged into build/server/ for a host
 
 ./tools/import_all.sh [--course=bunny_hill] [--force]              # 4-pass importer
 
@@ -208,7 +211,8 @@ no longer a setting: it is whichever saved run the player chose from the main me
 against ghost** list, or none.
 
 Export presets: `Web` (the streamed base — engine, shell, all 44 previews, no course internals
-or music), one generated `Course_<dir>` per course, `MusicPack`, `WebSpike`. The generated
+or music), one generated `Course_<dir>` per course, `MusicPack`, `WebSpike`, and `Server` (Linux,
+dedicated server; `tools/build_server.sh` drives it). The generated
 presets are owned by `tools/gen_course_export_presets.py`, re-run whenever a course is added,
 removed or renamed; `tools/build_web_streamed.sh` drives the whole build.
 The test server must set COOP/COEP and `.wasm`/`.pck` MIME types or the export fails obscurely.

@@ -59,8 +59,9 @@ game/                     Godot project
   spikes/s1_pingpong/     the ping-pong render-target spike (risk S1)
   spikes/s7_reflection/   the planar reflection spike (S7)
 etr-0.8.4/                the original source and data, read-only
-tools/                    importer driver, serve.sh (the dedicated server), and the
-                          browser test harness
+tools/                    importer driver, serve.sh (the dedicated server),
+                          build_server.sh (the same server packaged for a host),
+                          and the browser test harness
 ```
 
 ## Prerequisites
@@ -228,6 +229,18 @@ WEB_ROOT= tools/serve.sh            # ... races only, no HTTP at all
 # because Godot gives a script no way to ask for the shell's directory
 godot --headless --path game res://scenes/server.tscn -- \
     --port=27015 --web-root=../build/web --web-port=8060
+```
+
+To run it on another machine, `tools/build_server.sh` assembles `build/server/`: a Linux
+dedicated-server export of the project (the `Server` preset: no courses, no textures, no music,
+main scene `scenes/server.tscn` through the `dedicated_server` feature tag), a copy of
+`build/web`, and a `start.sh` that takes the same `PORT` / `WEB_PORT` / `WEB_ROOT` overrides.
+The host needs no Godot and no checkout:
+
+```bash
+tools/build_server.sh [--build-web]         # --build-web runs build_web_streamed.sh first
+scp -r build/server host:penguinracer
+ssh host penguinracer/start.sh
 ```
 
 It opens two listeners in one process. The **race port** carries the sessions, over WebSocket,

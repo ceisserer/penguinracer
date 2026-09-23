@@ -16,6 +16,7 @@ config/version="0.1.0"
 run/main_scene="res://scenes/main_menu.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 run/main_scene.spike="res://spikes/s1_pingpong/s1_spike.tscn"
+run/main_scene.dedicated_server="res://scenes/server.tscn"
 
 [audio]
 
