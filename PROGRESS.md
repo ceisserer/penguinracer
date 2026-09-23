@@ -751,10 +751,10 @@ bytes of intent per tick plus an 18-float pose every third tick, about 190 kB fo
 run — but nothing is written to disk automatically any more. A finished race brings up a results
 screen over the still-loaded course (`ResultsMenu`) showing the time, the herring and — if the
 race had one — how far ahead of or behind a saved run's ghost it finished, while the character
-plays a `wonrace`/`lostrace`/`finish` clip (there are no cups in this rebuild, so the mapping —
+plays a `wonrace`/`lostrace` clip (there are no cups in this rebuild, so the mapping —
 `RaceOutcome.clip` — is place in a field race, or beating the loaded ghost in a solo one, or
-nothing to win or lose in a plain practice run). From there the player can name the run and keep
-it (`SavedRunStore`, `user://runs/<course>_<ticks>.res`, one file per save, never overwritten).
+`wonrace` in a plain practice run, which has nothing to lose; ETR plays `finish` there, see the
+deviations in AGENTS.md). From there the player can name the run and keep it (`SavedRunStore`, `user://runs/<course>_<ticks>.res`, one file per save, never overwritten).
 The main menu's **Race against ghost** entry (`GhostMenu`) lists every saved run across every
 course — time, herring, deletable — and racing one starts Practice on that run's course with it
 loaded as the ghost, translucent on the line it took, gap in seconds on the HUD. This replaced the

@@ -1646,8 +1646,9 @@ func _ghost_note() -> String:
 ## finished run so its Save button has something to write. [param clip] is
 ## what [method _show_results_after_finish] just started on the rig — reused
 ## here so the sting matches the pose: `lostrace` plays the theme's loss
-## sting, anything else its win sting (`finish` included — a plain practice
-## run has nothing to lose, matching the original's own non-cup behaviour).
+## sting, anything else its win sting (`wonrace`, and `finish` when a rig
+## falls back to it — a plain practice run has nothing to lose, matching the
+## original's own non-cup behaviour).
 func _open_results(recording: RaceRecording, clip: StringName, note: String) -> void:
 	paused = true
 	_stop_slide_sound()

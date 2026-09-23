@@ -397,7 +397,7 @@ static func _outcome_clip_mapping(t: TestCase) -> void:
 	t.begin("finish-line outcome clip")
 	# There are no cups in this rebuild, so [method RaceOutcome.clip] decides
 	# `wonrace`/`lostrace` from place in a field race, from beating a saved run
-	# in a solo one, and from neither in a plain practice run.
+	# in a solo one; a plain practice run has nothing to lose and dances.
 	t.ok(RaceOutcome.clip(true, true, false, false) == &"wonrace",
 		"first place in a field race dances")
 	t.ok(RaceOutcome.clip(true, false, false, false) == &"lostrace",
@@ -408,8 +408,8 @@ static func _outcome_clip_mapping(t: TestCase) -> void:
 		"beating the ghost in a solo race dances")
 	t.ok(RaceOutcome.clip(false, false, true, false) == &"lostrace",
 		"losing to it does not")
-	t.ok(RaceOutcome.clip(false, false, false, false) == &"finish",
-		"a plain practice run has nothing to win or lose")
+	t.ok(RaceOutcome.clip(false, false, false, false) == &"wonrace",
+		"a plain practice run has nothing to lose, so it dances (a deviation)")
 
 static func _playback_racer(t: TestCase) -> void:
 	t.begin("playback racer")
