@@ -360,9 +360,7 @@ static func _launch_args(t: TestCase) -> void:
 	t.ok(not shot.is_scripted(), "and is not a scripted run")
 	for argv: PackedStringArray in [
 			PackedStringArray(["--course=bunny_hill"]),
-			PackedStringArray(["--auto-input=carve"]),
-			PackedStringArray(["--host"]),
-			PackedStringArray(["--join=127.0.0.1"])]:
+			PackedStringArray(["--auto-input=carve"])]:
 		var a := LaunchArgs.new()
 		a.parse(argv, {})
 		t.ok(a.wants_direct_race(), "%s hands straight over to a race" % argv[0])
@@ -371,13 +369,25 @@ static func _launch_args(t: TestCase) -> void:
 	t.ok(auto.wants_direct_race(), "?autostart does too, for a browser")
 
 	t.begin("launch arguments: sessions")
-	var host := LaunchArgs.new()
-	host.parse(PackedStringArray(["--host=27100"]), {})
-	t.ok(host.host and host.host_port == 27100, "a port on --host= is read")
-	var bare := LaunchArgs.new()
-	bare.parse(PackedStringArray(["--host"]), {})
-	t.ok(bare.host and bare.host_port == 0,
-		"a bare --host leaves the port to the settings file")
-	var join := LaunchArgs.new()
-	join.parse(PackedStringArray(["--join=10.0.0.4"]), {})
-	t.ok(join.join_address == "10.0.0.4" and not join.host, "--join= is read")
+	# A session no longer skips the menu — it opens the lobby, because the
+	# course belongs to the room and not to the command line.
+	var named := LaunchArgs.new()
+	named.parse(PackedStringArray(["--server=penguin.example:27100"]), {})
+	t.ok(named.server == "penguin.example:27100", "--server= is read")
+	t.ok(named.wants_lobby() and not named.wants_direct_race(),
+		"and opens the lobby rather than a course")
+	var bare_lobby := LaunchArgs.new()
+	bare_lobby.parse(PackedStringArray(["--lobby"]), {})
+	t.ok(bare_lobby.wants_lobby() and bare_lobby.server.is_empty(),
+		"--lobby takes the server the settings file names")
+	var linked := LaunchArgs.new()
+	linked.parse(PackedStringArray(), {"server": "ws://penguin.example:27015"})
+	t.ok(linked.wants_lobby() and linked.server == "ws://penguin.example:27015",
+		"?server= does the same from a link")
+	var serving := LaunchArgs.new()
+	serving.parse(PackedStringArray(["--port=27100", "--web-root=../build/web",
+		"--web-port=8099"]), {})
+	t.ok(serving.server_port == 27100 and serving.web_root == "../build/web"
+		and serving.web_port == 8099, "the dedicated server reads its own three flags")
+	t.ok(not serving.wants_lobby() and not serving.wants_direct_race(),
+		"and none of them are a request to play anything")

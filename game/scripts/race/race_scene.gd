@@ -20,11 +20,22 @@
 ## [LaunchArgs] (what this run was asked for). Each was extracted whole, with no
 ## behaviour change: the reference capture is byte-identical across all three.
 ##
-## [b]Two modes, one scene.[/b] [RaceSetup] is the whole of the difference:
+## [b]Three modes, one scene.[/b] [RaceSetup] is the whole of the difference:
 ## zero opponents is Practice, which is what the game did before and what every
-## reference capture still gets, and one to nine is a race. Nothing else
-## branches on it — an opponent is built the same way the player is and the
-## presentation cannot tell them apart.
+## reference capture still gets, one to nine is a race against the computer, and
+## [member RaceSetup.networked] is a race against other people. Nothing in the
+## presentation branches on it — an opponent is built the same way the player is,
+## a peer is a [PlaybackRacer] like a ghost, and none of them can be told apart
+## from a [RacerState].
+##
+## [b]What a network race does change is the clock at either end of it.[/b]
+## There is no start animation: everybody reports the hill built
+## ([method RaceNetwork.report_ready]), the server waits for the last of them,
+## and a three-second countdown starts the field together. And the race does not
+## end when this player crosses the line — it ends when the [i]last[/i] player
+## does. Between those two moments this machine is a spectator: its penguin has
+## stopped at the bottom, the camera is on whoever is still coming down, and the
+## results screen waits for [signal RaceNetwork.race_over].
 ##
 ## [b]The simulation runs on a fixed tick[/b] ([constant SIM_HZ]) and the
 ## presentation interpolates between the last two. That is the other half of
@@ -60,6 +71,21 @@ const MAX_TICKS_PER_FRAME := 8
 ## Seconds between crossing the finish line and the menu coming up, so the
 ## finish deceleration is watchable instead of being cut off by a panel.
 const FINISH_MENU_DELAY := 3.0
+
+## Seconds of `3 · 2 · 1` between the last racer being ready and a network race
+## starting.
+##
+## This is what the start animation is instead of. `CIntro` is four and a half
+## seconds of one penguin walking to the line on its own clock, which is fine
+## when it is your clock and is four and a half seconds of nobody agreeing when
+## the race began when it is eight of them. The countdown is short, it is the
+## same three numbers on every screen, and the packet that starts it leaves the
+## server once — so the field is aligned to within one round trip, which is the
+## best any peer-simulated game gets.
+const COUNTDOWN_SECONDS := 3.0
+## How long `GO!` stays up after the countdown reaches zero. Cosmetic: the race
+## is already running.
+const GO_FLASH := 0.8
 
 ## What `CGameOver::Enter` passes `CKeyframe::Init` as its height correction —
 ## the counterpart of [constant IntroSequence.HEIGHT_CORRECTION], and a deeper
@@ -189,6 +215,25 @@ var _run_id: int = 0
 ## The saved run this race is against, or null for none. Read once out of
 ## [member requested_ghost] in [method _ready]; see [method _setup_ghost].
 var _active_ghost_recording: RaceRecording = null
+
+# ------------------------------------------------------------------
+#                          a network race
+# ------------------------------------------------------------------
+
+## True between this machine's hill being built and the whole field having one.
+## The course is drawn and the camera lives; nothing is stepped.
+var _net_waiting: bool = false
+## Seconds left of the countdown, counting on past zero for
+## [constant GO_FLASH] so the `GO!` has somewhere to live.
+## [constant -INF] when there is no countdown.
+var _net_countdown: float = -INF
+## True from this player crossing the line until the last one does. The race
+## goes on without them; see [method _update_spectate].
+var _net_spectating: bool = false
+## The finished run, held back until the race is over for everybody — the
+## results screen is what offers to save it, and in a network race that screen
+## does not come up when this player finishes.
+var _net_recording: RaceRecording = null
 
 # ------------------------------------------------------------------
 #                       the finish-line clip
@@ -340,6 +385,9 @@ func _ready() -> void:
 	results_menu.continue_pressed.connect(_on_results_continue)
 	Net.snapshot_received.connect(_on_snapshot_received)
 	Net.roster_changed.connect(roster.sync_remote)
+	Net.race_go.connect(_on_race_go)
+	Net.race_over.connect(_on_network_race_over)
+	Net.session_ended.connect(_on_session_ended)
 	_paused_label = _make_paused_label()
 	await load_course(course_scene_path)
 
@@ -596,6 +644,13 @@ func restart(with_intro: bool = true) -> void:
 	_run_id += 1
 	var course: CourseData = course_root.course_data
 	var start := Vector2(course.start_position.x, -course.start_position.y)
+	# A network race is a field on one start line and the player is one of it,
+	# so — unlike every other mode — the local racer takes a lane rather than
+	# the course's own start point. The seat comes out of the room's member
+	# order, which is the same list in the same order on every machine, so no
+	# two people take the same one and nobody has to be told which is theirs.
+	if _is_network_race():
+		roster.local.start_offset = RaceSetup.lane_offset(_network_seat())
 	# Not just `intro_running = false`: an animation still up owns the camera
 	# mode and the rig's clip, and dropping the flag leaves both where the intro
 	# put them — a race framed from ABOVE for good, and the next `begin` saving
@@ -646,7 +701,10 @@ func restart(with_intro: bool = true) -> void:
 	# Marker for the browser harness: the course is loaded and the first frame
 	# of simulation has run.
 	print("RACE_READY %s %d chunks" % [course.display_name, terrain.chunk_count()])
-	if with_intro and _intro_enabled and not Net.active():
+	if _is_network_race():
+		_hold_for_network()
+		return
+	if with_intro and _intro_enabled:
 		_begin_intro()
 
 # ==================================================================
@@ -659,12 +717,35 @@ func _process(delta: float) -> void:
 	# paused] is true.
 	if _finish_clip_playing:
 		_advance_finish_clip(delta)
+	# Cosmetic past zero, and the reason it is up here with the finish clip:
+	# `GO!` has to keep counting out while the race it started is running.
+	if _net_countdown > -GO_FLASH:
+		_advance_countdown(delta)
 	if paused:
 		return
-	if Input.is_action_just_pressed("reset_race"):
+	if Input.is_action_just_pressed("reset_race") and not _is_network_race():
 		# The original's Reset state re-enters Racing, not Intro: `r` is for
 		# getting back on the hill, not for watching the walk again.
+		#
+		# Never in a network race: restarting is this machine putting its clock
+		# back to zero while seven others keep theirs, which is not a restart —
+		# it is a racer who teleports to the top of the hill on every screen but
+		# their own.
 		restart(false)
+		return
+	if _net_waiting:
+		# The hill is built and the field is not all here yet. Everything that
+		# draws still runs — the course, the camera, the weather — so the wait
+		# is a view of the start line rather than a frozen frame.
+		#
+		# Snapshots keep going out through it, which is what puts the other
+		# penguins on the line during the countdown instead of popping them
+		# into existence on the first tick of the race.
+		if roster.local != null:
+			Net.publish(roster.local.state)
+		for racer: Racer in roster.all:
+			racer.present(1.0)
+		_present(delta)
 		return
 
 	_sim_lead -= delta
@@ -694,6 +775,8 @@ func _simulation_tick(dt: float) -> void:
 	if not running:
 		return
 	roster.refresh_rivals()
+	if _net_spectating:
+		_update_spectate()
 	for racer: Racer in roster.all:
 		racer.advance(dt)
 	if Net.active() and roster.local != null:
@@ -844,6 +927,221 @@ func _on_snapshot_received(peer_id: int, packet: PackedFloat32Array) -> void:
 	racer.push_snapshot(packet)
 	racer.trim_history()
 
+## Whether this race is one other people are in. Both halves are needed: the
+## shell asked for a network race ([member RaceSetup.networked]) and there is
+## still a session to have one over — a race whose server went away is a race
+## that has to stop behaving like one.
+func _is_network_race() -> bool:
+	return setup != null and setup.networked and Net.active()
+
+## Which start-line seat this machine takes.
+##
+## Out of the room's own member order, which the server fixes when the race
+## starts and sends to everybody: the same list in the same order on every
+## machine, so no two peers claim a lane and nobody has to be told which is
+## theirs. Seat zero is [constant RaceSetup.lane_offset] zero, i.e. the course's
+## authored start point — somebody always begins exactly where a practice run
+## begins.
+func _network_seat() -> int:
+	var seat: int = 0
+	for entry: Variant in Net.members():
+		if not (entry is Dictionary):
+			continue
+		if int((entry as Dictionary).get("peer", 0)) == Net.local_id():
+			return seat
+		seat += 1
+	return 0
+
+## The hill is built. Stand still and tell the server so; it starts the field
+## when the last machine says the same.
+func _hold_for_network() -> void:
+	running = false
+	_net_spectating = false
+	_net_countdown = -INF
+	_net_waiting = true
+	roster.view_target = roster.local
+	if Net.phase == RaceNetwork.Phase.LOADING:
+		Net.report_ready()
+		return
+	# The server already thinks this race is running — a course rebuilt under
+	# one in progress, or a scene reloaded. Nothing to wait for.
+	_on_race_go()
+
+## Everybody has a hill. Three, two, one.
+func _on_race_go() -> void:
+	if not _is_network_race():
+		return
+	_net_waiting = true
+	running = false
+	_net_countdown = COUNTDOWN_SECONDS
+
+## Count the start down, and let the race go at zero. Runs past zero by
+## [constant GO_FLASH] so the HUD has something to say for a moment after.
+func _advance_countdown(delta: float) -> void:
+	var before: float = _net_countdown
+	_net_countdown -= delta
+	if before <= 0.0 or _net_countdown > 0.0:
+		return
+	_net_waiting = false
+	running = true
+	# The wait was not simulated time. Without this the first frame of the race
+	# owes the simulation the whole countdown.
+	_sim_lead = 0.0
+
+## Hand the camera to whoever is still racing.
+##
+## [member RacerRoster.view_target] was built for exactly this — "a spectator
+## mode is this variable pointing somewhere else" — and everything that follows
+## the view rather than the player already reads it: the chase camera, the
+## terrain streaming window, the GPU deformation window and the ice mirror. The
+## CPU snow mirror deliberately does not: that one is what the local simulation
+## stands on, and this player is still standing on it at the bottom of the hill.
+func _update_spectate() -> void:
+	var leader: Racer = null
+	for racer: Racer in roster.all:
+		if racer == roster.local or racer.finished or not racer.collides():
+			continue
+		if leader == null or racer.state.progress > leader.state.progress:
+			leader = racer
+	var target: Racer = leader if leader != null else roster.local
+	if target == roster.view_target:
+		return
+	roster.view_target = target
+	# Otherwise the chase camera eases across the whole hill from wherever it
+	# was watching, through the terrain, over about a second.
+	camera.reset()
+
+## This player is over the line and the race is not finished — the brief's one
+## hard rule, and the whole reason this function is not [method
+## _show_results_after_finish]. The run is kept back until the field is in; the
+## camera goes to whoever is still coming down.
+##
+## The finish-line clip is not played here, and that is not an oversight: it is
+## scrubbed by [method _apply_finish_pose] against a racer the interpolated
+## presentation is still drawing every frame, so the two fight. Offline the
+## results screen freezes the scene first, which is what makes the clip visible
+## at all. Here the scene has to keep running, so the penguin simply decelerates
+## and stops — and the clip plays when the race really is over, below.
+func _on_local_network_finish(recording: RaceRecording) -> void:
+	_net_recording = recording
+	_net_spectating = true
+	Net.report_finish(roster.local.race_time, roster.local.herring)
+
+## The last racer is in. Now the race is over for everybody at once, which is
+## the point: the order on this screen is the server's, not eight machines'
+## separate opinions of who was where.
+func _on_network_race_over(standings: Array) -> void:
+	if setup == null or not setup.networked or paused:
+		return
+	_net_spectating = false
+	_net_waiting = false
+	_net_countdown = -INF
+	running = false
+	_recall_camera()
+	var clip: StringName = &""
+	if roster.local.finished:
+		clip = RaceOutcome.clip(true, _won_network_race(standings), false, false)
+		_start_finish_clip(clip)
+	_open_results(_net_recording, clip, _finishing_order(standings))
+	_net_recording = null
+
+## Put the view back on the local racer, in one step rather than over a second.
+##
+## The results screen sets [member paused], and a paused frame returns before
+## [method _present] — so the chase camera is never asked to track anything
+## again and would simply stay where spectating left it, parked on somebody
+## else's penguin while this one played its finish clip off screen. Resetting
+## and tracking once here is the whole fix: [method ChaseCamera.reset] drops the
+## smoothing so the single call lands the camera rather than starting it moving.
+func _recall_camera() -> void:
+	roster.view_target = roster.local
+	if camera == null or roster.local == null:
+		return
+	camera.reset()
+	var home: RacerState = roster.local.view_state()
+	camera.track(home.position, home.velocity, roster.local.surface_normal(), SIM_DT)
+
+## Whether the fastest row is ours. The server sorted them; this only reads the
+## top one, because a place is what the result line says and a win is what the
+## clip is chosen by.
+func _won_network_race(standings: Array) -> bool:
+	if standings.is_empty() or not (standings[0] is Dictionary):
+		return false
+	return int((standings[0] as Dictionary).get("peer", 0)) == Net.local_id()
+
+## The finishing order, one racer per line, for the results panel.
+func _finishing_order(standings: Array) -> String:
+	var lines := PackedStringArray()
+	var place: int = 0
+	for entry: Variant in standings:
+		if not (entry is Dictionary):
+			continue
+		var row: Dictionary = entry
+		place += 1
+		var who: String = str(row.get("name", "?"))
+		if int(row.get("peer", 0)) == Net.local_id():
+			who = "%s  (you)" % who
+		if not bool(row.get("finished", false)):
+			lines.push_back("—   %s   did not finish" % who)
+			continue
+		lines.push_back("%s   %s   %.2f s   %d herring" % [
+			place_label(place), who, float(row.get("seconds", 0.0)),
+			int(row.get("herring", 0))])
+	return "\n".join(lines)
+
+## The session went away under a race that needed it. There is nothing to race
+## against any more and no server to report a finish to, so the honest thing is
+## to leave rather than to keep simulating one penguin on an eight-lane start
+## line. A race already on the results screen is left alone — it is over.
+func _on_session_ended(_reason: String) -> void:
+	if setup == null or not setup.networked or paused:
+		return
+	leave_to_main_menu()
+
+# ------------------------------------------------------------------
+#      what the HUD draws about a network race, and the way out of one
+# ------------------------------------------------------------------
+
+## The big number in the middle of the screen, or empty. Public because
+## [RaceHUD] asks the race for everything it draws.
+func countdown_text() -> String:
+	if _net_countdown == -INF:
+		return ""
+	if _net_countdown > 0.0:
+		return str(ceili(_net_countdown))
+	return "GO!" if _net_countdown > -GO_FLASH else ""
+
+## The line under it: what this machine is waiting for, if anything.
+func network_status() -> String:
+	if not _is_network_race():
+		return ""
+	if _net_waiting and _net_countdown == -INF:
+		return "Waiting for the other racers to load the course…"
+	if not _net_spectating:
+		return ""
+	var left: int = _racers_still_racing()
+	if left <= 0:
+		return "Waiting for the results…"
+	return "Finished — the race ends when the last racer is in (%d to go)" % left
+
+## How many people in the room are still on the hill, out of the room state the
+## server keeps pushing. Counted there rather than off [member roster] because
+## a racer who gave up stops sending snapshots and would otherwise be waited
+## for forever by a count of penguins that have not crossed the line.
+func _racers_still_racing() -> int:
+	var left: int = 0
+	for entry: Variant in Net.members():
+		if entry is Dictionary and not bool((entry as Dictionary).get("done", false)):
+			left += 1
+	return left
+
+## Drop out of a network race. The rest of the field stops waiting for this
+## machine — see [method RaceNetwork.forfeit] — which is what keeps Esc from
+## being a way to hold seven other people in a race forever.
+func leave_network_race() -> void:
+	Net.forfeit()
+	leave_to_main_menu()
+
 ## Everyone on the hill, best progress first. Forwarded rather than reached for
 ## through [member roster]: the HUD and the result line have always asked the
 ## race who is winning, and that is a fair question to ask it.
@@ -954,11 +1252,21 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.is_action_pressed("pause"):
 		get_viewport().set_input_as_handled()
-		_toggle_key_pause()
+		# `P` freezes this machine's simulation and nobody else's, which in a
+		# network race is not a pause — it is one racer standing still while
+		# seven keep going, and their snapshots piling up behind a stopped
+		# clock. There is nothing to pause a shared race with.
+		if not _is_network_race():
+			_toggle_key_pause()
 		return
 	if not event.is_action_pressed("menu"):
 		return
 	get_viewport().set_input_as_handled()
+	if _is_network_race():
+		# No course list: the course belongs to the room and there is nothing
+		# here to pick. Esc is "I am out".
+		leave_network_race()
+		return
 	if not _key_paused:
 		open_menu()
 
@@ -984,6 +1292,11 @@ func _result_line() -> String:
 	var line: String = "%s   —   %s %.2f %s   %s %d" % [
 		tr("RACE_OVER"), tr("TIME"), race_time, tr("SECONDS"), tr("HERRING"), herring]
 	if not setup.is_race():
+		return line
+	# In a network race the place is on the finishing order below rather than
+	# here: this machine's standings are eight interpolated positions and the
+	# server's are eight reported times, and only one of those is the answer.
+	if setup.networked:
 		return line
 	return "%s %s   —   %s" % [tr("POSITION"), place_label(place_of(roster.local)), line]
 
@@ -1142,7 +1455,11 @@ func _on_racer_finished(racer: Racer) -> void:
 	if racer != roster.local:
 		return
 	race_completed.emit(roster.local.race_time, roster.local.herring)
-	_show_results_after_finish(_run_id, _finish_recording())
+	var recording: RaceRecording = _finish_recording()
+	if _is_network_race():
+		_on_local_network_finish(recording)
+		return
+	_show_results_after_finish(_run_id, recording)
 
 ## Close out the recording. Nothing is saved here — recording is unconditional
 ## but keeping it is now something the player asks for on the results screen;
@@ -1159,7 +1476,7 @@ func _show_results_after_finish(run_id: int, recording: RaceRecording) -> void:
 	if run_id == _run_id and not paused:
 		var clip: StringName = _outcome_clip()
 		_start_finish_clip(clip)
-		_open_results(recording, clip)
+		_open_results(recording, clip, _ghost_note())
 
 ## Whether this race had anything to win or lose, and — if so — whether the
 ## player did. See [RaceOutcome] for the mapping itself.
@@ -1256,19 +1573,26 @@ func _ghost_note() -> String:
 ## here so the sting matches the pose: `lostrace` plays the theme's loss
 ## sting, anything else its win sting (`finish` included — a plain practice
 ## run has nothing to lose, matching the original's own non-cup behaviour).
-func _open_results(recording: RaceRecording, clip: StringName) -> void:
+func _open_results(recording: RaceRecording, clip: StringName, note: String) -> void:
 	paused = true
 	_stop_slide_sound()
 	Audio.halt_all()
 	var situation: MusicTheme.Situation = MusicTheme.Situation.LOST \
 		if clip == &"lostrace" else MusicTheme.Situation.WON
 	Audio.play_theme(course_root.course_data.music_theme, situation)
-	results_menu.open(_result_line(), recording, _ghost_note())
+	results_menu.open(_result_line(), recording, note)
 
 ## The results screen's Continue button. The clip stops and the ordinary
 ## course menu takes over exactly as it did before there was a results screen.
 func _on_results_continue() -> void:
 	_stop_finish_clip()
+	if setup != null and setup.networked:
+		# Back to the shell, which puts the lobby up on the room these eight
+		# people are still standing in — see [method MainMenu._open_lobby].
+		# The in-race course list has nothing to offer a race whose course
+		# belongs to somebody else.
+		leave_to_main_menu()
+		return
 	open_menu()
 
 # ------------------------------------------------------------------

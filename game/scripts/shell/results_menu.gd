@@ -23,7 +23,10 @@ extends CanvasLayer
 signal continue_pressed()
 
 @onready var _result: Label = %Result
-@onready var _ghost: Label = %Ghost
+## The line — or, after a network race, the lines — under the result. A ghost
+## comparison in a solo race, the whole finishing order in a network one; the
+## panel does not care which, and neither does the label.
+@onready var _note: Label = %Ghost
 @onready var _name_edit: LineEdit = %NameEdit
 @onready var _save_button: Button = %SaveButton
 @onready var _saved_label: Label = %Saved
@@ -37,13 +40,15 @@ func _ready() -> void:
 	visible = false
 
 ## Show the panel for a just-finished run. [param recording] is null for a
-## scripted run (no recorder — see [member RacerRoster.build_local]), which
-## disables Save rather than offering to save nothing.
-func open(result_text: String, recording: RaceRecording, ghost_note: String) -> void:
+## scripted run (no recorder — see [member RacerRoster.build_local]) and for a
+## network race this machine did not finish, which disables Save rather than
+## offering to save nothing. [param note] is whatever there is to say under the
+## result: the ghost gap, or the finishing order of a network race.
+func open(result_text: String, recording: RaceRecording, note: String) -> void:
 	_recording = recording
 	_result.text = result_text
-	_ghost.text = ghost_note
-	_ghost.visible = not ghost_note.is_empty()
+	_note.text = note
+	_note.visible = not note.is_empty()
 	_saved_label.visible = false
 	_name_edit.text = _default_name(recording)
 	_name_edit.editable = recording != null

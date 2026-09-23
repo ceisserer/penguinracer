@@ -706,7 +706,7 @@ medals from the migrated thresholds, and save profiles — the player half of `C
 last of those. Sound and music volumes and the language are ETR's `options.txt` keys that this
 file and this screen still do not carry.
 
-### Multiplayer foundation · **seams built, ghosts working, network scaffold desktop-only**
+### Multiplayer foundation · **done — seams built, ghosts working, and the network on top of them**
 
 Not a phase in the plan — plan §8.4 says redesign beyond the original is in scope and should be
 taken into account in the initial design. This is that: the shape three separate features need,
@@ -779,26 +779,13 @@ the tree grid ahead of it — driving a `SimulatedRacer`. Nothing is stubbed for
 waiting on it; the seam is exercised today by `ScriptedInputSource`, which is what `--auto-input=`
 became.
 
-**The network scaffold is ENet, peer-to-peer, and desktop-only.** `Net` (`scripts/net/race_network.gd`)
-hosts or joins a session; each peer simulates only itself and broadcasts a snapshot 20 times a
-second, and every other peer draws it as a `PlaybackRacer` read 150 ms behind the local clock.
-No host authority over positions, no rollback, no prediction — the surface is identical on every
-machine and the only shared mutable state is the herring. Racers *do* collide, and that fits
-under a design with no authority only because the contact is resolved twice, once by each body
-(see **Racers collide** below). Verified with two processes on one machine: both see the other on
-the hill, spawned off the first snapshot to arrive.
-
-```bash
-godot --path game -- --host --course=bunny_hill
-godot --path game -- --join=127.0.0.1 --course=bunny_hill
-```
-
-What it is not: there is no lobby screen (both ends name the course themselves, though
-`RaceNetwork.course_dir` already carries the host's choice to the client and nothing reads it
-yet), no countdown, no finishing-order screen, and **no web support** — ENet is UDP and a browser
-has no UDP socket. WebRTC delivers the same `MultiplayerAPI` with the same RPCs behind
-`RaceNetwork._new_peer`, and additionally needs a signalling server, which is hosted
-infrastructure rather than a piece of this repository.
+**The network scaffold was ENet, peer-to-peer, and desktop-only**, and it is now a dedicated
+server over WebSocket — see **Network multiplayer** below, which is the feature this scaffold was
+the shape of. What survived the change unaltered is the part that mattered: each peer simulates
+only itself and publishes a snapshot 20 times a second, every other peer draws it as a
+`PlaybackRacer` read 150 ms behind the local clock, and no machine has any authority over any
+position. Racers *do* collide, and that fits under a design with no authority only because the
+contact is resolved twice, once by each body (see **Racers collide** below).
 
 **Two bugs fell out of the refactor and are fixed.** `ObjectGrid.reset_collectables` had never
 been called, so pressing `r` raced a course stripped of every herring the previous run collected —
@@ -806,6 +793,122 @@ invisible until a ghost of that run was there collecting fish that were not; `Co
 now puts back both the grid flag and the instance transform. And a peer joining a race already in
 progress used to stand still forever, because its playback clock started at zero while its
 snapshots were stamped a minute in.
+
+### Network multiplayer · **done**
+
+Beyond the original in the largest way this rebuild goes: ETR has nobody on the hill at all, and
+this is eight people on it, on two kinds of machine, out of one server.
+
+**There is a server now, and it serves both halves.** `game/scenes/server.tscn` is the game's own
+project run headless — `godot --headless --path game res://scenes/server.tscn -- --port=27015
+--web-root=build/web --web-port=8060`, or `tools/serve.sh` — and it opens two listeners:
+
+- **races**, on a `WebSocketMultiplayerPeer` server. WebSocket because a browser cannot open a UDP
+  socket and this project ships to a browser: the old ENet transport could only ever have served
+  half the targets. One protocol, so a desktop player and a player in a tab are in the same room.
+- **the web build**, over HTTP (`WebFileServer`), with `Cross-Origin-Opener-Policy` and
+  `Cross-Origin-Embedder-Policy` set — the `Web` preset has `thread_support=true`, so without
+  cross-origin isolation the export dies in the console naming neither — and with `.wasm` and
+  `.pck` served as themselves. `GET` and `HEAD`, one optional byte range, no keep-alive, no TLS;
+  anything facing the open internet wants a reverse proxy in front terminating TLS and forwarding
+  `wss://`.
+
+The point of the two being one process: open `http://<server>:8060/` and the lobby's address field
+is already filled in with the host that served the page (`RaceNetwork.default_address`, off
+`location.hostname`). A link is enough.
+
+**The server is a relay, and `LobbyServer` is the only thing on it that decides anything.** It is
+a plain `RefCounted` with no `MultiplayerAPI` in it, no frames and no clock of its own — every
+method takes a peer id and returns a result — which is what makes the interesting half of
+multiplayer testable: `tests/test_lobby.gd` drives whole sessions through it with no sockets at
+all (room filling up, password refusing the wrong digest, admin leaving and the race carrying on,
+finishing order, the abandon backstop). `RaceNetwork` owns the `@rpc` surface on both ends and
+calls into it on the one that is serving; the two ends are the same file, so the protocol cannot
+drift between client and server.
+
+What the server owns: the room list, who may enter a room, who may start a race, and when a race
+is over. What it does not own: any position. A snapshot arrives from one member and is forwarded
+to the others unread.
+
+**The lobby is four pages behind one panel** (`LobbyMenu`), and the page is never chosen by a
+button — it is chosen by what `Net` says is true, which is what makes the screen survive things
+that happen *to* it rather than through it:
+
+```
+CONNECT   your name, and the server               → Net.connect_to_server
+BROWSE    every race not yet started              → Net.join_room
+CREATE    name it, lock it, choose the course     → Net.create_room
+ROOM      who is here, and the Start button       → Net.start_race
+```
+
+A race carries a name, a course, a snowfall grade and an optional password. The creator is its
+admin: only they can change the course and only they can start it, and when they close the window
+the room is handed to whoever has been in it longest rather than collapsing under seven other
+people. **The password never leaves the machine that typed it** — what goes on the wire is
+`sha256("penguinracer:" + room name + ":" + password)`, salted by the room name so one password on
+two races is two credentials. That digest *is* the credential and the server stores it as it
+arrives; the claim is "this keeps strangers out", not "this is a secret", and it is written down
+that way because ws:// is plaintext.
+
+**Starting is a handshake, not a broadcast.** A 9 MB course pack is twenty seconds on one link and
+half a second on another, so a race that began when the admin's hill was ready would be a race two
+people had already lost. Everyone loads, everyone reports ready (`RaceNetwork.report_ready`), the
+server waits for the last of them and then sends one `cli_race_go`; each client runs a
+three-second `3 · 2 · 1` off it. There is no start animation in a network race — `CIntro` is four
+and a half seconds on your own clock and four and a half seconds of disagreement on eight.
+
+**The race is over when the last racer crosses the line.** This is the rule the whole feature
+turns on and it is asserted directly in `tests/test_lobby.gd`. Your own finish is reported and
+nothing else happens: the hill keeps running, your penguin decelerates to a stop, and the camera
+hands itself to whoever is still coming down — `RacerRoster.view_target`, which the roster's own
+doc comment has said was for exactly this since the day it was written, and which the chase
+camera, the terrain streaming window, the GPU deformation window and the ice mirror all already
+read. The HUD says how many are left. When the last one is in, every client gets the same
+finishing order and the results screen shows it — the *server's* order, eight reported times,
+rather than this machine's standings, which are eight interpolated positions and a different
+question.
+
+Two things stop a race hanging on somebody who has stopped playing: a disconnect ends that racer's
+race in the tick the transport notices it, and Esc is a forfeit (`RaceNetwork.forfeit`) rather than
+a pause. The backstop nobody racing will ever meet is `ABANDON_AFTER_MSEC`, five minutes after the
+first finisher, for a window left open on an empty desk.
+
+**Everything on the hill is the machinery that was already there.** A peer is a `PlaybackRacer`
+fed from `RacerStateStream`, which is the ghost's class; a network race is `RaceSetup.networked`,
+which is one more field on the object Practice and *Race the computer* already travel on; the
+start line is `RaceSetup.lane_offset` of the racer's seat in the room's member list, which is the
+same list in the same order on every machine so no two peers claim a lane. Nothing in the
+presentation branches on any of it.
+
+Verified end to end with a real server and two real clients: a room created with a password, the
+wrong one refused and the right one accepted, both clients loading Bunny Hill, the countdown, the
+snapshot stream in both directions, the host finishing at 46.38 s with the race *not* over, the
+camera spectating the guest down the rest of the hill, and the race ending at 62.83 s when the
+guest crossed — with the results screen carrying the server's order and the local penguin standing
+up out of the racing pose in front of it. The server's log for that run:
+
+```
+[lobby] host opened "Test" on bunny_hill
+[lobby] guest joined "Test" (2/8)
+[lobby] "Test" starts bunny_hill with 2 racers
+[lobby] "Test" is over — host 46.38s, guest 62.83s
+```
+
+And verified in a browser, which is the half the old transport could never have: the `Web` export
+served over HTTP **by this same server process**, loaded in headless Chromium through
+`tools/webtest/run_web_test.js`, reading `?lobby`, resolving the address off `location.hostname`,
+and opening the session — `LOBBY_CONNECTED as peer 1094304107`, with the lobby drawn and the
+`Build configuration: … multi-threaded` line proving the COOP/COEP headers took. That marker is in
+`RaceNetwork._on_connected` for the same reason `RACE_READY` is in `RaceScene.restart`: it is the
+one line that says the socket is genuinely up rather than merely asked for.
+
+What it is not: there is no chat, no spectator-only seat, no reconnect into a race in progress (a
+room that has started cannot be joined), no cups, and no rate limiting or account of any kind on
+the server — it is a server you run for people you know, on a LAN or behind a proxy, not a public
+one. The transport is TCP, so a lost snapshot delays the ones behind it; at 20 packets a second of
+72 bytes that has not been worth a second transport, and `RacerStateStream` interpolates through a
+late snapshot exactly as it does through a missing one. WebRTC would buy the unreliable channel
+back for the price of a signalling server and a second code path at both ends.
 
 ### Computer opponents · **done**
 
@@ -1604,8 +1707,9 @@ moving it has to move them too.
 - **The game shell stops at free course selection** (Phase 5): no cup progression, medals or save
   profiles. The migrated event thresholds are sitting there ready; the translations are wired up.
   The settings screen moves the six keys a player can act on and not the three ETR's own
-  configuration screen also has — sound volume, music volume and language — nor the two
-  multiplayer keys, which are a name nobody can see used and a port with no session to open. The screens carry the original's
+  configuration screen also has — sound volume, music volume and language. The two multiplayer
+  keys a player edits (`player_name` and `server`) are on the **Network multiplayer** screen
+  instead, where they are what is being asked for; `port` is file-only. The screens carry the original's
   palette but none of its menu art — corner ornaments, title logo, drifting `ui_snow` — which is
   blocked on the licence audit below.
 - **All five characters are the importer's welded-sphere placeholders**, and only Tux's has been
@@ -1641,10 +1745,13 @@ moving it has to move them too.
   the shader does to snow and ice is course-global, and per-layer normal maps are out of reach
   under Compatibility: the terrain shader already binds 13 of WebGL2's guaranteed 16 fragment
   texture units. materials.md §5 has the arithmetic and the extension point.
-- **Multiplayer is a transport and a seam, not a game mode.** No lobby, no countdown, no
-  finishing-order screen, no way in from the menu — a session is `--host`/`--join=` on the command
-  line. And no web: ENet is UDP. The snapshot path a WebRTC peer would use is the one ghosts
-  already run on, so the missing piece is the peer and a signalling server, not the game code.
+- **A race that has started cannot be rejoined, and there is no spectator seat.** The two gaps
+  left in multiplayer after the lobby, the countdown, the finishing-order screen and the browser
+  arrived (see **Network multiplayer** above). A dropped connection is a forfeit; a room closes to
+  newcomers the moment the admin presses Start; and there is no way to watch a race you are not
+  in, even though the machinery for it is sitting there — a spectator is a client that publishes
+  nothing and points `RacerRoster.view_target` at somebody else, which is exactly what a finished
+  racer already does.
 - **A ghost is silent and leaves no trench.** It is a `PlaybackRacer`, so it has no ODE substeps
   to hang spray on and never stamps the deformation field. The same is true of a remote racer,
   plus its tree hits: the mixer has one voice per cue and no positional audio, so another racer's
@@ -1715,6 +1822,20 @@ moving it has to move them too.
   under Mobile and 0.216 under Compatibility, and it rides `SPECULAR_LIGHT` now, which they agree
   on. The remaining 16 are somewhere else in the ice branch and have not been chased. Snow, which
   is most of every course, agrees to within a level.
+- **The server has no account of anybody and no rate limiting.** It is a server you run for
+  people you know — a LAN, or a host behind a reverse proxy — not a public one. A peer can open
+  rooms until it hits `MAX_ROOMS`, rename itself every frame, or send snapshots faster than the
+  20 Hz the client does; nothing counts any of it. The two things that *are* checked are the two
+  that would corrupt somebody else's frame rather than merely annoy: a snapshot is validated
+  before it is relayed (`RacerState.is_valid_packet`), and a password digest is compared before a
+  room is entered. Closing the rest is a different kind of work from a game and wants a real
+  decision about what this server is for.
+- **A race in progress cannot be rejoined.** A dropped connection is a forfeit and the room is
+  closed to newcomers from the moment the admin presses Start, so a player whose wifi blinks is
+  out until the next race. `PlaybackRacer` already handles a peer whose clock is a minute ahead
+  (`CLOCK_SNAP`) and `LobbyServer` would need to let a known peer back into a `RACING` room and
+  re-send it the course; the reason it does not is that the rejoining client would restart its own
+  simulation at the start line, which is a race nobody else can see them in.
 - **Asset licence audit not started** (risk S5). Independent of engineering, long lead time,
   blocks Phase 5.
 - **Two terrain layers import with no albedo**, because `terrains.lst` names a texture that is

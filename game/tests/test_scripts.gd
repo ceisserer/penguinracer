@@ -29,6 +29,10 @@ const SCENES: PackedStringArray = [
 	"res://scenes/character_menu.tscn",
 	"res://scenes/settings_menu.tscn",
 	"res://scenes/key_log.tscn",
+	# The dedicated server. Nothing instances it — it is a main scene of its
+	# own — so without this line the one build that has to start on a headless
+	# machine with no display is the one nothing ever loads.
+	"res://scenes/server.tscn",
 ]
 
 static func run(t: TestCase) -> void:

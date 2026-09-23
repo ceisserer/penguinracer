@@ -33,6 +33,7 @@ func _run() -> void:
 	TestHUD.run(t)
 	TestInput.run(t)
 	TestMultiplayer.run(t)
+	TestLobby.run(t)
 	TestSpray.run(t)
 	TestSnowFall.run(t)
 	TestAI.run(t)

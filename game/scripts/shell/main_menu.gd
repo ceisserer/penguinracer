@@ -6,7 +6,7 @@
 ## settings screen to live. This is the plan's arrangement (godot-port-plan.md
 ## §4.1): the shell above the race, holding it rather than sitting inside it.
 ##
-## Four entries. Three are ETR's own words: `PRACTICE` is a single free race on
+## Five entries. Three are ETR's own words: `PRACTICE` is a single free race on
 ## any course — the original's term for exactly this, and the reason the label
 ## comes out of the imported strings rather than being written here —
 ## `SELECT_A_CHARACTER` is [CharacterMenu] over the five rows of
@@ -14,13 +14,19 @@
 ## `penguinracer.cfg`. Cups, events and profiles are imported and waiting; when
 ## they arrive they are more entries in the same column.
 ##
-## The fourth is *Race the computer*, and it is beyond the original — ETR has no
+## Two are beyond the original. *Race the computer* — ETR has no
 ## opponents on the hill at all, so there is no string to migrate and the label
 ## is written here (see [AISkill] for the same call about the difficulty names).
 ## It opens the same [CourseMenu] Practice does, carrying a [RaceSetup] that
 ## turns the panel's opponent and skill spinners on. Both entries are one screen
 ## for that reason: the difference between them is two numbers, and a player who
 ## has just been beaten should be able to change one of them without leaving.
+##
+## ... and *Network multiplayer*, which opens [LobbyMenu] rather than the course
+## list, because in a network race the course is not this player's to choose: it
+## belongs to the room, and the room belongs to whoever created it. Everything
+## else about such a race is a race against the computer with the field arriving
+## over a socket — see [RaceSetup] and [RaceNetwork].
 ##
 ## The field itself is remembered — `[game] opponents` and `opponent_skill` in
 ## `penguinracer.cfg`, written when a race starts rather than on a settings
@@ -56,6 +62,7 @@ static var _boot_handled: bool = false
 @onready var _frame: MarginContainer = %Frame
 @onready var _practice_button: Button = %PracticeButton
 @onready var _opponents_button: Button = %OpponentsButton
+@onready var _network_button: Button = %NetworkButton
 @onready var _ghost_button: Button = %GhostButton
 @onready var _character_button: Button = %CharacterButton
 @onready var _settings_button: Button = %SettingsButton
@@ -65,6 +72,7 @@ static var _boot_handled: bool = false
 @onready var _character_menu: CharacterMenu = $CharacterMenu
 @onready var _settings: SettingsMenu = $SettingsMenu
 @onready var _ghost_menu: GhostMenu = $GhostMenu
+@onready var _lobby: LobbyMenu = $LobbyMenu
 ## ETR's loading panel. Shared with [RaceScene] rather than built twice — see
 ## [LoadingScreen]: the work this covers finishes in the other scene.
 @onready var _loading: LoadingScreen = $LoadingScreen
@@ -79,11 +87,11 @@ func _ready() -> void:
 		# screen is no longer the one place that knows a URL exists.
 		RaceScene.play_intro = not args.no_intro
 		RaceScene.requested_character = args.character
-		# `--host` / `--join=`. Started here rather than in the race scene
-		# because the session outlives any one race: the peer stays connected
-		# across a restart and across picking another course.
+		# `--server=` / `?server=`, and `--lobby` / `?lobby`. Started here rather
+		# than in the race scene because the session outlives any one race: the
+		# connection stays up across a race, a restart and a return to the room.
 		Net.configure(Config.player_name, Config.character)
-		Net.start_from_cmdline(Config.multiplayer_port)
+		Net.start_from_cmdline(Config.multiplayer_server, Config.multiplayer_port)
 	if first_run and args.wants_direct_race():
 		_start_race(args.course_scene_path())
 		return
@@ -91,8 +99,10 @@ func _ready() -> void:
 	_title.text = ProjectSettings.get_setting("application/config/name", "PenguinRacer")
 	_version.text = "v%s" % ProjectSettings.get_setting("application/config/version", "")
 	_practice_button.text = tr("PRACTICE")
-	# Neither is a migrated string; the original has no opponents and no ghosts.
+	# None of the three is a migrated string; the original has no opponents, no
+	# ghosts and nobody to race over a network.
 	_opponents_button.text = "Race the computer"
+	_network_button.text = "Network multiplayer"
 	_ghost_button.text = "Race against ghost"
 	_settings_button.text = tr("CONFIGURATION")
 	_quit_button.text = tr("QUIT")
@@ -103,6 +113,7 @@ func _ready() -> void:
 
 	_practice_button.pressed.connect(_open_practice_menu)
 	_opponents_button.pressed.connect(_open_race_menu)
+	_network_button.pressed.connect(_open_lobby)
 	_ghost_button.pressed.connect(_open_ghost_menu)
 	_character_button.pressed.connect(_open_character_menu)
 	_settings_button.pressed.connect(_open_settings)
@@ -115,12 +126,23 @@ func _ready() -> void:
 	_settings.closed.connect(_show_root)
 	_ghost_menu.run_chosen.connect(_on_ghost_run_chosen)
 	_ghost_menu.closed.connect(_show_root)
+	_lobby.race_starting.connect(_on_network_race_starting)
+	_lobby.closed.connect(_show_root)
 
 	Audio.play_menu_music()
 	_show_root()
+	# Landing here straight out of a network race is coming back to the room
+	# those people are still standing in, and making the player find the button
+	# again to see it is a screen nobody asked for. Being in a room is not
+	# enough on its own: somebody who joined one, pressed Back and then raced
+	# Practice pressed Back for a reason.
+	var from_network_race: bool = RaceScene.requested_setup != null \
+		and RaceScene.requested_setup.networked
+	if args.wants_lobby() or Net.connecting() or (from_network_race and Net.in_room()):
+		_open_lobby()
 
 # ------------------------------------------------------------------
-#                            the three screens
+#                            the four screens
 # ------------------------------------------------------------------
 
 ## Back to the column of buttons, from wherever. Focus goes with it, so the
@@ -157,6 +179,14 @@ func _open_settings() -> void:
 func _open_ghost_menu() -> void:
 	_frame.visible = false
 	_ghost_menu.open()
+
+func _open_lobby() -> void:
+	_frame.visible = false
+	# The name and character the lobby announces are the ones on this screen,
+	# re-read every time it opens: the character menu is one button up from here
+	# and a player who changed penguins should race as the one they chose.
+	Net.configure(Config.player_name, Config.character)
+	_lobby.open()
 
 ## The character screen picks; this writes. [SettingsMenu] saves its own page of
 ## the same file the same way — the screens move values, [GameConfig] owns the
@@ -207,6 +237,27 @@ func _on_course_chosen(listing: CourseListing, setup: RaceSetup) -> void:
 	# Building a course blocks the main thread for long enough to be seen as a
 	# freeze, so the panel has to have been drawn before the load starts — one
 	# composited frame, not just one assignment.
+	await RenderingServer.frame_post_draw
+	_start_race(listing.scene_path)
+
+## The room's admin started the race. The course is the room's, the weather is
+## the room's, and the field is whoever else is in it — which is nobody this
+## scene has to build: [RaceScene] grows a [PlaybackRacer] per peer as the
+## snapshots arrive. Everything after this point is the ordinary handover.
+##
+## A course the room named but this build does not have is the one failure
+## worth a word: the player is put back on the lobby with the session intact
+## rather than dropped into a race with nowhere to load.
+func _on_network_race_starting(course_dir: String, snow: int) -> void:
+	var listing: CourseListing = CourseCatalog.load_default().find(course_dir)
+	if listing == null or not ResourceLoader.exists(listing.preview_path):
+		Net.forfeit()
+		_open_lobby()
+		return
+	RaceScene.requested_setup = RaceSetup.networked_race().in_snow(snow)
+	RaceScene.requested_ghost = null
+	_loading.begin(listing.title())
+	Audio.halt_all()
 	await RenderingServer.frame_post_draw
 	_start_race(listing.scene_path)
 

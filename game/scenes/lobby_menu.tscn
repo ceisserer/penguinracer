@@ -1,0 +1,376 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/shell/lobby_menu.gd" id="1_lobby"]
+[ext_resource type="Theme" path="res://themes/etr_menu.tres" id="2_theme"]
+
+[node name="LobbyMenu" type="CanvasLayer"]
+layer = 10
+script = ExtResource("1_lobby")
+
+[node name="Dim" type="ColorRect" parent="."]
+unique_name_in_owner = true
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.4, 0.6, 0.8, 1)
+
+[node name="Frame" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+theme_override_constants/margin_left = 56
+theme_override_constants/margin_top = 36
+theme_override_constants/margin_right = 56
+theme_override_constants/margin_bottom = 32
+
+[node name="Body" type="VBoxContainer" parent="Frame"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Frame/Body"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 34
+horizontal_alignment = 1
+
+[node name="Status" type="Label" parent="Frame/Body"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"DimLabel"
+theme_override_font_sizes/font_size = 17
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="ConnectPage" type="VBoxContainer" parent="Frame/Body"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="TopSpacer" type="Control" parent="Frame/Body/ConnectPage"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Fields" type="GridContainer" parent="Frame/Body/ConnectPage"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/h_separation = 14
+theme_override_constants/v_separation = 12
+columns = 2
+
+[node name="NameLabel" type="Label" parent="Frame/Body/ConnectPage/Fields"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="NameEdit" type="LineEdit" parent="Frame/Body/ConnectPage/Fields"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(420, 40)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+max_length = 20
+
+[node name="AddressLabel" type="Label" parent="Frame/Body/ConnectPage/Fields"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="AddressEdit" type="LineEdit" parent="Frame/Body/ConnectPage/Fields"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(420, 40)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+
+[node name="ConnectHint" type="Label" parent="Frame/Body/ConnectPage"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"DimLabel"
+theme_override_font_sizes/font_size = 15
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="BottomSpacer" type="Control" parent="Frame/Body/ConnectPage"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Buttons" type="HBoxContainer" parent="Frame/Body/ConnectPage"]
+layout_mode = 2
+alignment = 2
+theme_override_constants/separation = 10
+
+[node name="ConnectButton" type="Button" parent="Frame/Body/ConnectPage/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="BackButton1" type="Button" parent="Frame/Body/ConnectPage/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="BrowsePage" type="VBoxContainer" parent="Frame/Body"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+
+[node name="Empty" type="Label" parent="Frame/Body/BrowsePage"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+theme_type_variation = &"DimLabel"
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="ListPanel" type="PanelContainer" parent="Frame/Body/BrowsePage"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="RoomList" type="ItemList" parent="Frame/Body/BrowsePage/ListPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+
+[node name="PasswordRow" type="HBoxContainer" parent="Frame/Body/BrowsePage"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+alignment = 2
+theme_override_constants/separation = 12
+
+[node name="PasswordLabel" type="Label" parent="Frame/Body/BrowsePage/PasswordRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+
+[node name="PasswordEdit" type="LineEdit" parent="Frame/Body/BrowsePage/PasswordRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(280, 38)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+secret = true
+
+[node name="Buttons" type="HBoxContainer" parent="Frame/Body/BrowsePage"]
+layout_mode = 2
+alignment = 2
+theme_override_constants/separation = 10
+
+[node name="JoinButton" type="Button" parent="Frame/Body/BrowsePage/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="CreateButton" type="Button" parent="Frame/Body/BrowsePage/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="RefreshButton" type="Button" parent="Frame/Body/BrowsePage/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="DisconnectButton" type="Button" parent="Frame/Body/BrowsePage/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="BackButton2" type="Button" parent="Frame/Body/BrowsePage/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="CreatePage" type="VBoxContainer" parent="Frame/Body"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="TopSpacer" type="Control" parent="Frame/Body/CreatePage"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Fields" type="GridContainer" parent="Frame/Body/CreatePage"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/h_separation = 14
+theme_override_constants/v_separation = 12
+columns = 2
+
+[node name="RaceNameLabel" type="Label" parent="Frame/Body/CreatePage/Fields"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="RaceNameEdit" type="LineEdit" parent="Frame/Body/CreatePage/Fields"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(420, 40)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+max_length = 32
+
+[node name="NewPasswordLabel" type="Label" parent="Frame/Body/CreatePage/Fields"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="NewPasswordEdit" type="LineEdit" parent="Frame/Body/CreatePage/Fields"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(420, 40)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+secret = true
+placeholder_text = "leave empty for an open race"
+
+[node name="CourseLabel" type="Label" parent="Frame/Body/CreatePage/Fields"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="CourseOption" type="OptionButton" parent="Frame/Body/CreatePage/Fields"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(420, 40)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+
+[node name="SnowLabel" type="Label" parent="Frame/Body/CreatePage/Fields"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="SnowOption" type="OptionButton" parent="Frame/Body/CreatePage/Fields"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(420, 40)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+
+[node name="BottomSpacer" type="Control" parent="Frame/Body/CreatePage"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Buttons" type="HBoxContainer" parent="Frame/Body/CreatePage"]
+layout_mode = 2
+alignment = 2
+theme_override_constants/separation = 10
+
+[node name="CreateConfirmButton" type="Button" parent="Frame/Body/CreatePage/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="CancelButton" type="Button" parent="Frame/Body/CreatePage/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="RoomPage" type="VBoxContainer" parent="Frame/Body"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="RoomTitle" type="Label" parent="Frame/Body/RoomPage"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+horizontal_alignment = 1
+
+[node name="RoomCourse" type="Label" parent="Frame/Body/RoomPage"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"DimLabel"
+theme_override_font_sizes/font_size = 19
+horizontal_alignment = 1
+
+[node name="RoomCourseRow" type="HBoxContainer" parent="Frame/Body/RoomPage"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/separation = 12
+
+[node name="RoomCourseLabel" type="Label" parent="Frame/Body/RoomPage/RoomCourseRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 19
+
+[node name="RoomCourseOption" type="OptionButton" parent="Frame/Body/RoomPage/RoomCourseRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(320, 38)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+
+[node name="RoomSnowLabel" type="Label" parent="Frame/Body/RoomPage/RoomCourseRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 19
+
+[node name="RoomSnowOption" type="OptionButton" parent="Frame/Body/RoomPage/RoomCourseRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(160, 38)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+
+[node name="MembersPanel" type="PanelContainer" parent="Frame/Body/RoomPage"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="MemberList" type="ItemList" parent="Frame/Body/RoomPage/MembersPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+
+[node name="RoomHint" type="Label" parent="Frame/Body/RoomPage"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"DimLabel"
+theme_override_font_sizes/font_size = 17
+horizontal_alignment = 1
+
+[node name="Buttons" type="HBoxContainer" parent="Frame/Body/RoomPage"]
+layout_mode = 2
+alignment = 2
+theme_override_constants/separation = 10
+
+[node name="StartButton" type="Button" parent="Frame/Body/RoomPage/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="LeaveButton" type="Button" parent="Frame/Body/RoomPage/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="BackButton3" type="Button" parent="Frame/Body/RoomPage/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="RefreshTimer" type="Timer" parent="."]
+unique_name_in_owner = true

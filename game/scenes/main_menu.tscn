@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/shell/main_menu.gd" id="1_shell"]
 [ext_resource type="PackedScene" path="res://scenes/course_menu.tscn" id="2_courses"]
@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" path="res://scenes/character_menu.tscn" id="5_character"]
 [ext_resource type="PackedScene" path="res://scenes/ghost_menu.tscn" id="6_ghost"]
 [ext_resource type="PackedScene" path="res://scenes/loading_screen.tscn" id="7_loading"]
+[ext_resource type="PackedScene" path="res://scenes/lobby_menu.tscn" id="8_lobby"]
 
 [node name="MainMenu" type="Control"]
 layout_mode = 3
@@ -83,6 +84,13 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 30
 text = "Race the computer"
 
+[node name="NetworkButton" type="Button" parent="Frame/Body/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(340, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "Network multiplayer"
+
 [node name="GhostButton" type="Button" parent="Frame/Body/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(340, 0)
@@ -126,6 +134,8 @@ theme_override_font_sizes/font_size = 14
 [node name="CharacterMenu" parent="." instance=ExtResource("5_character")]
 
 [node name="GhostMenu" parent="." instance=ExtResource("6_ghost")]
+
+[node name="LobbyMenu" parent="." instance=ExtResource("8_lobby")]
 
 [node name="SettingsMenu" parent="." instance=ExtResource("3_settings")]
 

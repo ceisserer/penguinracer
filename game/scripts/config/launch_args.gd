@@ -68,10 +68,20 @@ var autostart: bool = false
 var capture_path: String = ""
 var capture_frames: int = 120
 
-var host: bool = false
-## Port named on the command line, or 0 for "whatever the settings file says".
-var host_port: int = 0
-var join_address: String = ""
+## `--server=<address>` / `?server=`: the lobby server to connect to, replacing
+## whatever the settings file names, and a request to open the lobby on the way
+## in. Empty means "ask the shell".
+var server: String = ""
+## `--lobby` / `?lobby`: open the lobby on the server the settings file already
+## names, without naming another one.
+var lobby: bool = false
+## `--port=` on the dedicated server (`scenes/server.tscn`), or 0 for the
+## default. Not read anywhere else.
+var server_port: int = 0
+## `--web-root=<dir>` and `--web-port=`: the exported web build the dedicated
+## server hands out over HTTP, and where. Empty means it serves races only.
+var web_root: String = ""
+var web_port: int = 8060
 
 static var _current: LaunchArgs
 
@@ -93,11 +103,19 @@ static func override(args: LaunchArgs) -> void:
 ## `--auto-input=` alone is enough: it is a run with a stand-in for a player, so
 ## the default course is the right one. A bare `--capture=` is not — that one
 ## captures whatever is on screen, which is how the shell itself gets
-## screenshotted. A session started from the command line counts too: there is
-## no lobby yet, so both ends name the course themselves and meet on it.
+## screenshotted.
+##
+## A multiplayer session is [i]not[/i] one of these. It used to be, when a
+## session was two command lines naming the same course at both ends because
+## there was no lobby; now there is one, the course is the room's and its
+## admin's, and a run started with `--server=` lands on the lobby rather than on
+## a hill.
 func wants_direct_race() -> bool:
-	return not course.is_empty() or not auto_input.is_empty() \
-		or autostart or host or not join_address.is_empty()
+	return not course.is_empty() or not auto_input.is_empty() or autostart
+
+## Whether this run was told to open the lobby rather than the root menu.
+func wants_lobby() -> bool:
+	return lobby or not server.is_empty()
 
 ## Whether a stand-in is driving rather than a person. Every reference capture
 ## and the whole headless verification path is one of these.
@@ -138,13 +156,16 @@ func parse(argv: PackedStringArray, query: Dictionary) -> void:
 			capture_path = arg.trim_prefix("--capture=")
 		elif arg.begins_with("--capture-frames="):
 			capture_frames = arg.trim_prefix("--capture-frames=").to_int()
-		elif arg == "--host":
-			host = true
-		elif arg.begins_with("--host="):
-			host = true
-			host_port = arg.trim_prefix("--host=").to_int()
-		elif arg.begins_with("--join="):
-			join_address = arg.trim_prefix("--join=")
+		elif arg.begins_with("--server="):
+			server = arg.trim_prefix("--server=")
+		elif arg == "--lobby":
+			lobby = true
+		elif arg.begins_with("--port="):
+			server_port = arg.trim_prefix("--port=").to_int()
+		elif arg.begins_with("--web-root="):
+			web_root = arg.trim_prefix("--web-root=")
+		elif arg.begins_with("--web-port="):
+			web_port = arg.trim_prefix("--web-port=").to_int()
 
 	# The URL says the same things, spelled the way a query string spells them:
 	# no leading dashes, and a bare key is true. It is read second and only
@@ -169,6 +190,11 @@ func parse(argv: PackedStringArray, query: Dictionary) -> void:
 	if snow == NO_SNOW and query.has("snow"):
 		snow = str(query["snow"]).to_int()
 	autostart = autostart or query.has("autostart")
+	# The lobby, from a link. `?server=` names one and `?lobby` takes the one
+	# the page's own host implies — see [method RaceNetwork.default_address],
+	# which is what makes a URL handed to a friend enough on its own.
+	server = _str(query, "server", server)
+	lobby = lobby or query.has("lobby")
 	capture_path = _str(query, "capture", capture_path)
 	if query.has("capture-frames"):
 		capture_frames = str(query["capture-frames"]).to_int()

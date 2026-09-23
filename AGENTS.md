@@ -38,6 +38,8 @@ game/                     Godot project (project.godot; mobile on the desktop,
                           the planar mirror pass the ice samples the racers from
   scripts/camera/         chase camera        scripts/shell/  main menu, course menu,
                                                               settings screen, HUD,
+                                                              LobbyMenu (connect →
+                                                              browse → create → room),
                                                               LoadingScreen (the one
                                                               panel the menu and the
                                                               race both put up)
@@ -51,7 +53,12 @@ game/                     Godot project (project.godot; mobile on the desktop,
                           AIInputSource + AISkill, the computer opponents —
                           RaceSetup (practice or a field of 1..9),
                           RaceRecording + RaceRecorder + SavedRunStore + RaceOutcome
-  scripts/net/            RaceNetwork autoload (`Net`) — ENet session, snapshot RPCs
+  scripts/net/            RaceNetwork autoload (`Net`) — the WebSocket session,
+                          the lobby protocol and the snapshot stream — plus
+                          LobbyServer (the rooms, and the only thing on the
+                          wire that decides anything), WebFileServer (the web
+                          export over HTTP, with COOP/COEP) and ServerMain,
+                          the headless `scenes/server.tscn` that runs both
   scripts/character/      CharacterRig + KeyframePath — the rig the importer writes
                           and the root motion a keyframe animation cannot carry —
                           plus CharacterCatalog/CharacterListing, the generated
@@ -82,8 +89,10 @@ game/                     Godot project (project.godot; mobile on the desktop,
   assets/sounds|music/    GENERATED: the 10 effects and 10 pieces, copied verbatim
   scenes/                 main_menu.tscn (the main scene), course_menu.tscn,
                           character_menu.tscn, settings_menu.tscn, ghost_menu.tscn,
-                          race.tscn, results_menu.tscn, loading_screen.tscn,
-                          key_log.tscn
+                          lobby_menu.tscn, race.tscn, results_menu.tscn,
+                          loading_screen.tscn, key_log.tscn, and server.tscn —
+                          the dedicated server, which is this same project run
+                          headless with no course and no penguin in it
   user://runs/            NOT in the repo: every run the player named and kept from
                           the results screen, written by SavedRunStore and — when
                           one is chosen from the main menu's Race against ghost
@@ -94,14 +103,15 @@ game/                     Godot project (project.godot; mobile on the desktop,
                           terrain library, generated splat maps, environment
                           presets, course objects,
                           character rig, chase camera, racer layer, computer
-                          opponents) + ODE
+                          opponents, the lobby server) + ODE
                           benchmark + tone_report.gd, which is not a test
   spikes/s1_pingpong/     ping-pong render-target spike (risk S1)
   spikes/s7_reflection/   planar reflection spike (S7): which of the two ways to
                           mirror works here, and what Fresnel costs
 etr-0.8.4/                original source + data — READ-ONLY, never write here
-tools/                    import_all.sh, shot.sh (deterministic screenshot, real GPU
-                          when there is one),
+tools/                    import_all.sh, serve.sh (the dedicated server, with the
+                          web export behind it), shot.sh (deterministic
+                          screenshot, real GPU when there is one),
                           png.py + regionstats.py + linstats.py (compare a
                           capture against a reference numerically — pure Python
                           and minutes per frame; `tests/tone_report.gd` is the
@@ -135,14 +145,20 @@ godot --path game -- --no-intro                                    # ... skippin
 godot --path game -- --fps                                         # ... with the HUD's frame-rate readout
 godot --path game -- --wind=2                                      # ... with wind, and so the HUD's wind rose
 godot --path game -- --snow=3                                      # ... snowing hard (0..3; the course screen sets it too)
-godot --path game -- --host --course=bunny_hill                    # ... hosting a session (ENet, desktop only)
-godot --path game -- --join=127.0.0.1 --course=bunny_hill          # ... joining one
+godot --path game -- --server=penguin.example                      # ... opening the lobby on that server
+godot --path game -- --lobby                                       # ... on the one the settings file names
 godot --path game res://scenes/key_log.tscn                        # what the link does to the keyboard
 godot --headless --path game --script res://tests/run_tests.gd     # physics suite + benchmark
 godot --headless --path game --script res://tests/tone_report.gd \
     -- shot.png 1.0 lit:100,620,500,715                            # per-region tone of a capture
 godot --path game spikes/s1_pingpong/s1_spike.tscn                 # snow RT spike
 godot --path game spikes/s7_reflection/s7_spike.tscn               # planar reflection spike
+
+# the dedicated server — races on one port, the web build on another, one process
+# (a relative --web-root resolves against `game/`, so this is `build/web`)
+godot --headless --path game res://scenes/server.tscn -- --port=27015 \
+    --web-root=../build/web --web-port=8060
+./tools/serve.sh                                                   # ... the same, absolute, with defaults
 
 ./tools/import_all.sh [--course=bunny_hill] [--force]              # 4-pass importer
 
@@ -171,9 +187,10 @@ Settings live in `user://penguinracer.cfg` — on Linux
 `~/.local/share/godot/app_userdata/PenguinRacer/`, written with its comments on first run.
 Window size, render scale, whether ice reflects the racers, whether anything casts a shadow, fog
 distance, the size and skill of
-the computer field, how hard it is snowing, and the two multiplayer keys; delete it to get the defaults back. The main menu's **Configuration** screen
-moves the seven a player can act on — `[multiplayer] player_name` and `port` are file-only until
-there is a lobby, and `opponents`/`opponent_skill`/`snowfall` are set from the course screen
+the computer field, how hard it is snowing, and the three multiplayer keys; delete it to get the defaults back. The main menu's **Configuration** screen
+moves the seven a player can act on — `[multiplayer] player_name` and `server` are edited on the
+**Network multiplayer** screen instead, where they are what is being asked for, `port` is file-only,
+and `opponents`/`opponent_skill`/`snowfall` are set from the course screen
 instead, where the choice is actually made — and writes the same commented file back. The resolution row offers
 the display's own modes (`DisplayModes`, filled from `DisplayServer` at open time), not a fixed
 list, and the resolution and fullscreen rows are hidden on the web build, where the page sizes the
@@ -220,11 +237,12 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 | 2 — rendering | partial — **two renderers**: Mobile on the desktop, Compatibility on the web, split because a shadow-casting light under Compatibility is drawn in an sRGB-blended second pass (trap list). Every lit shader reproduces ETR's illumination clamp; the desktop additionally gets a PSSM directional shadow the original has no equivalent for. Splat PBR, chunked terrain, instanced course objects (trees are the original's two fixed planes at 90°, turned by a hashed yaw so a grid-placed forest does not share them; items are billboards), the original's HUD (`hud.cpp`'s six controls, redrawn from its constants as [CanvasItem] primitives — see [RaceHUD]), migrated skyboxes. Tone matched to the original on Bunny Hill at both ends of the range and in all three channels; no LightmapGI bake. Snow and ice carry procedural micro-relief, a twinkling crystal glint and a Fresnel sky reflection, and the ice reflects the racers standing on it — a planar mirror pass (`IceReflection`) the ice branch samples in place of the sky where there is a penguin. The carve spray draws ETR's textured, growing, fading puffs on a redrawn atlas. |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror both wired; a carve leaves a track with a shaded trench, a self-occluded floor and a bright ploughed lip. |
 | 4 — character | **done for all five characters** — welded ArrayMesh from `shape.lst` **skinned** to a Skeleton3D with ETR joint names, the four keyframe lists as an AnimationLibrary plus a `KeyframePath` of root motion each, the pre-race start animation (`CIntro`) wired into the race, the finish-line clip (`finish`/`wonrace`/`lostrace`, chosen by `RaceOutcome.clip` — see the game shell row) wired into the results screen, and the racing pose layer (`AdjustJoints`) on `CharacterRig.adjust_joints` — flippers out to brake and the inside one out through a turn, a stroke through them while paddling, a flap on a jump, legs that tuck with speed and brace against the ground, a tail and a head that follow the lean. It runs off a `RacerState` and nothing else, so a ghost and a remote peer animate too. Tux, Trixi, Boris, Samuel and Beastie each carry their own shape and their own clips; `resources/characters.tres` indexes them and `GameConfig.character` picks one. Both canned clips are played the same way — the `Animation` for the joints and the `KeyframePath` for the body — because in both of them the body is where the animation is: `finish.lst` opens lying on the belly and stands the penguin up entirely on node 0. See the trap list. |
-| 5 — game shell | partial — `main_menu.tscn` is the main scene: Practice opens the course list, *Race the computer* opens the same list with a field of 1–9 opponents behind it, *Race against ghost* opens a list of every saved run (`ghost_menu.tscn`), Configuration edits `penguinracer.cfg` graphically, and a race is a scene the shell hands over to and takes back. A finished race brings up `results_menu.tscn` over the course — time, herring, the `wonrace`/`lostrace`/`finish` clip playing, and a name field to keep the run — before the ordinary course menu takes over. `character_menu.tscn` is the character half of `CRegist` — arrows over a framed name with the migrated 128x128 preview under it. Every screen wears `themes/etr_menu.tres`, so the shell reads as the original's: the flat `colBackgr` blue, white text, `colDYell` on whatever has focus, square white-outlined frames. Generated course and character catalogs, 13 languages wired to `tr()`, audio (10 effects + 10 pieces + 3 racing themes on an `AudioDirector` autoload that reproduces ETR's one-voice-per-cue mixer). No cups, medals or profiles (data is imported and waiting; the player half of `CRegist` waits on them); no volume or language controls on the settings screen; none of ETR's menu art (corner ornaments, title logo), which waits on the licence audit. |
+| 5 — game shell | partial — `main_menu.tscn` is the main scene: Practice opens the course list, *Race the computer* opens the same list with a field of 1–9 opponents behind it, *Network multiplayer* opens the lobby (`lobby_menu.tscn`), *Race against ghost* opens a list of every saved run (`ghost_menu.tscn`), Configuration edits `penguinracer.cfg` graphically, and a race is a scene the shell hands over to and takes back. A finished race brings up `results_menu.tscn` over the course — time, herring, the `wonrace`/`lostrace`/`finish` clip playing, and a name field to keep the run — before the ordinary course menu takes over. `character_menu.tscn` is the character half of `CRegist` — arrows over a framed name with the migrated 128x128 preview under it. Every screen wears `themes/etr_menu.tres`, so the shell reads as the original's: the flat `colBackgr` blue, white text, `colDYell` on whatever has focus, square white-outlined frames. Generated course and character catalogs, 13 languages wired to `tr()`, audio (10 effects + 10 pieces + 3 racing themes on an `AudioDirector` autoload that reproduces ETR's one-voice-per-cue mixer). No cups, medals or profiles (data is imported and waiting; the player half of `CRegist` waits on them); no volume or language controls on the settings screen; none of ETR's menu art (corner ornaments, title logo), which waits on the licence audit. |
 | 6 — polish/ship | not started. |
 | weather — snow | **done for the snow, 0–3** — ETR's `snow_id`, the first of the three weather controls its race-select screen offers (light, snow, wind). `SnowFall` is both halves of the original: three nested boxes of wrapping flakes around the player (`CFlakes`, a `MultiMesh` whose whole per-frame motion is two uniforms, so it is deterministic where the spray is not) and three rings of big sparse tiles at 40–60 m (`CCurtain`). Chosen on the course screen in Practice and in a race alike, remembered as `[game] snowfall`, and `--snow=0..3`/`?snow=` for a capture. Presentation only — no racer drives differently in it, which is the original's arrangement too. Verified on both renderers. The other two controls are not offered: the sky is a property of the course's environment here (and the evening/night presets are unfitted — see Known gaps), and the wind is still `--wind=`. |
 | computer opponents | **done** — beyond the original, which has nobody on the hill. `RaceSetup` is the whole mode switch: 0 opponents is Practice and 1–9 is a race, chosen on the course screen and remembered in `penguinracer.cfg`. An opponent is a `SimulatedRacer` driven by an `AIInputSource` — the seam the racer layer was built for, used with no change to it. It plans an aim point every `AISkill.plan_interval` ticks by scoring nine candidate lines against trees, the play bounds, swerve cost, its own lane, the friction ahead, herring and the other racers. **The three levels move driving habits and never the physics**: lookahead, reaction, nerve, how long they paddle, how readily they brake. Measured over 30 s of a 22° slope: easy 231 m, medium 333 m, hard 422 m, a player holding the accelerator straight 413 m. Deterministic — the only randomness is a per-seat personality drawn once from a seed. Opponents are solid: everyone on the hill bounces off everyone else through the shared `RacerField` (see the deviations), which is why the steering term only has to keep them out of each other's way rather than out of each other. No jumps, no tricks, no cups. |
-| multiplayer foundation | seams built, ghosts working, network scaffold desktop-only — beyond the original, plan §8.4. The simulation runs on a fixed 60 Hz tick with interpolated presentation; `RaceScene` owns a list of `Racer`s, split into `SimulatedRacer` (a `RacePhysics` fed by an `InputSource`) and `PlaybackRacer` (a `RacerStateStream` read by time). Ghosts are finished end to end: every run is recorded, and a finished race brings up a results screen (`ResultsMenu`) where the player can name it and keep it (`SavedRunStore`, `user://runs/`, one file per save — nothing is written automatically any more). The main menu's **Race against ghost** entry (`GhostMenu`) lists every saved run and racing one draws it translucent with the gap in seconds on the HUD. `Net` hosts/joins an ENet session over `--host`/`--join=` and each peer broadcasts 20 snapshots a second. A peer is a body like any other — the local player collides with it against the snapshot stream, and the machine that owns it resolves the same contact from its side. No lobby, no countdown, no web (ENet is UDP). |
+| multiplayer foundation | **done** — the seams the rest of this table rests on. The simulation runs on a fixed 60 Hz tick with interpolated presentation; `RaceScene` owns a list of `Racer`s, split into `SimulatedRacer` (a `RacePhysics` fed by an `InputSource`) and `PlaybackRacer` (a `RacerStateStream` read by time). `RacerState` — 18 floats — is the only thing the presentation reads, and is the ghost file format and the wire format at once. Ghosts are finished end to end: every run is recorded, a finished race brings up a results screen (`ResultsMenu`) where the player can name it and keep it (`SavedRunStore`, `user://runs/`), and the main menu's **Race against ghost** entry (`GhostMenu`) lists every saved run and racing one draws it translucent with the gap in seconds on the HUD. |
+| network multiplayer | **done** — beyond the original, plan §8.4, and it works in a browser. One **dedicated server** (`scenes/server.tscn`, this same project run headless) serves the WebAssembly build over HTTP *and* accepts race sessions over WebSocket, so a desktop player and a player in a tab are in the same room on the same protocol. `LobbyServer` owns the rooms — create one with a name and an optional password, see every race not yet started, join, and the creator is its admin and the only one who may pick the course or press Start. `RaceNetwork` (`Net`) is the socket, the protocol and the snapshot stream; the server relays snapshots and validates nothing else about them, so every peer still simulates only itself and draws the rest as `PlaybackRacer`s. No start animation: everyone reports the hill built, the server waits for the last of them, and a three-second countdown starts the field together. **The race is over when the last racer crosses the line, not the first** — between your own finish and theirs the camera spectates whoever is still coming down, and the results screen carries the server's finishing order. Esc is a forfeit rather than a pause; `P` and `r` are off. See the deviations. |
 
 ### Spikes
 
@@ -955,6 +973,20 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   "Build configuration: … multi-threaded". The pack presets' value is inert — a `.pck` carries no
   engine variant — so the base is the only one that decides. Nobody has taken threads up, and
   whether to is open; what is settled is that the reason recorded here for not doing so was wrong.
+- **An autoload is not a global identifier in the file `--script` points at.** `godot --headless
+  --path game --script res://x.gd` loads and compiles `x.gd` *before* `SceneTree::initialize` has
+  registered the autoloads, so a reference to `Net` or `Config` at the top level of that one file
+  is "Compile Error: Identifier not found: Net" — while the same reference in any script it loads
+  afterwards resolves fine, which is why `run_tests.gd` has never noticed. A script that needs an
+  autoload has to be a *scene* (`godot --path game res://x.tscn`), where the main scene is built
+  after the autoloads are.
+
+- **The scene path has to come before the `--`, and there is no error if it does not.** `godot
+  --path game res://x.tscn -- --flag` runs `x.tscn`; `godot --path game -- --flag res://x.tscn`
+  runs `project.godot`'s own main scene and hands the path to `OS.get_cmdline_user_args()` as an
+  argument nothing reads. The failure looks like the scene's script silently not running, which
+  sent an afternoon after a `_ready` that was never called.
+
 - **A new `class_name` does not exist until the editor has scanned for it.**
   `.godot/global_script_class_cache.cfg` is gitignored and only rewritten by an editor pass, so
   every headless run after adding a class fails with *"Could not find type X in the current
@@ -1043,8 +1075,9 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   `restart()` skips the intro in a networked race on purpose. Nothing failed and nothing was
   logged; the race simply began already moving, which is what a race looks like after an intro
   you did not see. Ask whether the peer is the offline one, not whether there is a peer.
-  `OfflineMultiplayerPeer` is core and safe to name in a script that ships to web, unlike
-  `ENetMultiplayerPeer`.
+  `OfflineMultiplayerPeer` is core and safe to name in a script that ships to web, unlike a
+  transport class — `RaceNetwork._new_peer` still builds `WebSocketMultiplayerPeer` through
+  `ClassDB` for the same reason, so a stripped build loses multiplayer rather than losing the game.
 - **Simulation state read at frame time is a sawtooth, however smooth the field is.** The snow
   lift that draws the body against the bare hill (`Racer._drawn_snow_lift`) was read live from
   `present()`, which puts two clocks in one expression: `SnowField` is written from inside the
@@ -1167,6 +1200,43 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   that is right.
 
 ## Deliberate deviations from ETR
+
+- **A network race has a countdown where a solo race has the start animation.** `CIntro` is four
+  and a half seconds of one penguin walking to the line on its own clock — fine when it is your
+  clock, and four and a half seconds of nobody agreeing when the race began when it is eight of
+  them. A network race skips it entirely: every peer reports the hill built
+  (`RaceNetwork.report_ready`), the server waits for the last of them, and one `cli_race_go` packet
+  starts a three-second `3 · 2 · 1` on every screen at once. The field is then aligned to within
+  one round trip, which is the best a game with no position authority can do. `RaceScene.COUNTDOWN_SECONDS`.
+
+- **A network race is over when the last racer crosses the line.** The original races one penguin
+  against a clock and is over when that penguin stops. Here your own finish is reported to the
+  server and nothing else happens: the hill keeps running, the camera hands itself to whoever is
+  still coming down (`RaceScene._update_spectate`, through the `RacerRoster.view_target` the roster
+  was built to allow), the HUD says how many are left, and the results screen waits for
+  `RaceNetwork.race_over`. What it then shows is the *server's* finishing order — eight reported
+  times — rather than this machine's standings, which are eight interpolated positions and a
+  different question. The one backstop is `LobbyServer.ABANDON_AFTER_MSEC`, five minutes after the
+  first finisher, for a window nobody is sitting at; a disconnect or a deliberate exit already ends
+  that racer's race in the tick it happens.
+
+- **Esc leaves a network race instead of opening the course list, and `P` and `r` do nothing.**
+  The course belongs to the room and its admin, so there is nothing for the in-race course list to
+  offer; Esc is "I am out", and it forfeits, which is what stops one player holding seven others in
+  a race forever. `P` would freeze this machine's simulation while everybody else kept going, and
+  `r` would put this machine's clock back to zero while seven others kept theirs — neither is a
+  pause or a restart of a shared race, they are just a racer behaving impossibly on every screen
+  but their own.
+
+- **Multiplayer is client/server over WebSocket, and the server relays rather than simulates.**
+  The transport is chosen by the web build: ENet is UDP and a browser has no UDP socket, so the
+  first cut of `RaceNetwork` — peer-to-peer ENet — could never have worked on half of this
+  project's targets. WebSocket is TCP, which costs head-of-line blocking on a lost snapshot and buys
+  one protocol for both kinds of player. What the server decides is the room list, who may enter a
+  room, who may start a race and when a race is over; what it does not decide is any position. A
+  snapshot arrives from one member and is forwarded to the others unread, every peer simulates
+  itself and only itself, and racer-to-racer contact is still resolved twice, once by each body.
+  See `scripts/net/race_network.gd` for the whole argument.
 
 - **A tree is shaded as a cylinder across both of its planes**, where ETR gives all eight vertices
   `glNormal3i(0, 0, 1)` and lights the whole object flat from one world direction. The geometry is

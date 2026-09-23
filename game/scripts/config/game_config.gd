@@ -132,9 +132,17 @@ var snowfall: int = 0
 ## picture behind its registration screen; there are no profiles here yet, so
 ## the name is a settings key until there is somewhere better for it to live.
 var player_name: String = "Racer"
-## Port a hosted session listens on, and the one `--join=` assumes when the
-## address does not carry its own.
+## Port the lobby server listens on, and the one an address without a port of
+## its own is assumed to be using.
 var multiplayer_port: int = RaceNetwork.DEFAULT_PORT
+## The lobby server the **Network multiplayer** screen connects to. Empty means
+## "work it out" — the host that served the page in a browser, the loopback
+## everywhere else. See [method RaceNetwork.default_address].
+##
+## Kept in the settings file rather than only on the screen because a player who
+## races on one server races on it again next week, and typing an address into a
+## game every time is the kind of friction that ends a multiplayer mode.
+var multiplayer_server: String = ""
 
 ## Set once, before the file has touched anything: true when the window we were
 ## handed is not the one `project.godot` asks for, which on the desktop means
@@ -238,6 +246,8 @@ func read(cfg: ConfigFile) -> void:
 		player_name = "Racer"
 	multiplayer_port = clampi(int(cfg.get_value("multiplayer", "port",
 		multiplayer_port)), 1024, 65535)
+	multiplayer_server = str(cfg.get_value("multiplayer", "server",
+		multiplayer_server)).strip_edges()
 
 ## `"1280x720"` → `Vector2i(1280, 720)`; `"auto"` → [constant Vector2i.ZERO],
 ## meaning the window is left as the platform sized it. Anything unparseable
@@ -341,16 +351,21 @@ snowfall = %d
 ; What other racers see you called.
 player_name = "%s"
 
-; Port a hosted session listens on. Multiplayer is desktop-only and is started
-; from the command line for now:
-;     godot --path game -- --host --course=bunny_hill
-;     godot --path game -- --join=192.168.1.20 --course=bunny_hill
+; The lobby server "Network multiplayer" connects to: a host name, a host:port,
+; or a full ws:// or wss:// URL. Leave it empty and the game works one out —
+; the host that served the page in a browser, 127.0.0.1 on the desktop. The
+; Network multiplayer screen writes back whatever you last connected to.
+;     godot --headless --path game res://scenes/server.tscn -- --port=27015
+server = "%s"
+
+; Port the server listens on, and the one an address with no port of its own is
+; assumed to use.
 port = %d
 """ % [_resolution_text(), str(fullscreen).to_lower(), render_scale,
 		str(ice_reflections).to_lower(), str(shadows).to_lower(),
 		fog_start_distance, fog_distance_scale, character,
 		opponents, AISkill.name_of(opponent_skill), snowfall,
-		player_name, multiplayer_port]
+		player_name, multiplayer_server, multiplayer_port]
 
 ## `"auto"` when the window is the platform's to size, `"1280x720"` otherwise.
 ## The round trip through [method parse_resolution] has to survive: a saved

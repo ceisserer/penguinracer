@@ -253,7 +253,11 @@ Race scene                                   fixed 60 Hz tick, interpolated pres
 RacePhysics              (GDScript, headless-testable, no node deps) — one per SimulatedRacer
 CharacterRig             (skinned skeleton, canned keyframes, the racing pose layer)
                          — one under each Racer
-Net / RaceNetwork        (autoload) ENet session; snapshots in and out of PlaybackRacers
+Net / RaceNetwork        (autoload) WebSocket session to the dedicated server; the lobby
+                         protocol; snapshots in and out of PlaybackRacers
+LobbyServer              (plain RefCounted, no transport) the rooms — what the server decides
+ServerMain               scenes/server.tscn: the game headless, races on one port and the
+                         web build on another (WebFileServer)
 ```
 
 `RacePhysics` must have **zero node dependencies** — plain `RefCounted` operating on a
@@ -484,11 +488,34 @@ that, not on the game code. This is the one place the "no system may depend on a
 Compatibility lacks" rule (§4.1 rule 2) is knowingly bent: the feature degrades to absent in the
 browser rather than breaking anything there.
 
-Not designed here and deliberately left open: the lobby (who is racing what, and a countdown
-everyone starts on), a finishing-order screen, and whether cups are ever raced together. A field
-of computer opponents needs none of the three, which is why it shipped first — it starts when the
-player presses Race!, everyone shares one clock, and the place goes on the panel that already
-comes up after the line.
+> **Corrected 2026-09-19.** The transport is **WebSocket to a dedicated server**, and multiplayer
+> works in the browser. Two things were wrong above. The first: WebRTC is not the only way out of
+> ENet — `WebSocketMultiplayerPeer` delivers the same `MultiplayerAPI` behind the same factory
+> function, it is core, it ships in the web templates, and a native build can open it too. It is
+> TCP, so a lost snapshot delays the ones behind it; at 20 packets a second of 72 bytes that has
+> not been worth a second code path, and `RacerStateStream` interpolates through a late snapshot
+> exactly as it does through a missing one. The second, and the more useful correction: the
+> "hosted infrastructure, not repository content" line was drawing the boundary in the wrong
+> place. A signalling server would indeed be infrastructure; a *game* server is a main scene —
+> `scenes/server.tscn` is this project run headless, so `LobbyServer` is a file the game already
+> links and the protocol cannot drift between the two ends. And once there is a process listening
+> on the machine anyway, it may as well hand out the WebAssembly build too (`WebFileServer`,
+> COOP/COEP and all), which is what makes a link to a server enough to play.
+>
+> So §4.1 rule 2 is **no longer bent here**: nothing in multiplayer depends on a feature
+> Compatibility lacks, and the browser gets the whole feature rather than a degraded one.
+>
+> The three things left open below are now built, and the shapes they took: the **lobby** is
+> `LobbyMenu` over `LobbyServer`'s rooms — a race has a name, a course, a snowfall grade, an
+> optional password (a salted digest on the wire, never the password) and an admin, who is the
+> only one who may pick the course or press Start. The **countdown** is not a fixed timer but a
+> handshake: every peer reports the hill built, the server waits for the last of them, and one
+> packet starts a three-second `3 · 2 · 1` on every screen — because a course pack is twenty
+> seconds on one link and half a second on another. The **finishing-order screen** is the existing
+> `ResultsMenu` with the server's order in the line the ghost gap uses, and it does not come up
+> when *you* finish: a network race is over when the **last** racer crosses, and until then the
+> camera spectates whoever is still coming down (`RacerRoster.view_target`, which the roster was
+> built to allow). Cups are still not raced together.
 
 ---
 
@@ -644,6 +671,18 @@ save/profiles, settings, 15-language i18n, audio mixing.
 > **Exit (met):** a recorded run replays to within 1e-9 of the original trajectory; the player
 > races their own best time on any course; two processes see each other on the hill.
 
+> **Addition, 2026-09-19 — network multiplayer.** The feature the foundation above was the shape
+> of, and the last of §8.4's four. A dedicated server that serves the web build over HTTP and the
+> race sessions over WebSocket out of one headless process; a lobby of named, optionally
+> password-protected races each with an admin; a ready handshake and a countdown in place of the
+> start animation; and a race that ends when the last racer crosses rather than the first, with
+> the camera spectating in between. Nothing in the racer layer changed to accept it — a peer is
+> the `PlaybackRacer` a ghost already was, and a network race is one more field on `RaceSetup`.
+> **Exit (met):** a server and two clients, one of them a browser-capable build, meet in a
+> password-protected room and race Bunny Hill; the first finisher waits on the hill and the race
+> ends at the second; the results screen carries the server's order; `tests/test_lobby.gd` asserts
+> the room rules and the last-racer-in rule with no sockets in it.
+
 > **Addition, 2026-09-02 — computer opponents.** Also not a phase, also §8.4 scope, and the first
 > thing to be built *on* the racer layer rather than into it: a fourth main-menu entry, `Race the
 > computer`, and a `RaceSetup` carrying 0–9 opponents and a skill across the scene swap the same
@@ -726,6 +765,11 @@ mass against our own heightmap, exactly as ETR did. Its limitations do not apply
    > the presentation reads, and recording in both poses and intent. Ghosts are finished; the ENet
    > session is a working scaffold with no lobby and no web; AI opponents need an `InputSource`
    > and nothing else. Time trials and procedural courses are untouched.
+   > **Finished, 2026-09-19.** Computer opponents shipped on that seam without changing it, and so
+   > did network play: a dedicated server (`scenes/server.tscn`), a lobby with named and
+   > password-protected races, a ready handshake and a countdown, and a race that is over when the
+   > last player crosses the line. It works in the browser, which the plan had written off. See the
+   > correction in §4.6. Time trials and procedural courses are still untouched.
 5. **Desktop native** — ship it? sure, desktop and web are equally important. therfore it is ok to develop and test against the native version.
 
 ---

@@ -34,13 +34,15 @@ game/                     Godot project
   scripts/race/           the race scene and the racers on the hill: the player, up to
                           nine computer opponents, an optional ghost of a saved run,
                           and one per network peer
-  scripts/net/            the ENet session and the snapshots it carries
-  scripts/shell/          HUD, main menu, course menu, settings screen
+  scripts/net/            the WebSocket session and the snapshots it carries, the
+                          lobby protocol, and the dedicated server behind both
+  scripts/shell/          HUD, main menu, course menu, lobby, settings screen
   scripts/audio/          the AudioDirector autoload and the sound/music banks
   scripts/config/         GameConfig: the settings file, read once at startup
   scenes/                 main_menu.tscn (the main scene), course_menu.tscn,
                           character_menu.tscn, settings_menu.tscn, ghost_menu.tscn,
-                          race.tscn, results_menu.tscn
+                          lobby_menu.tscn, race.tscn, results_menu.tscn, and
+                          server.tscn — the dedicated server, headless
   themes/                 etr_menu.tres — ETR's GUI palette as a Godot theme,
                           plus the two checkbox icons it needs
   addons/etr_import/      one-way, re-runnable importer from the ETR data tree
@@ -52,12 +54,13 @@ game/                     Godot project
   assets/                 generated: textures, skyboxes and the migrated audio
   tests/                  headless suite (physics, surface, input, audio, terrain
                           library, course objects, settings, character rig,
-                          chase camera, recording and playback, computer opponents)
-                          + ODE benchmark
+                          chase camera, recording and playback, computer opponents,
+                          the lobby server) + ODE benchmark
   spikes/s1_pingpong/     the ping-pong render-target spike (risk S1)
   spikes/s7_reflection/   the planar reflection spike (S7)
 etr-0.8.4/                the original source and data, read-only
-tools/                    importer driver and the browser test harness
+tools/                    importer driver, serve.sh (the dedicated server), and the
+                          browser test harness
 ```
 
 ## Prerequisites
@@ -101,8 +104,8 @@ godot --path game -- --no-audio                      # play with the sound off
 godot --path game -- --no-intro                      # ... and without the start animation
 godot --path game -- --fps                           # ... showing the HUD's frame-rate readout
 godot --path game -- --wind=2                        # ... with weather, and so the HUD's wind rose
-godot --path game -- --host --course=bunny_hill      # host a session for others to join
-godot --path game -- --join=<address> --course=bunny_hill    # ... join one
+godot --path game -- --server=<address>              # ... straight to the multiplayer lobby
+godot --path game -- --lobby                         # ... on the server the settings file names
 ```
 
 Every race opens with the original's start sequence: your character is standing off to one side of
@@ -187,7 +190,7 @@ From the command line, without the menu:
 godot --path game -- --course=bunny_hill --opponents=5 --difficulty=hard
 ```
 
-## Racing yourself, and racing other people
+## Racing yourself
 
 Every run you make is recorded — a couple of bytes per simulated frame, plus a pose twenty times a
 second, about 150 kB for a long course — but nothing is written to disk until you ask. Finish a
@@ -205,18 +208,84 @@ split a field race decides by place instead, since this rebuild has no cups to d
 scripted run (`--auto-input=`) neither loads a ghost nor keeps one, which is what stops a
 screenshot comparison growing a second penguin.
 
-Two people on two machines can race the same course together:
+## Racing other people
+
+**Network multiplayer** on the main menu. Up to eight players on one hill, on any machine the game
+runs on — a desktop build and a browser tab are the same kind of client here.
+
+### Running a server
+
+There has to be one, and it is this same project run headless:
 
 ```bash
-godot --path game -- --host --course=bunny_hill              # one machine
-godot --path game -- --join=192.168.1.20 --course=bunny_hill # the other
+tools/serve.sh                      # races on 27015, the web build on 8060
+PORT=27100 tools/serve.sh           # ... on another race port
+WEB_ROOT= tools/serve.sh            # ... races only, no HTTP at all
+
+# or, spelled out — note that a relative --web-root resolves against `game/`,
+# because Godot gives a script no way to ask for the shell's directory
+godot --headless --path game res://scenes/server.tscn -- \
+    --port=27015 --web-root=../build/web --web-port=8060
 ```
 
+It opens two listeners in one process. The **race port** carries the sessions, over WebSocket,
+which is the one transport a native build and a browser can both open — ENet is UDP and a page has
+no UDP socket. The **web port** hands out the exported WebAssembly build itself, with the
+COOP/COEP headers a threaded export needs and the right MIME types for `.wasm` and `.pck`; point
+it at whatever `tools/build_web_streamed.sh` wrote. Leave `--web-root` off and it serves races
+alone, which is what you want when a real static host or a CDN is serving the build.
+
+The point of the two being one process is that a link is enough: open `http://<server>:8060/` and
+the lobby's server field is already filled in with the host that served the page. On the desktop
+it defaults to `127.0.0.1`, which is what a second terminal wants.
+
+A page served over **HTTPS** may not open a `ws://` socket, so a public deployment wants a reverse
+proxy terminating TLS in front of both, and the address field then takes `wss://your.host/…`. The
+server itself does no TLS, no compression, no keep-alive and no rate limiting; it is a server you
+run for people you know.
+
+### Playing
+
+**Network multiplayer** connects, then lists every race that has not started yet — name, course,
+how many are in it, who created it, and whether it is locked. From there:
+
+- **Join** one. If it is locked, type the password first. The password never leaves your machine:
+  what goes on the wire is a SHA-256 digest of it salted with the race's name, so a password reused
+  from somewhere else is not sent anywhere.
+- **Create a race**. Name it, choose the course and the snowfall, and set a password or leave it
+  empty for an open race. You are that race's admin: you are the only one who can change the
+  course and the only one who can press Start. Close the window and the race is handed to whoever
+  has been in it longest rather than collapsing.
+
+Press Start and everyone loads the course. Nobody races until the last machine has it built — a
+big course pack over a slow link is twenty seconds on one end and half a second on another — and
+then a three-second countdown starts the whole field together. There is no start animation in a
+network race, which is what the countdown is instead of.
+
 Each machine simulates only its own penguin and tells the others where it is twenty times a
-second; nobody's physics is second-guessed. **Desktop only** — the transport is ENet, which is
-UDP, and a browser cannot open a UDP socket. There is no lobby yet either, so both ends name the
-course themselves and start when they start; `[multiplayer] player_name` in the settings file is
-what the other players see you called.
+second; nobody's physics is second-guessed and the server does not simulate anything at all. You
+can still bump into people: the contact is resolved by both bodies independently, so it feels
+very slightly different at each end, which is the honest price of having no referee.
+
+**The race is not over when you cross the line — it is over when the last player does.** Your
+penguin coasts to a stop, the clock stops, and the camera follows whoever is still coming down the
+hill while the HUD counts how many are left. When the last one is in, everybody gets the same
+results screen with the finishing order on it, and Continue puts you back in the room you started
+from, ready to go again.
+
+Esc leaves a network race and forfeits it — the others stop waiting for you. `P` and `r` do
+nothing there: freezing or restarting your own simulation while seven other people keep racing is
+not a pause and not a restart.
+
+`[multiplayer] player_name` and `server` in the settings file are what the lobby screen writes
+back, so the name and the server you last used are there next time.
+
+```bash
+godot --path game -- --server=penguin.example      # straight to the lobby, on that server
+godot --path game -- --lobby                       # ... on the one the settings file names
+```
+
+...and `?server=` / `?lobby` in the browser, which is how a link to a server is a link.
 
 ## Settings
 
@@ -252,8 +321,15 @@ opponent_skill = "medium" ; easy, medium or hard
 
 [multiplayer]
 player_name = "Racer"     ; what other racers see you called
-port = 27015              ; the port --host listens on and --join= assumes
+server = ""               ; the lobby server: a host, a host:port, or a ws:// URL.
+                          ; empty means "work it out" — the host that served the
+                          ; page in a browser, 127.0.0.1 on the desktop
+port = 27015              ; the port the server listens on, and the one an
+                          ; address with no port of its own is assumed to use
 ```
+
+The first two are written back by the **Network multiplayer** screen, so the name and the server
+you last connected to are already filled in next time.
 
 Delete the file to get the defaults and the comments back. Godot's own `--resolution` and
 `--fullscreen` outrank it, so `tools/shot.sh` captures at the size it asks for whatever the file

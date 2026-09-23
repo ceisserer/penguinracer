@@ -186,6 +186,9 @@ const FINISH_AT := Vector2(215.0, 14.0)
 const FINISH_FONT_SIZE := 26
 const HINT_FROM_BOTTOM := 150.0
 const HINT_FONT_SIZE := 22
+## The network countdown, which is the one number on this HUD that is meant to
+## be read from across a room rather than at a glance.
+const COUNTDOWN_FONT_SIZE := 86
 
 @export var race: RaceScene
 
@@ -567,6 +570,12 @@ func _draw_status(size: Vector2) -> void:
 		_draw_centered(tr("PRESS_ANY_KEY_TO_START"), hint_top(size), size,
 			HINT_FONT_SIZE, Color.WHITE)
 		return
+	# DEVIATION: a network race has two things to say the original never needed
+	# — the countdown that replaces its start animation, and, once this player
+	# is over the line, that the race is not over until the last one is. Both
+	# are centred rather than in the corner, for the same reason the start hint
+	# is: they are about the race rather than about the racer.
+	_draw_network_banner(size)
 	var delta: float = race.ghost_delta()
 	if is_finite(delta):
 		_draw_text("%s %+.2f s" % [RaceScene.GHOST_LABEL, delta], STATUS_AT, STATUS_FONT_SIZE,
@@ -596,6 +605,19 @@ func _draw_standings() -> void:
 		parts.push_back(_gap_line("↓", ordered[place]))
 	_draw_text("    ".join(parts), STATUS_AT, STATUS_FONT_SIZE,
 		AHEAD_COLOR if place == 1 else Color.WHITE)
+
+## The countdown, big, where the eye already is — and under it the one line
+## that says what this machine is waiting for. Neither is drawn outside a
+## network race: [method RaceScene.countdown_text] and
+## [method RaceScene.network_status] answer empty everywhere else.
+func _draw_network_banner(size: Vector2) -> void:
+	var count: String = race.countdown_text()
+	if not count.is_empty():
+		_draw_centered(count, size.y * 0.44, size, COUNTDOWN_FONT_SIZE,
+			AHEAD_COLOR if count == "GO!" else Color.WHITE)
+	var status: String = race.network_status()
+	if not status.is_empty():
+		_draw_centered(status, hint_top(size), size, HINT_FONT_SIZE, Color.WHITE)
 
 func _gap_line(arrow: String, other: Racer) -> String:
 	return "%s %s %.0f m" % [arrow, other.display_name,

@@ -46,10 +46,11 @@ the original, and each one is marked `DEVIATION` in the source with its reason.
 | **Courses** | All 44, imported from the original data, with their events and difficulty thresholds |
 | **Characters** | Tux, Trixi, Boris, Samuel and Beastie — skinned rigs with the original's keyframe animations, start sequence and finish clips |
 | **Terrain** | 43 material types, friction blended per-texel, splat-mapped PBR over a float32 heightmap |
-| **Modes** | Practice against the clock, a field of 1–9 computer opponents, a ghost of any saved run, and LAN play between two desktops |
+| **Modes** | Practice against the clock, a field of 1–9 computer opponents, a ghost of any saved run, and network multiplayer for up to eight people — desktop and browser in the same race |
 | **Snow** | GPU trail deformation with a shaded trench and a ploughed lip, plus carve spray and four levels of falling snow |
-| **Shell** | Main menu, course and character screens, in-race HUD, results and settings, 13 languages |
-| **Tests** | 4724 headless assertions, 0 failures, 13 s — physics, surface, input, audio, terrain, camera, replay, opponents |
+| **Shell** | Main menu, course and character screens, the multiplayer lobby, in-race HUD, results and settings, 13 languages |
+| **Server** | One headless process serves the web build over HTTP and the race sessions over WebSocket — `tools/serve.sh` |
+| **Tests** | 4860 headless assertions, 0 failures, 11 s — physics, surface, input, audio, terrain, camera, replay, opponents, the lobby server |
 
 ---
 
@@ -63,6 +64,7 @@ is in this repository at `etr-0.8.4/`.
 godot --path game                     # play
 godot --path game -- --course=bunny_hill --opponents=5 --difficulty=hard
 godot --headless --path game --script res://tests/run_tests.gd   # the suite
+./tools/serve.sh                      # a multiplayer server, and the web build behind it
 ```
 
 The desktop build wants Vulkan; the web build wants Godot's export templates. Every flag, the
@@ -168,9 +170,19 @@ comparisons possible.
 Four things here that ETR does not have, all of them falling out of the decisions above rather
 than bolted on: **snow that deforms**, **1–9 computer opponents** (same physics, same tick — only
 their driving habits change with difficulty; they are solid, and they collect herring first-come
-first-served), **ghost replays** of any saved run, and **LAN multiplayer** where every peer
-simulates only itself and broadcasts 20 snapshots a second, with no host authority over anyone's
-position.
+first-served), **ghost replays** of any saved run, and **network multiplayer** for up to eight
+people on one hill.
+
+Multiplayer runs against one dedicated server, which is this same project run headless — it hands
+out the WebAssembly build over HTTP *and* accepts the race sessions those pages open, so a player
+on a desktop and a player in a browser tab are in the same room on the same protocol. Open the
+lobby and you get every race not yet started; create one with a name and an optional password and
+you are its admin, the only one who can pick the course and press Start. Nobody races until the
+last machine has the hill built, and then a three-second countdown starts the whole field
+together. Every peer simulates only itself and publishes 20 snapshots a second; the server relays
+them unread and has no authority over anybody's position. And **the race is over when the last
+player crosses the line, not the first** — after your own finish the camera follows whoever is
+still coming down, and everyone gets the same finishing order at the same moment.
 
 And one thing the web needed: the browser build is **streamed**. A slim ~65 MB base (engine, shell,
 44 preview thumbnails) plus one `.pck` per course fetched on demand, against 161 MB if it were all

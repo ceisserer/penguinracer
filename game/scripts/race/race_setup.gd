@@ -16,6 +16,14 @@
 ## Zero opponents is Practice — the mode the game had until now, and still the
 ## default. `--auto-input=` and every reference capture get it, which is what
 ## keeps a capture of Bunny Hill the same frame it was before opponents existed.
+##
+## [b]A network race is a third value and not a fourth object.[/b]
+## [member networked] is a field on the same struct because everything the scene
+## does with a field of opponents it also does with a field of peers — the
+## standings, the place on the HUD, the finish-line clip chosen by place — and
+## the one thing that differs (the opponents are [PlaybackRacer]s built from
+## snapshots rather than [SimulatedRacer]s built here) is not a mode the scene
+## has to know about. See [RaceNetwork].
 class_name RaceSetup
 extends RefCounted
 
@@ -35,6 +43,16 @@ const LANE_MARGIN := 2.5
 
 var opponents: int = 0
 var skill: AISkill.Level = AISkill.Level.MEDIUM
+## Whether the field is other people rather than the computer. Set only by
+## [LobbyMenu], through [member RaceScene.requested_setup]; never remembered in
+## the settings file, because a network race is a room somebody is standing in
+## and not a preference.
+##
+## Mutually exclusive with [member opponents] in practice — a race against real
+## players does not also get computer ones — and nothing enforces it, because
+## nothing needs to: [method networked_race] is the only constructor that sets
+## it and it leaves the count at zero.
+var networked: bool = false
 ## How hard it is snowing: ETR's `g_game.snow_id`, 0 (none) to
 ## [constant SnowFall.MAX_GRADE]. Presentation only — see [SnowFall]. Zero is
 ## the default and every reference capture, which is why the flag and the
@@ -50,6 +68,13 @@ static func against(count: int, level: AISkill.Level) -> RaceSetup:
 	s.skill = level
 	return s
 
+## A race against whoever else is in the room. The field is not built here —
+## it arrives one [PlaybackRacer] per peer as the snapshots do.
+static func networked_race() -> RaceSetup:
+	var s := RaceSetup.new()
+	s.networked = true
+	return s
+
 ## The same setup with [member snowfall] set. A builder rather than an argument
 ## on the two constructors above, because the weather is orthogonal to the field
 ## and every caller that sets one leaves the other alone.
@@ -57,9 +82,12 @@ func in_snow(grade: int) -> RaceSetup:
 	snowfall = clampi(grade, 0, SnowFall.MAX_GRADE)
 	return self
 
-## Whether there is anyone else on the hill to beat.
+## Whether there is anyone else on the hill to beat. True for a network race
+## before anybody has connected, which is deliberate: the HUD draws standings
+## and the results screen reports a place, and both are right for a race of one
+## that other people are about to join.
 func is_race() -> bool:
-	return opponents > 0
+	return opponents > 0 or networked
 
 ## Whether two setups would produce the same field. What [RaceScene] uses to
 ## decide whether picking a course from the in-race menu has to rebuild the
@@ -69,10 +97,13 @@ func is_race() -> bool:
 ## field, and rebuilding nine [RacePhysics] because the player asked for heavier
 ## snow would throw away the opponents for a change none of them can see.
 func matches(other: RaceSetup) -> bool:
-	return other != null and other.opponents == opponents and other.skill == skill
+	return other != null and other.opponents == opponents and other.skill == skill \
+		and other.networked == networked
 
 func copy() -> RaceSetup:
-	return RaceSetup.against(opponents, skill).in_snow(snowfall)
+	var s: RaceSetup = RaceSetup.against(opponents, skill).in_snow(snowfall)
+	s.networked = networked
+	return s
 
 ## Where seat [param index] starts, relative to the course's own start point.
 ##
@@ -106,6 +137,8 @@ static func lane_x(x: float, bounds: PackedVector2Array) -> float:
 ## One line for the logs and the HUD's opening print.
 func describe() -> String:
 	var weather: String = "" if snowfall <= 0 else ", snow %d" % snowfall
+	if networked:
+		return "network race%s" % weather
 	if not is_race():
 		return "practice%s" % weather
 	return "%d opponents, %s%s" % [opponents, AISkill.name_of(skill), weather]
