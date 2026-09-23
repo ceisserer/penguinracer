@@ -1092,3 +1092,61 @@ the derived pairs are written onto the resources by the importer, where they can
 `light.lst` on sight and regenerated. Neither is a magic triple pasted into six files.
 
 Written 2026-09-23.
+
+### 26. Retired from AGENTS.md
+
+AGENTS.md was cut from 1645 lines to about 720 on 2026-09-23. It keeps the rule for each trap.
+Most discovery stories are in PROGRESS.md, and the full earlier text is in git history. This
+section keeps what was only history: corrections, backed-out attempts, and state that has since
+changed.
+
+**Architecture rule 2, before 2026-09-10.** The two-renderer rule used to end "where Forward+
+would help, isolate behind an interface" — the same instruction written as though it would never
+be taken up. It was rewritten when the desktop moved to Mobile and gained a gated shadow (§24).
+
+**Threads on the web, corrected 2026-09-16.** The streaming-budget trap used to end "Threads are
+not an option: all three web presets ship `variant/thread_support=false`". That was not what the
+file said. Only `WebSpike` and the 44 generated `Course_*` packs ship `false`. The `Web` base
+preset, the one that carries the engine, has shipped `true` since 6ceb233, and a browser reports
+"multi-threaded". A `.pck` carries no engine variant, so the pack presets' value is inert. Nobody
+has taken threads up; the recorded reason for not doing so was wrong.
+
+**Fog, 2026-09-01.** An earlier 2.5x fog stretch was backed out as an "improvement" made only in
+the wording. The current 40 m clear-air + 2x scale is the same move, this time deliberate,
+measured and revertible.
+
+**Packed snow, 2026-08-31.** Plan §4.3 said packed snow should *raise* friction. That was a
+wording error — it lowers it, which is what makes a trench fast.
+
+**Window aspect.** `window/stretch/aspect` used to be `"keep"`, where a 1024x768 window came back
+letterboxed at 1024x576. The resolution drop-down spent a day filtered first by the display's
+aspect ratio and then by the game's own 16:9, both deciding which letterbox the player got.
+`"expand"` removed the letterbox and ended that. Notes written before the change assume a
+1280x720 canvas.
+
+**The ghost setting.** Whether a ghost is drawn used to be a Configuration toggle (`[game] ghosts`,
+*Race your best time*). It is now whichever saved run the player picks from **Race against
+ghost**, or none.
+
+**The sky on the course screen.** Until §25, the missing light control was listed as "blocked on
+the tone fit": only the sunny presets had fitted gains, and the others were known to be wrong.
+The display-space derivation removed the block, so the sky is now offered. Only the wind is
+still missing. The snow/ice/roughness tables were extended to cover all eight splat layers along
+the way.
+
+**Night snow, before the derivation.** When all eight presets shared the sunny gains in linear
+space, night's shaded snow came out at 105/255 against the original's 47.
+
+**The start hint.** `PRESS ANY KEY TO START` was first drawn in the top-left corner with no HUD
+under it. It moved low and centred when the ordinary HUD was drawn under it as ETR does, because
+the corner holds the clock.
+
+**`TerrainLayer.uv_scale`** used to be per-layer in the data and uploaded only from
+`terrain_layers[0]`, so seven of eight values were silently discarded. This was the in-between
+case of the "exported field nothing reads" trap.
+
+**The shell test gap.** Before `TestScripts`, nothing in the suite loaded `scripts/shell/` or
+`race_scene.gd`, so a parse error in `race_hud.gd` passed 3638 assertions and was found by taking
+a screenshot.
+
+Written 2026-09-23.
