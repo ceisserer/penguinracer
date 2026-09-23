@@ -1175,6 +1175,14 @@ func import_environments(stage: String) -> void:
 			preset.casts_shadows = light != "cloudy" and light != "night"
 			_import_skybox(preset, dir, SPList.get_bool(rec, "high_res", false), stage)
 
+			# The original's own display-space ambient: the GL light-model floor
+			# plus light 0's `[amb]`, and nothing of ours. `ambient_color` grows
+			# the fill light on top of it below, which is a deviation and
+			# therefore has no business on the side of the equation that says
+			# what ETR did. [method EnvironmentPreset.derive_sun_gain] needs both.
+			var etr_ambient := Color(GL_LIGHT_MODEL_AMBIENT, GL_LIGHT_MODEL_AMBIENT,
+				GL_LIGHT_MODEL_AMBIENT)
+
 			for line: Dictionary in lines:
 				if line.has("fog"):
 					preset.fog_enabled = SPList.get_bool(line, "fog", true)
@@ -1203,10 +1211,11 @@ func import_environments(stage: String) -> void:
 						# Migrating only what the file says leaves the shaded side of
 						# every slope about a third too dark — it is the floor under
 						# the original's snow, not a rendering-state detail.
-						preset.ambient_color = Color(
+						etr_ambient = Color(
 							minf(1.0, amb.r + GL_LIGHT_MODEL_AMBIENT),
 							minf(1.0, amb.g + GL_LIGHT_MODEL_AMBIENT),
 							minf(1.0, amb.b + GL_LIGHT_MODEL_AMBIENT))
+						preset.ambient_color = etr_ambient
 					else:
 						# The fill lights have nowhere to go under a single-sun
 						# PBR setup, so their energy is folded into ambient and
@@ -1220,6 +1229,23 @@ func import_environments(stage: String) -> void:
 							minf(1.0, preset.specular_color.r + spec.r * 0.5),
 							minf(1.0, preset.specular_color.g + spec.g * 0.5),
 							minf(1.0, preset.specular_color.b + spec.b * 0.5))
+
+			# The rendering correction, which is not migrated and is the reason
+			# the light conditions can be offered at all. `sunny` carries the
+			# pair that was fitted against a reference capture of the original
+			# and must not move — every tone measurement in the repository is on
+			# one of those two presets — and the other three times of day are
+			# derived from it. See [method EnvironmentPreset.fit_correction]:
+			# one default shared across all eight is what put night's shaded
+			# snow at 105/255 against the original's 47.
+			if light == "sunny":
+				preset.ambient_gain = EnvironmentPreset.FIT_AMBIENT_GAIN
+				preset.sun_gain = EnvironmentPreset.FIT_SUN_GAIN
+			else:
+				preset.ambient_gain = EnvironmentPreset.derive_ambient_gain(
+					preset.ambient_color)
+				preset.sun_gain = EnvironmentPreset.derive_sun_gain(
+					preset.sun_color, preset.ambient_color, etr_ambient)
 
 			if stage == STAGE_RESOURCES:
 				ResourceSaver.save(preset, OUT_ENV.path_join("%s.tres" % preset.id))

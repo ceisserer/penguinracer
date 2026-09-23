@@ -95,9 +95,20 @@ static func _admin(t: TestCase) -> void:
 	t.ok(lobby.rooms[id].admin == 1, "the creator is the admin")
 	t.ok(not bool(lobby.start_race(2)["ok"]), "nobody else can start it")
 	t.ok(not bool(lobby.set_course(2, "tuxway", 0)["ok"]), "or change the course")
-	t.ok(bool(lobby.set_course(1, "tuxway", 3)["ok"]) and lobby.rooms[id].course_dir == "tuxway",
-		"the admin can")
+	t.ok(bool(lobby.set_course(1, "tuxway", 3, LightCondition.Kind.NIGHT)["ok"])
+		and lobby.rooms[id].course_dir == "tuxway", "the admin can")
 	t.ok(lobby.rooms[id].snowfall == 3, "and the weather travels with it")
+	# Both halves of it: everybody in a room has to be racing the same hill under
+	# the same sky, or the admin has chosen something only the admin can see.
+	t.ok(lobby.rooms[id].conditions == LightCondition.Kind.NIGHT, "sky included")
+	t.ok(int(lobby.room_state(lobby.rooms[id])["conditions"]) == LightCondition.Kind.NIGHT,
+		"and it reaches the members in the room state")
+	t.ok(int(lobby.room_list()[0]["conditions"]) == LightCondition.Kind.NIGHT,
+		"and the browse list, which is where somebody decides to join")
+	# Nothing on the wire is trusted: a client that names light 7 gets sunny.
+	lobby.set_course(1, "tuxway", 3, 7)
+	t.ok(lobby.rooms[id].conditions == LightCondition.Kind.SUNNY,
+		"a sky the enum does not have is sunny, not light 7")
 
 	# The admin closes their window. Six other people are still standing here.
 	lobby.remove_peer(1)

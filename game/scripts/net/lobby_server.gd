@@ -71,7 +71,10 @@ class Room extends RefCounted:
 	## too, and index 0 is not special.
 	var members: PackedInt32Array = PackedInt32Array()
 	var course_dir: String = ""
+	## The weather everybody in the room races in: ETR's `snow_id` and
+	## `light_id`. The admin's to set, through [method set_course].
 	var snowfall: int = 0
+	var conditions: int = 0
 	var state: LobbyServer.State = LobbyServer.State.LOBBY
 	## Who has finished building the course, while [member state] is
 	## [constant State.LOADING].
@@ -210,8 +213,12 @@ func room_of(peer: int) -> Room:
 ## [param password_digest] is what [method digest] made of the name the player
 ## typed and the password they chose — never the password itself. Empty means
 ## anyone may join.
+##
+## [param conditions] is ETR's `light_id` ([LightCondition]) and defaults to
+## sunny, which is what a caller that has not been taught about the sky — an
+## older client, a test — means by leaving it out.
 func create_room(peer: int, room_name: String, password_digest: String,
-		course_dir: String, snowfall: int) -> Dictionary:
+		course_dir: String, snowfall: int, conditions: int = 0) -> Dictionary:
 	if not peers.has(peer):
 		return _error("unknown_peer")
 	if rooms.size() >= MAX_ROOMS:
@@ -234,6 +241,7 @@ func create_room(peer: int, room_name: String, password_digest: String,
 	created.members.push_back(peer)
 	created.course_dir = course_dir
 	created.snowfall = clampi(snowfall, 0, 3)
+	created.conditions = LightCondition.of(conditions)
 	rooms[created.id] = created
 	peers[peer].room = created.id
 	return {"ok": true, "room": created.id}
@@ -298,7 +306,8 @@ func _promote(room: Room) -> void:
 	room.admin = room.members[0]
 
 ## Change what the room is about to race. Admin only, and only before it starts.
-func set_course(peer: int, course_dir: String, snowfall: int) -> Dictionary:
+func set_course(peer: int, course_dir: String, snowfall: int,
+		conditions: int = 0) -> Dictionary:
 	var room: Room = room_of(peer)
 	if room == null:
 		return _error("not_in_a_room")
@@ -310,6 +319,7 @@ func set_course(peer: int, course_dir: String, snowfall: int) -> Dictionary:
 		return _error("no_course")
 	room.course_dir = course_dir
 	room.snowfall = clampi(snowfall, 0, 3)
+	room.conditions = LightCondition.of(conditions)
 	return {"ok": true, "room": room.id}
 
 # ==================================================================
@@ -429,6 +439,7 @@ func room_list() -> Array[Dictionary]:
 			"max_players": MAX_PLAYERS_PER_ROOM,
 			"course": room.course_dir,
 			"snowfall": room.snowfall,
+			"conditions": room.conditions,
 			"locked": room.locked(),
 		})
 	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
@@ -453,6 +464,7 @@ func room_state(room: Room) -> Dictionary:
 		"admin": room.admin,
 		"course": room.course_dir,
 		"snowfall": room.snowfall,
+		"conditions": room.conditions,
 		"locked": room.locked(),
 		"state": int(room.state),
 		"members": members,

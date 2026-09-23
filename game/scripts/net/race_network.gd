@@ -64,7 +64,7 @@ signal lobby_error(message: String)
 
 # ---- the race ----
 ## The admin started the race: load [param course_dir] and report ready.
-signal race_starting(course_dir: String, snowfall: int)
+signal race_starting(course_dir: String, snowfall: int, conditions: int)
 ## Everybody has the hill built. Start the countdown.
 signal race_go()
 ## The last racer is in. Carries the finishing order — see
@@ -133,8 +133,11 @@ var roster: Dictionary[int, Dictionary] = {}
 ## Course every member of this room is racing. The admin names it; everyone else
 ## takes what they are given.
 var course_dir: String = ""
-## ... and the weather it is raced in, for the same reason. ETR's `snow_id`.
+## ... and the weather it is raced in, for the same reason. ETR's `snow_id`
+## and `light_id`: everybody in a room races the same course under the same sky,
+## which is the admin's to choose and nobody else's.
 var snowfall: int = 0
+var conditions: int = 0
 
 var phase: Phase = Phase.IDLE
 
@@ -386,11 +389,13 @@ func refresh_rooms() -> void:
 
 ## Open a race. [param password] is what the player typed; only a digest of it
 ## leaves this machine — see [method LobbyServer.digest].
-func create_room(name: String, password: String, course: String, snow: int) -> void:
+func create_room(name: String, password: String, course: String, snow: int,
+		sky: int) -> void:
 	if not active():
 		return
 	var clean: String = LobbyServer.sanitize_name(name, "", LobbyServer.ROOM_NAME_MAX)
-	srv_create_room.rpc_id(1, clean, LobbyServer.digest(clean, password), course, snow)
+	srv_create_room.rpc_id(1, clean, LobbyServer.digest(clean, password), course,
+		snow, sky)
 
 func join_room(id: int, room_name: String, password: String) -> void:
 	if not active():
@@ -403,10 +408,10 @@ func leave_room() -> void:
 	srv_leave_room.rpc_id(1)
 
 ## Admin only, and ignored by the server otherwise.
-func set_course(course: String, snow: int) -> void:
+func set_course(course: String, snow: int, sky: int) -> void:
 	if not active():
 		return
-	srv_set_course.rpc_id(1, course, snow)
+	srv_set_course.rpc_id(1, course, snow, sky)
 
 func start_race() -> void:
 	if not active():
@@ -470,12 +475,14 @@ func srv_list_rooms() -> void:
 	_push_rooms(multiplayer.get_remote_sender_id())
 
 @rpc("any_peer", "call_remote", "reliable")
-func srv_create_room(name: String, password_digest: String, course: String, snow: int) -> void:
+func srv_create_room(name: String, password_digest: String, course: String,
+		snow: int, sky: int) -> void:
 	if _lobby == null:
 		return
 	var id: int = multiplayer.get_remote_sender_id()
 	var was: LobbyServer.Room = _lobby.room_of(id)
-	var result: Dictionary = _lobby.create_room(id, name, password_digest, course, snow)
+	var result: Dictionary = _lobby.create_room(id, name, password_digest, course,
+		snow, sky)
 	if not _accepted(id, result):
 		return
 	if was != null:
@@ -513,11 +520,11 @@ func srv_leave_room() -> void:
 	_after_change(affected)
 
 @rpc("any_peer", "call_remote", "reliable")
-func srv_set_course(course: String, snow: int) -> void:
+func srv_set_course(course: String, snow: int, sky: int) -> void:
 	if _lobby == null:
 		return
 	var id: int = multiplayer.get_remote_sender_id()
-	var result: Dictionary = _lobby.set_course(id, course, snow)
+	var result: Dictionary = _lobby.set_course(id, course, snow, sky)
 	if not _accepted(id, result):
 		return
 	_push_room(_lobby.room_of(id))
@@ -535,7 +542,8 @@ func srv_start_race() -> void:
 	_log("\"%s\" starts %s with %d racers" % [started.name, started.course_dir,
 		started.members.size()])
 	for member: int in started.members:
-		cli_race_starting.rpc_id(member, started.course_dir, started.snowfall)
+		cli_race_starting.rpc_id(member, started.course_dir, started.snowfall,
+			started.conditions)
 	_push_room(started)
 	_broadcast_rooms()
 
@@ -624,6 +632,7 @@ func cli_room(state: Dictionary) -> void:
 	else:
 		course_dir = str(state.get("course", ""))
 		snowfall = int(state.get("snowfall", 0))
+		conditions = int(state.get("conditions", 0))
 	room_changed.emit()
 
 @rpc("authority", "call_remote", "reliable")
@@ -641,11 +650,12 @@ func cli_error(code: String) -> void:
 	lobby_error.emit(LobbyServer.explain(code))
 
 @rpc("authority", "call_remote", "reliable")
-func cli_race_starting(course: String, snow: int) -> void:
+func cli_race_starting(course: String, snow: int, sky: int) -> void:
 	course_dir = course
 	snowfall = snow
+	conditions = sky
 	phase = Phase.LOADING
-	race_starting.emit(course, snow)
+	race_starting.emit(course, snow, sky)
 
 @rpc("authority", "call_remote", "reliable")
 func cli_race_go() -> void:

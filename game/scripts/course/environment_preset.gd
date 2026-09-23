@@ -8,6 +8,22 @@
 class_name EnvironmentPreset
 extends Resource
 
+## The one preset whose two gains were measured against a reference capture of
+## the original, and the surface they were measured on: `tuxracer_sunny`'s
+## assembled `[amb]`, i.e. Bunny Hill's shaded bank. Both sunny presets carry
+## these verbatim; the other six are derived from them by
+## [method derive_ambient_gain] and [method derive_sun_gain]. See history §22
+## for the fit and the trap list for why it is a `Color` and not a scalar.
+const FIT_AMBIENT := Color(0.7025, 0.78249997, 1.0)
+const FIT_AMBIENT_GAIN := Color(0.841, 0.905, 0.980)
+const FIT_SUN_GAIN := Color(1.95, 1.95, 1.95)
+
+## `shaders/terrain.gdshader`'s `wrap_amount`, which is the one number the sun
+## derivation has to share with the shader: snow is shaded at
+## `((N·L + wrap) / (1 + wrap))²` rather than at N·L, so the angle a gain places
+## the clamp at depends on it. [TestEnvironments] asserts the two still agree.
+const SNOW_WRAP := 0.2
+
 @export var id: StringName = &""
 @export var sun_direction: Vector3 = Vector3(1, 1, 0).normalized()
 ## `[diff]` of light 0, verbatim. **This is a display-space multiplier**, not an
@@ -33,11 +49,17 @@ extends Resource
 ## behaviour that needed three of them is the clamp, and the clamp is where ETR
 ## puts it now.
 ##
+## [b]That paragraph is about the sunny sky and only that one.[/b] Under `night`
+## red never reaches the ceiling at all and blue crosses it at `ndl` 0.52, so no
+## one scalar can be both. [method derive_sun_gain] is the same derivation
+## generalised to a sky that never clips, and it is what the six presets that
+## were never fitted now carry — per channel, for the reason above.
+##
 ## It was `(0.103, 0.069, 0.103)` until 2026-09-10, an order of magnitude under
 ## what a linear pipeline wants, because it had been fitted against
 ## Compatibility's sRGB-blended shadow pass — see [RenderBackend] and history
 ## §24 for what that pass was doing to the sun.
-@export var sun_gain: Color = Color(1.95, 1.95, 1.95)
+@export var sun_gain: Color = FIT_SUN_GAIN
 ## DEVIATION: fitted, not migrated. ETR adds ambient straight onto the texture in
 ## display space and clamps; Godot decodes the texture to linear first and
 ## multiplies there, and the same constants land with a far wider spread between
@@ -65,7 +87,7 @@ extends Resource
 ## rendering correction inside data that has to stay traceable to `light.lst`.
 ## The GL light-model floor that *is* part of the original's state is a different
 ## thing and is added in the importer, where it shows up in the generated preset.
-@export var ambient_gain: Color = Color(0.841, 0.905, 0.980)
+@export var ambient_gain: Color = FIT_AMBIENT_GAIN
 ## Migrated from the fill light's `[spec]`. Nothing reads it yet — the terrain
 ## shader keeps ETR's black terrain specular and the object shaders have no
 ## specular term at all.
@@ -220,6 +242,116 @@ func apply_sun(light: DirectionalLight3D) -> void:
 static func as_light_color(display: Color, gain: Color) -> Color:
 	return Color(display.r * gain.r, display.g * gain.g, display.b * gain.b,
 		1.0).linear_to_srgb()
+
+# ------------------------------------------------------------------
+#        giving the other six presets a gain of their own
+# ------------------------------------------------------------------
+#
+# Until the light conditions were offered to the player, only the sunny presets
+# were ever selected, and all eight shared one pair of gains: the sunny fit,
+# sitting on the script as the default. That is the wrong thing to share, and it
+# is wrong in a way that only shows up on a dark sky — see [method
+# fit_correction]. The two functions below are how the other six get their own,
+# and the importer is the only caller: gains are written onto the resource so a
+# preset can still be read on sight, the same arrangement the migrated colours
+# have.
+
+## The correction the one fitted preset carries, as a per-channel factor on
+## `light.lst`'s own `[amb]` — and the only thing the derived presets inherit
+## from the fit.
+##
+## A shaded fragment renders at `srgb(ambient_color * ambient_gain)`. On
+## `tuxracer_sunny` that is (0.79, 0.86, 0.99) where the file says
+## (0.70, 0.78, 1.00), so the bank the fit was measured on wanted about a tenth
+## more light than `[amb]` alone gives. This returns that tenth.
+##
+## [b]It is inherited in display space, which is the whole point.[/b] Sharing the
+## gain itself — one default across all eight presets, which is what shipped —
+## shares it in linear space, and undoing an sRGB decode raises a dark value far
+## more than a bright one: `night`'s `[amb] 0.2` came back as a shaded snow of
+## about 105/255 against the original's 47, which is why the light conditions
+## could not be offered. The same correction applied in the space ETR's
+## arithmetic actually lives in puts night's shaded snow at 53 — the original's
+## 47 times this same correction, which every other preset is off by too.
+static func fit_correction() -> Color:
+	var shaded: Color = as_light_color(FIT_AMBIENT, FIT_AMBIENT_GAIN)
+	return Color(shaded.r / FIT_AMBIENT.r, shaded.g / FIT_AMBIENT.g,
+		shaded.b / FIT_AMBIENT.b, 1.0)
+
+## The [member ambient_gain] for a preset whose assembled `[amb]` is
+## [param ambient]: whatever makes a shaded fragment render at the original's
+## own display-space ambient, times [method fit_correction].
+##
+## Returns [constant FIT_AMBIENT_GAIN] exactly when handed
+## [constant FIT_AMBIENT], by construction — the fit is the fixed point of this,
+## not an exception to it.
+static func derive_ambient_gain(ambient: Color) -> Color:
+	var k: Color = fit_correction()
+	var target: Color = Color(minf(ambient.r * k.r, 1.0), minf(ambient.g * k.g, 1.0),
+		minf(ambient.b * k.b, 1.0), 1.0).srgb_to_linear()
+	return Color(_ratio(target.r, ambient.r), _ratio(target.g, ambient.g),
+		_ratio(target.b, ambient.b), 1.0)
+
+## The [member sun_gain] for a preset, by the derivation [member sun_gain]
+## documents, generalised to a sky that never reaches the clamp.
+##
+## [param sun] is `[diff]`, [param ambient] the assembled `[amb]` that
+## [method derive_ambient_gain] takes, and [param etr_ambient] the original's own
+## display-space ambient — the GL light-model floor plus light 0's `[amb]`, and
+## [i]not[/i] the fill light the importer folds in on top, because the fill is
+## ours and this side of the equation has to be ETR's.
+##
+## Per channel, ETR's snow reaches white at `N·L = (1 - etr_ambient) / diff`.
+## Where that angle exists, matching it is the whole requirement — past it both
+## games are clipped and neither has anything left to say — and it is what gives
+## the fitted 1.95 back for `tuxracer_sunny`'s red. Where it does not, because
+## the sky is too dark for `[diff]` ever to reach the ceiling, there is no clamp
+## to place and the sun is matched at full N·L instead: `night` reaches
+## 0.2 + 0.39 = 0.59 in red and has to arrive there too. The two cases meet
+## continuously at an angle of exactly 1.
+##
+## [b]Per channel, unlike the fitted preset's one scalar.[/b] Sunny can use one
+## because its blue is over the ceiling on the ambient alone; night's blue
+## crosses at N·L 0.52 while its red never crosses at all, and one number cannot
+## be both — the same argument [member ambient_gain] makes about the clamp, one
+## end further along.
+static func derive_sun_gain(sun: Color, ambient: Color, etr_ambient: Color) -> Color:
+	var gain: Color = derive_ambient_gain(ambient)
+	var ndl := Vector3(
+		_clamp_angle(etr_ambient.r, sun.r),
+		_clamp_angle(etr_ambient.g, sun.g),
+		_clamp_angle(etr_ambient.b, sun.b))
+	# Decoded together rather than one at a time: this is the same display-space
+	# number `as_light_color` encodes, taken the other way.
+	var target: Color = Color(
+		minf(etr_ambient.r + sun.r * ndl.x, 1.0),
+		minf(etr_ambient.g + sun.g * ndl.y, 1.0),
+		minf(etr_ambient.b + sun.b * ndl.z, 1.0), 1.0).srgb_to_linear()
+	return Color(
+		_sun_gain_channel(target.r, ambient.r * gain.r, sun.r, ndl.x),
+		_sun_gain_channel(target.g, ambient.g * gain.g, sun.g, ndl.y),
+		_sun_gain_channel(target.b, ambient.b * gain.b, sun.b, ndl.z), 1.0)
+
+## Where ETR's snow reaches white in one channel, or 1.0 for a sky that never
+## gets there. A channel with no sun in it at all has no angle either.
+static func _clamp_angle(etr_ambient: float, diff: float) -> float:
+	if diff <= 0.0:
+		return 1.0
+	return clampf((1.0 - etr_ambient) / diff, 0.0, 1.0)
+
+## One channel of [method derive_sun_gain]: the gain that lands the sum on
+## [param target_lin] at [param ndl], through the snow's half-Lambert wrap.
+static func _sun_gain_channel(target_lin: float, ambient_lin: float, diff: float,
+		ndl: float) -> float:
+	if diff <= 0.0:
+		return 1.0
+	var shaped: float = pow((ndl + SNOW_WRAP) / (1.0 + SNOW_WRAP), 2.0)
+	return maxf((target_lin - ambient_lin) / (diff * shaped), 0.0)
+
+## A channel that a black ambient would otherwise divide by: a gain on nothing
+## is 1.0, not an error and not an infinity.
+static func _ratio(num: float, den: float) -> float:
+	return num / den if den > 0.0 else 1.0
 
 ## The same ambient [method to_environment] hands Godot, but as the linear
 ## number a shader works in rather than packed into a [Color] for the decode.

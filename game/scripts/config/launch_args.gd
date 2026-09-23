@@ -60,6 +60,11 @@ var wind: int = 0
 ## wind this is also a settings key and a control on the course screen; the flag
 ## is how a capture names the weather without going through either.
 var snow: int = NO_SNOW
+## `--light=sunny|cloudy|night` — ETR's `g_game.light_id`, unparsed, for the
+## same reason [member difficulty] is a string: naming a [LightCondition] here
+## would make the transport know the caller's vocabulary. Empty means "whatever
+## the settings file says".
+var light: String = ""
 ## `?autostart` — the browser's way of saying "skip the menu" without naming a
 ## course, since it has no `--auto-input=` either.
 var autostart: bool = false
@@ -152,6 +157,8 @@ func parse(argv: PackedStringArray, query: Dictionary) -> void:
 			wind = arg.trim_prefix("--wind=").to_int()
 		elif arg.begins_with("--snow="):
 			snow = arg.trim_prefix("--snow=").to_int()
+		elif arg.begins_with("--light="):
+			light = arg.trim_prefix("--light=")
 		elif arg.begins_with("--capture="):
 			capture_path = arg.trim_prefix("--capture=")
 		elif arg.begins_with("--capture-frames="):
@@ -189,6 +196,7 @@ func parse(argv: PackedStringArray, query: Dictionary) -> void:
 		wind = str(query["wind"]).to_int()
 	if snow == NO_SNOW and query.has("snow"):
 		snow = str(query["snow"]).to_int()
+	light = _str(query, "light", light)
 	autostart = autostart or query.has("autostart")
 	# The lobby, from a link. `?server=` names one and `?lobby` takes the one
 	# the page's own host implies — see [method RaceNetwork.default_address],

@@ -214,6 +214,7 @@ static func _round_trip(t: TestCase) -> void:
 	c.character = "boris"
 	c.shadows = false
 	c.snowfall = 2
+	c.conditions = LightCondition.Kind.NIGHT
 
 	var back: GameConfig = _read(c.file_text())
 	t.ok(back.resolution == Vector2i(1920, 1080), "a chosen resolution comes back")
@@ -225,6 +226,13 @@ static func _round_trip(t: TestCase) -> void:
 	# Zero is the default and a real answer, so a key that fails to round-trip
 	# looks exactly like a player who asked for clear weather.
 	t.ok(back.snowfall == 2, "and how hard it was snowing last time")
+	# Stored as a name rather than as the enum's number, because the enum has a
+	# gap in it — [constant LightCondition.Kind.NIGHT] is 3, the way ETR's
+	# `lightcond` indexes it — and a hand-edited `conditions = 3` would be a
+	# worse file than `conditions = "night"`.
+	t.ok(c.file_text().contains('conditions = "night"'),
+		"the sky is written by name, not by its index")
+	t.ok(back.conditions == LightCondition.Kind.NIGHT, "and what the sky was doing")
 	# A bool that is written as `false` and read back as its `true` default is
 	# the failure mode here, and it looks exactly like a setting nobody wired up.
 	t.ok(not back.shadows, "and a player who has turned the shadows off")
@@ -302,7 +310,7 @@ static func _launch_args(t: TestCase) -> void:
 		"--course=bunny_hill", "--character=trixi", "--auto-input=carve",
 		"--camera=above", "--opponents=5", "--difficulty=hard",
 		"--remote-keyboard", "--no-audio", "--no-intro", "--fps", "--wind=2",
-		"--snow=3",
+		"--snow=3", "--light=night",
 		"--capture=/tmp/a.png", "--capture-frames=200",
 	]), {})
 	t.ok(cli.course == "bunny_hill", "the course is read")
@@ -319,6 +327,9 @@ static func _launch_args(t: TestCase) -> void:
 	t.ok(cli.show_fps, "the HUD's frame-rate readout is asked for")
 	t.ok(cli.wind == 2, "the wind grade is read")
 	t.ok(cli.snow == 3, "and so is the snowfall grade")
+	t.ok(cli.light == "night", "and the sky, unparsed like the difficulty")
+	t.ok(LightCondition.parse(cli.light) == LightCondition.Kind.NIGHT,
+		"which parses to the condition it names")
 	t.ok(cli.capture_path == "/tmp/a.png" and cli.capture_frames == 200,
 		"the capture request is read")
 
@@ -328,7 +339,7 @@ static func _launch_args(t: TestCase) -> void:
 		"course": "bunny_hill", "character": "trixi", "auto-input": "carve",
 		"camera": "above", "opponents": "5", "difficulty": "hard",
 		"remotekeyboard": "", "noaudio": "", "nointro": "", "fps": "", "wind": "2",
-		"snow": "3",
+		"snow": "3", "light": "night",
 		"capture": "/tmp/a.png", "capture-frames": "200",
 	})
 	t.ok(url.course == cli.course and url.character == cli.character,
@@ -340,7 +351,8 @@ static func _launch_args(t: TestCase) -> void:
 	t.ok(url.no_audio == cli.no_audio and url.no_intro == cli.no_intro
 		and url.remote_keyboard == cli.remote_keyboard, "and the same flags")
 	t.ok(url.show_fps == cli.show_fps and url.wind == cli.wind
-		and url.snow == cli.snow, "and the same HUD readout and weather")
+		and url.snow == cli.snow and url.light == cli.light,
+		"and the same HUD readout and weather")
 	t.ok(url.capture_path == cli.capture_path
 		and url.capture_frames == cli.capture_frames, "and the same capture")
 

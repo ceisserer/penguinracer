@@ -20,8 +20,10 @@
 ##
 ## The weather row is the same idea and is ETR's own arrangement: `CRaceSelect`
 ## puts three icon buttons — light, snow, wind — under the course list, each
-## cycling four states. Only the snow one exists here ([SnowFall]); it is shown
-## in Practice too, because the weather is not the field.
+## cycling four states. Two of the three are here — the snow ([SnowFall]) and
+## the sky ([LightCondition]) — as named spinners rather than icons, since
+## nothing in the original's data says what those icons said. Both are shown in
+## Practice too, because the weather is not the field.
 ##
 ## [b]It is also the network lobby's course picker.[/b] [LobbyMenu] carries an
 ## instance of this scene of its own and opens it with [method open_network]:
@@ -50,8 +52,8 @@ signal back_requested()
 ## A course was picked in one of the network modes. `race_name` and `password`
 ## are what the player typed, and empty in [constant Mode.NET_ROOM], which has
 ## no such row. The panel is still up: see [method open_network].
-signal room_course_chosen(listing: CourseListing, snowfall: int, race_name: String,
-	password: String)
+signal room_course_chosen(listing: CourseListing, snowfall: int, conditions: int,
+	race_name: String, password: String)
 
 ## What the panel is for, which is what decides the rows under the preview and
 ## what the Race button says. The first two are the main menu's and the race's;
@@ -99,6 +101,8 @@ var _entries: Array[CourseListing] = []
 @onready var _skill: OptionButton = %SkillOption
 @onready var _snow_label: Label = %SnowLabel
 @onready var _snow: OptionButton = %SnowOption
+@onready var _conditions_label: Label = %ConditionsLabel
+@onready var _conditions: OptionButton = %ConditionsOption
 @onready var _room_row: Control = %RoomRow
 @onready var _race_name: LineEdit = %RaceNameEdit
 @onready var _password: LineEdit = %PasswordEdit
@@ -124,6 +128,7 @@ func _ready() -> void:
 	_opponents_label.text = "Opponents:"
 	_skill_label.text = "Skill:"
 	_snow_label.text = "Snowfall:"
+	_conditions_label.text = "Conditions:"
 	_fill_field_options()
 
 	_list.item_selected.connect(_on_item_selected)
@@ -165,6 +170,12 @@ func _fill_field_options() -> void:
 	_snow.clear()
 	for grade: int in SNOW_LABELS.size():
 		_snow.add_item(SNOW_LABELS[grade], grade)
+	_conditions.clear()
+	# The id is the [enum LightCondition.Kind] itself and not the row number,
+	# because the enum is ETR's `lightcond` and has a gap in it where `evening`
+	# is — see [LightCondition].
+	for kind: LightCondition.Kind in LightCondition.KINDS:
+		_conditions.add_item(LightCondition.label_of(kind), kind)
 
 ## Show the menu. `current_dir` is highlighted, `over_race` says whether there
 ## is a course loaded and rendered behind this panel — which is only true from
@@ -188,8 +199,9 @@ func open(current_dir: String, over_race: bool, setup: RaceSetup,
 ## [constant Mode.NET_CREATE] or [constant Mode.NET_ROOM]. There is never a
 ## race behind it: the lobby is a screen of its own.
 func open_network(net_mode: Mode, current_dir: String, snowfall: int,
-		race_name: String = "") -> void:
-	_setup = RaceSetup.networked_race().in_snow(snowfall)
+		conditions: int, race_name: String = "") -> void:
+	_setup = RaceSetup.networked_race().in_snow(snowfall) \
+		.under_sky(LightCondition.of(conditions))
 	_apply_mode(net_mode)
 	_set_result("")
 	_dim.color = SCREEN_COLOR
@@ -245,6 +257,10 @@ func _set_result(text: String) -> void:
 ## the list with `current_dir` highlighted.
 func _present(current_dir: String) -> void:
 	_snow.select(_snow.get_item_index(clampi(_setup.snowfall, 0, SnowFall.MAX_GRADE)))
+	# Through `of()` like the snow goes through `clampi`: an id the list does not
+	# have selects nothing at all, and a spinner with no selection reads back as
+	# -1 the moment somebody presses Race.
+	_conditions.select(_conditions.get_item_index(LightCondition.of(_setup.conditions)))
 	visible = true
 	var index: int = _index_of(current_dir)
 	if index < 0 and not _entries.is_empty():
@@ -295,20 +311,23 @@ func _choose(entry: CourseListing) -> void:
 			_waiting = true
 			_race_button.disabled = true
 			_set_result("Creating the race…")
-		room_course_chosen.emit(entry, _snow.get_selected_id(), _race_name.text,
-			_password.text)
+		room_course_chosen.emit(entry, _snow.get_selected_id(),
+			_conditions.get_selected_id(), _race_name.text, _password.text)
 		return
 	visible = false
 	course_chosen.emit(entry, _chosen_setup())
 
 ## The field and the weather as the spinners now stand. Practice stays practice
 ## however the field spinners were last left: they are hidden and their values
-## are last race's. The snow row is never hidden, so it always speaks.
+## are last race's. The weather row is never hidden, so both of its spinners
+## always speak.
 func _chosen_setup() -> RaceSetup:
+	var sky: LightCondition.Kind = LightCondition.of(_conditions.get_selected_id())
 	if not _setup.is_race():
-		return RaceSetup.practice().in_snow(_snow.get_selected_id())
+		return RaceSetup.practice().in_snow(_snow.get_selected_id()).under_sky(sky)
 	return RaceSetup.against(_opponents.get_selected_id(),
-		AISkill.level_at(_skill.get_selected_id())).in_snow(_snow.get_selected_id())
+		AISkill.level_at(_skill.get_selected_id())) \
+		.in_snow(_snow.get_selected_id()).under_sky(sky)
 
 func _show_details(entry: CourseListing) -> void:
 	_name.text = entry.title()

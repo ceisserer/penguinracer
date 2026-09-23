@@ -1008,3 +1008,87 @@ workaround because the sentence stopped one word short of "under Compatibility, 
 web build*".
 
 Written 2026-09-10.
+
+---
+
+### 25. One measured sky, and the arithmetic that gave the other six theirs
+
+*2026-09-23.* Written when the light conditions were added to the course screen. The menu was the
+easy half; the reason it had not been done was a number.
+
+ETR keeps `light_id` beside `snow_id` in `g_game`, offers both on `CRaceSelect`, and ships four
+`light.lst` presets per location. All eight migrated presets have been in the repository since
+Phase 1 — with skyboxes, fog and `[partcol]` — and nothing selected any of the six dark ones,
+because every course names a sunny sky and there was no way for a player to ask for another. So
+all eight shared one pair of gains: the `sun_gain`/`ambient_gain` fitted on `tuxracer_sunny`
+against a reference capture in §11 and §22, sitting on the script as the default.
+
+§22 had already measured what that did and left it in a closing aside: night's shaded snow came
+out at about 105/255 against the original's 47. Offering the sky would have shipped a course that
+is visibly wrong, which is why PROGRESS listed the light control as blocked rather than missing.
+
+#### The gain is not the thing the fit measured
+
+A shaded fragment renders at `srgb(ambient_color * ambient_gain)`. Sharing the *gain* across
+presets therefore shares the correction in **linear** space — and the sRGB curve is not a scale,
+it is a bend: undoing a decode raises a dark value far more than a bright one. On `[amb] 0.7025`
+the shared pair lands 13 % above the file's own number; on `[amb] 0.2` it lands 123 % above it.
+One number, two completely different corrections, and no way to see it without measuring a dark
+frame that nothing in the game could produce.
+
+What the fit actually established is a display-space claim: *the shaded bank on Bunny Hill wants
+about a tenth more light than `[amb]` alone gives it*. In the space ETR does its arithmetic in,
+that is a factor — (1.128, 1.097, 0.991), recovered from the fitted pair by
+`EnvironmentPreset.fit_correction()` — and it is the only thing the six derived presets inherit.
+`derive_ambient_gain` applies it to any `[amb]` and encodes the result back into a gain. On
+`tuxracer_sunny` it returns the fitted gain exactly: the fit is the derivation's fixed point,
+by construction rather than as an exception to it.
+
+#### Generalising the sun to a sky that never clips
+
+`sun_gain` was already a derivation rather than a fit — ETR saturates red where
+`0.2 + 0.45 + 1.0·N·L ≥ 1`, i.e. at `N·L = 0.35`, and 1.95 is what puts our clamp at the same
+angle through the snow's half-Lambert wrap. That derivation assumes there *is* an angle. Under
+`night`'s `[amb] 0 0.09 0.34` and `[diff] 0.39 0.51 0.88`, red reaches 0.59 at full sun and never
+clips at all, while blue clips at `N·L = 0.52`: one preset, one channel that saturates early and
+one that never does. Extending the rule is small — where the clamp angle exists, match it; where
+it does not, match the value at full `N·L` — and the two cases meet continuously at an angle of
+exactly 1. It also makes `sun_gain` per channel on the derived presets, which the sunny one did
+not need for the reason §22 gives: its blue is over the ceiling on the ambient alone.
+
+Run backwards on `tuxracer_sunny`, the generalised rule returns **1.948** in red against the
+fitted 1.95 — the channel the original derivation was written for, to a tenth of a per cent. That
+is the evidence that this is the documented rule generalised and not a second guess at it. Green
+comes back 1.87, which §22 already recorded as agreeing within 5 %; blue comes back 0.46, where
+both games are clipped on the ambient alone and the whole difference lives below `N·L` 0.05. The
+two sunny presets keep the measured pair anyway, and neither file moved by a byte: every tone
+measurement in the repository is on one of them.
+
+#### What it bought
+
+Snow under `tuxracer_night`, as the arithmetic gives it: shaded 53/78/136 against ETR's
+47/71/138, lit 139/196/255 against ETR's 139/196/255 — the lit end exact by construction, the
+shaded end the original's own number times the measured correction. On a real frame, 250 frames
+into Bunny Hill, the near-field mean went from (140, 172, 238) with 12 % of blue clipped to
+(78, 113, 209) with 1 %.
+
+#### Three notes
+
+**A round trip cannot catch a wrong gain.** `TestEnvironments` asserted, correctly and for a
+phase, that whatever a preset hands Godot comes back out of `srgb_to_linear` as the file's number
+times its gain. Every preset passed that with the shared pair, including the one that was 123 %
+out. The assertion that catches it is the one about the arithmetic — shaded lands on `[amb]` times
+the correction, lit lands on `[amb] + [diff]`, clamped — which is now checked on all eight.
+
+**An unreachable code path is an unmeasured one.** Six presets sat in the repository for five
+phases looking finished: migrated, saved, loaded by the test suite, asserted over. Nothing
+selected them, so nothing measured them, and the one line that recorded the problem was an aside
+at the bottom of a history entry about something else. The feature did not take a day because of
+the menu.
+
+**A fit and a derivation are different kinds of number and belong in different places.** The
+measured pair is a constant on `EnvironmentPreset` with the surface it was measured on beside it;
+the derived pairs are written onto the resources by the importer, where they can be read against
+`light.lst` on sight and regenerated. Neither is a magic triple pasted into six files.
+
+Written 2026-09-23.

@@ -32,6 +32,9 @@ game/                     Godot project (project.godot; mobile on the desktop,
                           gl_compatibility on the web)
   scripts/physics/        RacePhysics + surface + snow — plain RefCounted, zero node deps
   scripts/course/         CourseData, TerrainLayer, prefabs, events, environments
+                          (EnvironmentPreset + LightCondition, which is ETR's
+                          light_id: a course names a place, a race names the
+                          time of day)
   scripts/render/         terrain chunks, GPU snow field, spray, SnowFall (the
                           weather: falling flakes and ETR's distant curtains),
                           and IceReflection —
@@ -147,6 +150,7 @@ godot --path game -- --no-intro                                    # ... skippin
 godot --path game -- --fps                                         # ... with the HUD's frame-rate readout
 godot --path game -- --wind=2                                      # ... with wind, and so the HUD's wind rose
 godot --path game -- --snow=3                                      # ... snowing hard (0..3; the course screen sets it too)
+godot --path game -- --light=night                                 # ... under another sky (sunny|cloudy|night; likewise)
 godot --path game -- --server=penguin.example                      # ... opening the lobby on that server
 godot --path game -- --lobby                                       # ... on the one the settings file names
 godot --path game res://scenes/key_log.tscn                        # what the link does to the keyboard
@@ -192,7 +196,7 @@ distance, the size and skill of
 the computer field, how hard it is snowing, and the three multiplayer keys; delete it to get the defaults back. The main menu's **Configuration** screen
 moves the seven a player can act on — `[multiplayer] player_name` and `server` are edited on the
 **Network multiplayer** screen instead, where they are what is being asked for, `port` is file-only,
-and `opponents`/`opponent_skill`/`snowfall` are set from the course screen
+and `opponents`/`opponent_skill`/`snowfall`/`conditions` are set from the course screen
 instead, where the choice is actually made — and writes the same commented file back. The resolution row offers
 the display's own modes (`DisplayModes`, filled from `DisplayServer` at open time), not a fixed
 list, and the resolution and fullscreen rows are hidden on the web build, where the page sizes the
@@ -241,7 +245,7 @@ takes the slow path, which is worth doing before trusting a small tone measureme
 | 4 — character | **done for all five characters** — welded ArrayMesh from `shape.lst` **skinned** to a Skeleton3D with ETR joint names, the four keyframe lists as an AnimationLibrary plus a `KeyframePath` of root motion each, the pre-race start animation (`CIntro`) wired into the race, the finish-line clip (`finish`/`wonrace`/`lostrace`, chosen by `RaceOutcome.clip` — see the game shell row) wired into the results screen, and the racing pose layer (`AdjustJoints`) on `CharacterRig.adjust_joints` — flippers out to brake and the inside one out through a turn, a stroke through them while paddling, a flap on a jump, legs that tuck with speed and brace against the ground, a tail and a head that follow the lean. It runs off a `RacerState` and nothing else, so a ghost and a remote peer animate too. Tux, Trixi, Boris, Samuel and Beastie each carry their own shape and their own clips; `resources/characters.tres` indexes them and `GameConfig.character` picks one. Both canned clips are played the same way — the `Animation` for the joints and the `KeyframePath` for the body — because in both of them the body is where the animation is: `finish.lst` opens lying on the belly and stands the penguin up entirely on node 0. See the trap list. |
 | 5 — game shell | partial — `main_menu.tscn` is the main scene: Practice opens the course list, *Race the computer* opens the same list with a field of 1–9 opponents behind it, *Network multiplayer* opens the lobby (`lobby_menu.tscn`), which picks a room's course on the same course list in one of its two network modes, *Race against ghost* opens a list of every saved run (`ghost_menu.tscn`), Configuration edits `penguinracer.cfg` graphically, and a race is a scene the shell hands over to and takes back. A finished race brings up `results_menu.tscn` over the course — time, herring, the `wonrace`/`lostrace`/`finish` clip playing, and a name field to keep the run — before the ordinary course menu takes over. `character_menu.tscn` is the character half of `CRegist` — arrows over a framed name with the migrated 128x128 preview under it. Every screen wears `themes/etr_menu.tres`, so the shell reads as the original's: the flat `colBackgr` blue, white text, `colDYell` on whatever has focus, square white-outlined frames. Generated course and character catalogs, 13 languages wired to `tr()`, audio (10 effects + 10 pieces + 3 racing themes on an `AudioDirector` autoload that reproduces ETR's one-voice-per-cue mixer). No cups, medals or profiles (data is imported and waiting; the player half of `CRegist` waits on them); no volume or language controls on the settings screen; none of ETR's menu art (corner ornaments, title logo), which waits on the licence audit. |
 | 6 — polish/ship | not started. |
-| weather — snow | **done for the snow, 0–3** — ETR's `snow_id`, the first of the three weather controls its race-select screen offers (light, snow, wind). `SnowFall` is both halves of the original: three nested boxes of wrapping flakes around the player (`CFlakes`, a `MultiMesh` whose whole per-frame motion is two uniforms, so it is deterministic where the spray is not) and three rings of big sparse tiles at 40–60 m (`CCurtain`). Chosen on the course screen in Practice and in a race alike, remembered as `[game] snowfall`, and `--snow=0..3`/`?snow=` for a capture. Presentation only — no racer drives differently in it, which is the original's arrangement too. Verified on both renderers. The other two controls are not offered: the sky is a property of the course's environment here (and the evening/night presets are unfitted — see Known gaps), and the wind is still `--wind=`. |
+| weather — snow and sky | **done for the snow (0–3) and the sky (sunny/cloudy/night)** — ETR's `snow_id` and `light_id`, two of the three weather controls its race-select screen offers (light, snow, wind). `SnowFall` is both halves of the original: three nested boxes of wrapping flakes around the player (`CFlakes`, a `MultiMesh` whose whole per-frame motion is two uniforms, so it is deterministic where the spray is not) and three rings of big sparse tiles at 40–60 m (`CCurtain`). Chosen on the course screen in Practice and in a race alike, remembered as `[game] snowfall`, and `--snow=0..3`/`?snow=` for a capture. Presentation only — no racer drives differently in it, which is the original's arrangement too. Verified on both renderers. **The sky is `LightCondition`**, chosen on the same row and carried on the same `RaceSetup`: a course names a *place* (`[env]`, a location with a `light.lst` per time of day under it) and the light is per race, which is the original's own arrangement — `events.lst` picks it for a cup race there. Three of ETR's four are offered; `evening` is imported and fitted but not on the screen. It moves the sun, the ambient, the fog, the skybox, the flake and spray tint, what the ice reflects, and — through `EnvironmentPreset.casts_shadows`, which is `DrawShadow`'s `light_id` rule verbatim — whether anything casts a shadow at all. Remembered as `[game] conditions`, `--light=`/`?light=` for a capture, and carried on a lobby room so everyone in it races the same sky. The six presets nobody used before now carry gains of their own, derived from the sunny fit rather than sharing it — see the deviations. The third control, the wind, is still `--wind=`. |
 | computer opponents | **done** — beyond the original, which has nobody on the hill. `RaceSetup` is the whole mode switch: 0 opponents is Practice and 1–9 is a race, chosen on the course screen and remembered in `penguinracer.cfg`. An opponent is a `SimulatedRacer` driven by an `AIInputSource` — the seam the racer layer was built for, used with no change to it. It plans an aim point every `AISkill.plan_interval` ticks by scoring nine candidate lines against trees, the play bounds, swerve cost, its own lane, the friction ahead, herring and the other racers. **The three levels move driving habits and never the physics**: lookahead, reaction, nerve, how long they paddle, how readily they brake. Measured over 30 s of a 22° slope: easy 231 m, medium 333 m, hard 422 m, a player holding the accelerator straight 413 m. Deterministic — the only randomness is a per-seat personality drawn once from a seed. Opponents are solid: everyone on the hill bounces off everyone else through the shared `RacerField` (see the deviations), which is why the steering term only has to keep them out of each other's way rather than out of each other. No jumps, no tricks, no cups. |
 | multiplayer foundation | **done** — the seams the rest of this table rests on. The simulation runs on a fixed 60 Hz tick with interpolated presentation; `RaceScene` owns a list of `Racer`s, split into `SimulatedRacer` (a `RacePhysics` fed by an `InputSource`) and `PlaybackRacer` (a `RacerStateStream` read by time). `RacerState` — 18 floats — is the only thing the presentation reads, and is the ghost file format and the wire format at once. Ghosts are finished end to end: every run is recorded, a finished race brings up a results screen (`ResultsMenu`) where the player can name it and keep it (`SavedRunStore`, `user://runs/`), and the main menu's **Race against ghost** entry (`GhostMenu`) lists every saved run and racing one draws it translucent with the gap in seconds on the HUD. |
 | network multiplayer | **done** — beyond the original, plan §8.4, and it works in a browser. One **dedicated server** (`scenes/server.tscn`, this same project run headless) serves the WebAssembly build over HTTP *and* accepts race sessions over WebSocket, so a desktop player and a player in a tab are in the same room on the same protocol. `LobbyServer` owns the rooms — create one with a name and an optional password, see every race not yet started, join, and the creator is its admin and the only one who may pick the course or press Start. `RaceNetwork` (`Net`) is the socket, the protocol and the snapshot stream; the server relays snapshots and validates nothing else about them, so every peer still simulates only itself and draws the rest as `PlaybackRacer`s. **A name belongs to one player at a time, server-wide** — a second hello under a name somebody already holds is refused and the client drops the session back to the lobby's CONNECT page, because the name is the only thing one player knows another by here. No start animation: everyone reports the hill built, the server waits for the last of them, and a three-second countdown starts the field together. **The race is over when the last racer crosses the line, not the first** — between your own finish and theirs the camera spectates whoever is still coming down, and the results screen carries the server's finishing order, and only the winner is shown the finish-line clip. Esc is a forfeit rather than a pause; `P` and `r` are off. See the deviations. |
@@ -276,14 +280,17 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   `Racer._drawn_snow_lift` is the standing compensation for it and comes out when it is fixed.
 - The terrain slide sound is on/off with no speed term, and 12 of the 43 terrains (including
   `snow`) name no sound — both faithful, both the obvious first improvement. See the deviations.
-- Snow tone is matched on one course under one environment (Bunny Hill / `tuxracer_sunny`).
-  All 44 shipped courses select a *sunny* preset — 40 `etr_sunny`, 4 `tuxracer_sunny`, and the
-  two carry identical light values — so the fit reaches every course that ships. The
-  evening/night presets are a different matter and the display-space fix moved them **the wrong
-  way**: undoing an sRGB decode raises a dark value far more than a bright one, so night's
-  `[amb] 0.2` went from a shaded snow of about 45/255 to about 105/255 against the original's
-  47. Nothing selects them, so nothing regressed; anything that starts to will need its own
-  fitted `sun_gain`/`ambient_gain` pair, which is what those fields being per-preset is for.
+- Snow tone is **measured** on one course under one environment (Bunny Hill / `tuxracer_sunny`),
+  and **derived** on the other six presets from that one measurement. All 44 shipped courses
+  select a *sunny* preset — 40 `etr_sunny`, 4 `tuxracer_sunny`, and the two carry identical light
+  values — so the fit itself reaches every course that ships. Since the course screen offers the
+  sky, the other times of day are now reachable too, and they no longer share the sunny gains:
+  `EnvironmentPreset.derive_ambient_gain`/`derive_sun_gain` transfer the one measured correction
+  in *display* space, where ETR's arithmetic lives, instead of in linear space, where it made
+  night's shaded snow 105/255 against the original's 47. What is derived is not measured: the
+  correction was fitted on a bank that was shaded but not unlit, and how much sun a shaded bank
+  gets is a property of the sky it is under. Each of the six would still be better for one
+  reference capture of its own — same method, one frame each.
   The snow/ice/roughness tables now cover all eight splat layers.
 - The lit near field still clips more than the original's. After the fit both measured surfaces
   match within a level in all three channels, but our lit region's *upper half* runs about six
@@ -1360,9 +1367,10 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   procedurally (the checkbox-icon standing), deterministic so captures stay
   comparable. Until it arrived the emitter drew ETR's counts and velocities on
   flat white squares at full size, fading never — the *shape* of a ported
-  effect is part of the port too. The spray tint is sunny's
-  `[partcol] 0.85 0.9 1.0`, standing in until `EnvironmentPreset` carries the
-  field.
+  effect is part of the port too. The spray tint is the environment's
+  `[partcol]`, and `SprayEmitter.particle_color` is a **setter**: the environment
+  is applied to racers whose emitters already exist, and while it was a plain
+  field the push landed nowhere and every night race threw sunny-white spray.
 - **The falling snow is a `MultiMesh` with the motion in a vertex shader, where ETR translates
   every flake on the CPU.** `TFlakeArea::Update` walks up to three thousand flakes a frame,
   adding each one's fall to three coefficients the whole area shares and teleporting whatever
@@ -1446,6 +1454,20 @@ takes the slow path, which is worth doing before trusting a small tone measureme
   place — `EnvironmentPreset.as_light_color`, reached from `to_environment()` for the ambient
   and `apply_sun()` for the sun — because the bug that shipped was the two halves of that
   disagreeing.
+- **One preset is fitted and the other six are derived from it, in display space.** The gains
+  above were measured on `tuxracer_sunny` against a reference capture, and all eight presets
+  used to carry them as the script default. That is the wrong thing to share: a shaded fragment
+  renders at `srgb(ambient_color * ambient_gain)`, so sharing the *gain* shares the correction in
+  linear space, and undoing an sRGB decode raises a dark value far more than a bright one —
+  night's `[amb] 0.2` came out at 105/255 of shaded snow against the original's 47. What the fit
+  actually says is "this bank wants a tenth more light than `[amb]`", which is a display-space
+  factor; `EnvironmentPreset.fit_correction()` recovers it from the fitted pair and
+  `derive_ambient_gain`/`derive_sun_gain` apply it to the rest, the importer writing the result
+  onto each resource. The sunny pair is the fixed point of the ambient derivation by
+  construction, and the sun derivation independently returns 1.948 where the fit says 1.95 —
+  which is what makes it a derivation of the documented rule and not a second guess at it. Run on
+  Bunny Hill under `tuxracer_night`, the near field goes from (140, 172, 238 — 12 % of blue
+  clipped) to (78, 113, 209 — 1 %). See history §25.
 - **The terrain slide sound resolves through the dominant splat layer**, where ETR used
   `Course.GetTerrainIdx(x, z, 0.5)` — the type holding at least half the blend, else nothing. Ours
   always resolves to a layer, so the cue changes slightly earlier across a boundary and a blend of

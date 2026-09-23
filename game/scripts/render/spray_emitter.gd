@@ -69,10 +69,17 @@ var _puff: ImageTexture
 ## steady-state live count at a given emission rate is about half of what a
 ## fixed lifetime of this length would hold — as in the original.
 @export var particle_lifetime: float = MAX_AGE
-## Stand-in for the environment's `[partcol]`, which is not migrated onto
-## [EnvironmentPreset] yet. (0.85, 0.9, 1.0) is what both sunny presets ship —
-## and every shipped course selects a sunny preset.
-@export var particle_color: Color = Color(0.85, 0.9, 1.0)
+## The environment's `[partcol]` — [member EnvironmentPreset.particle_color],
+## pushed in by [RaceScene] whenever the environment is applied. The default,
+## (0.85, 0.9, 1.0), is what both sunny presets ship.
+##
+## A setter, not a plain field: the environment is applied to a racer whose
+## emitters were built long ago, and a colour only read when the material is
+## made left every spray in daylight under a night sky.
+@export var particle_color: Color = Color(0.85, 0.9, 1.0):
+	set(value):
+		particle_color = value
+		_apply_color()
 
 var _left: GPUParticles3D
 var _right: GPUParticles3D
@@ -98,6 +105,13 @@ func _ready() -> void:
 	_right_mat = _make_process_material()
 	_left = _make_emitter("SprayLeft", _left_mat)
 	_right = _make_emitter("SprayRight", _right_mat)
+
+func _apply_color() -> void:
+	for p: GPUParticles3D in [_left, _right]:
+		if p == null:
+			continue
+		var mat := (p.draw_pass_1 as QuadMesh).material as StandardMaterial3D
+		mat.albedo_color = particle_color
 
 func _make_emitter(node_name: String, mat: ParticleProcessMaterial) -> GPUParticles3D:
 	var p := GPUParticles3D.new()

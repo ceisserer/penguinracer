@@ -153,14 +153,15 @@ func _show_root() -> void:
 	_practice_button.grab_focus()
 
 func _open_practice_menu() -> void:
-	_open_course_menu(RaceSetup.practice().in_snow(Config.snowfall))
+	_open_course_menu(RaceSetup.practice().in_snow(Config.snowfall)
+		.under_sky(Config.conditions))
 
 ## The same screen with the field spinners showing, opened on whatever the
 ## player last raced — [GameConfig] holds it so that the answer survives a
 ## restart of the game, not just of the scene.
 func _open_race_menu() -> void:
 	_open_course_menu(RaceSetup.against(Config.opponents,
-		Config.opponent_skill).in_snow(Config.snowfall))
+		Config.opponent_skill).in_snow(Config.snowfall).under_sky(Config.conditions))
 
 func _open_course_menu(setup: RaceSetup) -> void:
 	_frame.visible = false
@@ -217,10 +218,13 @@ func _on_course_chosen(listing: CourseListing, setup: RaceSetup) -> void:
 	# for the next time this screen opens. A practice run leaves the stored
 	# field alone: choosing to race alone is not choosing zero opponents.
 	RaceScene.requested_setup = setup
-	# The weather is kept whichever mode this was: the snow row is offered on the
-	# Practice screen too, so a practice run really is the player saying so.
-	var changed: bool = setup.snowfall != Config.snowfall
+	# The weather is kept whichever mode this was: the two weather rows are
+	# offered on the Practice screen too, so a practice run really is the player
+	# saying so.
+	var changed: bool = setup.snowfall != Config.snowfall \
+		or setup.conditions != Config.conditions
 	Config.snowfall = setup.snowfall
+	Config.conditions = setup.conditions
 	if setup.is_race() and (setup.opponents != Config.opponents
 			or setup.skill != Config.opponent_skill):
 		Config.opponents = setup.opponents
@@ -249,13 +253,14 @@ func _on_course_chosen(listing: CourseListing, setup: RaceSetup) -> void:
 ## A course the room named but this build does not have is the one failure
 ## worth a word: the player is put back on the lobby with the session intact
 ## rather than dropped into a race with nowhere to load.
-func _on_network_race_starting(course_dir: String, snow: int) -> void:
+func _on_network_race_starting(course_dir: String, snow: int, sky: int) -> void:
 	var listing: CourseListing = CourseCatalog.load_default().find(course_dir)
 	if listing == null or not ResourceLoader.exists(listing.preview_path):
 		Net.forfeit()
 		_open_lobby()
 		return
-	RaceScene.requested_setup = RaceSetup.networked_race().in_snow(snow)
+	RaceScene.requested_setup = RaceSetup.networked_race().in_snow(snow) \
+		.under_sky(LightCondition.of(sky))
 	RaceScene.requested_ghost = null
 	_loading.begin(listing.title())
 	Audio.halt_all()
@@ -274,7 +279,8 @@ func _on_ghost_run_chosen(recording: RaceRecording) -> void:
 		# to load.
 		_show_root()
 		return
-	RaceScene.requested_setup = RaceSetup.practice().in_snow(Config.snowfall)
+	RaceScene.requested_setup = RaceSetup.practice().in_snow(Config.snowfall) \
+		.under_sky(Config.conditions)
 	RaceScene.requested_ghost = recording
 	_loading.begin(listing.title())
 	Audio.halt_all()

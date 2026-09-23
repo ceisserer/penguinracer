@@ -42,7 +42,7 @@ extends CanvasLayer
 
 ## The admin started the race: load this course. [MainMenu] hands over exactly
 ## as it does for a course picked off [CourseMenu].
-signal race_starting(course_dir: String, snowfall: int)
+signal race_starting(course_dir: String, snowfall: int, conditions: int)
 ## The player backed out to the main menu. The session is left up — being in a
 ## room is not something you should lose by looking at the settings screen.
 signal closed()
@@ -338,7 +338,8 @@ func _open_create() -> void:
 	if _race_name.strip_edges().is_empty():
 		_race_name = "%s's race" % Config.player_name
 	_open_picker(CourseMenu.Mode.NET_CREATE,
-		RaceScene.requested_course_path.get_base_dir().get_file(), Config.snowfall)
+		RaceScene.requested_course_path.get_base_dir().get_file(), Config.snowfall,
+		Config.conditions)
 
 ## The admin wants the room to race something else. The picker opens on what
 ## it races now.
@@ -348,13 +349,14 @@ func _open_change_course() -> void:
 		return
 	_status.text = ""
 	_open_picker(CourseMenu.Mode.NET_ROOM, str(room.get("course", "")),
-		int(room.get("snowfall", 0)))
+		int(room.get("snowfall", 0)), int(room.get("conditions", 0)))
 
-func _open_picker(mode: CourseMenu.Mode, course_dir: String, snow: int) -> void:
+func _open_picker(mode: CourseMenu.Mode, course_dir: String, snow: int,
+		sky: int) -> void:
 	# Hidden rather than covered: the picker's backdrop lets the mouse through,
 	# and a click on its empty margin must not land on a button under it.
 	_frame.visible = false
-	_picker.open_network(mode, course_dir, snow, _race_name)
+	_picker.open_network(mode, course_dir, snow, sky, _race_name)
 
 ## Down again, back on whichever page [RaceNetwork] now says is the one.
 func _close_picker() -> void:
@@ -365,12 +367,12 @@ func _close_picker() -> void:
 	if visible:
 		_show(_page)
 
-func _on_picker_chosen(listing: CourseListing, snow: int, race_name: String,
-		password: String) -> void:
+func _on_picker_chosen(listing: CourseListing, snow: int, sky: int,
+		race_name: String, password: String) -> void:
 	if _picker.mode == CourseMenu.Mode.NET_ROOM:
 		_close_picker()
 		if Net.is_admin():
-			Net.set_course(listing.dir, snow)
+			Net.set_course(listing.dir, snow, sky)
 		return
 	var clean: String = LobbyServer.sanitize_name(race_name, "", LobbyServer.ROOM_NAME_MAX)
 	_race_name = clean
@@ -379,7 +381,7 @@ func _on_picker_chosen(listing: CourseListing, snow: int, race_name: String,
 		return
 	# The picker stays up, saying so, until the room arrives
 	# ([method _on_room_changed]) or the reason it will not ([method _on_lobby_error]).
-	Net.create_room(clean, password, listing.dir, snow)
+	Net.create_room(clean, password, listing.dir, snow, sky)
 
 # ==================================================================
 #                             the room
@@ -420,7 +422,9 @@ func _fill_room() -> void:
 	var listing: CourseListing = _catalog.find(str(room.get("course", "")))
 	var course: String = listing.title() if listing != null else str(room.get("course", ""))
 	var grade: int = clampi(int(room.get("snowfall", 0)), 0, CourseMenu.SNOW_LABELS.size() - 1)
-	_room_course.text = "%s   —   snow: %s" % [course, CourseMenu.SNOW_LABELS[grade]]
+	var sky: LightCondition.Kind = LightCondition.of(int(room.get("conditions", 0)))
+	_room_course.text = "%s   —   %s   —   snow: %s" % [course,
+		LightCondition.label_of(sky), CourseMenu.SNOW_LABELS[grade]]
 	# The admin gets a way to change the course and everyone else only reads
 	# it, which is the whole of what being the admin means on this page.
 	_change_course_button.visible = admin
@@ -454,13 +458,13 @@ func _do_leave() -> void:
 #                          into the race
 # ==================================================================
 
-func _on_race_starting(course_dir: String, snow: int) -> void:
+func _on_race_starting(course_dir: String, snow: int, sky: int) -> void:
 	if not visible:
 		return
 	_refresh_timer.stop()
 	_close_picker()
 	visible = false
-	race_starting.emit(course_dir, snow)
+	race_starting.emit(course_dir, snow, sky)
 
 ## The race this screen sent everyone into has finished for everybody. The
 ## results screen in the race scene has already shown the order; by the time

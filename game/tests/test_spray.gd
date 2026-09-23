@@ -25,6 +25,7 @@ static func run(t: TestCase) -> void:
 	_grows_over_life(t, e)
 	_fades_over_life(t, e)
 	_etr_lifetime(t, e)
+	_retints(t, e)
 	e.free()
 
 static func _emitter(t: TestCase) -> SprayEmitter:
@@ -101,6 +102,18 @@ static func _billboard(t: TestCase, e: SprayEmitter) -> void:
 		"the tint is the one property, not a second copy")
 	t.ok(absf(e.particle_color.r - 0.85) < 1e-4 and absf(e.particle_color.g - 0.9) < 1e-4,
 		"the tint is sunny's [partcol] 0.85 0.9 1.0, the preset every course selects")
+
+## The environment is applied to racers that already exist, so a colour pushed
+## after `_ready` has to reach the material. It did not: the setter was missing,
+## and every night race threw daylight-white spray under a blue sky.
+static func _retints(t: TestCase, e: SprayEmitter) -> void:
+	t.begin("spray/an environment applied later retints it")
+	var night := Color(0.39, 0.51, 0.88)
+	e.particle_color = night
+	for p: GPUParticles3D in [e._left, e._right]:
+		var mat := (p.draw_pass_1 as QuadMesh).material as StandardMaterial3D
+		t.ok(mat.albedo_color.is_equal_approx(night),
+			"%s takes the new [partcol]" % p.name)
 
 static func _grows_over_life(t: TestCase, e: SprayEmitter) -> void:
 	t.begin("spray/a particle grows over its life")

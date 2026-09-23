@@ -1,17 +1,18 @@
 ## What kind of race the shell asked for: alone or against a field, and in what
 ## weather.
 ##
-## Three numbers and nothing else, but they are the ones the shell has to carry
+## Four numbers and nothing else, but they are the ones the shell has to carry
 ## across a scene swap and hand back afterwards, and a value object is cheaper
-## to reason about than three more `static var`s on [RaceScene] beside
+## to reason about than four more `static var`s on [RaceScene] beside
 ## [member RaceScene.requested_course_path].
 ##
 ## [b]Weather is here for the same reason the field is.[/b] ETR keeps
 ## `light_id`, `snow_id` and `wind_id` in `g_game` beside the course, all four
 ## set on the one screen (`CRaceSelect`) and read by whatever needs them; this
-## is that object, and [CourseMenu] is that screen. Only the snow is carried so
-## far — the sky is a property of the course's environment here and the wind is
-## still `--wind=` (see [member RacePhysics.wind]).
+## is that object, and [CourseMenu] is that screen. Two of the three are carried
+## now — the snow and the sky; the wind is still `--wind=` (see
+## [member RacePhysics.wind]), because wind belongs to a cup race in
+## `events.lst` and there are no cups yet.
 ##
 ## Zero opponents is Practice — the mode the game had until now, and still the
 ## default. `--auto-input=` and every reference capture get it, which is what
@@ -58,6 +59,14 @@ var networked: bool = false
 ## the default and every reference capture, which is why the flag and the
 ## settings key both have to name a grade to get one.
 var snowfall: int = 0
+## What the sky is doing: ETR's `g_game.light_id`. Presentation only in the same
+## way the snow is — see [LightCondition] — except that it also decides whether
+## anything casts a shadow, which is the original's own rule rather than an
+## addition.
+##
+## [constant LightCondition.Kind.SUNNY] is the default and every reference
+## capture, and it is what all 44 courses select when nobody says otherwise.
+var conditions: LightCondition.Kind = LightCondition.Kind.SUNNY
 
 static func practice() -> RaceSetup:
 	return RaceSetup.new()
@@ -82,6 +91,13 @@ func in_snow(grade: int) -> RaceSetup:
 	snowfall = clampi(grade, 0, SnowFall.MAX_GRADE)
 	return self
 
+## The same setup under [param kind]. A second builder for the second half of
+## the weather, and chainable with [method in_snow] for the same reason: a
+## caller that sets one usually leaves the other alone.
+func under_sky(kind: LightCondition.Kind) -> RaceSetup:
+	conditions = LightCondition.of(kind)
+	return self
+
 ## Whether there is anyone else on the hill to beat. True for a network race
 ## before anybody has connected, which is deliberate: the HUD draws standings
 ## and the results screen reports a place, and both are right for a race of one
@@ -93,15 +109,17 @@ func is_race() -> bool:
 ## decide whether picking a course from the in-race menu has to rebuild the
 ## opponents or can just put everyone back on the start line.
 ##
-## [member snowfall] is deliberately not part of it: the weather is not the
-## field, and rebuilding nine [RacePhysics] because the player asked for heavier
-## snow would throw away the opponents for a change none of them can see.
+## The weather — [member snowfall] and [member conditions] — is deliberately not
+## part of it: the weather is not the field, and rebuilding nine [RacePhysics]
+## because the player asked for heavier snow or a darker sky would throw away
+## the opponents for a change none of them can see.
 func matches(other: RaceSetup) -> bool:
 	return other != null and other.opponents == opponents and other.skill == skill \
 		and other.networked == networked
 
 func copy() -> RaceSetup:
-	var s: RaceSetup = RaceSetup.against(opponents, skill).in_snow(snowfall)
+	var s: RaceSetup = RaceSetup.against(opponents, skill).in_snow(snowfall) \
+		.under_sky(conditions)
 	s.networked = networked
 	return s
 
@@ -137,6 +155,8 @@ static func lane_x(x: float, bounds: PackedVector2Array) -> float:
 ## One line for the logs and the HUD's opening print.
 func describe() -> String:
 	var weather: String = "" if snowfall <= 0 else ", snow %d" % snowfall
+	if conditions != LightCondition.Kind.SUNNY:
+		weather += ", %s" % LightCondition.name_of(conditions)
 	if networked:
 		return "network race%s" % weather
 	if not is_race():

@@ -126,6 +126,14 @@ var opponent_skill: AISkill.Level = AISkill.Level.MEDIUM
 ## of the camera would move the frame on all 44 courses.
 var snowfall: int = 0
 
+## What the sky is doing: ETR's `g_game.light_id`, kept for the same reason and
+## on the same screen as [member snowfall]. See [LightCondition].
+##
+## Sunny by default, which is the original's `main.cpp` and what every one of
+## the 44 courses names an environment for; it is also why every reference
+## capture in the repository still means what it meant.
+var conditions: LightCondition.Kind = LightCondition.Kind.SUNNY
+
 # --- multiplayer ---
 
 ## What other racers see this player called. ETR has `players.lst` and an avatar
@@ -240,6 +248,8 @@ func read(cfg: ConfigFile) -> void:
 		AISkill.name_of(opponent_skill))))
 	snowfall = clampi(int(cfg.get_value("game", "snowfall", snowfall)),
 		0, SnowFall.MAX_GRADE)
+	conditions = LightCondition.parse(str(cfg.get_value("game", "conditions",
+		LightCondition.name_of(conditions))))
 	player_name = str(cfg.get_value("multiplayer", "player_name",
 		player_name)).strip_edges()
 	if player_name.is_empty():
@@ -346,6 +356,14 @@ opponent_skill = "%s"
 ; Also `--snow=2` on the command line, which outranks this for one run.
 snowfall = %d
 
+; What the sky is doing: sunny, cloudy or night. The original offers the same
+; choice on its race screen, next to the snow, and so does the course screen
+; here. Weather again — nobody drives differently under a night sky — but it
+; is also the original's own rule about what casts a shadow: nothing does,
+; under a cloudy or a night sky.
+; Also `--light=night` on the command line, which outranks this for one run.
+conditions = "%s"
+
 [multiplayer]
 
 ; What other racers see you called.
@@ -365,6 +383,7 @@ port = %d
 		str(ice_reflections).to_lower(), str(shadows).to_lower(),
 		fog_start_distance, fog_distance_scale, character,
 		opponents, AISkill.name_of(opponent_skill), snowfall,
+		LightCondition.name_of(conditions),
 		player_name, multiplayer_server, multiplayer_port]
 
 ## `"auto"` when the window is the platform's to size, `"1280x720"` otherwise.

@@ -38,7 +38,7 @@ paddle, and the roll normal. ODE23 (Bogacki–Shampine) with adaptive stepping, 
 `MAX_STEP_DIST` cap. Trees and herring go through a uniform spatial grid, fixing the original's
 O(items) scan per substep.
 
-**0 failures** — 2293 assertions when the phase closed, 4870 today across physics, surface,
+**0 failures** — 2293 assertions when the phase closed, 4951 today across physics, surface,
 input, audio, the imported terrain library, the settings file, the character rig, the chase
 camera, the HUD's arithmetic and the weather, in 13 s headless. Per-force golden values are
 worked out by hand from the constants — air drag at 20 m/s, each of the three spring bands, the
@@ -127,8 +127,9 @@ picks one quadrant per particle at birth and keeps it, grows the particle from 0
 per-particle base of up to 0.18 m across its whole life, fades it out linearly, and gives each one
 a lifetime of `FRandom() × 1.0 s` rather than a fixed length. All of it is ported now; the atlas
 itself is redrawn procedurally in `SprayEmitter.make_puff_image` because the original is texture
-art that waits on the licence audit (the checkbox-icon standing), and the spray tint is sunny's
-`[partcol] 0.85 0.9 1.0` standing in for a value `EnvironmentPreset` does not carry yet. A
+art that waits on the licence audit (the checkbox-icon standing), and the spray tint is the
+environment's `[partcol]`, re-applied to the live emitters whenever the environment is (it was
+read only when they were built until 2026-09-23, so night spray stayed sunny white). A
 before/after capture of a Bunny Hill carve differs inside the spray plume and nowhere else.
 
 **Two renderers: Mobile on the desktop, Compatibility on the web.** `project.godot` had said
@@ -1413,7 +1414,7 @@ It also compares the loaded texture against the PNG wherever the PNG is reachabl
 
 ETR's race-select screen offers three weather controls beside the course list — light, snow and
 wind, each an icon button cycling four states (`CRaceSelect`, `g_game.light_id/snow_id/wind_id`).
-The snow one is built.
+The snow one is built. (The light one followed on 2026-09-23 — see below.)
 
 `SnowFall` is both of the original's layers, and they are two different effects:
 
@@ -1454,8 +1455,8 @@ remembered as `[game] snowfall` in `penguinracer.cfg`. `--snow=0..3` and `?snow=
 one run without going through the menu, which is how the captures above were taken. It is
 **presentation and nothing else**: no racer drives differently in it, which is the original's
 arrangement as well. The tint is the environment's `[partcol]`, the same field the spray is
-tinted by, so night snow would be blue without anything in the effect knowing which sky it is
-under.
+tinted by, so night snow is blue without anything in the effect knowing which sky it is
+under — which is exactly what happened when the sky became a choice.
 
 The art is redrawn rather than copied, like the spray's puff atlas and for the same reason: the
 flakes borrow `SprayEmitter.make_puff_image` (ETR binds the same `SNOW_PART` atlas for both), and
@@ -1690,6 +1691,90 @@ moving it has to move them too.
 
 4781 assertions, 0 failures.
 
+### The sky is a choice now (2026-09-23) · **done**
+
+The second of ETR's three weather controls. `CRaceSelect` offers light, snow and wind beside its
+course list; the snow has been on the course screen since 2026-09-14 and the light is now beside
+it, as a **Conditions** spinner offering three of the original's four times of day — sunny,
+cloudy and night.
+
+**A course names a place, not a time of day.** `courses.lst` carries `[env] etr` or
+`[env] tuxracer`, which is a *location* with a `light.lst` and a three-faced skybox authored under
+it for each light; the original picks the light per race, out of `events.lst` for a cup. So the
+importer keeps selecting `<location>_sunny` for a course and `LightCondition.preset_for` swaps in
+the sibling the race asked for. It is carried on `RaceSetup` beside the snowfall, remembered as
+`[game] conditions`, reachable as `--light=`/`?light=` for a capture, and carried on a lobby room
+so that eight people in a room are racing the same hill under the same sky.
+
+Everything downstream of the preset already re-reads it, because changing the course always could:
+the sun's colour and direction, the ambient the terrain clamps its sun against, the fog colour and
+range, the skybox, the `[partcol]` the flakes and the spray are tinted by, the horizon band the ice
+reflects — and whether anything casts a shadow at all, which is not a quality setting but
+`CCharShape::DrawShadow` returning immediately under `light_id` 1 and 3. Under cloudy and night
+nothing on the hill casts one, in both games. Picking a new sky over a running race re-lights it in
+place (`RaceScene._apply_conditions`) rather than rebuilding the course.
+
+#### The part that was actually blocking this
+
+The gate was never the menu. It was that **all eight presets shared one pair of gains** — the
+`sun_gain`/`ambient_gain` fitted on `tuxracer_sunny` against a reference capture (history §11,
+§22), sitting on the script as the default — and on a dark sky that pair is wrong in a way §22
+had already measured and recorded: night's shaded snow came out at about 105/255 against the
+original's 47. Offering the sky would have shipped a course that is visibly wrong.
+
+The reason is worth stating in one line, because it is the same class of bug as the two before it.
+A shaded fragment renders at `srgb(ambient_color * ambient_gain)`, so sharing the *gain* shares the
+correction in **linear** space — and undoing an sRGB decode raises a dark value far more than a
+bright one. What the fit actually says is a **display-space** claim: *this bank wants about a tenth
+more light than `[amb]` alone*. `EnvironmentPreset.fit_correction()` recovers that tenth from the
+fitted pair — (1.128, 1.097, 0.991) — and `derive_ambient_gain` applies it to any `[amb]`, in the
+space ETR's arithmetic lives in. `derive_sun_gain` is the derivation `sun_gain` has always
+documented, generalised to a sky too dark to reach the clamp: where ETR's snow saturates at
+`N·L = (1 − amb) / diff`, our sun is scaled to saturate at the same angle; where it never
+saturates — night's red stops at 0.59 — it is matched at full `N·L` instead. The two cases meet
+continuously at an angle of 1. The importer writes both onto the resource, so a preset is still
+readable on sight and re-importable.
+
+Two things say the derivation is the documented rule and not a second guess at it. The fitted
+ambient pair is its **fixed point**: handed the surface the fit was measured on it returns the
+fitted gain exactly, by construction. And the sun half, run on `tuxracer_sunny`, returns **1.948**
+in red where the fit carries 1.95 — the channel the derivation was written for, to a tenth of a per
+cent. (It returns 1.87 in green, which §22 already recorded as within 5 %, and 0.46 in blue, where
+both games are clipped on the ambient alone and the difference lives below `N·L` 0.05.) The two
+sunny presets keep the measured pair regardless: every tone measurement in the repository is on one
+of them, and nothing in this change moves either file by a byte.
+
+#### What it measures
+
+Snow (`snow.png`, 236/245/255) under each sky, as the arithmetic gives it — ours against what ETR's
+own `clamp([amb] + [diff]·N·L)` produces:
+
+| preset | shaded, ours | shaded, ETR | lit, ours | lit, ETR |
+|---|---|---|---|---|
+| `*_sunny` | 187, 210, 253 | 153, 179, 242 | 236, 245, 255 | 236, 245, 255 |
+| `*_cloudy` | 157, 161, 162 | 139, 147, 163 | 236, 245, 255 | 236, 245, 255 |
+| `*_night` | 53, 78, 136 | 47, 71, 138 | 139, 196, 255 | 139, 196, 255 |
+
+The lit end is exact everywhere. The shaded end is ETR's own number times the measured correction
+— which is what the correction is for, and why sunny's row is the widest gap in the table rather
+than an error in it.
+
+And on a real frame, 250 frames into Bunny Hill under `tuxracer_night`, near-field region mean:
+
+| | before (shared sunny gains) | after |
+|---|---|---|
+| R | 139.7 | **78.4** |
+| G | 171.7 | **113.0** |
+| B | 237.5, 11.8 % clipped | **209.4, 1.0 %** |
+
+`TestEnvironments` now asserts both ends of that arithmetic on all eight presets rather than only
+the round trip — the assertion that was missing when one pair of gains was shared, since a wrong
+gain passes a round trip perfectly — plus the fixed point, the `LightCondition` lookup, and that
+`SNOW_WRAP` still matches `terrain.gdshader`'s `wrap_amount`, which the sun derivation reads the
+clamp angle through.
+
+4951 assertions, 0 failures.
+
 ---
 
 ## Known gaps
@@ -1716,19 +1801,20 @@ moving it has to move them too.
   view — ETR's reference is at 25 km/h on undisturbed snow, ours at 44 km/h over a fresh trench,
   and the camera is 70° FOV at 19° above the slope where the original is 60° at 10°. It wants a
   reference capture taken at a matched camera, not another fitted number.
-- **The snow is tuned against one frame of one course.** Bunny Hill under `tuxracer_sunny` now
-  matches the original at both ends of its range and in all three channels (history §11, §12,
-  §22), but the fit is six numbers solved on two surfaces in one screenshot. It does reach every
-  shipped course: all 44 select a *sunny* preset — 40 `etr_sunny`, 4 `tuxracer_sunny` — and the
-  two carry identical `[diff]` and `[amb]`, differing only in the skybox (the `etr` faces are
-  1024² and much brighter) and the fog colour. Since `ambient_light_sky_contribution` is 0 the
-  brighter sky does not feed the ambient, so the fit should carry; nobody has measured it on an
-  `etr_sunny` course against a reference. The four cloudy/evening/night presets are untuned and
-  **§22's fix moved the dark ones the wrong way**: undoing an sRGB decode raises a dark value far
-  more than a bright one, so `night`'s `[amb] 0.2` now gives a shaded snow of about 105/255
-  against the original's 47, where the old double-bend accidentally gave 45. Nothing selects them
-  so nothing regressed, but each needs its own fitted `sun_gain`/`ambient_gain` — which is what
-  those being per-preset fields is for. Same method, one reference capture each.
+- **The snow is tuned against one frame of one course, and the other six skies are derived from
+  it rather than measured.** Bunny Hill under `tuxracer_sunny` matches the original at both ends
+  of its range and in all three channels (history §11, §12, §22), but the fit is six numbers
+  solved on two surfaces in one screenshot. It does reach every shipped course: all 44 select a
+  *sunny* preset — 40 `etr_sunny`, 4 `tuxracer_sunny` — and the two carry identical `[diff]` and
+  `[amb]`, differing only in the skybox (the `etr` faces are 1024² and much brighter) and the fog
+  colour. Since `ambient_light_sky_contribution` is 0 the brighter sky does not feed the ambient,
+  so the fit should carry; nobody has measured it on an `etr_sunny` course against a reference.
+  The cloudy/evening/night presets now carry gains of their own, derived from that one fit in
+  display space (history §25) instead of sharing it in linear space, which is what put night's
+  shaded snow at 105/255 against the original's 47. **Derived is not measured.** The correction
+  being transferred was fitted on a bank that was shaded but not unlit, and how much sun a shaded
+  bank gets is a property of the sky it is under, so the six carry that approximation. Each would
+  still be better for one reference capture of its own — same method, one frame each.
 - **The camera does not frame the course the way the original does.** `race.tscn` uses a 70°
   vertical FOV where `param.fov` is 60, and `ChaseCamera` sits 19° above the slope plane where
   `view.cpp` puts it at `CAMERA_ANGLE_ABOVE_SLOPE`/`PLAYER_ANGLE_IN_CAMERA` = 10°. Both are
@@ -1873,16 +1959,15 @@ moving it has to move them too.
   not in the tree: `pave04` wants a `pave04.png` nobody shipped and `snowy_hockey_ice` writes
   `snowy_ice02` without the extension. Untextured in the original too, and no shipped course
   paints either colour key, so this is a note rather than a bug — the importer warns.
-- **Two of ETR's three weather controls are still missing.** The race-select screen offers light,
-  snow and wind; only the snow is on the course screen. The **light** one cannot simply be added:
-  it picks one of four `light.lst` presets, and only the *sunny* ones have had their
-  `sun_gain`/`ambient_gain` pair fitted — the display-space fix moved evening and night the wrong
-  way (night's shaded snow reads about 105/255 against the original's 47), so offering them would
-  ship a course that is visibly wrong. Nothing selects them today, which is why nothing has
-  regressed. The **wind** one is only `--wind=`: `WindField` and the HUD's rose are built and
-  feed air drag, but wind belongs to a cup race in `events.lst` and there are no cups yet, so
-  there has been nowhere for the player to ask for it. Adding it to the same row the snow is on
-  is now a small job — `RaceSetup` is the object that carries this.
+- **One of ETR's three weather controls is still missing, and one of its four skies is not
+  offered.** The race-select screen offers light, snow and wind; the snow and the light are on the
+  course screen (`[game] snowfall` and `[game] conditions`) and the **wind** is still only
+  `--wind=`. `WindField` and the HUD's rose are built and feed air drag, but wind belongs to a cup
+  race in `events.lst` and there are no cups yet, so there has been nowhere for the player to ask
+  for it. Adding it to the same row the other two are on is a small job — `RaceSetup` is the
+  object that carries this. The fourth sky, **evening**, is imported and carries a derived gain
+  like the other two, and is reachable from the Inspector; it is simply not on the screen, because
+  three were asked for. Adding it is one entry in `LightCondition.NAMES` and one in `LABELS`.
 - **Nothing occludes a racer in the ice mirror.** The mirror pass narrows `cull_mask` to the
   racer layer, which is what keeps the reflection of a slope out of the slope, and the cost is
   that the pass contains no occluders at all: a penguin behind a tree, a rock or a rise is drawn

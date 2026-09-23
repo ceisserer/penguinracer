@@ -372,6 +372,16 @@ already at the ceiling. The migrated colours stay verbatim in `sun_color`/`ambie
 fitted correction is `sun_gain`/`ambient_gain`, a `Color` each, applied through
 `EnvironmentPreset.as_light_color` for both the ambient and the sun. history.md §22.
 
+**Correction, 2026-09-23:** the fitted pair belongs to one preset, not to all eight. It was the
+script default, so every migrated sky carried the correction fitted on `tuxracer_sunny` — which
+shares it in linear space and therefore means something different on a dark `[amb]`. The two
+sunny presets keep the measured pair; the other six get their own from
+`EnvironmentPreset.derive_ambient_gain`/`derive_sun_gain`, which transfer the same correction in
+display space and are written onto the resource by the importer. This is what let the light
+condition become a control on the course screen (`LightCondition`, `RaceSetup.conditions`) rather
+than a property of the course, which is where §4 had left it and which the original never
+intended: a course names a location and `events.lst` names the light. history.md §25.
+
 **Correction, 2026-09-10 — the heading is now "the visual target", and Compatibility is the floor
 rather than the ceiling.** The desktop runs the Mobile renderer (§4.1's correction), so the
 directional shadow ETR only ever had as a blob under the character is real there, gated three ways

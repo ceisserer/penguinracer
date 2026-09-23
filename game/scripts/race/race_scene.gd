@@ -171,6 +171,12 @@ var snowfall: SnowFall
 ## anything else that has to be reapplied when the weather changes without the
 ## course doing so.
 var _preset: EnvironmentPreset
+## The course's own sky, before [member RaceSetup.conditions] chose a time of
+## day for it. Kept beside the applied one because the two are different
+## questions and the player can change either: picking another course replaces
+## this, and picking another sky re-resolves [member _preset] off it without the
+## course moving. See [method LightCondition.preset_for].
+var _course_preset: EnvironmentPreset
 var camera: ChaseCamera
 
 ## Everyone on the hill: the player, the field, the ghost and any peers. See
@@ -364,6 +370,9 @@ func _ready() -> void:
 	_cli_setup.snowfall = Config.snowfall
 	if args.snow != LaunchArgs.NO_SNOW:
 		_cli_setup.snowfall = clampi(args.snow, 0, SnowFall.MAX_GRADE)
+	_cli_setup.conditions = Config.conditions
+	if not args.light.is_empty():
+		_cli_setup.conditions = LightCondition.parse(args.light)
 	# The shell outranks the command line here, unlike `--course=`: the two flags
 	# are a way to start a race without a menu, not a way to keep overriding a
 	# choice the player has just made on one.
@@ -524,11 +533,15 @@ func load_course(path: String) -> void:
 	camera.surface = course_root.surface
 	camera.reset()
 
+	# The course names a place and the shell names a time of day — see
+	# [LightCondition]. `environment_preset` on the scene outranks both, which is
+	# how a spike or an authored course pins one sky.
 	var preset: EnvironmentPreset = environment_preset
 	if preset == null and course.environment_preset is EnvironmentPreset:
 		preset = course.environment_preset
+	_course_preset = preset
 	if preset != null:
-		_apply_environment(preset)
+		_apply_environment(_lit_preset(preset))
 	_apply_snowfall()
 
 	_setup_ghost()
@@ -1226,7 +1239,9 @@ func _on_course_chosen(listing: CourseListing, chosen: RaceSetup) -> void:
 	# What the shell offers next time, and what a scene swap carries.
 	requested_setup = setup.copy()
 	# Not part of `matches()` — see [method RaceSetup.matches]. The weather is
-	# rebuilt in place, whoever is on the hill.
+	# rebuilt in place, whoever is on the hill. The sky first: the snow is tinted
+	# by whichever one is up.
+	_apply_conditions()
 	_apply_snowfall()
 	if field_changed:
 		_rebuild_opponents()
@@ -1375,6 +1390,29 @@ func _apply_environment(preset: EnvironmentPreset) -> void:
 		# *distant* ice lands on, because distant terrain is what the fog fades.
 		terrain.set_sky_tint(preset.sky_zenith_color, preset.sky_horizon_color,
 			preset.fog_color)
+
+## The course's sky at the time of day [member setup] asks for.
+func _lit_preset(base: EnvironmentPreset) -> EnvironmentPreset:
+	if setup == null:
+		return base
+	return LightCondition.preset_for(base, setup.conditions)
+
+## Re-light the loaded course, when the sky has changed and the course has not.
+##
+## The other half of [method _apply_snowfall], and here for the same reason:
+## the course screen offers both halves of the weather over a running race, and
+## a change to either has to land without the hill being rebuilt. Everything
+## that follows from a preset — the sun, the shadow gate, the ambient the
+## terrain clamps against, what the ice reflects — is re-applied by
+## [method _apply_environment]; nothing here touches the simulation, because
+## nothing in the simulation has ever heard of the sky.
+func _apply_conditions() -> void:
+	if _course_preset == null:
+		return
+	var wanted: EnvironmentPreset = _lit_preset(_course_preset)
+	if wanted == _preset:
+		return
+	_apply_environment(wanted)
 
 ## Put the weather the shell asked for on the course, at the tint this
 ## environment gives it.
