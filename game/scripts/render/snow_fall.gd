@@ -22,22 +22,33 @@
 ## which is what a byte-comparable reference capture needs and what the spray's
 ## [GPUParticles3D] deliberately is not.
 ##
-## [b]Curtains[/b] ([constant CURTAINS]) are the far half: three rings of big
-## textured quads at 40, 50 and 60 m, each quad 15–32 m across and drawn from a
-## sparse tile of flake specks, turning slowly around the player and sinking.
-## They are what makes heavy snow read as weather rather than as confetti in
-## front of the camera — at that distance individual quads are below a pixel and
-## a tile of them is not. Thirty-odd quads a ring, so this half is CPU-updated
-## like the original.
+## [b]Far snow[/b] ([constant FAR_AREAS]) is the other half, and it is what
+## makes heavy snow read as weather rather than as confetti in front of the
+## camera: beyond 25 m a single flake is below a pixel and a patch of them is
+## not. ETR's `CCurtain` draws it as three rings of big speck-textured quads at
+## 40, 50 and 60 m, centred on the player, turning and sinking. DEVIATION: a
+## ring centred on the player moves with the player — no parallax, no looming as
+## you ride into it — and that, more than anything the flakes did, is what made
+## the snow read as an overlay. So the far half is a fourth flake area with the
+## same world-anchored shader: a box 150 m square holding two thousand-odd quads
+## 5–6.5 m wide, each a random patch cut from a curtain tile, drawn only in a
+## shell 25–72 m from the camera ([constant FAR_FADE]). Same specks per square
+## metre as the curtains, and now they hang in the world like the flakes do.
 ##
-## [b]The player is followed, but not exactly.[/b] `CFlakes::Update` moves every
+## [b]The player is not followed.[/b] DEVIATION. `CFlakes::Update` moves every
 ## flake by `YDRIFT` (0.8) of how far the player fell and `ZDRIFT` (0.6) of how
-## far they travelled down the hill, and not at all sideways. That fraction is
-## the entire feel of the effect: at 1.0 the snow is painted on the camera, at
-## 0.0 it is a wall you fly through at 80 km/h and every flake is a streak. The
-## residue — the fifth of the fall and the two fifths of the travel the snow
-## does *not* follow, plus the wind — is what this class accumulates into the
-## shader's `drift`.
+## far they travelled down the hill, so the snow half-rides with the camera: at
+## 80 km/h it comes at you at two fifths of your speed, every flake in a box
+## moves as one sheet, and the whole field reads as an overlay unrelated to the
+## racer. ETR did it because at 0.0 "every flake is a streak" — which is what
+## snow does look like at that speed, on film and to the eye. So here the flakes
+## hang in the world ([method _update_flakes] only takes the box's own motion
+## back out of it) and the shader draws each one stretched along how it moved
+## against the camera. Two more things stop the sheets: every flake falls at its
+## own speed and sways on its own phase ([method flake_seed]), and the fall is a
+## real one — [constant FALL_SPEED] for every flake, where ETR's is its size
+## times five, which keeps screen speed equal across the three boxes and so
+## throws away the parallax that says how far away a flake is.
 ##
 ## [b]DEVIATION, licence-forced, and the same one the spray takes.[/b] ETR's
 ## flakes are drawn from `snowparticles.png` and its curtains from
@@ -62,6 +73,11 @@ const MAX_GRADE := 3
 ## *in front of* the player. The near box straddles them (`zback` −2), the middle
 ## one covers 2–10 m ahead and the far one 10–25 m.
 ##
+## DEVIATION: the outer box's largest flakes are a fifth smaller than ETR's
+## (0.15 / 0.18 / 0.28 m where the original has 0.18 / 0.22 / 0.35). World-
+## anchored and streaking, the top of that range read as blobs rather than
+## flakes; the smallest are the original's.
+##
 ## The tenth column of `TFlakeArea` is `rotate`, which is true for the near area
 ## only; it is not here because every area billboards — see the shader.
 const FLAKE_AREAS: Array = [
@@ -69,62 +85,62 @@ const FLAKE_AREAS: Array = [
 	[
 		[400, 5.0, 4.0, 4.0, -2.0, 4.0, 0.015, 0.03, 5.0],
 		[400, 12.0, 5.0, 8.0, 2.0, 8.0, 0.045, 0.07, 5.0],
-		[400, 30.0, 6.0, 15.0, 10.0, 15.0, 0.09, 0.18, 5.0],
+		[400, 30.0, 6.0, 15.0, 10.0, 15.0, 0.09, 0.15, 5.0],
 	],
 	[
 		[500, 5.0, 4.0, 4.0, -2.0, 4.0, 0.03, 0.045, 5.0],
 		[500, 12.0, 5.0, 8.0, 2.0, 8.0, 0.07, 0.1, 5.0],
-		[500, 30.0, 6.0, 15.0, 10.0, 15.0, 0.15, 0.22, 5.0],
+		[500, 30.0, 6.0, 15.0, 10.0, 15.0, 0.15, 0.18, 5.0],
 	],
 	[
 		[1000, 5.0, 4.0, 4.0, -2.0, 4.0, 0.037, 0.05, 5.0],
 		[1000, 12.0, 5.0, 9.0, 2.0, 8.0, 0.09, 0.15, 5.0],
-		[1000, 30.0, 6.0, 15.0, 10.0, 15.0, 0.18, 0.35, 5.0],
+		[1000, 30.0, 6.0, 15.0, 10.0, 15.0, 0.18, 0.28, 5.0],
 	],
 ]
 
-## ETR `CCurtain::Init`. One row per ring: rows, z_dist, tile size, fall speed,
-## start angle, minimum height, and which of the three tiles to draw it with.
-const CURTAINS: Array = [
+## The far snow, one area per grade, in the column order of [constant
+## FLAKE_AREAS] up to the sizes; the ninth column is which curtain tile the
+## patches are cut from. The box is 150 m square about the player, so the view
+## looks into it whichever way it turns — a slalom, the start animation facing
+## back up the hill. ETR's rings covered ±100° about the fall line and left the
+## back of the view empty. The counts are the curtains' density over that
+## whole square; at a few thousand quads that is still nothing. The patches
+## top out at 6.5 m rather than the 8 that matches the rings' specks, because
+## the biggest specks read as blobs, and the counts rise to cover the same
+## ground. Which tile
+## follows the curtains' own: grade 1 was three rings of tile 1, grade 2 of
+## tile 2, grade 3 mostly tile 2 with its nearest ring in 3.
+const FAR_AREAS: Array = [
 	[],
-	[
-		[3, 60.0, 15.0, 3.0, -100.0, -10.0, 1],
-		[3, 50.0, 19.0, 3.0, -100.0, -10.0, 1],
-		[3, 40.0, 23.0, 3.0, -100.0, -10.0, 1],
-	],
-	[
-		[3, 60.0, 22.0, 3.0, -100.0, -10.0, 2],
-		[3, 50.0, 25.0, 3.0, -100.0, -10.0, 2],
-		[3, 40.0, 30.0, 3.0, -100.0, -10.0, 2],
-	],
-	[
-		[3, 60.0, 22.0, 3.0, -100.0, -10.0, 3],
-		[3, 50.0, 27.0, 3.0, -100.0, -10.0, 2],
-		[3, 40.0, 32.0, 3.0, -100.0, -10.0, 2],
-	],
+	[2300, 150.0, 25.0, 65.0, -75.0, 150.0, 5.0, 6.5, 1],
+	[2300, 150.0, 25.0, 65.0, -75.0, 150.0, 5.0, 6.5, 2],
+	[2150, 150.0, 25.0, 65.0, -75.0, 150.0, 5.0, 6.5, 3],
 ]
+## Where the far snow is drawn: fading in from 25 to 35 m from the camera, where
+## the near boxes are thinning out, and out again from 60 to 72, short of the
+## box's far face. The curtains stood at 40–60 m.
+const FAR_FADE := Vector4(25.0, 35.0, 60.0, 72.0)
+## The box is big, so its faces fade over a smaller share of it.
+const FAR_EDGE_FADE := 0.08
+## How much of a curtain tile one patch shows: a 128² cut of the 512², which at
+## 5–6.5 m makes a speck 4–5 cm a texel — the density and speck size the rings
+## had at 15–32 m for a whole tile.
+const FAR_UV_SCALE := 0.25
 
-## How much of the player's own motion the flakes follow. ETR `YDRIFT`/`ZDRIFT`.
-const Y_DRIFT := 0.8
-const Z_DRIFT := 0.6
-## What the wind does to a flake, and to a curtain. ETR `SNOW_WIND_DRIFT` and
-## `CURTAIN_WINDDRIFT` — the curtains are blown three and a half times harder,
-## which at their size is a slow swing rather than a gust.
+## How fast a flake falls, m/s, before its own ±30 %. Real snow falls at about
+## one metre a second whatever its size. DEVIATION — see the class notes; the
+## ninth column of [constant FLAKE_AREAS] is ETR's and is no longer read.
+const FALL_SPEED := 1.1
+## What the wind does to a flake, near or far. ETR `SNOW_WIND_DRIFT`; its
+## `CURTAIN_WINDDRIFT` turned a ring, and there is no ring any more.
 const WIND_DRIFT := 0.1
-const CURTAIN_WIND_DRIFT := 0.35
+## A frame in which the camera jumps further than this is a cut — a restart, a
+## spectator switch — and draws no streak rather than one across the course.
+const CUT_DISTANCE := 5.0
 
-## The six triangle-wave oscillators every curtain row picks one of, and how
-## fast they run. ETR `NUM_CHANGES`, `CHANGE_SPEED`, `CHANGE_DRIFT`: a row turns
-## at up to `0.15 × 15` = 2.25 degrees a second, and the six of them going at
-## different phases is what stops the rings turning as one piece.
-const NUM_CHANGES := 6
-const CHANGE_SPEED := 0.05
-const CHANGE_DRIFT := 15.0
-
-## ETR's own cap on how many quads a ring is cut into.
-const MAX_CURTAIN_COLS := 16
-
-## Side of a redrawn curtain tile, as ETR's `snow1/2/3.png`.
+## Side of a redrawn curtain tile, as ETR's `snow1/2/3.png`. The far snow's
+## patches are cut from these.
 const CURTAIN_TILE := 512
 ## Specks per tile and their radii, measured off the originals by connected
 ## component: 251 / 882 / 2184 blobs, median area 4–5 px², tailing to 380.
@@ -148,27 +164,26 @@ var tint: Color = Color(0.85, 0.9, 1.0):
 		tint = value
 		_apply_tint()
 
+## The near areas in [constant FLAKE_AREAS] order, then the far one.
 var _areas: Array[FlakeArea] = []
-var _curtains: Array[Curtain] = []
-## The oscillators shared by every curtain row. ETR keeps them in a file-static
-## `changes[NUM_CHANGES]` and updates them once per frame for all three rings.
-var _change_value := PackedFloat32Array()
-var _change_min := PackedFloat32Array()
-var _change_max := PackedFloat32Array()
-var _change_forward: Array[bool] = []
 
 ## Where the tracked racer was last frame, and whether there is a last frame.
 ## The first [method update] after a restart establishes the position rather
 ## than treating the whole course as one frame of travel.
 var _last_pos: Vector3 = Vector3.ZERO
 var _tracking: bool = false
+## The camera's view matrix at the last [method update], for the streaks.
+var _last_view: Transform3D = Transform3D.IDENTITY
+## Seconds since [method restart], for the sway. Not the shader's `TIME`, which
+## keeps running across restarts and would make no two captures alike.
+var _clock: float = 0.0
 ## Whether the weather has been placed on the hill yet — see the `visible` flag
 ## in [method _build_area].
 var _placed: bool = false
 
-## The four-puff atlas every flake is drawn from, and one curtain tile per
-## density actually asked for — a grade uses at most two of the three, and
-## building one is tens of thousands of pixels.
+## The four-puff atlas every flake is drawn from, and the curtain tile the far
+## snow is cut from — one per density actually asked for, because building one
+## is tens of thousands of pixels.
 ##
 ## Members rather than script statics, for the reason [SprayEmitter] gives for
 ## its own atlas: a static would outlive every race and be the one thing still
@@ -195,10 +210,8 @@ func set_grade(value: int) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = SEED
 	for row: Array in FLAKE_AREAS[grade]:
-		_areas.push_back(_build_area(row, rng))
-	_init_changes(rng)
-	for row: Array in CURTAINS[grade]:
-		_curtains.push_back(_build_curtain(row, rng))
+		_areas.push_back(_build_area(row, rng, false))
+	_areas.push_back(_build_area(FAR_AREAS[grade], rng, true))
 	_apply_tint()
 	restart()
 
@@ -208,35 +221,41 @@ func set_grade(value: int) -> void:
 ## five minutes opens on five minutes of drift.
 func restart() -> void:
 	_tracking = false
+	_clock = 0.0
 	for area: FlakeArea in _areas:
 		area.drift = Vector3.ZERO
 		area.fall = 0.0
-	for curtain: Curtain in _curtains:
-		_reset_curtain(curtain)
 
 func _clear() -> void:
 	for area: FlakeArea in _areas:
 		area.node.queue_free()
-	for curtain: Curtain in _curtains:
-		curtain.node.queue_free()
 	_areas.clear()
-	_curtains.clear()
 
-func _build_area(row: Array, rng: RandomNumberGenerator) -> FlakeArea:
+## One wrapping box of quads. [param row] is a row of [constant FLAKE_AREAS], or
+## of [constant FAR_AREAS] when [param far] is set, which cuts the quads from a
+## curtain tile and draws them only in [constant FAR_FADE].
+func _build_area(row: Array, rng: RandomNumberGenerator, far: bool) -> FlakeArea:
 	var area := FlakeArea.new()
 	var count: int = int(row[0])
 	area.extent = Vector3(float(row[1]), float(row[3]), float(row[5]))
 	# The box corner relative to the racer: left, bottom, front.
 	area.offset = Vector3(-float(row[1]) * 0.5, float(row[2]) - float(row[3]),
 		-float(row[4]) - float(row[5]))
-	area.speed = float(row[8])
+	area.speed = FALL_SPEED
 
 	var quad := QuadMesh.new()
 	quad.size = Vector2.ONE
 	area.material = ShaderMaterial.new()
 	area.material.shader = load("res://shaders/snow_flakes.gdshader")
-	area.material.set_shader_parameter("flake_texture", _flake_texture())
+	if far:
+		area.material.set_shader_parameter("flake_texture", _curtain_texture(int(row[8])))
+		area.material.set_shader_parameter("uv_scale", FAR_UV_SCALE)
+		area.material.set_shader_parameter("fade_band", FAR_FADE)
+		area.material.set_shader_parameter("edge_fade", FAR_EDGE_FADE)
+	else:
+		area.material.set_shader_parameter("flake_texture", _flake_texture())
 	area.material.set_shader_parameter("box_range", area.extent)
+	area.material.set_shader_parameter("fall_speed", area.speed)
 	quad.material = area.material
 
 	var mm := MultiMesh.new()
@@ -256,12 +275,21 @@ func _build_area(row: Array, rng: RandomNumberGenerator) -> FlakeArea:
 		# converges to over four hundred flakes whose *positions* are random,
 		# and it keeps the whole of the generator in one function.
 		var q: int = i % 4
-		mm.set_instance_custom_data(i, Color(float(q % 2) * 0.5, float(q / 2) * 0.5, 0.0, 0.0))
+		var origin := Vector2(float(q % 2) * 0.5, float(q / 2) * 0.5)
+		if far:
+			# A patch anywhere in the tile that does not run off its edge, so
+			# the sampler never has to repeat.
+			origin = Vector2(rng.randf(), rng.randf()) * (1.0 - FAR_UV_SCALE)
+		var seed: Vector2 = flake_seed(i)
+		mm.set_instance_custom_data(i, Color(origin.x, origin.y, seed.x, seed.y))
 
 	area.node = MultiMeshInstance3D.new()
-	area.node.name = "Flakes%d" % _areas.size()
+	area.node.name = "FarSnow" if far else "Flakes%d" % _areas.size()
 	area.node.multimesh = mm
 	area.node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# The instances only span the box, but a streak reaches past it by up to the
+	# shader's `MAX_STREAK`, and a culled box is a hole in the snow.
+	area.node.custom_aabb = AABB(-Vector3.ONE * 2.0, area.extent + Vector3.ONE * 4.0)
 	# Nothing is drawn until the first [method update] has said where the racer
 	# is: a box that has not been placed yet is a box at the world origin, which
 	# on a course is a real place the camera could be looking at.
@@ -278,6 +306,15 @@ func _build_area(row: Array, rng: RandomNumberGenerator) -> FlakeArea:
 ## dummy renderer — `get_instance_transform` reads back the identity in a
 ## headless test (see the trap list), so what feeds the batch is the only thing
 ## there is to check.
+## Flake [param index]'s own two numbers in [0, 1), which set its fall speed,
+## sway rate and sway phase in the shader. The R2 low-discrepancy sequence
+## rather than the area's generator, so adding them left [method flake_field]
+## — and every flake position — exactly as it was, and so neighbouring flakes
+## are never alike.
+static func flake_seed(index: int) -> Vector2:
+	return Vector2(fposmod(0.5 + float(index) * 0.7548776662, 1.0),
+		fposmod(0.5 + float(index) * 0.5698402910, 1.0))
+
 static func flake_field(row: Array, rng: RandomNumberGenerator) -> Array[Vector4]:
 	var count: int = int(row[0])
 	var extent := Vector3(float(row[1]), float(row[3]), float(row[5]))
@@ -296,78 +333,9 @@ static func flake_field(row: Array, rng: RandomNumberGenerator) -> Array[Vector4
 			rng.randf_range(min_size, max_size))
 	return out
 
-func _build_curtain(row: Array, rng: RandomNumberGenerator) -> Curtain:
-	var curtain := Curtain.new()
-	curtain.rows = int(row[0])
-	curtain.z_dist = float(row[1])
-	curtain.size = float(row[2])
-	curtain.speed = float(row[3])
-	curtain.start_angle = float(row[4])
-	curtain.min_height = float(row[5])
-	# How wide one quad is in degrees seen from the middle, and therefore how
-	# many of them go round. `atan(size/2/zdist) * 360/PI` is two half-angles in
-	# degrees, written as one expression in the original.
-	curtain.angle_dist = atan(curtain.size / 2.0 / curtain.z_dist) * 360.0 / PI
-	curtain.cols = mini(int(-2.0 * curtain.start_angle / curtain.angle_dist) + 1,
-		MAX_CURTAIN_COLS)
-	curtain.last_angle = curtain.start_angle + float(curtain.cols - 1) * curtain.angle_dist
-	curtain.row_change.resize(curtain.rows)
-	for r: int in curtain.rows:
-		curtain.row_change[r] = rng.randi_range(0, NUM_CHANGES - 1)
-
-	var quad := QuadMesh.new()
-	quad.size = Vector2(curtain.size, curtain.size)
-	curtain.material = StandardMaterial3D.new()
-	curtain.material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	curtain.material.albedo_texture = _curtain_texture(int(row[6]))
-	curtain.material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	curtain.material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	# A ring is drawn from inside it and the quads never overlap each other, so
-	# there is nothing for a depth write to resolve — and writing depth from a
-	# tile that is 85 % empty would punch the terrain behind it.
-	curtain.material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_OPAQUE_ONLY
-	quad.material = curtain.material
-
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = quad
-	mm.instance_count = curtain.cols * curtain.rows
-	curtain.angles.resize(mm.instance_count)
-	curtain.heights.resize(mm.instance_count)
-
-	curtain.node = MultiMeshInstance3D.new()
-	curtain.node.name = "Curtain%d" % _curtains.size()
-	curtain.node.multimesh = mm
-	curtain.node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	curtain.node.visible = false
-	add_child(curtain.node)
-	return curtain
-
-## `TCurtain::SetStartParams`: the columns evenly around the arc, the rows
-## stacked a tile apart from `minheight` up.
-func _reset_curtain(curtain: Curtain) -> void:
-	for col: int in curtain.cols:
-		for r: int in curtain.rows:
-			var i: int = col * curtain.rows + r
-			curtain.angles[i] = float(col) * curtain.angle_dist + curtain.start_angle
-			curtain.heights[i] = curtain.min_height + float(r) * curtain.size
-
-func _init_changes(rng: RandomNumberGenerator) -> void:
-	_change_value.resize(NUM_CHANGES)
-	_change_min.resize(NUM_CHANGES)
-	_change_max.resize(NUM_CHANGES)
-	_change_forward.clear()
-	for i: int in NUM_CHANGES:
-		_change_min[i] = rng.randf_range(-0.15, -0.05)
-		_change_max[i] = rng.randf_range(0.05, 0.15)
-		_change_value[i] = (_change_min[i] + _change_max[i]) * 0.5
-		_change_forward.push_back(true)
-
 func _apply_tint() -> void:
 	for area: FlakeArea in _areas:
 		area.material.set_shader_parameter("tint", tint)
-	for curtain: Curtain in _curtains:
-		curtain.material.albedo_color = tint
 
 # ==================================================================
 #                            every frame
@@ -387,32 +355,38 @@ func update(view_pos: Vector3, wind: WindField, delta: float) -> void:
 		_tracking = true
 	var moved: Vector3 = view_pos - _last_pos
 	_last_pos = view_pos
+	_clock += delta
 	var wind_vec: Vector3 = Vector3.ZERO
 	if wind != null and wind.windy:
 		wind_vec = wind.vector
 	_update_flakes(view_pos, wind_vec, moved, delta)
-	_update_curtains(view_pos, wind_vec, delta)
 	if not _placed:
 		_placed = true
 		for area: FlakeArea in _areas:
 			area.node.visible = true
-		for curtain: Curtain in _curtains:
-			curtain.node.visible = true
 
-## `CFlakes::Update`, as the residue the shader needs.
+## `CFlakes::Update`, as the numbers the shader needs.
 ##
-## The original adds `xcoeff`/`ycoeff`/`zcoeff` to every flake in world space
-## while the box itself follows the player exactly; in box-local metres that is
-## the same motion minus however far the player moved, which is what the two
-## follow fractions leave behind. The `.z` of the wind in the y term is the
-## original's — `ycoeff` reads `winddrift.z`, not `.y`, and a vertical gust is
-## not a thing `CWind` produces anyway (its vector has a zero y).
+## The box follows the player exactly and the flakes do not follow at all, so
+## the drift is the wind less however far the box moved. The wind is carried
+## level: ETR adds `winddrift.z` to the fall as well (`ycoeff`), which only made
+## sense while the flakes were half-following, and `CWind` has no vertical gust
+## to carry. The camera is read here rather than handed in because the intro
+## borrows it and a spectator switch moves it; whichever one is drawing is the
+## one the streaks are measured against.
 func _update_flakes(view_pos: Vector3, wind_vec: Vector3, moved: Vector3,
 		delta: float) -> void:
-	var step := Vector3(
-		wind_vec.x * WIND_DRIFT * delta - moved.x,
-		(Y_DRIFT - 1.0) * moved.y + wind_vec.z * WIND_DRIFT * delta,
-		(Z_DRIFT - 1.0) * moved.z + wind_vec.z * WIND_DRIFT * delta)
+	var air := Vector3(wind_vec.x, 0.0, wind_vec.z) * WIND_DRIFT
+	var step: Vector3 = air * delta - moved
+	var view: Transform3D = _last_view
+	var camera: Camera3D = get_viewport().get_camera_3d() if is_inside_tree() else null
+	if camera != null:
+		view = camera.global_transform.affine_inverse()
+	var before: Transform3D = _last_view
+	if not _placed or moved.length() > CUT_DISTANCE \
+			or view.inverse().origin.distance_to(before.inverse().origin) > CUT_DISTANCE:
+		before = view
+	_last_view = view
 	for area: FlakeArea in _areas:
 		# Kept wrapped here as well as in the shader, so a long race cannot walk
 		# the accumulator out of the range where a metre is still a metre.
@@ -423,55 +397,10 @@ func _update_flakes(view_pos: Vector3, wind_vec: Vector3, moved: Vector3,
 		area.material.set_shader_parameter("box_origin", corner)
 		area.material.set_shader_parameter("drift", area.drift)
 		area.material.set_shader_parameter("fall_distance", area.fall)
-
-## `UpdateChanges` + `TCurtain::Update`: the rings turn, sink, and wrap in both.
-func _update_curtains(view_pos: Vector3, wind_vec: Vector3, delta: float) -> void:
-	for i: int in NUM_CHANGES:
-		if _change_forward[i]:
-			_change_value[i] += CHANGE_SPEED * delta
-			if _change_value[i] > _change_max[i]:
-				_change_forward[i] = false
-		else:
-			_change_value[i] -= CHANGE_SPEED * delta
-			if _change_value[i] < _change_min[i]:
-				_change_forward[i] = true
-
-	var wind_turn: float = wind_vec.x * delta * CURTAIN_WIND_DRIFT
-	for curtain: Curtain in _curtains:
-		var mm: MultiMesh = curtain.node.multimesh
-		for col: int in curtain.cols:
-			for r: int in curtain.rows:
-				var i: int = col * curtain.rows + r
-				var angle: float = curtain.angles[i]
-				angle += _change_value[curtain.row_change[r]] * delta * CHANGE_DRIFT
-				angle += wind_turn
-				if angle > curtain.last_angle + curtain.angle_dist:
-					angle = curtain.start_angle
-				elif angle < curtain.start_angle - curtain.angle_dist:
-					angle = curtain.last_angle
-				curtain.angles[i] = angle
-
-				var height: float = curtain.heights[i] - curtain.speed * delta
-				if height < curtain.min_height - curtain.size:
-					height += float(curtain.rows) * curtain.size
-				curtain.heights[i] = height
-
-				var at: Vector3 = view_pos + curtain_vector(angle, curtain.z_dist)
-				at.y = view_pos.y + height
-				# Turned by −angle about Y, which is what faces a quad placed at
-				# `angle` back at the middle of the ring.
-				mm.set_instance_transform(i, Transform3D(
-					Basis(Vector3.UP, deg_to_rad(-angle)), at))
-
-## `TCurtain::CurtainVec`: where on the ring an angle is, in metres from the
-## player. Zero degrees is straight ahead — down −z, the way the course runs —
-## and the sign flip past ±90° is what puts the back of the ring behind you.
-static func curtain_vector(angle_deg: float, z_dist: float) -> Vector3:
-	var x: float = z_dist * sin(deg_to_rad(angle_deg))
-	var z: float = sqrt(maxf(z_dist * z_dist - x * x, 0.0))
-	if angle_deg <= 90.0 and angle_deg >= -90.0:
-		z = -z
-	return Vector3(x, 0.0, z)
+		area.material.set_shader_parameter("clock", _clock)
+		area.material.set_shader_parameter("air", air)
+		area.material.set_shader_parameter("prev_view", Projection(before))
+		area.material.set_shader_parameter("frame_time", delta)
 
 # ==================================================================
 #                            the redraw
@@ -490,7 +419,8 @@ func _curtain_texture(density: int) -> ImageTexture:
 	return _tiles[density]
 
 ## A redrawn `snow<density>.png`: a 512² tile of soft white specks on nothing,
-## at the density the original's tile has. [param density] is 1, 2 or 3.
+## at the density the original's tile has. [param density] is 1, 2 or 3. ETR
+## draws its curtains with these; here the far snow's patches are cut from them.
 ##
 ## The originals are a field of bluish-white blobs — 251, 882 and 2184 of them,
 ## covering 1.5 %, 4.6 % and 14.7 % of the tile, mostly 2 px across with a few
@@ -513,7 +443,7 @@ static func make_curtain_image(density: int) -> Image:
 		var u: float = rng.randf()
 		var radius: float = SPECK_MIN_RADIUS + SPECK_RADIUS_RANGE * u * u * u
 		_draw_speck(img, cx, cy, radius)
-	# The curtains are seen at 40–60 m and the flake tile is 512²; without mips
+	# The far snow is seen at 25–72 m and the tile is 512²; without mips
 	# that is the crawling speckle the terrain textures got theirs for.
 	img.generate_mipmaps()
 	return img
@@ -540,11 +470,12 @@ static func _draw_speck(img: Image, cx: float, cy: float, radius: float) -> void
 				img.set_pixel(x, y, Color(1.0, 1.0, 1.0, a))
 
 # ==================================================================
-#                          the two layers
+#                            the areas
 # ==================================================================
 
-## One of ETR's `TFlakeArea`s: a box of wrapping flakes, and the two
-## accumulators the shader turns into their positions.
+## One of ETR's `TFlakeArea`s — or the far snow, which is one too: a box of
+## wrapping quads, and the two accumulators the shader turns into their
+## positions.
 class FlakeArea extends RefCounted:
 	var node: MultiMeshInstance3D
 	var material: ShaderMaterial
@@ -555,24 +486,6 @@ class FlakeArea extends RefCounted:
 	var speed: float = 5.0
 	## Box-local metres of shared motion, kept inside [member extent].
 	var drift: Vector3 = Vector3.ZERO
-	## The integral of [member speed]; a flake falls this times its own size.
+	## The integral of [member speed]; a flake falls this times its own factor.
 	var fall: float = 0.0
 
-## One of ETR's `TCurtain`s: a ring of big tiles that turns and sinks.
-class Curtain extends RefCounted:
-	var node: MultiMeshInstance3D
-	var material: StandardMaterial3D
-	var rows: int = 3
-	var cols: int = 0
-	var z_dist: float = 60.0
-	var size: float = 15.0
-	var speed: float = 3.0
-	var start_angle: float = -100.0
-	var last_angle: float = 100.0
-	var angle_dist: float = 0.0
-	var min_height: float = -10.0
-	## Per element, indexed `col * rows + row`.
-	var angles := PackedFloat32Array()
-	var heights := PackedFloat32Array()
-	## Which of the six oscillators each row turns with.
-	var row_change := PackedInt32Array()

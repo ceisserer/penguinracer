@@ -1,27 +1,40 @@
-// The near half of ETR's falling snow: `TFlakeArea` from particles.cpp, one
-// draw call per area instead of one `glDrawArrays` per flake.
+// The falling snow: ETR's `TFlakeArea` from particles.cpp, one draw call per
+// area instead of one `glDrawArrays` per flake — and, with a different texture
+// and a distance band, the far snow that replaces its `CCurtain` rings.
 //
-// A flake area is a **box that follows the player and wraps**. The original
-// keeps a fixed set of flakes, translates every one of them each frame — by
-// their own fall speed, by the wind, and by a fraction of how far the player
-// moved — and teleports any that leave the box to the opposite face
-// (`TFlakeArea::Update`). Nothing is ever spawned or killed, which is why this
-// is a [MultiMesh] with static per-instance data and not a particle system:
-// the whole of the motion is two numbers the whole area shares.
+// A flake area is a **box that follows the player and wraps**. The flakes in it
+// do not follow: each one hangs in the world, falls, sways and is carried by
+// the wind, and the box is only the window of that endless field that gets
+// drawn — a flake the box leaves behind reappears at the opposite face, where
+// the snowfall it stands for would have had another one. Nothing is ever
+// spawned or killed, which is why this is a [MultiMesh] with static
+// per-instance data and not a particle system: the whole of the motion is a
+// handful of numbers the whole area shares.
 //
 //   `drift`         — everything the area has moved by that is the same for
-//                     every flake in it: the wind, and the part of the player's
-//                     own motion the snow does *not* follow. Accumulated on the
-//                     CPU in box-local metres and kept wrapped there.
-//   `fall_distance` — the integral of the area's fall speed. ETR gives a flake
-//                     `vel.y = -size * speed`, so the per-flake drop is this
-//                     times its own size, and one uniform serves the area.
+//                     every flake in it: the wind, minus how far the box moved
+//                     with the player, which is what keeps the flakes where
+//                     they are in the world. Accumulated on the CPU in
+//                     box-local metres and kept wrapped there.
+//   `fall_distance` — the integral of the fall speed; each flake scales it by
+//                     a factor of its own.
+//   `clock`         — seconds since the run started, for the sway.
 //
 // Which makes the position of flake `i` at time `t` a pure function of its base
 // position — no state, no readback, and identical on every run, which the spray
 // (a `GPUParticles3D`, seeded per run) is not. Reference captures depend on
 // that: see the trap list on comparing frames byte for byte.
+//
+// DEVIATION: ETR moves its flakes by only 80 % of the player's drop and 60 % of
+// their travel down the hill, so the snow half-follows the camera and reads as
+// an overlay; its reason was that at 0 % "every flake is a streak". Here the
+// flakes stay put and *are* drawn as streaks — each quad is stretched along how
+// far the flake moved against the camera over [param shutter], which is what a
+// film camera records and what the eye reads as speed. SnowFall carries the
+// rest of the argument.
+
 shader_type spatial;
+
 // Unlit, both faces, blended, no depth write. ETR's `PARTICLES` render mode is
 // unlit and two-sided too; what it does differently is alpha-test at 0.5 with
 // `glDepthMask(GL_TRUE)`, i.e. hard-edged flakes that write depth. Soft alpha
@@ -30,11 +43,17 @@ shader_type spatial;
 // was not at 640x480 — and dropping the depth write is what that costs: the
 // flakes within one area do not sort against each other. They are sub-degree
 // puffs of a flat colour, so there is nothing in one to sort.
-render_mode unshaded, cull_disabled, blend_mix, depth_draw_never;
+//
+// `skip_vertex_transform` because the quad is built in view space: a streak's
+// length and direction are only known there.
+render_mode unshaded, cull_disabled, blend_mix, depth_draw_never, skip_vertex_transform;
 
-// ETR binds `SNOW_PART` — the same four-puff atlas the spray draws from, one
-// quadrant per flake chosen at birth. `SprayEmitter.make_puff_image` redraws it.
+// What a quad is cut from. A near area binds `SNOW_PART` — the four-puff atlas
+// the spray draws from, one quadrant per flake chosen at birth — and the far
+// area a curtain tile, one random patch of specks per quad. The instance data
+// says where in the texture its cut starts and [param uv_scale] how big it is.
 uniform sampler2D flake_texture : source_color, filter_linear_mipmap, repeat_disable;
+uniform float uv_scale = 0.5;
 // The environment's `[partcol]`, modulated onto the puff exactly as ETR's
 // `glColor(Env.ParticleColor())` does. `source_color` is not decoration: the
 // original multiplies a display-space texture by a display-space number, and
@@ -51,44 +70,118 @@ uniform vec3 box_origin;
 uniform vec3 box_range = vec3(5.0, 4.0, 4.0);
 uniform vec3 drift = vec3(0.0);
 uniform float fall_distance = 0.0;
+uniform float clock = 0.0;
 
-varying vec2 quadrant;
+// What a flake's velocity is made of, in m/s, for the streak: the air that
+// carries it and the speed it falls at before its own factor.
+uniform vec3 air = vec3(0.0);
+uniform float fall_speed = 1.0;
+// The camera's view matrix one frame ago, and how long that frame was. What
+// the flake moved by against the camera over the frame, rescaled to
+// [param shutter], is the streak — so camera travel and camera turn both smear
+// the snow, as they would on film, and the length does not depend on the
+// frame rate.
+uniform mat4 prev_view = mat4(1.0);
+uniform float frame_time = 0.016667;
+// A 180° shutter at 30 fps.
+uniform float shutter = 0.016667;
+// The distances from the camera, in metres, over which a quad fades in and
+// then out again: `(in_start, in_end, out_start, out_end)`. A near area only
+// fades in — one that passes the lens would otherwise fill the screen for a
+// frame. The far area is a shell, drawn only beyond where the near ones end.
+uniform vec4 fade_band = vec4(0.25, 0.9, 1e5, 2e5);
+// The share of each box axis over which a quad fades in at one face and out at
+// the other, so the wrap is never a pop.
+uniform float edge_fade = 0.12;
+
+// How far a sway carries a flake, and how fast it turns, per the flake's own
+// two random numbers.
+const float SWAY = 0.12;
+const float SWAY_RATE = 1.4;
+// A flake falls at 0.7..1.3 of [param fall_speed].
+const float FALL_SPREAD = 0.3;
+// The longest a streak is drawn, in metres. A camera cut is caught on the CPU;
+// this is the backstop for whatever it misses.
+const float MAX_STREAK = 2.0;
+
+varying vec2 cut;
+varying float fade;
 
 void vertex() {
 	// The per-instance transform carries the flake's base position in the box
-	// and its size, which is all the per-flake state ETR keeps as well.
+	// and its size, which is all the per-flake state ETR keeps as well; the
+	// custom data adds where its cut of the texture starts and two fixed random
+	// numbers.
 	float flake_size = length(MODEL_MATRIX[0].xyz);
-	vec3 local = MODEL_MATRIX[3].xyz - box_origin + drift;
-	local.y -= flake_size * fall_distance;
+	vec2 seed = INSTANCE_CUSTOM.zw;
+	float fall_k = 1.0 + FALL_SPREAD * (2.0 * seed.x - 1.0);
+	float rate = SWAY_RATE * (0.7 + 0.6 * seed.y);
+	float phase_a = 6.2831853 * seed.x;
+	float phase_b = 6.2831853 * seed.y;
+	vec3 sway = SWAY * vec3(sin(rate * clock + phase_a), 0.0, sin(0.8 * rate * clock + phase_b));
+	vec3 sway_vel = SWAY * rate * vec3(cos(rate * clock + phase_a), 0.0,
+		0.8 * cos(0.8 * rate * clock + phase_b));
+
+	vec3 local = MODEL_MATRIX[3].xyz - box_origin + drift + sway;
+	local.y -= fall_k * fall_distance;
 	// The wrap. `mod` lands in [0, range) for a negative argument too, which is
 	// the whole of `TFlakeArea::Update`'s six-way teleport — except that it
 	// wraps however many box-lengths it has to rather than exactly one, so a
 	// frame that moves further than the box is short cannot leave a flake
 	// outside it.
 	local = mod(local, box_range);
+	vec3 edge = min(local, box_range - local) / (edge_fade * box_range);
+	fade = smoothstep(0.0, 1.0, clamp(min(edge.x, min(edge.y, edge.z)), 0.0, 1.0));
 
-	// ETR turns the near area's flakes about Y by the view direction's yaw
-	// (`rotate_flake`) and leaves the two far ones facing world +Z, which is
-	// close enough to the camera while the course runs down -Z and is edge-on
-	// the moment you look sideways. DEVIATION: all three areas billboard about
-	// Y. The far areas are what a slalom swings the view across.
-	vec3 flat_right = vec3(INV_VIEW_MATRIX[0].x, 0.0, INV_VIEW_MATRIX[0].z);
-	float right_len = length(flat_right);
-	vec3 right = right_len > 0.0001 ? flat_right / right_len : vec3(1.0, 0.0, 0.0);
-	vec3 up = vec3(0.0, 1.0, 0.0);
-	vec3 out_dir = cross(right, up);
+	vec3 world = box_origin + local;
+	vec3 velocity = air + sway_vel - vec3(0.0, fall_k * fall_speed, 0.0);
+	vec3 head = (VIEW_MATRIX * vec4(world, 1.0)).xyz;
+	vec3 before = (prev_view * vec4(world - velocity * frame_time, 1.0)).xyz;
+	vec3 streak = (head - before) * (shutter / max(frame_time, 0.0001));
+	float streak_len = length(streak);
+	if (streak_len > MAX_STREAK) {
+		streak *= MAX_STREAK / streak_len;
+	}
+	vec3 tail = head - streak;
+	// Keep the tail in front of the lens, or its projection flips.
+	tail.z = min(tail.z, -0.05);
+	float depth = max(-head.z, 0.05);
 
-	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(
-		vec4(right * flake_size, 0.0),
-		vec4(up * flake_size, 0.0),
-		vec4(out_dir * flake_size, 0.0),
-		vec4(box_origin + local, 1.0));
+	// Which way the streak runs on screen, and how long it is there — in metres
+	// at the head's depth, so it adds to the flake's own size.
+	vec2 screen = head.xy / depth - tail.xy / -tail.z;
+	float screen_len = length(screen);
+	vec2 along = screen_len > 1e-6 ? screen / screen_len : vec2(0.0, 1.0);
 
-	quadrant = INSTANCE_CUSTOM.xy;
+	// The quad stays upright on screen and is *stretched* toward the tail, never
+	// turned to face along the streak. A turned quad turns its texture with it:
+	// invisible on one round puff, but a far patch is a sheet of specks, and a
+	// sheet that swings round whenever its motion against the camera changes
+	// direction — and spins on noise when it barely moves — reads as snow on
+	// rotating planes. Each corner goes toward the tail by how far it points
+	// away from the head: the leading corner stays, the trailing one goes all
+	// the way, the two beside it half. Continuous in the direction, and exactly
+	// ETR's camera-facing square when nothing moves.
+	// UV runs down the quad; view space runs up.
+	vec2 corner = vec2(UV.x * 2.0 - 1.0, 1.0 - UV.y * 2.0);
+	float toward_tail = clamp(0.5 - 0.5 * dot(corner, along) * 0.70710678, 0.0, 1.0);
+	vec3 centre = mix(head, tail, toward_tail);
+	vec2 offset = corner * 0.5 * flake_size;
+	VERTEX = centre + vec3(offset * (-centre.z / depth), 0.0);
+
+	// A streak is fainter than the flake it smears, but by the square root of
+	// how much longer it is rather than all of it: spreading the light exactly
+	// leaves a flake at speed about as visible as the terrain's grain, and the
+	// eye reads a streak's length before its brightness anyway.
+	fade *= sqrt(flake_size / (flake_size + screen_len * depth));
+	float distance = length(head);
+	fade *= smoothstep(fade_band.x, fade_band.y, distance)
+		* (1.0 - smoothstep(fade_band.z, fade_band.w, distance));
+	cut = INSTANCE_CUSTOM.xy;
 }
 
 void fragment() {
-	vec4 puff = texture(flake_texture, UV * 0.5 + quadrant);
+	vec4 puff = texture(flake_texture, UV * uv_scale + cut);
 	ALBEDO = tint.rgb * puff.rgb;
-	ALPHA = tint.a * puff.a;
+	ALPHA = tint.a * puff.a * fade;
 }

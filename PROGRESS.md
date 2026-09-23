@@ -1450,6 +1450,29 @@ sideways: at 100 % the snow is painted on the camera and at 0 % it is a wall you
 80 km/h with every flake a streak. That residue is what the shader's drift accumulates, and
 `TestSnowFall` asserts it as arithmetic because a still frame cannot show it.
 
+**Update, 2026-09-23: the follow fraction is gone.** The half-following snow read as an overlay
+unrelated to the racer — at 80 km/h it came at you at two fifths of your speed, and each box moved
+as one sheet. The flakes now hang in the world (the drift is the wind less the box's own move),
+and the shader draws each one stretched along how far it moved against the camera over a 1/60 s
+shutter, measured with last frame's view matrix so camera turns streak it too, dimmed by the
+square root of the stretch. Each flake falls at its own speed around a real 1.1 m/s (ETR's size ×
+5 flattened the parallax) and sways on its own phase; the wind is carried level; flakes fade at the
+box faces and near the lens. Still deterministic. The curtains are unchanged and still orbit the
+player — the next thing to replace if the far snow reads as an overlay too.
+
+**Update, same day: the curtains are gone too.** A ring centred on the player moves with the
+player, so the far snow had no parallax and never loomed as you rode into it. It is now a fourth
+flake area through the same world-anchored shader: a box 150 m square about the player holding
+2150–2300 quads 5–6.5 m wide, each a random 128² patch cut from the grade's curtain tile (the redrawn
+`snow1/2/3.png`, unchanged), faded in 25–35 m from the camera and out 60–72 m. Per square metre
+that is the curtains' speck density and speck size; captured against the rings at grades 1 and 3,
+day and night, it matches, and it now also covers the view back up the hill in the start
+animation, which the rings (±100° about the fall line) left empty. Still deterministic, and no
+per-frame CPU work beyond the uniforms — the 135 curtain transforms a frame are gone.
+The largest flakes were then trimmed by a fifth — the outer near box tops out at 0.15 / 0.18 /
+0.28 m instead of ETR's 0.18 / 0.22 / 0.35, and the far patches at 6.5 m instead of 8 (with more
+of them) — because world-anchored, the top of both ranges read as blobs.
+
 Chosen on the course screen, in Practice and in a race alike — ETR puts it there too — and
 remembered as `[game] snowfall` in `penguinracer.cfg`. `--snow=0..3` and `?snow=` name a grade for
 one run without going through the menu, which is how the captures above were taken. It is

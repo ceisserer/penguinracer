@@ -33,7 +33,7 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           (EnvironmentPreset + LightCondition: a course names a place,
                           a race names the time of day — ETR's light_id)
   scripts/render/         terrain chunks, GPU snow field, spray, SnowFall (falling flakes +
-                          ETR's distant curtains), IceReflection (planar mirror for the ice)
+                          far snow, all world-anchored), IceReflection (planar mirror for the ice)
   scripts/camera/         chase camera
   scripts/shell/          main/course/settings menus, HUD, LobbyMenu (connect → browse → room,
                           own CourseMenu instance), LoadingScreen (shared by menu and race)
@@ -181,7 +181,7 @@ Detail is in `PROGRESS.md`; this is the summary.
 | 4 — character | **done for all five** — skinned mesh from `shape.lst`, keyframe clips as `AnimationLibrary` + `KeyframePath` root motion, start animation (`CIntro`), finish clips on the results screen (`RaceOutcome.clip`), racing pose layer (`CharacterRig.adjust_joints`, ETR's `AdjustJoints`) driven off `RacerState` alone so ghosts and peers animate. `GameConfig.character` picks one. |
 | 5 — game shell | partial — main menu → Practice / Race the computer / Network multiplayer / Race against ghost / character / Configuration; results screen with named runs; ETR palette theme; course + character catalogs; 13 languages; audio (`AudioDirector`, ETR's one-voice-per-cue mixer). Missing: cups, medals, profiles (data imported), volume/language controls, ETR's menu art (licence audit). |
 | 6 — polish/ship | not started. |
-| weather | **snow (0–3) and sky (sunny/cloudy/night) done** — `SnowFall` (flakes + curtains, deterministic) and `LightCondition`, both on the course screen, remembered in `[game] snowfall`/`conditions`, carried on a lobby room. The sky moves sun, ambient, fog, skybox, tints, ice, and shadows (`EnvironmentPreset.casts_shadows`). `evening` is imported but not offered. Wind is still `--wind=` only. |
+| weather | **snow (0–3) and sky (sunny/cloudy/night) done** — `SnowFall` (world-anchored streaking flakes + far snow, deterministic) and `LightCondition`, both on the course screen, remembered in `[game] snowfall`/`conditions`, carried on a lobby room. The sky moves sun, ambient, fog, skybox, tints, ice, and shadows (`EnvironmentPreset.casts_shadows`). `evening` is imported but not offered. Wind is still `--wind=` only. |
 | computer opponents | **done** (beyond ETR) — `RaceSetup` 1–9 opponents, each a `SimulatedRacer` + `AIInputSource` scoring nine candidate lines. Skill moves habits, never physics: 30 s on a 22° slope gives easy 231 m, medium 333 m, hard 422 m, a player holding straight 413 m. Deterministic from a seed. Solid via `RacerField`. |
 | multiplayer foundation | **done** — fixed 60 Hz tick with interpolated presentation; `SimulatedRacer`/`PlaybackRacer`; `RacerState` is the only thing drawn and is the ghost and wire format. Ghosts end to end: record, keep from the results screen, race from `GhostMenu`. |
 | network multiplayer | **done** (beyond ETR, plan §8.4), works in a browser — one dedicated server serves the web build over HTTP and races over WebSocket. Rooms with optional passwords, admin picks course and starts. Server relays snapshots; each peer simulates itself. Names unique server-wide. Countdown instead of intro; race ends when the last racer finishes. See the deviations. |
@@ -607,10 +607,19 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   cubed-uniform radius, white with alpha, edge-wrapped; `TestSnowFall` asserts coverage). Both
   deterministic. `SprayEmitter.particle_color` is a setter so an environment applied later reaches
   existing emitters.
-- **The falling snow is a `MultiMesh` moved in a vertex shader** (`snow_flakes.gdshader`, two
-  uniforms), where ETR moves flakes on the CPU — which also makes snowing captures reproducible.
-  Every area billboards about Y (ETR only the near one); atlas quadrant is index mod 4; flakes are
-  soft-alpha without depth write, where ETR alpha-tests and writes depth.
+- **The falling snow is a `MultiMesh` moved in a vertex shader** (`snow_flakes.gdshader`), where
+  ETR moves flakes on the CPU — which also makes snowing captures reproducible. **The flakes stay
+  in the world**: ETR's `YDRIFT`/`ZDRIFT` half-follow made the snow read as an overlay, so the box
+  follows and the flakes do not, and each is drawn as a streak of its motion against the camera
+  over a 1/60 s shutter (previous view matrix as a uniform). Real fall speed (`FALL_SPEED`, ±30 %
+  per flake, not size × 5), per-flake sway, level wind, fades at the box faces and the lens.
+  Every quad stays upright on screen and is *stretched* toward its tail, never turned along the
+  streak — a turned far patch swings its sheet of specks round and reads as snow on rotating
+  planes. Atlas quadrant is index mod 4; flakes are soft-alpha without
+  depth write, where ETR alpha-tests and writes depth. **ETR's `CCurtain` rings are gone**: a ring
+  centred on the player has no parallax and was the most overlay-like thing on screen. The far
+  snow is a fourth area in the same shader (`FAR_AREAS`) — a 150 m square box of 5–6.5 m quads,
+  each a random 128² patch of a curtain tile, drawn only 25–72 m from the camera (`FAR_FADE`).
 - **Which layers are ice is `TerrainLayer.is_ice()`, not `[shiny]`**: seven ice records, only three
   marked shiny. Every ETR ice is `[friction] 0.2`, and nothing else goes below 0.3.
 - **The drawn body is lifted by the trench it stands in** (`Racer._drawn_snow_lift`, adding back

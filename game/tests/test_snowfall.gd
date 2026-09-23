@@ -1,19 +1,24 @@
-## Tests for the weather — [SnowFall], ETR's `CFlakes` and `CCurtain`.
+## Tests for the weather — [SnowFall], ETR's `CFlakes`, and the far snow that
+## replaces its `CCurtain` rings.
 ##
 ## Three things are worth asserting and none of them is "does it draw".
 ##
 ## [b]The table is the original's.[/b] Every number in [constant
-## SnowFall.FLAKE_AREAS] and [constant SnowFall.CURTAINS] comes out of
-## `particles.cpp`, and the shape they make together — boxes that sit ahead of
+## SnowFall.FLAKE_AREAS] comes out of `particles.cpp`, and the shape they make
+## together — boxes that sit ahead of
 ## the player, flakes that get bigger and fall faster the further out they are —
 ## is what makes three overlapping fields read as one snowfall with depth. A
 ## transposed column would still render snow.
 ##
-## [b]The follow fraction.[/b] `YDRIFT`/`ZDRIFT` are the whole feel of the
-## effect and they are invisible in a still frame: at 1.0 the snow is painted on
-## the camera and at 0.0 every flake is a streak. What the drift accumulator has
-## to come out as after a metre of travel is arithmetic, so it is checked as
-## arithmetic.
+## [b]The snow stays where it is.[/b] The box follows the player and the flakes
+## in it do not — ETR's `YDRIFT`/`ZDRIFT` half-follow is deliberately gone, see
+## [SnowFall]. That is invisible in a still frame, and what the drift
+## accumulator has to come out as after a metre of travel is arithmetic, so it
+## is checked as arithmetic.
+##
+## [b]The far snow reaches past the near.[/b] [constant SnowFall.FAR_AREAS] is
+## not ETR's, but it has to start where the near boxes stop and reach where the
+## curtains stood, or there is a band of the hill with no snow in it.
 ##
 ## [b]The redrawn tiles.[/b] Same standing as the spray's puff atlas: the art is
 ## licence-blocked, so the tiles are generated, and what they are generated to
@@ -31,14 +36,13 @@ extends RefCounted
 static func run(t: TestCase) -> void:
 	_table(t)
 	_flake_field(t)
-	_curtain_geometry(t)
+	_far_snow(t)
 	_tiles(t)
 	var fall := _snowfall(t)
 	if fall == null:
 		return
 	_grades(t, fall)
 	_follows_the_player(t, fall)
-	_curtain_elements(t, fall)
 	fall.queue_free()
 
 static func _snowfall(t: TestCase) -> SnowFall:
@@ -51,14 +55,14 @@ static func _snowfall(t: TestCase) -> SnowFall:
 	tree.root.add_child(fall)
 	return fall
 
-## The migrated table, read against `CFlakes::Init` and `CCurtain::Init`.
+## The migrated table, read against `CFlakes::Init`.
 static func _table(t: TestCase) -> void:
 	t.begin("snowfall/the table is ETR's")
 	t.ok(SnowFall.FLAKE_AREAS.size() == SnowFall.MAX_GRADE + 1
-		and SnowFall.CURTAINS.size() == SnowFall.MAX_GRADE + 1,
+		and SnowFall.FAR_AREAS.size() == SnowFall.MAX_GRADE + 1,
 		"four grades, counting the clear sky at 0")
 	t.ok((SnowFall.FLAKE_AREAS[0] as Array).is_empty()
-		and (SnowFall.CURTAINS[0] as Array).is_empty(),
+		and (SnowFall.FAR_AREAS[0] as Array).is_empty(),
 		"grade 0 has no snow in it at all — `snow_id < 1` returns from every entry point")
 	for grade: int in range(1, SnowFall.MAX_GRADE + 1):
 		var areas: Array = SnowFall.FLAKE_AREAS[grade]
@@ -80,12 +84,6 @@ static func _table(t: TestCase) -> void:
 		# front of the camera rather than around it.
 		t.ok(float(areas[1][4]) > 0.0 and float(areas[2][4]) > float(areas[1][4]),
 			"grade %d stacks its outer areas ahead of the player" % grade)
-		var curtains: Array = SnowFall.CURTAINS[grade]
-		t.ok(curtains.size() == 3, "grade %d has ETR's three curtains" % grade)
-		for row: Array in curtains:
-			t.ok(float(row[1]) >= 40.0 and float(row[1]) <= 60.0,
-				"a curtain stands 40–60 m out")
-			t.ok(int(row[6]) >= 1 and int(row[6]) <= 3, "and is drawn with one of the three tiles")
 	# Heavier snow is more flakes, not bigger ones, which is the distinction the
 	# grade table makes and a single "density" scalar could not.
 	t.ok(int(SnowFall.FLAKE_AREAS[1][0][0]) < int(SnowFall.FLAKE_AREAS[2][0][0])
@@ -116,21 +114,41 @@ static func _flake_field(t: TestCase) -> void:
 	t.ok(SnowFall.flake_field(row, again) == field,
 		"the field is deterministic — a capture of a snowing course is comparable")
 
-## `TCurtain::CurtainVec`. The sign flip either side of ±90° is the whole of it,
-## and getting it wrong puts the back of the ring in front of the player, where
-## it reads as a wall.
-static func _curtain_geometry(t: TestCase) -> void:
-	t.begin("snowfall/the curtain ring")
-	var ahead: Vector3 = SnowFall.curtain_vector(0.0, 50.0)
-	t.ok(absf(ahead.x) < 1e-4 and absf(ahead.z + 50.0) < 1e-4,
-		"zero degrees is straight down the course, at −z")
-	var behind: Vector3 = SnowFall.curtain_vector(180.0, 50.0)
-	t.ok(absf(behind.z - 50.0) < 1e-3, "and 180° is behind you")
-	var right: Vector3 = SnowFall.curtain_vector(90.0, 50.0)
-	t.ok(absf(right.x - 50.0) < 1e-4 and absf(right.z) < 1e-3, "90° is beside you")
-	for angle: float in [-100.0, -45.0, 0.0, 37.5, 90.0, 140.0]:
-		t.ok(absf(SnowFall.curtain_vector(angle, 50.0).length() - 50.0) < 1e-3,
-			"every element of a ring stands the same distance out (%.1f°)" % angle)
+## The far snow: a box that covers the shell it is drawn in, starting where the
+## near boxes stop, with patches that are the curtains' specks.
+static func _far_snow(t: TestCase) -> void:
+	t.begin("snowfall/the far snow")
+	var band: Vector4 = SnowFall.FAR_FADE
+	t.ok(band.x < band.y and band.y <= band.z and band.z < band.w,
+		"it fades in, holds, and fades out again, in that order")
+	t.ok(band.z >= 60.0, "and holds out to where the curtains' furthest ring stood")
+	var last_tile: int = 0
+	for grade: int in range(1, SnowFall.MAX_GRADE + 1):
+		var row: Array = SnowFall.FAR_AREAS[grade]
+		var near_far_edge: float = 0.0
+		for near: Array in SnowFall.FLAKE_AREAS[grade]:
+			near_far_edge = maxf(near_far_edge, float(near[4]) + float(near[5]))
+		t.ok(band.x <= near_far_edge,
+			"grade %d starts fading in before the near boxes end, at %.0f m" % [grade, near_far_edge])
+		# Ahead is −z: the box's front face is `zback + zrange` in front of the
+		# player, and the camera is a few metres behind them.
+		t.ok(float(row[4]) + float(row[5]) >= band.w,
+			"grade %d reaches past where it has faded out ahead" % grade)
+		t.ok(float(row[1]) * 0.5 >= band.w,
+			"and either side, so a slalom still looks into snow")
+		t.ok(-float(row[4]) >= band.w,
+			"and behind, so a camera looking back up the hill still sees it")
+		t.ok(int(row[8]) >= 1 and int(row[8]) <= 3 and int(row[8]) >= last_tile,
+			"grade %d cuts its patches from tile %d, no sparser than the grade below" % [grade, int(row[8])])
+		last_tile = int(row[8])
+		var rng := RandomNumberGenerator.new()
+		rng.seed = SnowFall.SEED
+		var field: Array[Vector4] = SnowFall.flake_field(row, rng)
+		var sized: bool = true
+		for patch: Vector4 in field:
+			sized = sized and patch.w >= float(row[6]) and patch.w <= float(row[7])
+		t.ok(field.size() == int(row[0]) and sized,
+			"grade %d fills its box with patches of the row's size" % grade)
 
 ## The redrawn `snow1/2/3.png`: as dense as the originals measure, white with
 ## the alpha doing the shaping, wrapped at the edges, and the same tile twice.
@@ -176,33 +194,28 @@ static func _tiles(t: TestCase) -> void:
 static func _grades(t: TestCase, fall: SnowFall) -> void:
 	t.begin("snowfall/grades")
 	fall.set_grade(0)
-	t.ok(fall._areas.is_empty() and fall._curtains.is_empty(),
+	t.ok(fall._areas.is_empty(),
 		"grade 0 is `snow_id < 1`: nothing is built and nothing is drawn")
 	fall.set_grade(3)
-	t.ok(fall._areas.size() == 3 and fall._curtains.size() == 3,
-		"grade 3 builds three areas and three curtains")
+	t.ok(fall._areas.size() == 4,
+		"grade 3 builds three near areas and the far one")
 	t.ok(fall._areas[2].node.multimesh.instance_count
 		== int(SnowFall.FLAKE_AREAS[3][2][0]),
-		"the far box holds the thousand flakes the table asks for")
-	for curtain: SnowFall.Curtain in fall._curtains:
-		t.ok(curtain.cols > 1 and curtain.cols <= SnowFall.MAX_CURTAIN_COLS,
-			"a ring is cut into 2..16 quads, as `MAX_CURTAIN_COLS` allows")
-		t.ok(curtain.node.multimesh.instance_count == curtain.cols * curtain.rows,
-			"and every column carries every row")
-		# A ring has to close far enough for the arc it covers; a quad narrower
-		# than `angle_dist` would leave gaps you can see the sky through.
-		t.ok(absf(curtain.angle_dist
-			- atan(curtain.size / 2.0 / curtain.z_dist) * 360.0 / PI) < 1e-4,
-			"the arc one quad subtends is the original's expression")
+		"the furthest near box holds the thousand flakes the table asks for")
+	t.ok(fall._areas[3].node.multimesh.instance_count == int(SnowFall.FAR_AREAS[3][0]),
+		"and the far snow the patches its row asks for")
+	t.ok(fall._areas[3].node.name == "FarSnow", "last, and named for what it is")
 	t.ok(fall._areas[0].node.cast_shadow
 		== GeometryInstance3D.SHADOW_CASTING_SETTING_OFF,
 		"a thousand flakes do not each cast a shadow map entry")
+	t.ok(fall._areas[3].node.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF,
+		"and neither does the far snow")
 	fall.set_grade(7)
 	t.ok(fall.grade == SnowFall.MAX_GRADE, "a grade out of range is clamped, not crashed")
 
-## The load-bearing fraction: the snow follows the player, and not exactly.
+## The box rides with the player; the flakes stay in the world.
 static func _follows_the_player(t: TestCase, fall: SnowFall) -> void:
-	t.begin("snowfall/the snow follows the player, and not exactly")
+	t.begin("snowfall/the box follows the player, the snow does not")
 	fall.set_grade(2)
 	fall.restart()
 	var at := Vector3(10.0, 100.0, -20.0)
@@ -210,69 +223,42 @@ static func _follows_the_player(t: TestCase, fall: SnowFall) -> void:
 	var area: SnowFall.FlakeArea = fall._areas[0]
 	t.ok(area.drift.is_equal_approx(Vector3.ZERO),
 		"the first frame establishes where the player is rather than moving the snow by it")
-	t.ok(absf(area.fall - area.speed / 60.0) < 1e-5,
-		"and the flakes have fallen one frame's worth")
+	t.ok(absf(area.fall - SnowFall.FALL_SPEED / 60.0) < 1e-5,
+		"and the flakes have fallen one frame's worth, at the real fall speed")
 
 	# One metre down the hill (−z), one metre of drop, one metre sideways.
-	fall.update(at + Vector3(1.0, -1.0, -1.0), null, 1.0 / 60.0)
+	var moved := Vector3(1.0, -1.0, -1.0)
+	fall.update(at + moved, null, 1.0 / 60.0)
 	var drift: Vector3 = area.drift
-	t.ok(absf(drift.x - fposmod(-1.0, area.extent.x)) < 1e-4,
-		"a flake does not follow the player sideways at all — ETR's x has only wind in it")
-	t.ok(absf(drift.y - fposmod((SnowFall.Y_DRIFT - 1.0) * -1.0, area.extent.y)) < 1e-4,
-		"it follows %d%% of the drop, so a fifth of it is left behind" % int(SnowFall.Y_DRIFT * 100.0))
-	t.ok(absf(drift.z - fposmod((SnowFall.Z_DRIFT - 1.0) * -1.0, area.extent.z)) < 1e-4,
-		"and %d%% of the travel down the hill" % int(SnowFall.Z_DRIFT * 100.0))
+	t.ok(drift.is_equal_approx((-moved).posmodv(area.extent)),
+		"the drift takes the box's whole move back out, on every axis — no flake is dragged along")
 	t.ok(drift.x >= 0.0 and drift.x < area.extent.x
 		and drift.y >= 0.0 and drift.y < area.extent.y
 		and drift.z >= 0.0 and drift.z < area.extent.z,
 		"the accumulator is kept inside the box, so a long race cannot walk it out of range")
-	# The box itself follows exactly; it is the flakes inside it that lag.
-	t.ok(fall._areas[0].node.global_position.is_equal_approx(
-		at + Vector3(1.0, -1.0, -1.0) + area.offset),
+	t.ok(fall._areas[0].node.global_position.is_equal_approx(at + moved + area.offset),
 		"the box is pinned to the racer being watched")
+
+	# A flake's world position is the box corner plus its wrapped local one; for
+	# a flake the wrap did not move, that sum must not have changed.
+	var base := Vector3(2.0, 2.0, 2.0)
+	var before_pos: Vector3 = at + area.offset + (base).posmodv(area.extent)
+	var after_pos: Vector3 = at + moved + area.offset + (base + drift).posmodv(area.extent)
+	t.ok(before_pos.is_equal_approx(after_pos), "so a flake is where it was in the world")
 
 	var before: float = area.fall
 	fall.update(at, null, 0.0)
 	t.ok(is_equal_approx(area.fall, before), "a zero-length frame moves nothing")
 	fall.restart()
-	t.ok(area.drift.is_equal_approx(Vector3.ZERO) and is_zero_approx(area.fall),
+	t.ok(area.drift.is_equal_approx(Vector3.ZERO) and is_zero_approx(area.fall)
+		and is_zero_approx(fall._clock),
 		"a restart puts the weather back to the start of the run")
 
-## `TCurtain::Update`: the rings turn, sink, and wrap in both.
-static func _curtain_elements(t: TestCase, fall: SnowFall) -> void:
-	t.begin("snowfall/the curtains turn and sink")
-	fall.set_grade(3)
-	fall.restart()
-	var curtain: SnowFall.Curtain = fall._curtains[0]
-	var first_angle: float = curtain.angles[0]
-	var first_height: float = curtain.heights[0]
-	t.ok(absf(first_angle - curtain.start_angle) < 1e-4,
-		"a ring starts at `startangle`, which is ETR's −100°")
-	t.ok(absf(first_height - curtain.min_height) < 1e-4, "and the bottom row at `minheight`")
-	var at := Vector3(0.0, 50.0, 0.0)
-	fall.update(at, null, 1.0 / 60.0)
-	for step: int in 60:
-		fall.update(at, null, 1.0 / 60.0)
-	t.ok(curtain.heights[0] < first_height,
-		"a second later the ring has sunk")
-	t.ok(absf(curtain.heights[0] - (first_height - curtain.speed * 61.0 / 60.0)) < 1e-3,
-		"at `speed` metres a second, which is ETR's 3")
-	t.ok(curtain.angles[0] != first_angle, "and turned, because the oscillators run")
-	var lowest: bool = true
-	var in_arc: bool = true
-	for i: int in curtain.angles.size():
-		in_arc = in_arc and curtain.angles[i] >= curtain.start_angle - curtain.angle_dist \
-			and curtain.angles[i] <= curtain.last_angle + curtain.angle_dist
-		lowest = lowest and curtain.heights[i] >= curtain.min_height - curtain.size
-	t.ok(in_arc, "every element stays inside the arc the ring covers")
-	t.ok(lowest, "and above the floor it wraps at")
-
-	# Ten minutes at 60 fps, which is longer than any course: the wrap has to
-	# hold, or the rings sink out of the frame and the snow simply stops.
-	for step: int in 3600:
-		fall.update(at, null, 1.0 / 60.0)
-	var held: bool = true
-	for i: int in curtain.heights.size():
-		held = held and curtain.heights[i] >= curtain.min_height - curtain.size \
-			and curtain.heights[i] <= curtain.min_height + float(curtain.rows) * curtain.size
-	t.ok(held, "ten minutes in, the rings are still standing where they started")
+	var seeds: Dictionary = {}
+	var inside: bool = true
+	for i: int in 1000:
+		var s: Vector2 = SnowFall.flake_seed(i)
+		inside = inside and s.x >= 0.0 and s.x < 1.0 and s.y >= 0.0 and s.y < 1.0
+		seeds[Vector2i(int(s.x * 100.0), int(s.y * 100.0))] = true
+	t.ok(inside, "a flake's own two numbers are in [0, 1)")
+	t.ok(seeds.size() > 600, "and a thousand flakes spread over them rather than bunching")
