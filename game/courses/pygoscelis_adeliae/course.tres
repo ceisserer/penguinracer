@@ -1,5 +1,6 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
+[ext_resource type="Image" path="res://courses/pygoscelis_adeliae/ambient_occlusion.res" id="1_hwyy6"]
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_y882j"]
 [ext_resource type="Image" path="res://courses/pygoscelis_adeliae/heightmap.res" id="2_hwyy6"]
 [ext_resource type="Texture2D" path="res://courses/pygoscelis_adeliae/preview.png" id="3_m4aba"]
@@ -21,6 +22,7 @@ author = "Korora the Penguin"
 preview = ExtResource("3_m4aba")
 heightmap = ExtResource("2_hwyy6")
 heightmap_size = Vector2i(127, 2047)
+ambient_occlusion = ExtResource("1_hwyy6")
 world_size = Vector2(64, 1024)
 height_scale = 4.2
 base_angle = 36.0

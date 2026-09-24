@@ -119,6 +119,26 @@ uniform float trench_ao : hint_range(0.0, 1.0) = 0.25;
 // side of a ski track. Multiplies albedo on the ridge the vertex stage raises,
 // so the two always agree about where the ridge is.
 uniform float ridge_brighten : hint_range(0.0, 1.0) = 0.18;
+// The trench's walls, as well as its depth. `trench_ao` darkens by how deep the
+// fragment is; this asks how much of the sky the walls either side take away,
+// which is what puts the shade at the foot of the wall, under the lip, rather
+// than spreading it evenly across the floor. The same horizon measure as the
+// baked terrain occlusion, from four taps `trench_wall_reach` metres out.
+uniform float trench_wall_ao : hint_range(0.0, 2.0) = 1.0;
+uniform float trench_wall_reach : hint_range(0.05, 1.0) = 0.22;
+
+group_uniforms Terrain_Occlusion;
+// How much of the sky the course's own relief leaves each vertex — the bottom
+// of a gully, the foot of a bank — baked by the importer ([TerrainOcclusion])
+// and delivered as vertex colour, so it costs no texture unit. Takes the
+// ambient's share away, like the trench AO: 0 is ETR's evenly lit hill.
+uniform float terrain_ao_strength : hint_range(0.0, 2.0) = 1.0;
+// The sun's share of it. Occlusion is an ambient idea — a single direction is
+// the shadow map's job — but the web build has no shadow map, and a gully that
+// sees little sky also sees a low sun for less of the day. A fraction of the
+// occlusion on the sun term is what lets a sunlit gully floor read at all,
+// since the ambient alone sits under the illumination clamp there.
+uniform float terrain_ao_sun : hint_range(0.0, 1.0) = 0.35;
 
 group_uniforms Surface_Detail;
 // Procedural micro-relief. RG = the gradient of a tiling height field, packed
@@ -203,6 +223,26 @@ uniform float sparkle_scale = 2.0;
 // Glints are sub-pixel at distance and average out; fading them explicitly is
 // cheaper and steadier than letting the mip chain do it by accident.
 uniform float sparkle_fade_distance = 45.0;
+// Fake subsurface scattering. Light that reaches shaded snow has travelled
+// through the pack or come off the blue sky, and ice absorbs red first, so snow
+// in shade and down in a trench goes a saturated blue-cyan rather than grey.
+// This filters the ambient by `snow_scatter_tint` as the snow loses the sun,
+// loses sky to the relief, or is carved deeper — per channel, *inside* the
+// illumination clamp, so a sunlit slope that sits on the ceiling is untouched
+// and the ETR tone fitted there does not move.
+//
+// A multiplier on linear light, not a colour: no `source_color`. Blue stays at
+// 1 because the ambient's blue already sits near the clamp.
+uniform vec3 snow_scatter_tint = vec3(0.72, 0.89, 1.0);
+// How fully the tint arrives on snow the sun has left. Measured on the shaped,
+// shadowed N·L: at `snow_scatter_band` of the sun and above there is none, so
+// an ordinary lit slope keeps its fitted tone.
+uniform float snow_scatter_shade : hint_range(0.0, 1.0) = 0.85;
+uniform float snow_scatter_band : hint_range(0.01, 1.0) = 0.35;
+// Gains from the occlusion (relief and trench walls, 1 − sky seen) and from
+// the trench's depth (0..1 of the deepest carve) to the tint.
+uniform float snow_scatter_occlusion : hint_range(0.0, 8.0) = 3.0;
+uniform float snow_scatter_carve : hint_range(0.0, 2.0) = 0.8;
 
 group_uniforms Ice_Shading;
 // The sky the ice reflects, as the two colours `EnvironmentPreset` already
@@ -346,6 +386,11 @@ varying vec3 glint_normal;
 // intent — but `ambient_light_disabled` leaves the engine no ambient to apply it
 // to, so it has to travel to where the ambient now lives.
 varying float ambient_occlusion;
+// The baked relief occlusion, 1 = open sky, from the chunk's vertex colour.
+varying float terrain_sky;
+// How blue the snow's ambient goes before the sun is considered: the occlusion
+// and carve terms of `snow_scatter_*`. light() adds the shade term.
+varying float scatter_base;
 // What the ice reflects, already Fresnel-weighted and masked: the sky ramp with
 // the mirrored racers composited into it. Added in light() rather than written
 // to EMISSION — see the ice reflection block in fragment() for why that is not
@@ -380,6 +425,10 @@ void vertex() {
 	vec2 splat_grid = vec2(textureSize(splat_0, 0)) - 1.0;
 	splat_uv = (vec2(world_pos.x / world_size.x, -world_pos.z / world_size.y)
 		* splat_grid + 0.5) / (splat_grid + 1.0);
+
+	// Godot's default colour is white for a mesh without one, which is a chunk
+	// from a course imported before the occlusion was baked: open sky.
+	terrain_sky = COLOR.r;
 
 	ridge_lip = 0.0;
 	if (trail_enabled) {
@@ -442,7 +491,12 @@ void fragment() {
 
 	ALBEDO = sample_layers(world_pos.xz, w0, w1).rgb;
 	METALLIC = 0.0;
-	ambient_occlusion = 1.0;
+	// The relief's occlusion, eased in by `terrain_ao_strength` and never past
+	// black. Squared at strength 2 rather than scaled linearly, so a strong
+	// setting deepens gullies without clipping open slopes.
+	float relief_sky = pow(clamp(terrain_sky, 0.0, 1.0), terrain_ao_strength);
+	ambient_occlusion = relief_sky;
+	scatter_base = (1.0 - relief_sky) * snow_scatter_occlusion;
 
 	snow_mask = clamp(dot(layer_snowness, w0) + dot(layer_snowness_hi, w1), 0.0, 1.0);
 	ice_mask = clamp(dot(layer_iceness, w0) + dot(layer_iceness_hi, w1), 0.0, 1.0);
@@ -513,8 +567,25 @@ void fragment() {
 		// Snow on the lip was turned over a moment ago; it has not had time to
 		// crust or to pack.
 		ALBEDO *= 1.0 + ridge_lip * ridge_brighten * snow_mask;
+		// The walls: what each of four horizons a short reach out rises to,
+		// as the sky a cosine-weighted floor loses behind it (sin² of the
+		// elevation, t² / (1 + t²)), averaged. The depth field is the negated
+		// surface, so a neighbour that is *shallower* is higher.
+		float reach = max(trench_wall_reach, texel);
+		float d0 = trail_depth(world_pos.xz);
+		vec4 rim = vec4(
+			trail_depth(world_pos.xz + vec2(reach, 0.0)),
+			trail_depth(world_pos.xz - vec2(reach, 0.0)),
+			trail_depth(world_pos.xz + vec2(0.0, reach)),
+			trail_depth(world_pos.xz - vec2(0.0, reach)));
+		vec4 rise = max(vec4(d0) - rim, vec4(0.0)) / reach;
+		vec4 lost = rise * rise / (1.0 + rise * rise);
+		float walls = clamp(dot(lost, vec4(0.25)) * trench_wall_ao, 0.0, 1.0);
 		// The trench shades itself. Ambient only — see `trench_ao`.
-		ambient_occlusion = 1.0 - depth_n * trench_ao * snow_mask;
+		float trench_sky = (1.0 - depth_n * trench_ao) * (1.0 - walls);
+		ambient_occlusion *= mix(1.0, trench_sky, snow_mask);
+		scatter_base += (1.0 - trench_sky) * snow_scatter_occlusion
+			+ depth_n * snow_scatter_carve;
 	}
 
 	NORMAL = normalize(mat3(VIEW_MATRIX) * normalize(n_world));
@@ -697,8 +768,22 @@ void light() {
 	// headroom. On the web build it is 1 everywhere — [RenderBackend] explains
 	// why the sun there casts nothing — and this line is then exactly the
 	// original's, which also has no shadow map.
-	DIFFUSE_LIGHT += etr_illumination(LIGHT_COLOR / PI, shaped, ATTENUATION,
-		ambient_occlusion);
+	//
+	// The ambient's filter is where both the occlusion and the snow's fake
+	// subsurface scattering land. Snow the sun has left — facing away, or in
+	// the shadow map — takes `snow_scatter_tint` by how far below
+	// `snow_scatter_band` its sun term has fallen; occluded and carved snow
+	// already carries its share in `scatter_base`.
+	float sun_reach = shaped * ATTENUATION;
+	float shade = 1.0 - smoothstep(0.0, snow_scatter_band, sun_reach);
+	float scatter = snow_mask * clamp(max(shade * snow_scatter_shade, scatter_base),
+		0.0, 1.0);
+	vec3 ambient_filter = ambient_occlusion * mix(vec3(1.0), snow_scatter_tint, scatter);
+	// The sun's part of the relief occlusion — see `terrain_ao_sun`.
+	float sun_sky = mix(1.0, pow(clamp(terrain_sky, 0.0, 1.0), terrain_ao_strength),
+		terrain_ao_sun);
+	DIFFUSE_LIGHT += etr_illumination(LIGHT_COLOR / PI, shaped * sun_sky, ATTENUATION,
+		ambient_filter);
 
 	// LIGHT_COLOR arrives premultiplied by PI, because Godot folds the 1/PI of
 	// the diffuse BRDF into it. Both terms divide it back out so they stay in

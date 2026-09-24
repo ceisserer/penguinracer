@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/tuxracer_sunny.tres" id="1_ikr2n"]
+[ext_resource type="Image" path="res://courses/bumpy_ride/ambient_occlusion.res" id="1_uvrap"]
 [ext_resource type="Image" path="res://courses/bumpy_ride/heightmap.res" id="2_uvrap"]
 [ext_resource type="Texture2D" path="res://courses/bumpy_ride/preview.png" id="3_5tql7"]
 [ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_pd6et"]
@@ -18,6 +19,7 @@ description = "This hill has a series of ramps to tackle. Be sure to line yourse
 preview = ExtResource("3_5tql7")
 heightmap = ExtResource("2_uvrap")
 heightmap_size = Vector2i(119, 599)
+ambient_occlusion = ExtResource("1_uvrap")
 world_size = Vector2(60, 604)
 height_scale = 8.0
 base_angle = 30.0

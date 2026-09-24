@@ -1,5 +1,6 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
+[ext_resource type="Image" path="res://courses/bunny_hill/ambient_occlusion.res" id="1_ketam"]
 [ext_resource type="Resource" path="res://resources/environments/tuxracer_sunny.tres" id="1_sw4qv"]
 [ext_resource type="Image" path="res://courses/bunny_hill/heightmap.res" id="2_ketam"]
 [ext_resource type="Texture2D" path="res://courses/bunny_hill/preview.png" id="3_rp2sb"]
@@ -18,6 +19,7 @@ description = "Let's start out easy, just collect the herring in the time limit 
 preview = ExtResource("3_rp2sb")
 heightmap = ExtResource("2_ketam")
 heightmap_size = Vector2i(179, 519)
+ambient_occlusion = ExtResource("1_ketam")
 splat_maps = Array[Texture2D]([ExtResource("5_leugn")])
 splat_size = Vector2i(179, 519)
 terrain_layers = Array[ExtResource("6_wwua0")]([ExtResource("7_p0r68"), ExtResource("8_p3hmh"), ExtResource("9_dt6uw")])

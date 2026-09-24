@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_rwnoa"]
+[ext_resource type="Image" path="res://courses/keep_country_tidy/ambient_occlusion.res" id="1_xbbkl"]
 [ext_resource type="Image" path="res://courses/keep_country_tidy/heightmap.res" id="2_xbbkl"]
 [ext_resource type="Texture2D" path="res://courses/keep_country_tidy/preview.png" id="3_ynnt3"]
 [ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_bvl5o"]
@@ -22,6 +23,7 @@ description = "A long way to the end of the world."
 preview = ExtResource("3_ynnt3")
 heightmap = ExtResource("2_xbbkl")
 heightmap_size = Vector2i(159, 6999)
+ambient_occlusion = ExtResource("1_xbbkl")
 world_size = Vector2(50, 3500)
 height_scale = 13.5
 base_angle = 27.0

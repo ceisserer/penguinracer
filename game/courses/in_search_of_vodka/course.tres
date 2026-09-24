@@ -1,5 +1,6 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
+[ext_resource type="Image" path="res://courses/in_search_of_vodka/ambient_occlusion.res" id="1_62nt0"]
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_a8dft"]
 [ext_resource type="Image" path="res://courses/in_search_of_vodka/heightmap.res" id="2_62nt0"]
 [ext_resource type="Texture2D" path="res://courses/in_search_of_vodka/preview.png" id="3_ukvqa"]
@@ -22,6 +23,7 @@ description = "A course with a bit of everything; bumpy ice, fast trenches, jump
 preview = ExtResource("3_ukvqa")
 heightmap = ExtResource("2_62nt0")
 heightmap_size = Vector2i(119, 3599)
+ambient_occlusion = ExtResource("1_62nt0")
 world_size = Vector2(60, 2500)
 height_scale = 10.0
 splat_maps = Array[Texture2D]([ExtResource("5_ccbuj"), ExtResource("6_ftdn2")])

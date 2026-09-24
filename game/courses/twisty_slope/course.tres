@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/tuxracer_sunny.tres" id="1_m5hom"]
+[ext_resource type="Image" path="res://courses/twisty_slope/ambient_occlusion.res" id="1_uvujk"]
 [ext_resource type="Image" path="res://courses/twisty_slope/heightmap.res" id="2_uvujk"]
 [ext_resource type="Texture2D" path="res://courses/twisty_slope/preview.png" id="3_qx86s"]
 [ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_30y56"]
@@ -18,6 +19,7 @@ description = "Tight twists make grabbing herring difficult. Hard turns and not 
 preview = ExtResource("3_qx86s")
 heightmap = ExtResource("2_uvujk")
 heightmap_size = Vector2i(179, 519)
+ambient_occlusion = ExtResource("1_uvujk")
 splat_maps = Array[Texture2D]([ExtResource("5_hn618")])
 splat_size = Vector2i(179, 519)
 terrain_layers = Array[ExtResource("6_1ljcs")]([ExtResource("7_cl16v"), ExtResource("8_3ctcc"), ExtResource("9_fm3to")])

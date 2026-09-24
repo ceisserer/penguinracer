@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_02yem"]
+[ext_resource type="Image" path="res://courses/desperation/ambient_occlusion.res" id="1_mt1gh"]
 [ext_resource type="Image" path="res://courses/desperation/heightmap.res" id="2_mt1gh"]
 [ext_resource type="Texture2D" path="res://courses/desperation/preview.png" id="3_ddlk2"]
 [ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_1p5sk"]
@@ -20,6 +21,7 @@ author = "FUdel <clt@exmail.de>"
 preview = ExtResource("3_ddlk2")
 heightmap = ExtResource("2_mt1gh")
 heightmap_size = Vector2i(299, 4999)
+ambient_occlusion = ExtResource("1_mt1gh")
 world_size = Vector2(150, 2500)
 height_scale = 14.0
 base_angle = 27.0

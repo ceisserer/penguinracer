@@ -1,5 +1,6 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
+[ext_resource type="Image" path="res://courses/touch_the_moon/ambient_occlusion.res" id="1_4ks1a"]
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_kpaay"]
 [ext_resource type="Image" path="res://courses/touch_the_moon/heightmap.res" id="2_4ks1a"]
 [ext_resource type="Texture2D" path="res://courses/touch_the_moon/preview.png" id="3_weat8"]
@@ -21,6 +22,7 @@ author = "Crazywater"
 preview = ExtResource("3_weat8")
 heightmap = ExtResource("2_4ks1a")
 heightmap_size = Vector2i(119, 3599)
+ambient_occlusion = ExtResource("1_4ks1a")
 world_size = Vector2(60, 3000)
 height_scale = 10.0
 base_angle = 43.0

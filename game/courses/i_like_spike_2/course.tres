@@ -1,5 +1,6 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
+[ext_resource type="Image" path="res://courses/i_like_spike_2/ambient_occlusion.res" id="1_asayv"]
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_u7eg0"]
 [ext_resource type="Image" path="res://courses/i_like_spike_2/heightmap.res" id="2_asayv"]
 [ext_resource type="Texture2D" path="res://courses/i_like_spike_2/preview.png" id="3_yfj8u"]
@@ -21,6 +22,7 @@ author = "Korora the Penguin"
 preview = ExtResource("3_yfj8u")
 heightmap = ExtResource("2_asayv")
 heightmap_size = Vector2i(255, 1279)
+ambient_occlusion = ExtResource("1_asayv")
 world_size = Vector2(128, 640)
 height_scale = 42.0
 base_angle = 30.0

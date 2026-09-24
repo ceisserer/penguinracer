@@ -29,7 +29,8 @@ the plan go in `godot-port-plan.md`, dated.
 ```
 game/                     Godot project (mobile on the desktop, gl_compatibility on the web)
   scripts/physics/        RacePhysics + surface + snow — plain RefCounted, zero node deps
-  scripts/course/         CourseData, TerrainLayer, prefabs, events, environments
+  scripts/course/         CourseData, TerrainLayer, TerrainOcclusion (heightmap AO bake),
+                          prefabs, events, environments
                           (EnvironmentPreset + LightCondition: a course names a place,
                           a race names the time of day — ETR's light_id)
   scripts/render/         terrain chunks, GPU snow field, spray, SnowFall (falling flakes +
@@ -61,7 +62,8 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           s1_displace, etr_illumination.gdshaderinc (ETR's sum-then-clamp,
                           included by everything lit)
   addons/etr_import/      one-way, re-runnable importer from the ETR data tree
-  courses/<name>/         GENERATED: course.tres, course.tscn, heightmap.res, splat_*.png
+  courses/<name>/         GENERATED: course.tres, course.tscn, heightmap.res,
+                          ambient_occlusion.res, splat_*.png
   resources/  i18n/       GENERATED: layers, prefabs, environments, events, course + character
                           catalogs, five rigs + previews, sound bank, music, 13 translations
   assets/sounds|music/    GENERATED: 10 effects, 10 pieces, copied verbatim
@@ -186,7 +188,7 @@ Detail is in `PROGRESS.md`; this is the summary.
 |---|---|
 | 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 4724 assertions, 0 failures, 13 s headless. |
 | 1 — importer + first course | **done** — 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. |
-| 2 — rendering | partial — Mobile on the desktop, Compatibility on the web (trap list: *sRGB-blended shadow pass*). ETR's illumination clamp in every lit shader except the character's; desktop-only PSSM shadow. Splat PBR, chunked terrain, instanced objects (conifers and bare trees are 3D meshes at 3 LODs + an octahedral impostor, dithered hand-overs, wind sway, shader snow — [Forest]; shrubs are ETR's two crossed planes with a hashed yaw; items are billboards), ETR's HUD redrawn as primitives ([RaceHUD]), migrated skyboxes. Tone matched on Bunny Hill at both ends in all three channels; no LightmapGI. Snow/ice micro-relief, glint, Fresnel sky, ice reflecting the racers (`IceReflection`), textured carve spray. |
+| 2 — rendering | partial — Mobile on the desktop, Compatibility on the web (trap list: *sRGB-blended shadow pass*). ETR's illumination clamp in every lit shader except the character's; desktop-only PSSM shadow. Splat PBR, chunked terrain, instanced objects (conifers and bare trees are 3D meshes at 3 LODs + an octahedral impostor, dithered hand-overs, wind sway, shader snow — [Forest]; shrubs are ETR's two crossed planes with a hashed yaw; items are billboards), ETR's HUD redrawn as primitives ([RaceHUD]), migrated skyboxes. Tone matched on Bunny Hill at both ends in all three channels; no LightmapGI. Snow/ice micro-relief, glint, Fresnel sky, ice reflecting the racers (`IceReflection`), textured carve spray. Heightmap AO baked at import + trench-wall AO; shaded/occluded/carved snow tinted blue (fake SSS). |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror; a carve leaves a shaded trench with a ploughed lip. |
 | 4 — character | **done for all five** — skinned mesh from `shape.lst`, keyframe clips as `AnimationLibrary` + `KeyframePath` root motion, start animation (`CIntro`), finish clips on the results screen (`RaceOutcome.clip`), racing pose layer (`CharacterRig.adjust_joints`, ETR's `AdjustJoints`) driven off `RacerState` alone so ghosts and peers animate. `GameConfig.character` picks one. |
 | 5 — game shell | partial — main menu → Practice / Race the computer / Network multiplayer / Race against ghost / character / Configuration; results screen with named runs; ETR palette theme; course + character catalogs; 13 languages; audio (`AudioDirector`, ETR's one-voice-per-cue mixer). Missing: cups, medals, profiles (data imported), volume/language controls, ETR's menu art (licence audit). |
@@ -376,6 +378,9 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
 - **Terrain `SPECULAR` at Godot's 0.5 default blows snow out** (F0 0.04; ETR's terrain has none).
 - **Directional shadows stop at `directional_shadow_max_distance`**; derived from the fog range in
   `RaceScene._shadow_range_for` — keep it tied to visibility.
+- **A mesh without a colour array reads `COLOR` as white**, which is what lets a course imported
+  before `ambient_occlusion.res` draw unoccluded. `TerrainRenderer` drops an occlusion image whose
+  size is not the heightmap's without a word; `TestOcclusion` checks every course's.
 - **A procedural relief strength is not a 0..1 knob.** The detail map stores gradient w.r.t. UV
   (peaks ~12). Uniforms are metres of relief; put the unit in the name.
 - **`normalize()` of a mipped white-noise tap is NaN**, and NaN survives a zero fade. Add the raw
@@ -683,6 +688,12 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   0.5 m of drift over a light-wind jump, ~2 m in a strong one; the ground run is bit-identical.
 - **Which layers are ice is `TerrainLayer.is_ice()`, not `[shiny]`**: seven ice records, only three
   marked shiny. Every ETR ice is `[friction] 0.2`, and nothing else goes below 0.3.
+- **The terrain's ambient is occluded and, on snow, tinted blue.** ETR lights every vertex alike.
+  `TerrainOcclusion` bakes a horizon AO from the heightmap at import (vertex colour, not a
+  texture — the unit budget), the trench adds its walls at fragment rate, and snow's ambient takes
+  `snow_scatter_tint` as the sun leaves it, the relief closes over it or the carve deepens.
+  Inside the illumination clamp, so lit snow keeps its fitted tone. `terrain_ao_strength`,
+  `terrain_ao_sun`, `trench_wall_ao` and the `snow_scatter_*` gains at 0 restore the old frame.
 - **The drawn body is lifted by the trench it stands in** (`Racer._drawn_snow_lift`, adding back
   what `SnowField.apply_to_sample` took off), because the terrain mesh is too coarse to carve.
   **Delete it, do not retune it, the day the near-field mesh carries the trench.**

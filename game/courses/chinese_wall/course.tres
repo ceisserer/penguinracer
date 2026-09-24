@@ -1,5 +1,6 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
+[ext_resource type="Image" path="res://courses/chinese_wall/ambient_occlusion.res" id="1_d77du"]
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_nk248"]
 [ext_resource type="Image" path="res://courses/chinese_wall/heightmap.res" id="2_d77du"]
 [ext_resource type="Texture2D" path="res://courses/chinese_wall/preview.png" id="3_dbeur"]
@@ -18,6 +19,7 @@ description = "Try to keep the top of the wall. In the case of falling down you 
 preview = ExtResource("3_dbeur")
 heightmap = ExtResource("2_d77du")
 heightmap_size = Vector2i(199, 1999)
+ambient_occlusion = ExtResource("1_d77du")
 world_size = Vector2(100, 1500)
 height_scale = 12.0
 base_angle = 30.0

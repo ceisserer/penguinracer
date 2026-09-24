@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_ek6q8"]
+[ext_resource type="Image" path="res://courses/secret_valleys/ambient_occlusion.res" id="1_fp31k"]
 [ext_resource type="Image" path="res://courses/secret_valleys/heightmap.res" id="2_fp31k"]
 [ext_resource type="Texture2D" path="res://courses/secret_valleys/preview.png" id="3_u4soh"]
 [ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_f33vd"]
@@ -17,6 +18,7 @@ description = "Hidden places, some of them not easy to discover. There are 10 gr
 preview = ExtResource("3_u4soh")
 heightmap = ExtResource("2_fp31k")
 heightmap_size = Vector2i(199, 1999)
+ambient_occlusion = ExtResource("1_fp31k")
 world_size = Vector2(100, 2000)
 height_scale = 12.0
 splat_maps = Array[Texture2D]([ExtResource("5_pyb35")])

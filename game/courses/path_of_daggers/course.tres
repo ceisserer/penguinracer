@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_aoud8"]
+[ext_resource type="Image" path="res://courses/path_of_daggers/ambient_occlusion.res" id="1_cn1yr"]
 [ext_resource type="Image" path="res://courses/path_of_daggers/heightmap.res" id="2_cn1yr"]
 [ext_resource type="Texture2D" path="res://courses/path_of_daggers/preview.png" id="3_yrogg"]
 [ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_wc84v"]
@@ -18,6 +19,7 @@ description = "Big spikes may prove to be the least of your worries on this cour
 preview = ExtResource("3_yrogg")
 heightmap = ExtResource("2_cn1yr")
 heightmap_size = Vector2i(79, 1199)
+ambient_occlusion = ExtResource("1_cn1yr")
 world_size = Vector2(54, 800)
 height_scale = 12.0
 base_angle = 23.0

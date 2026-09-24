@@ -26,6 +26,9 @@ var surface: HeightmapSurface
 var stream_radius: float = 400.0
 
 var _material: ShaderMaterial
+## [member CourseData.ambient_occlusion]'s bytes, one per heightmap vertex, or
+## empty for a course imported before it existed.
+var _occlusion: PackedByteArray = PackedByteArray()
 var _chunks: Dictionary[Vector2i, MeshInstance3D] = {}
 var _chunk_world: Dictionary[Vector2i, AABB] = {}
 var _chunks_x: int = 0
@@ -39,6 +42,10 @@ func setup(p_course: CourseData, p_surface: HeightmapSurface) -> void:
 	course = p_course
 	surface = p_surface
 	_material = _build_material()
+	var ao: Image = course.ambient_occlusion
+	if ao != null and ao.get_format() == Image.FORMAT_L8 \
+			and ao.get_size() == Vector2i(surface.size.x, surface.size.y):
+		_occlusion = ao.get_data()
 	var size: Vector2i = Vector2i(surface.size.x, surface.size.y)
 	_chunks_x = maxi(1, ceili(float(size.x - 1) / float(CHUNK_VERTS - 1)))
 	_chunks_z = maxi(1, ceili(float(size.y - 1) / float(CHUNK_VERTS - 1)))
@@ -393,6 +400,14 @@ func _build_chunk(key: Vector2i) -> void:
 	verts.resize(nx * nz)
 	normals.resize(nx * nz)
 	uvs.resize(nx * nz)
+	# The baked sky visibility rides in vertex colour rather than a texture:
+	# the terrain shader already binds 13 of WebGL2's 16 guaranteed units, and
+	# the occlusion lives on exactly this grid anyway. Absent, the mesh has no
+	# colour array and the shader reads Godot's default white — unoccluded.
+	var has_ao: bool = not _occlusion.is_empty()
+	var colors := PackedColorArray()
+	if has_ao:
+		colors.resize(nx * nz)
 
 	var min_y: float = INF
 	var max_y: float = -INF
@@ -425,6 +440,9 @@ func _build_chunk(key: Vector2i) -> void:
 			verts[idx] = Vector3(wx, y, wz)
 			normals[idx] = grid_normals[row + i]
 			uvs[idx] = Vector2(wx * inv_world_x, v)
+			if has_ao:
+				var sky: float = float(_occlusion[row + i]) / 255.0
+				colors[idx] = Color(sky, sky, sky)
 			min_y = minf(min_y, y)
 			max_y = maxf(max_y, y)
 
@@ -452,6 +470,8 @@ func _build_chunk(key: Vector2i) -> void:
 	arrays[Mesh.ARRAY_VERTEX] = verts
 	arrays[Mesh.ARRAY_NORMAL] = normals
 	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	if has_ao:
+		arrays[Mesh.ARRAY_COLOR] = colors
 	arrays[Mesh.ARRAY_INDEX] = indices
 
 	var mesh := ArrayMesh.new()

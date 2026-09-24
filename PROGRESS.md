@@ -1876,6 +1876,42 @@ every older file = calm) and the flight constant is in the physics signature. `T
 strengths' ranges, both sides across seeds and each staying on its own, one seed one weather,
 bit-identical ground runs, the flight drift's bounds, the setup/lobby round trip.
 
+### Gullies are shaded and shaded snow is blue (2026-09-24) · **done**
+
+Two terms ETR does not have, both in `terrain.gdshader`'s ambient, both marked DEVIATION.
+
+**Ambient occlusion baked from the heightmap.** `TerrainOcclusion.bake` marches eight azimuths out
+to 14 m from every other heightmap vertex (the source grid; ~2.6 s for `the_long_ride`, 3½ min for a
+full import) and keeps each horizon's sin² — the sky a cosine-weighted floor loses behind it —
+fading far occluders. Against the local relief, not the world, so the analytic base slope occludes
+nothing. The importer writes it next to the heightmap as `ambient_occlusion.res` (FORMAT_L8,
+compressed, 9.2 MB for all 44) and `CourseData.ambient_occlusion` points at it. `TerrainRenderer`
+hands it to the shader as **vertex colour**, not a texture — 13 of WebGL2's 16 units are taken, and
+it lives on exactly the chunk grid. It takes the ambient (`terrain_ao_strength`) and 35 % of it the
+sun (`terrain_ao_sun`, since the web has no shadow map and a clamped sunlit floor would otherwise
+show nothing). The trench gets the same horizon measure at fragment rate from four trail-map taps
+22 cm out (`trench_wall_ao`), which puts its shade at the foot of the wall under the lip rather than
+evenly over the floor. A course imported before this has no colour array and draws unoccluded.
+
+**Fake subsurface scattering on snow.** The ambient filter in `etr_illumination` is now per channel
+(`vec3 occlusion`; every other shader passes grey). Snow multiplies it by `snow_scatter_tint`
+(0.72, 0.89, 1.0 — red absorbed first, blue kept, since the ambient's blue sits at the clamp) by
+the largest of: how far its shadowed, shaped N·L has fallen under `snow_scatter_band` (0.35), its
+relief + trench occlusion (× 3), its carve depth (× 0.8). Inside the clamp, so a lit slope on the
+ceiling does not move. Measured, Mobile, 1280x720, against the same frames with every new term 0:
+
+| Region | before | after |
+|---|---|---|
+| Bumpy Ride, open lit snow | 234/244/255 | 233/244/255 |
+| Bumpy Ride, tree shadow | 188/211/253 | 160/195/245 |
+| Bumpy Ride, carve | 187/208/248 | 158/189/236 |
+| Penguins Can't Fly, shaded half-pipe wall | 142/160/194 | 124/140/170 |
+| Penguins Can't Fly, lit ice | 132/146/163 | 132/146/163 |
+
+Compatibility moves the same way (Bunny Hill, 3.9 % of the frame by more than two levels vs 5.3 %).
+`TestOcclusion`: flat and crest open, a V gully darker down its wall, the foot of a bank darker than
+its top, every course's image on its heightmap's grid. All the new uniforms at 0 are the old frame.
+
 ## Known gaps
 
 - **The near-field terrain mesh is too coarse for the trench to read as geometry.** Chunk

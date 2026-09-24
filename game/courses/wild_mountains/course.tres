@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_1qasf"]
+[ext_resource type="Image" path="res://courses/wild_mountains/ambient_occlusion.res" id="1_67obt"]
 [ext_resource type="Image" path="res://courses/wild_mountains/heightmap.res" id="2_67obt"]
 [ext_resource type="Texture2D" path="res://courses/wild_mountains/preview.png" id="3_1308g"]
 [ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_jv0ey"]
@@ -18,6 +19,7 @@ description = "Cleft mountains of ice and snow - bizarre and dangerous. If you l
 preview = ExtResource("3_1308g")
 heightmap = ExtResource("2_67obt")
 heightmap_size = Vector2i(199, 1999)
+ambient_occlusion = ExtResource("1_67obt")
 world_size = Vector2(100, 2000)
 height_scale = 15.0
 base_angle = 28.0

@@ -1,5 +1,6 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
+[ext_resource type="Image" path="res://courses/challenge_one/ambient_occlusion.res" id="1_71mrg"]
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_o8kmg"]
 [ext_resource type="Image" path="res://courses/challenge_one/heightmap.res" id="2_71mrg"]
 [ext_resource type="Texture2D" path="res://courses/challenge_one/preview.png" id="3_274xs"]
@@ -19,6 +20,7 @@ description = "A dangerous path along the mountains. Try to catch more than 60 h
 preview = ExtResource("3_274xs")
 heightmap = ExtResource("2_71mrg")
 heightmap_size = Vector2i(199, 1999)
+ambient_occlusion = ExtResource("1_71mrg")
 world_size = Vector2(100, 1500)
 height_scale = 20.0
 base_angle = 28.0

@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_8ab37"]
+[ext_resource type="Image" path="res://courses/slide_or_fly/ambient_occlusion.res" id="1_bxir8"]
 [ext_resource type="Image" path="res://courses/slide_or_fly/heightmap.res" id="2_bxir8"]
 [ext_resource type="Texture2D" path="res://courses/slide_or_fly/preview.png" id="3_1cjs7"]
 [ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_r0758"]
@@ -21,6 +22,7 @@ author = "Korora the Penguin"
 preview = ExtResource("3_1cjs7")
 heightmap = ExtResource("2_bxir8")
 heightmap_size = Vector2i(255, 1023)
+ambient_occlusion = ExtResource("1_bxir8")
 world_size = Vector2(128, 512)
 height_scale = 36.0
 base_angle = 20.0

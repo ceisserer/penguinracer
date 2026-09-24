@@ -1,5 +1,6 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
+[ext_resource type="Image" path="res://courses/hippo_run/ambient_occlusion.res" id="1_am21u"]
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_uey31"]
 [ext_resource type="Image" path="res://courses/hippo_run/heightmap.res" id="2_am21u"]
 [ext_resource type="Texture2D" path="res://courses/hippo_run/preview.png" id="3_nkbb8"]
@@ -18,6 +19,7 @@ description = "The author says: This is a fast course that makes you think. Ther
 preview = ExtResource("3_nkbb8")
 heightmap = ExtResource("2_am21u")
 heightmap_size = Vector2i(99, 6999)
+ambient_occlusion = ExtResource("1_am21u")
 world_size = Vector2(30, 3500)
 height_scale = 13.5
 splat_maps = Array[Texture2D]([ExtResource("5_ui3nr")])

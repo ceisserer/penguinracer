@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/tuxracer_sunny.tres" id="1_hlgya"]
+[ext_resource type="Image" path="res://courses/frozen_river/ambient_occlusion.res" id="1_kspa1"]
 [ext_resource type="Image" path="res://courses/frozen_river/heightmap.res" id="2_kspa1"]
 [ext_resource type="Texture2D" path="res://courses/frozen_river/preview.png" id="3_76u85"]
 [ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_lwbwl"]
@@ -18,6 +19,7 @@ description = "Keep your speed down to collect herring. If you rush you will hit
 preview = ExtResource("3_76u85")
 heightmap = ExtResource("2_kspa1")
 heightmap_size = Vector2i(199, 1599)
+ambient_occlusion = ExtResource("1_kspa1")
 world_size = Vector2(100, 800)
 height_scale = 18.0
 base_angle = 32.0

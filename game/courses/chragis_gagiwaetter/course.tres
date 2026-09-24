@@ -1,5 +1,6 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
+[ext_resource type="Image" path="res://courses/chragis_gagiwaetter/ambient_occlusion.res" id="1_qsr1y"]
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_ral1i"]
 [ext_resource type="Image" path="res://courses/chragis_gagiwaetter/heightmap.res" id="2_qsr1y"]
 [ext_resource type="Texture2D" path="res://courses/chragis_gagiwaetter/preview.png" id="3_ae8sq"]
@@ -18,6 +19,7 @@ description = "The author says: a wicked course, wicked, wicked and very wicked 
 preview = ExtResource("3_ae8sq")
 heightmap = ExtResource("2_qsr1y")
 heightmap_size = Vector2i(399, 3999)
+ambient_occlusion = ExtResource("1_qsr1y")
 world_size = Vector2(100, 2500)
 height_scale = 20.0
 base_angle = 28.0

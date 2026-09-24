@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_i7ujj"]
+[ext_resource type="Image" path="res://courses/comepeces/ambient_occlusion.res" id="1_mfkrn"]
 [ext_resource type="Image" path="res://courses/comepeces/heightmap.res" id="2_mfkrn"]
 [ext_resource type="Texture2D" path="res://courses/comepeces/preview.png" id="3_u1awv"]
 [ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_vcdhn"]
@@ -21,6 +22,7 @@ description = "This course has many ways."
 preview = ExtResource("3_u1awv")
 heightmap = ExtResource("2_mfkrn")
 heightmap_size = Vector2i(199, 5999)
+ambient_occlusion = ExtResource("1_mfkrn")
 world_size = Vector2(100, 3000)
 height_scale = 5.0
 base_angle = 27.0

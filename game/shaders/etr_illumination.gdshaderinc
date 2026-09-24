@@ -62,8 +62,10 @@ uniform vec3 etr_ambient = vec3(0.591, 0.708, 0.980);
 // see [RenderBackend] — and this is then exactly the original, which has no
 // shadow map either.
 //
-// [param occlusion] scales the ambient only, for a surface that shades itself.
-// 1.0 is "nothing in the way".
-vec3 etr_illumination(vec3 sun, float shaped, float shadow, float occlusion) {
+// [param occlusion] filters the ambient only, for a surface that shades itself.
+// `vec3(1.0)` is "nothing in the way". Per channel because what reaches the
+// shaded side of snow is not less of the same light but bluer light — see the
+// terrain's `snow_scatter_tint`. Every other shader passes a grey.
+vec3 etr_illumination(vec3 sun, float shaped, float shadow, vec3 occlusion) {
 	return min(etr_ambient * occlusion + sun * shaped * shadow, vec3(1.0));
 }

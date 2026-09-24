@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_c88e7"]
+[ext_resource type="Image" path="res://courses/milos_castle/ambient_occlusion.res" id="1_wvf1w"]
 [ext_resource type="Image" path="res://courses/milos_castle/heightmap.res" id="2_wvf1w"]
 [ext_resource type="Texture2D" path="res://courses/milos_castle/preview.png" id="3_1yeji"]
 [ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_k5ggy"]
@@ -19,6 +20,7 @@ description = "The course starts out with raised icy paths that are difficult to
 preview = ExtResource("3_1yeji")
 heightmap = ExtResource("2_wvf1w")
 heightmap_size = Vector2i(79, 1199)
+ambient_occlusion = ExtResource("1_wvf1w")
 world_size = Vector2(54, 800)
 height_scale = 15.0
 base_angle = 23.0

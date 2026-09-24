@@ -99,5 +99,5 @@ void fragment() {
 // already doing the "catches light from above" job the wrap would do here.
 void light() {
 	DIFFUSE_LIGHT += etr_illumination(LIGHT_COLOR / PI,
-		max(dot(NORMAL, LIGHT), 0.0), ATTENUATION, 1.0);
+		max(dot(NORMAL, LIGHT), 0.0), ATTENUATION, vec3(1.0));
 }

@@ -23,6 +23,11 @@ extends Resource
 ## object-placement resolutions, which the original locked together at ~1 m.
 @export var heightmap: Image
 @export var heightmap_size: Vector2i = Vector2i.ZERO
+## FORMAT_L8, one byte per heightmap vertex: how much of the sky the relief
+## leaves that vertex, 255 = all of it. Baked by the importer from the heightmap
+## ([TerrainOcclusion]) and drawn by the terrain as vertex colour. Null draws
+## the terrain unoccluded, which is ETR's look.
+@export var ambient_occlusion: Image
 ## Course extent in metres (width along +X, length along -Z).
 @export var world_size: Vector2 = Vector2(90.0, 520.0)
 ## Peak-to-trough local relief in metres, for reference and re-import.

@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_0ryd2"]
+[ext_resource type="Image" path="res://courses/touristic_ride/ambient_occlusion.res" id="1_6pe7p"]
 [ext_resource type="Image" path="res://courses/touristic_ride/heightmap.res" id="2_6pe7p"]
 [ext_resource type="Texture2D" path="res://courses/touristic_ride/preview.png" id="3_q4j28"]
 [ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_7i0gk"]
@@ -21,6 +22,7 @@ author = "BlankHare"
 preview = ExtResource("3_q4j28")
 heightmap = ExtResource("2_6pe7p")
 heightmap_size = Vector2i(199, 1999)
+ambient_occlusion = ExtResource("1_6pe7p")
 world_size = Vector2(75, 1200)
 height_scale = 12.0
 splat_maps = Array[Texture2D]([ExtResource("5_0h5mf"), ExtResource("6_rmenx")])

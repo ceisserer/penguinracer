@@ -1,5 +1,6 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
+[ext_resource type="Image" path="res://courses/twists/ambient_occlusion.res" id="1_m35st"]
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_oxqyc"]
 [ext_resource type="Image" path="res://courses/twists/heightmap.res" id="1_xi21h"]
 [ext_resource type="Texture2D" path="res://courses/twists/preview.png" id="2_oxqyc"]
@@ -16,6 +17,7 @@ author = "John Michael Mulesa"
 preview = ExtResource("2_oxqyc")
 heightmap = ExtResource("1_xi21h")
 heightmap_size = Vector2i(399, 3999)
+ambient_occlusion = ExtResource("1_m35st")
 world_size = Vector2(200, 2000)
 splat_maps = Array[Texture2D]([ExtResource("4_hdhqy")])
 splat_size = Vector2i(399, 3999)

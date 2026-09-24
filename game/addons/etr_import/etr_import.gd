@@ -881,6 +881,12 @@ func import_course(group: String, dir_name: String,
 		up = bilateral_smooth(up, uw, uh, scale / 255.0)
 		var himg: Image = heights_to_image(up, uw, uh)
 		ResourceSaver.save(himg, out_dir.path_join("heightmap.res"))
+		# From the smoothed relief the terrain actually draws, so the
+		# occlusion and the banks it sits under agree.
+		var ao: Image = TerrainOcclusion.bake(up, uw, uh, world, HEIGHT_UPSAMPLE)
+		# Compressed: most of a course is open sky, one repeated byte.
+		ResourceSaver.save(ao, out_dir.path_join("ambient_occlusion.res"),
+			ResourceSaver.FLAG_COMPRESS)
 
 		var terr: Image = load_external_image(src.path_join("terrain.png"))
 		if terr != null:
@@ -946,6 +952,9 @@ func import_course(group: String, dir_name: String,
 	var hres_path: String = out_dir.path_join("heightmap.res")
 	if ResourceLoader.exists(hres_path):
 		course.heightmap = load(hres_path)
+	var ao_path: String = out_dir.path_join("ambient_occlusion.res")
+	if ResourceLoader.exists(ao_path):
+		course.ambient_occlusion = load(ao_path)
 	var preview_path: String = out_dir.path_join("preview.png")
 	if ResourceLoader.exists(preview_path):
 		course.preview = load(preview_path)

@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_0r7ha"]
+[ext_resource type="Image" path="res://courses/penguins_cant_fly/ambient_occlusion.res" id="1_jcmc1"]
 [ext_resource type="Image" path="res://courses/penguins_cant_fly/heightmap.res" id="2_jcmc1"]
 [ext_resource type="Texture2D" path="res://courses/penguins_cant_fly/preview.png" id="3_e0bfc"]
 [ext_resource type="Script" path="res://scripts/course/course_data.gd" id="4_hcct7"]
@@ -19,6 +20,7 @@ description = "A fast and stupid course but lot of people like it."
 preview = ExtResource("3_e0bfc")
 heightmap = ExtResource("2_jcmc1")
 heightmap_size = Vector2i(119, 3599)
+ambient_occlusion = ExtResource("1_jcmc1")
 world_size = Vector2(60, 2500)
 height_scale = 10.0
 base_angle = 30.0

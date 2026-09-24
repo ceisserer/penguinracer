@@ -1,5 +1,6 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
+[ext_resource type="Image" path="res://courses/herrings_half_pipe/ambient_occlusion.res" id="1_18pes"]
 [ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="1_fu2eh"]
 [ext_resource type="Image" path="res://courses/herrings_half_pipe/heightmap.res" id="2_18pes"]
 [ext_resource type="Texture2D" path="res://courses/herrings_half_pipe/preview.png" id="3_1pt0k"]
@@ -17,6 +18,7 @@ author = "David Furodet"
 preview = ExtResource("3_1pt0k")
 heightmap = ExtResource("2_18pes")
 heightmap_size = Vector2i(119, 239)
+ambient_occlusion = ExtResource("1_18pes")
 world_size = Vector2(25, 800)
 height_scale = 50.0
 base_angle = 35.0
