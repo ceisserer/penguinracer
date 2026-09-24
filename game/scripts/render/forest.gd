@@ -26,9 +26,13 @@ class_name Forest
 extends Node3D
 
 ## Where each mesh level hands over to the next, in metres; the impostor takes
-## everything past the last. Inside the 40 m of fog-free view a racer sees the
-## full mesh, and the impostor starts about half way into the fog.
-const LOD_ENDS: PackedFloat32Array = [22.0, 45.0, 75.0]
+## everything past the last. A hand-over is a change of shape — fins and tiers
+## drop out, the trunk goes — so it has to happen where a tree is too small
+## and too fogged to show it: at 22 / 45 / 75 m a tree morphed ~140 px tall
+## right ahead of the racer. At 50 m a 6 m tree is ~60 px at 720p and 70°, at
+## 90 m ~35 px and half fogged (fog runs 40–150 m), and the impostor starts
+## where the fog has taken most of it.
+const LOD_ENDS: PackedFloat32Array = [50.0, 90.0, 130.0]
 ## Width of each hand-over, in metres, centred on the boundary: about a fifth
 ## of a second at racing speed. Wider reads as a tree going grainy, not as a
 ## smoother change.

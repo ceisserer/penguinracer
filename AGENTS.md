@@ -422,6 +422,10 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
 - **An impostor has to show the level it replaces**, not the finest one. The bare tree baked from
   LOD 0 (four times LOD 2's twig cards) was a dark blob replacing an airy tree at 75 m; it bakes
   from LOD 2 (`Forest.impostor_source_level`), with its limbs widened to what LOD 2 draws there.
+- **A hand-over is a change of shape, so put it where it cannot be seen.** The levels differ in
+  fins, tiers and trunk, not just density; at 22 / 45 / 75 m a tree ~140 px tall morphed right ahead
+  of the racer. `Forest.LOD_ENDS` is 50 / 90 / 130 m — small and fogged — for ~0–5 % frame rate.
+  The bare impostor's limbs are widened for the last edge: re-bake it after moving that one.
 - **Per-object LOD cannot be a Godot visibility range on a `MultiMesh`**: the range switches the
   whole batch. `Forest` picks the level per tree in the vertex shader (out of band → collapse to a
   point) and uses node visibility ranges only to cull whole cells, with slack for the cell's reach.
@@ -682,7 +686,7 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
 - **Conifers are 3D trees**, where ETR draws the same two crossed quads for every tree.
   `ConiferMesh` builds three levels from `snowy_tree1.png`, unchanged — radial fins carrying the
   picture's halves for the silhouette, drooping whorl cards for depth, a trunk at LOD 0 — and
-  `Forest` hands them over at 22 / 45 / 75 m with a 4 m Bayer-dithered cross-fade per tree, then
+  `Forest` hands them over at 50 / 90 / 130 m with a 4 m Bayer-dithered cross-fade per tree, then
   to a hemi-octahedral impostor (64 baked views, three blended, lit from a baked normal atlas).
   Upward faces are whitened in the shader by `[game] snowfall`; the tree sways with the watched
   racer's `WindField` and the snowfall. Same markers, same scale, same collision cylinder. The

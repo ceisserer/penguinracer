@@ -2199,3 +2199,19 @@ against those); nothing has been checked in a real browser, only under desktop C
 - **`[starttex]`, `[tracktex]` and `[stoptex]` are still unported.** They are the original's
   trackmark decal atlas indices, and the GPU trail map replaced the thing they index. Nothing
   needs them; listed so the gap in `terrains.lst` coverage is deliberate.
+
+---
+
+### Trees stopped morphing in front of the racer (2026-09-24) · **done**
+
+The forest's level hand-overs (`Forest.LOD_ENDS`) were at 22 / 45 / 75 m. A hand-over there is a
+visible change of shape — LOD 0 → 1 drops two fins, four whorl tiers and the trunk — on a tree
+still ~140 px tall a second or so ahead of the racer. They are now at **50 / 90 / 130 m**: a 6 m
+tree is ~60 px at the first (720p, 70°), ~35 px and half fogged at the second, and the impostor
+takes over where the 40–150 m fog has most of it. The 4 m dithered cross-fade is unchanged. The
+bare-tree impostor was re-baked, since its limbs are widened to what LOD 2 draws at the last edge.
+
+Frame rate, 1280x720, the container's integrated Radeon, vsync off, `paddle`, median of the
+`--print-fps` readings over 1500 frames, before → after: Bunny Hill 91 → 91 (Mobile), 159 → 157
+(Compatibility); `bronze_set` 103 → 98, 136 → 131. Within run-to-run noise to about 5 %. Not yet
+looked at in a browser.

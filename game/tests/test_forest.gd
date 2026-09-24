@@ -113,7 +113,8 @@ static func _bands_tile_the_distance(t: TestCase) -> void:
 				"level %d is wider than a hand-over" % (level + 1))
 	# The shader's fade: at a boundary both neighbours half-draw the tree, and
 	# anywhere the pair's coverage adds up to one.
-	for d: float in [10.0, 20.0, 22.0, 24.9, 30.0]:
+	var edge: float = Forest.LOD_ENDS[0]
+	for d: float in [edge - 12.0, edge - 2.0, edge, edge + 1.9, edge + 8.0]:
 		var out_near: float = _fade(d, Forest.band(0, 4)).y
 		var in_far: float = _fade(d, Forest.band(1, 4)).x
 		t.ok(absf(out_near - in_far) < 1e-6,
