@@ -33,3 +33,4 @@ id = &"tree_barren2"
 mesh = SubResource("ArrayMesh_vr4y1")
 material = SubResource("ShaderMaterial_k1gr5")
 collidable = true
+bare = true

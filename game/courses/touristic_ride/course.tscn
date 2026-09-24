@@ -158,6 +158,7 @@ id = &"tree_barren"
 mesh = SubResource("ArrayMesh_w2kcw")
 material = SubResource("ShaderMaterial_vqipt")
 collidable = true
+bare = true
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_x1vcr"]
 render_priority = 0
@@ -218,6 +219,7 @@ id = &"tree_barren2"
 mesh = SubResource("ArrayMesh_vr4y1")
 material = SubResource("ShaderMaterial_k1gr5")
 collidable = true
+bare = true
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_nbulg"]
 render_priority = 0

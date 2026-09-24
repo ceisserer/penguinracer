@@ -24,7 +24,8 @@ var _item_instances: Dictionary[int, Array] = {}
 ## lookup rather than a string format and a `get_node_or_null` down the scene
 ## tree — which a restart on a fish-heavy course paid once per collected item.
 var _batches: Dictionary[String, MultiMeshInstance3D] = {}
-## The conifer types, drawn by a [Forest] each instead of a batch above.
+## The conifer and bare-tree types, drawn by a [Forest] each instead of a
+## batch above.
 var _forests: Array[Forest] = []
 ## The transform each of those slots was built with, so a restart can put a
 ## collected herring back. Kept here rather than re-read off the MultiMesh
@@ -74,7 +75,7 @@ func build_runtime() -> void:
 				var idx: int = items.add(p + Vector3(0.0, height * 0.5, 0.0), diam, height, 0)
 				_item_instances[idx] = [type_name, transforms.size() - 1]
 				_item_transforms[idx] = transforms[transforms.size() - 1]
-		if prefab != null and prefab.conifer and not transforms.is_empty() \
+		if prefab != null and (prefab.conifer or prefab.bare) and not transforms.is_empty() \
 				and not Engine.is_editor_hint():
 			_add_forest(type_name, prefab, transforms)
 		elif prefab != null and prefab.mesh != null and not transforms.is_empty():
@@ -128,15 +129,16 @@ func _add_batch(type_name: String, prefab: ObjectPrefab, transforms: Array[Trans
 	add_child(mmi)
 	_batches[type_name] = mmi
 
-## A conifer type as a [Forest]: the same transforms the crossed quads would
-## have had, the prefab's own texture on a 3D tree.
+## A conifer or bare-tree type as a [Forest]: the same transforms the crossed
+## quads would have had, drawn as a 3D tree.
 func _add_forest(type_name: String, prefab: ObjectPrefab, transforms: Array[Transform3D]) -> void:
 	var mat: ShaderMaterial = prefab.material as ShaderMaterial
 	var texture: Texture2D = mat.get_shader_parameter("albedo_texture") if mat != null else null
 	var forest := Forest.new()
 	forest.name = "Forest_%s" % type_name
 	add_child(forest)
-	forest.build(texture, transforms)
+	forest.build(texture, transforms,
+		Forest.Species.CONIFER if prefab.conifer else Forest.Species.BARE)
 	forest.set_shadow_casting(_shadow_setting())
 	_forests.push_back(forest)
 

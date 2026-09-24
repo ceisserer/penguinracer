@@ -1,5 +1,5 @@
-## The 3D conifer: its three mesh levels, the impostor's view mapping, and how
-## [Forest] cuts a course's trees into bands and cells.
+## The 3D conifer and bare tree: their mesh levels, the impostor's view
+## mapping, and how [Forest] cuts a course's trees into bands and cells.
 ##
 ## Nothing here renders — the suite is headless — so each check is on what feeds
 ## the GPU: the mesh arrays, the directions the atlas was baked from, the bands
@@ -16,6 +16,11 @@ static func run(t: TestCase) -> void:
 	_cells_hold_every_tree_once(t)
 	_conifers_are_marked(t)
 	_the_atlases_are_baked(t)
+	_bare_levels_get_cheaper(t)
+	_the_bare_tree_fills_the_unit_box(t)
+	_only_limbs_are_widened(t)
+	_the_bare_texture(t)
+	_bare_trees_are_marked(t)
 
 static func _levels_get_cheaper(t: TestCase) -> void:
 	t.begin("forest/levels of detail")
@@ -167,6 +172,139 @@ static func _the_atlases_are_baked(t: TestCase) -> void:
 	t.ok(Forest.has_impostor(), "both atlases are in the project")
 	var size: int = ConiferMesh.ATLAS_GRID * ConiferMesh.ATLAS_TILE
 	for path: String in [ConiferMesh.ALBEDO_ATLAS, ConiferMesh.NORMAL_ATLAS]:
+		var tex: Texture2D = load(path)
+		t.ok(tex != null and tex.get_width() == size and tex.get_height() == size,
+			"%s is %d² — the grid the shader assumes" % [path.get_file(), size])
+
+static func _bare_levels_get_cheaper(t: TestCase) -> void:
+	t.begin("forest/bare tree levels")
+	var last: int = 1 << 30
+	for level: int in BareTreeMesh.LODS:
+		var tris: int = BareTreeMesh.triangle_count(level)
+		t.ok(tris > 0, "LOD %d has geometry (%d triangles)" % [level, tris])
+		t.ok(tris * 3 / 2 <= last, "LOD %d costs at most two thirds of the one before (%d)" % [level, tris])
+		last = tris
+	t.ok(BareTreeMesh.LODS == ConiferMesh.LODS,
+		"as many levels as the conifer, so the two share Forest's bands")
+	# Every level draws the same skeleton; only the finest limbs drop out.
+	var orders := {}
+	for b: Dictionary in BareTreeMesh.skeleton():
+		orders[b["order"]] = orders.get(b["order"], 0) + 1
+	t.ok(orders.get(0, 0) == 1, "one trunk")
+	t.ok(orders.get(3, 0) > orders.get(2, 0) and orders.get(2, 0) > orders.get(1, 0),
+		"each order of branch outnumbers the one before (%s)" % orders)
+	var again: Array[Dictionary] = BareTreeMesh._grow()
+	var first: Dictionary = BareTreeMesh.skeleton()[-1]
+	t.ok((again[-1]["points"] as PackedVector3Array) == (first["points"] as PackedVector3Array),
+		"the skeleton is the same every time it is grown")
+
+## As for the conifer: the per-instance scale assumes ±0.5 across and 0..1 up.
+static func _the_bare_tree_fills_the_unit_box(t: TestCase) -> void:
+	t.begin("forest/bare tree unit box")
+	for level: int in BareTreeMesh.LODS:
+		var arrays: Array = BareTreeMesh.mesh(level).surface_get_arrays(0)
+		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var worst_r: float = 0.0
+		var lo: float = 1.0
+		var hi: float = 0.0
+		for v: Vector3 in verts:
+			worst_r = maxf(worst_r, Vector2(v.x, v.z).length())
+			lo = minf(lo, v.y)
+			hi = maxf(hi, v.y)
+		t.ok(worst_r <= 0.5 + 1e-4, "LOD %d stays inside the collision radius (%.3f)" % [level, worst_r])
+		t.ok(lo >= -0.05 and hi <= 1.0 + 1e-4, "LOD %d stands 0..1 (%.3f..%.3f)" % [level, lo, hi])
+		# And fills it: the picture's crown is nearly the full width.
+		t.ok(worst_r > 0.4 and hi > 0.85, "LOD %d reaches the crown's edge (r %.3f, top %.3f)" % [level, worst_r, hi])
+		t.ok((arrays[Mesh.ARRAY_COLOR] as PackedColorArray).size() == verts.size(),
+			"LOD %d carries its shader flags" % level)
+
+## `COLOR.b` is what `conifer.gdshader` widens by. A card with a radius code
+## would be pushed off its plane; a conifer vertex with one would swell.
+static func _only_limbs_are_widened(t: TestCase) -> void:
+	t.begin("forest/limb widening")
+	var arrays: Array = BareTreeMesh.mesh(0).surface_get_arrays(0)
+	var colors: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
+	var uvs: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
+	var tubes: int = 0
+	var wrong: int = 0
+	for i: int in colors.size():
+		var on_bark: bool = uvs[i].x >= BareTreeMesh.BARK_U
+		if colors[i].b > 0.0:
+			tubes += 1
+		if on_bark != (colors[i].b > 0.0):
+			wrong += 1
+	t.ok(tubes > 0, "the limbs code a radius (%d vertices)" % tubes)
+	t.ok(wrong == 0, "exactly the bark-textured vertices do (%d disagree)" % wrong)
+	var widest: float = 0.0
+	for c: Color in colors:
+		widest = maxf(widest, c.b)
+	t.ok(widest < 1.0, "the trunk's code fits the channel (%.3f)" % widest)
+	var conifer: PackedColorArray = ConiferMesh.mesh(0).surface_get_arrays(0)[Mesh.ARRAY_COLOR]
+	var coded: int = 0
+	for c: Color in conifer:
+		if c.b > 0.0:
+			coded += 1
+	t.ok(coded == 0, "no conifer vertex codes one (%d)" % coded)
+	var code: String = (load(Forest.MESH_SHADER) as Shader).code
+	t.ok(code.contains("const float RADIUS_CODE_SCALE = %.1f;" % BareTreeMesh.RADIUS_CODE_SCALE),
+		"the shader decodes it with the mesh's scale")
+
+static func _the_bare_texture(t: TestCase) -> void:
+	t.begin("forest/bare tree texture")
+	var img: Image = BareTreeMesh.make_texture()
+	var s: int = BareTreeMesh.TEXTURE_SIZE
+	t.ok(img.get_width() == s and img.get_height() == s, "%d²" % s)
+	var bark_x: int = roundi(s * BareTreeMesh.BARK_U)
+	var holes: int = 0
+	for y: int in range(0, s, 7):
+		for x: int in range(bark_x, s, 5):
+			if img.get_pixel(x, y).a < 1.0:
+				holes += 1
+	t.ok(holes == 0, "the bark strip is opaque (%d holes)" % holes)
+	# Each spray cell has twigs in it and is mostly air.
+	var cell := Vector2i(roundi(s * BareTreeMesh.BARK_U * 0.5), s / 2)
+	for v: int in 4:
+		var o := Vector2i((v % 2) * cell.x, (v / 2) * cell.y)
+		var solid: int = 0
+		var n: int = 0
+		for y: int in range(o.y, o.y + cell.y, 2):
+			for x: int in range(o.x, o.x + cell.x, 2):
+				n += 1
+				if img.get_pixel(x, y).a > 0.5:
+					solid += 1
+		var f: float = float(solid) / float(n)
+		t.ok(f > 0.01 and f < 0.35, "spray %d covers %.1f %% of its cell" % [v, f * 100.0])
+	t.ok(BareTreeMesh.texture().get_image().has_mipmaps(), "the runtime texture has its mips")
+
+static func _bare_trees_are_marked(t: TestCase) -> void:
+	t.begin("forest/which prefabs are bare")
+	for id: String in ["tree_barren", "tree_barren2"]:
+		var p: ObjectPrefab = load("res://resources/objects/%s.tres" % id)
+		t.ok(p != null and p.bare and not p.conifer, "%s is a bare tree" % id)
+	for id: String in ["tree", "tree1", "shrub", "herring"]:
+		var p: ObjectPrefab = load("res://resources/objects/%s.tres" % id)
+		t.ok(p != null and not p.bare, "%s is not" % id)
+	# Every course's embedded copies, which are the ones that render. Read as
+	# text: instancing 44 scenes of thousands of markers would be most of the
+	# suite's run time.
+	var catalog: CourseCatalog = CourseCatalog.load_default()
+	var unmarked: PackedStringArray = []
+	var seen: int = 0
+	for entry: CourseListing in catalog.entries:
+		var text: String = FileAccess.get_file_as_string(entry.scene_path)
+		for id: String in ["tree_barren", "tree_barren2"]:
+			var at: int = text.find('id = &"%s"\n' % id)
+			if at < 0:
+				continue
+			seen += 1
+			var block: String = text.substr(at, text.find("\n\n", at) - at)
+			if not block.contains("\nbare = true"):
+				unmarked.push_back("%s/%s" % [entry.dir, id])
+	t.ok(seen > 40, "the courses embed bare-tree prefabs (%d)" % seen)
+	t.ok(unmarked.is_empty(), "every course draws its bare trees as bare trees %s" % unmarked)
+	t.ok(Forest.has_impostor(Forest.Species.BARE), "the bare tree's atlases are in the project")
+	var size: int = ConiferMesh.ATLAS_GRID * ConiferMesh.ATLAS_TILE
+	for path: String in Forest.atlases(Forest.Species.BARE):
 		var tex: Texture2D = load(path)
 		t.ok(tex != null and tex.get_width() == size and tex.get_height() == size,
 			"%s is %d² — the grid the shader assumes" % [path.get_file(), size])

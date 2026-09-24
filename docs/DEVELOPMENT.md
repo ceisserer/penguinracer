@@ -443,18 +443,22 @@ python3 tools/linstats.py shot.png 0.25 200 550 500 700     # pre-tonemap linear
                                                             # rendered with tonemap_exposure = 0.25
 ```
 
-### The conifer impostor
+### The tree impostors
 
 The far conifers are cards showing one of 64 pre-rendered views of `ConiferMesh` LOD 0, stored in
-`game/assets/trees/conifer_{albedo,normal}.png` (1024², committed). Any change to the tree's shape
-in `ConiferMesh` needs a re-bake, or the far forest shows the old tree:
+`game/assets/trees/conifer_{albedo,normal}.png` (1024², committed); the far bare trees likewise
+show `BareTreeMesh` LOD 2 (the level they take over from), in `bare_{albedo,normal}.png`. Any
+change to a tree's shape needs a re-bake of that species, or the far forest shows the old tree:
 
 ```bash
-tools/bake_conifer_impostor.sh     # real GPU when present, llvmpipe otherwise; ~2 s
+tools/bake_tree_impostors.sh           # both; real GPU when present, llvmpipe otherwise
+tools/bake_tree_impostors.sh conifer   # ~2 s
+tools/bake_tree_impostors.sh bare      # ~6 s: drawn at 2x and averaged down
 ```
 
-It bakes under Compatibility on purpose (see the trap list) and prints a probe of the normal atlas
-near the pole, which should unpack to roughly +Y.
+It bakes under Compatibility on purpose (see the trap list) and prints a probe of the conifer's
+normal atlas near the pole, which should unpack to roughly +Y. The bare tree's twig/bark texture
+is not baked: `BareTreeMesh.texture()` draws it at load (~70 ms).
 
 ## Web
 

@@ -41,6 +41,18 @@ group_uniforms Snow;
 uniform vec3 snow_albedo : source_color = vec3(0.93, 0.95, 0.98);
 uniform float snow_calm = 0.3;
 uniform float snow_heavy = 0.7;
+// Lowers how far up a face has to point to hold snow. 0 for the conifer, whose
+// whorls are flat; the bare tree's limbs are round, and at 0 only a sliver
+// along the very top of each would whiten.
+uniform float snow_facing_offset = 0.0;
+
+group_uniforms Surface;
+// How much a cutout's alpha is raised per mip level it is sampled at. A twig a
+// texel wide averages to half the alpha one level down and a quarter the next,
+// and the scissor then deletes it — a crown of fine twigs thins out to nothing
+// a few metres away. 1 restores a line's coverage exactly; 0 (the conifer,
+// whose picture is solid) leaves alpha alone.
+uniform float alpha_mip_boost = 0.0;
 
 // Fade-in and fade-out factors for this tree, 0..1 each. The tree is drawn
 // where `fade.y <= dither < fade.x`.
@@ -100,10 +112,20 @@ vec3 conifer_snow(vec3 albedo, vec3 n_world) {
 	// Never below 0.6: a fin's crown normal has y ≈ 0.52, and a threshold under
 	// it snows the whole silhouette, which reads as a white cone, not a loaded
 	// tree.
-	float lo = mix(0.8, 0.6, snow_level);
-	float hi = mix(0.97, 0.88, snow_level);
+	float lo = mix(0.8, 0.6, snow_level) - snow_facing_offset;
+	float hi = mix(0.97, 0.88, snow_level) - snow_facing_offset;
 	float facing = smoothstep(lo, hi, n_world.y);
 	float lum = dot(albedo, vec3(0.3, 0.59, 0.11));
 	float cover = mix(snow_calm, snow_heavy, snow_level) * facing * (0.5 + 0.5 * sqrt(lum));
 	return mix(albedo, snow_albedo, clamp(cover, 0.0, 1.0));
+}
+
+// `alpha` sampled at `uv` from a texture of `size` texels, raised by
+// `alpha_mip_boost` per mip level the sample fell on. The level is worked out
+// from the UV derivatives rather than `textureQueryLod`, which WebGL2 lacks.
+float conifer_alpha(float alpha, vec2 uv, vec2 size) {
+	vec2 dx = dFdx(uv * size);
+	vec2 dy = dFdy(uv * size);
+	float lod = max(0.5 * log2(max(dot(dx, dx), dot(dy, dy))), 0.0);
+	return min(alpha * exp2(min(lod, 3.0) * alpha_mip_boost), 1.0);
 }

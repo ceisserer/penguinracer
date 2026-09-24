@@ -9,8 +9,9 @@
 // and it is lit from a baked normal atlas, so it shades as the mesh does and
 // takes the same snow.
 //
-// Baked by `tools/bake_conifer_impostor.sh` from LOD 0; re-bake whenever
-// `ConiferMesh` changes shape.
+// Baked by `tools/bake_tree_impostors.sh` from LOD 0; re-bake whenever
+// `ConiferMesh` changes shape. The bare tree (`BareTreeMesh`) draws through
+// this same shader, with its own two atlases.
 shader_type spatial;
 render_mode cull_disabled, depth_draw_opaque, diffuse_burley, specular_schlick_ggx,
 	ambient_light_disabled;
@@ -105,6 +106,7 @@ void fragment() {
 	vec4 tex = texture(albedo_atlas, ua) * frame_w.x
 		+ texture(albedo_atlas, ub) * frame_w.y
 		+ texture(albedo_atlas, uc) * frame_w.z;
+	tex.a = conifer_alpha(tex.a, ua, vec2(textureSize(albedo_atlas, 0)));
 	vec3 n_obj = (texture(normal_atlas, ua).rgb * frame_w.x
 		+ texture(normal_atlas, ub).rgb * frame_w.y
 		+ texture(normal_atlas, uc).rgb * frame_w.z) * 2.0 - 1.0;

@@ -20,3 +20,6 @@ extends Resource
 ## quads, which stay the fallback and the editor's picture. Set by the importer
 ## for the one conifer picture ETR ships, `snowy_tree1.png`.
 @export var conifer: bool = false
+## Drawn as a 3D leafless tree ([BareTreeMesh]) by [Forest], likewise. Set by
+## the importer for ETR's bare-tree picture, `tree_barren2.png`.
+@export var bare: bool = false

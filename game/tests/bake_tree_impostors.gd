@@ -1,10 +1,13 @@
-## Bakes the conifer impostor's two atlases from [ConiferMesh] LOD 0. Not a test.
+## Bakes the tree impostors' two atlases each, from LOD 0 of [ConiferMesh] and
+## [BareTreeMesh]. Not a test.
 ##
-##     tools/bake_conifer_impostor.sh
+##     tools/bake_tree_impostors.sh [conifer|bare]
 ##
 ## Needs a real renderer — `--headless` draws nothing — which is what the
-## wrapper arranges. Re-run whenever [ConiferMesh] changes shape; the atlases
-## are committed, so the game and the web build never bake anything.
+## wrapper arranges. Re-run for a species whenever its mesh changes shape; the
+## atlases are committed, so the game and the web build never bake anything.
+## Both species share [ConiferMesh]'s grid, tile, bounding sphere and view
+## basis, which is what lets them share `conifer_impostor.gdshader`.
 ##
 ## All 64 views are drawn in one frame: an orthographic camera looks down −Z at
 ## a grid of copies of the tree, each turned by the inverse of
@@ -21,8 +24,27 @@ func _initialize() -> void:
 	_run.call_deferred()
 
 func _run() -> void:
+	var which: String = "all"
+	var args: PackedStringArray = OS.get_cmdline_user_args()
+	if not args.is_empty():
+		which = args[0]
+	var ok: bool = true
+	if which == "all" or which == "conifer":
+		ok = await _bake(Forest.Species.CONIFER) and ok
+	if which == "all" or which == "bare":
+		ok = await _bake(Forest.Species.BARE) and ok
+	quit(0 if ok else 1)
+
+## The bare tree is drawn at twice the atlas size and averaged down, since its
+## limbs are a pixel or two wide in a tile and aliased they break into dashes.
+## The conifer is a solid silhouette and is drawn at size, as it always was.
+const BARE_SUPERSAMPLE := 2
+
+func _bake(species: Forest.Species) -> bool:
+	var bare: bool = species == Forest.Species.BARE
+	var ss: int = BARE_SUPERSAMPLE if bare else 1
 	var grid: int = ConiferMesh.ATLAS_GRID
-	var size: int = grid * ConiferMesh.ATLAS_TILE
+	var size: int = grid * ConiferMesh.ATLAS_TILE * ss
 	var r: float = ConiferMesh.IMPOSTOR_RADIUS
 
 	var vp := SubViewport.new()
@@ -54,8 +76,13 @@ func _run() -> void:
 
 	var mat := ShaderMaterial.new()
 	mat.shader = load(BAKE_SHADER)
-	mat.set_shader_parameter("albedo_texture", load(TREE_TEXTURE))
-	var tree: ArrayMesh = ConiferMesh.mesh(0)
+	mat.set_shader_parameter("albedo_texture",
+		BareTreeMesh.texture() if bare else load(TREE_TEXTURE))
+	if bare:
+		# A tree of the bare type's typical 4 m, where the impostor takes over.
+		mat.set_shader_parameter("min_radius",
+			Forest.BARE_MIN_RADIUS_PER_METRE * Forest.LOD_ENDS[-1] / 4.0)
+	var tree: ArrayMesh = Forest.level_mesh(species, Forest.impostor_source_level(species))
 	for j: int in grid:
 		for i: int in grid:
 			var d: Vector3 = ConiferMesh.frame_direction(i, j)
@@ -77,20 +104,46 @@ func _run() -> void:
 		await RenderingServer.frame_post_draw
 		var img: Image = vp.get_texture().get_image()
 		img.convert(Image.FORMAT_RGBA8)
-		var path: String = ConiferMesh.ALBEDO_ATLAS if mode == 0 else ConiferMesh.NORMAL_ATLAS
+		if ss > 1:
+			img = _downsample(img, ss)
+		var path: String = Forest.atlases(species)[mode]
 		var out: String = ProjectSettings.globalize_path(path)
 		DirAccess.make_dir_recursive_absolute(out.get_base_dir())
 		var err: Error = img.save_png(out)
 		print("baked %s (%dx%d): %s" % [path, img.get_width(), img.get_height(), error_string(err)])
 		ok = ok and err == OK
-		if mode == 1:
+		if mode == 1 and not bare:
 			# The tile nearest the pole looks mostly down on whorl tops, so its
 			# middle should pack to roughly +Y: (~0.5, >0.8, ~0.5). A green
 			# channel near 1 with red and blue near 0.2 means the target started
 			# encoding sRGB, and `conifer_bake.gdshader` has to follow.
 			var probe: Color = _probe_pole(img, grid)
 			print("pole tile normal, packed: %s (want ~0.5, >0.8, ~0.5)" % probe)
-	quit(0 if ok else 1)
+	vp.queue_free()
+	await process_frame
+	return ok
+
+## [param img] shrunk by [param factor], each texel the alpha-weighted mean of
+## its block — so the transparent background's black does not bleed into a
+## limb's edge, as a plain resize would — and alpha the plain mean, which is
+## the coverage.
+func _downsample(img: Image, factor: int) -> Image:
+	var w: int = img.get_width() / factor
+	var h: int = img.get_height() / factor
+	var out := Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
+	var n: float = float(factor * factor)
+	for y: int in h:
+		for x: int in w:
+			var rgb := Color(0, 0, 0, 0)
+			var a: float = 0.0
+			for dy: int in factor:
+				for dx: int in factor:
+					var p: Color = img.get_pixel(x * factor + dx, y * factor + dy)
+					rgb += Color(p.r * p.a, p.g * p.a, p.b * p.a, 0.0)
+					a += p.a
+			if a > 0.0:
+				out.set_pixel(x, y, Color(rgb.r / a, rgb.g / a, rgb.b / a, a / n))
+	return out
 
 ## The average opaque colour in the middle of the tile nearest the pole.
 func _probe_pole(img: Image, grid: int) -> Color:

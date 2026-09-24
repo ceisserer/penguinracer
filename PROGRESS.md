@@ -1821,6 +1821,27 @@ at trilinear on purpose: `sparkle_noise`, whose mip chain *is* the fade that sto
 aliasing, and `detail_map`, which fades its octaves explicitly with distance anyway.
 Not yet looked at in a browser.
 
+### Bare trees became trees (2026-09-24) · **done**
+
+The leafless tree (`tree_barren`, `tree_barren2`: 1583 of them on `bronze_set`, 172 on Bunny Hill)
+was still ETR's 239×245 picture on two crossed quads — a staircase of magnified texels within a
+few metres, a flat card from the side, a grey smudge beyond. It now goes through `Forest` like the
+conifer, as `BareTreeMesh`: a grown skeleton (1 trunk, 7 limbs, 28 + 84 branches) drawn as
+tapered tubes, with twig cards at the finest branches. Triangles per level: 2070 / 1072 / 340
+(the conifer's are 386 / 84 / 38), then the octahedral impostor.
+
+Things that did not work first time, each now in the trap list: the twigs vanished a few metres
+out (mip-averaged alpha under the scissor → `alpha_mip_boost`); boosted too hard, and with the
+card normals pointing up, the crown read as white broccoli; baked from LOD 0 the impostor was a
+dark blob replacing an airy tree (→ baked from LOD 2); boosting the bake's alpha put a solid cap
+on it; and the finest limbs' radius codes rounded to 0 in the 8-bit vertex colour.
+
+Frame rate, 1280x720, Mobile, the container's integrated Radeon, vsync off, `paddle`, 1500
+frames: `bronze_set` 228–277 FPS before and 238–277 after (no measurable change); Bunny Hill,
+whose bare trees are the largest (up to 8 m) and stand by the track, 278–301 before and 201–262
+after. Looked at under both renderers and at snowfall 3; not yet in a browser. The impostor is a
+little sparser at its edges than LOD 2 at the 75 m hand-over, inside the fog.
+
 ---
 
 ## Known gaps

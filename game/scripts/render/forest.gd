@@ -1,9 +1,11 @@
-## Draws one conifer type across a course: three mesh levels and an octahedral
+## Draws one tree type across a course: three mesh levels and an octahedral
 ## impostor, handed over per tree with a dithered cross-fade, swaying in the
 ## wind and snowed on in the shader.
 ##
 ## Replaces [CourseRoot]'s single crossed-quad batch for every prefab marked
-## [member ObjectPrefab.conifer]. Collision is untouched: the [ObjectGrid] is
+## [member ObjectPrefab.conifer] or [member ObjectPrefab.bare]. Which of the
+## two it draws is its [enum Species]: [ConiferMesh] or [BareTreeMesh], and the
+## same shaders serve both. Collision is untouched: the [ObjectGrid] is
 ## still built from the same markers, so a tree is exactly as solid as before.
 ##
 ## [b]How a tree picks its level.[/b] Per tree, in the vertex shader, by its
@@ -36,6 +38,20 @@ const CELL_SIZE := 40.0
 const MESH_SHADER := "res://shaders/conifer.gdshader"
 const IMPOSTOR_SHADER := "res://shaders/conifer_impostor.gdshader"
 
+enum Species { CONIFER, BARE }
+
+## A bare tree's finest limbs are thinner than a pixel from a few metres out.
+## `conifer.gdshader` fattens a tube to at least this radius per metre of
+## distance — about 0.4 px at 720p and a 70° field of view — so a far limb
+## stays a thin line instead of breaking into dashes.
+const BARE_MIN_RADIUS_PER_METRE := 0.0008
+## A bare crown is mostly air, and its mips average the twigs toward
+## transparent; a lower threshold keeps the far crown from thinning away.
+const BARE_IMPOSTOR_SCISSOR := 0.25
+## See `alpha_mip_boost` in `conifer.gdshaderinc`: keeps the twigs from
+## thinning out with distance.
+const BARE_ALPHA_MIP_BOOST := 0.5
+
 ## One material per level, last one the impostor's.
 var _materials: Array[ShaderMaterial] = []
 var _batches: Array[MultiMeshInstance3D] = []
@@ -45,9 +61,29 @@ var _shadow := GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 ## Whether the baked impostor atlases are in the project. Without them the last
 ## mesh level simply runs to the horizon.
-static func has_impostor() -> bool:
-	return ResourceLoader.exists(ConiferMesh.ALBEDO_ATLAS) \
-		and ResourceLoader.exists(ConiferMesh.NORMAL_ATLAS)
+static func has_impostor(species: Species = Species.CONIFER) -> bool:
+	var paths: PackedStringArray = atlases(species)
+	return ResourceLoader.exists(paths[0]) and ResourceLoader.exists(paths[1])
+
+## The impostor's albedo and normal atlas paths.
+static func atlases(species: Species) -> PackedStringArray:
+	if species == Species.BARE:
+		return PackedStringArray([BareTreeMesh.ALBEDO_ATLAS, BareTreeMesh.NORMAL_ATLAS])
+	return PackedStringArray([ConiferMesh.ALBEDO_ATLAS, ConiferMesh.NORMAL_ATLAS])
+
+## The mesh level the impostor is baked from. The conifer's is its finest; the
+## bare tree's is the level the impostor takes over from, since a bare crown
+## seen side-on is only as airy as the twig cards it carries — LOD 0 has four
+## times LOD 2's, and baked from it the impostor was a dark blob replacing an
+## open tree.
+static func impostor_source_level(species: Species) -> int:
+	return ConiferMesh.LODS - 1 if species == Species.BARE else 0
+
+## Mesh level [param level] of [param species].
+static func level_mesh(species: Species, level: int) -> ArrayMesh:
+	if species == Species.BARE:
+		return BareTreeMesh.mesh(level)
+	return ConiferMesh.mesh(level)
 
 ## How many levels are drawn: the meshes, plus the impostor if it is baked.
 static func level_count(with_impostor: bool) -> int:
@@ -72,10 +108,13 @@ static func cells_of(transforms: Array[Transform3D]) -> Dictionary[Vector2i, Pac
 	return out
 
 ## Build every batch. [param texture] is the prefab's own picture —
-## `snowy_tree1.png`, unchanged — and [param transforms] the per-tree world
-## transforms [CourseRoot] would have given the cross.
-func build(texture: Texture2D, transforms: Array[Transform3D]) -> void:
-	var impostor: bool = has_impostor()
+## `snowy_tree1.png`, unchanged — for a conifer; a bare tree draws its own
+## ([method BareTreeMesh.texture]) and ignores it. [param transforms] are the
+## per-tree world transforms [CourseRoot] would have given the cross.
+func build(texture: Texture2D, transforms: Array[Transform3D],
+		species: Species = Species.CONIFER) -> void:
+	var bare: bool = species == Species.BARE
+	var impostor: bool = has_impostor(species)
 	var levels: int = level_count(impostor)
 	var meshes: Array[Mesh] = []
 	for level: int in levels:
@@ -83,16 +122,33 @@ func build(texture: Texture2D, transforms: Array[Transform3D]) -> void:
 		var b: Vector2 = band(level, levels)
 		if level < ConiferMesh.LODS:
 			mat.shader = load(MESH_SHADER)
-			mat.set_shader_parameter("albedo_texture", texture)
-			meshes.push_back(ConiferMesh.mesh(level))
+			mat.set_shader_parameter("albedo_texture", BareTreeMesh.texture() if bare else texture)
+			if bare:
+				mat.set_shader_parameter("min_radius_per_metre", BARE_MIN_RADIUS_PER_METRE)
+			meshes.push_back(level_mesh(species, level))
 		else:
+			var paths: PackedStringArray = atlases(species)
 			mat.shader = load(IMPOSTOR_SHADER)
-			mat.set_shader_parameter("albedo_atlas", load(ConiferMesh.ALBEDO_ATLAS))
-			mat.set_shader_parameter("normal_atlas", load(ConiferMesh.NORMAL_ATLAS))
+			mat.set_shader_parameter("albedo_atlas", load(paths[0]))
+			mat.set_shader_parameter("normal_atlas", load(paths[1]))
+			if bare:
+				mat.set_shader_parameter("alpha_scissor", BARE_IMPOSTOR_SCISSOR)
 			meshes.push_back(ConiferMesh.impostor_mesh())
 		mat.set_shader_parameter("lod_begin", b.x)
 		mat.set_shader_parameter("lod_end", b.y)
 		mat.set_shader_parameter("lod_fade_width", FADE_WIDTH)
+		if bare:
+			# Bark is dark, so the same cover reads fainter on it than on
+			# needles, and a limb is round, so less of it faces straight up;
+			# the picture it replaces is a third snow.
+			mat.set_shader_parameter("snow_calm", 0.85)
+			mat.set_shader_parameter("snow_heavy", 1.0)
+			mat.set_shader_parameter("snow_facing_offset", 0.5)
+			# Not on the impostor: its atlas was baked with the limbs already
+			# fattened to what LOD 2 draws at the hand-over, and boosting it too
+			# fills the crown in solid — a dark blob replacing an airy tree.
+			if level < ConiferMesh.LODS:
+				mat.set_shader_parameter("alpha_mip_boost", BARE_ALPHA_MIP_BOOST)
 		_materials.push_back(mat)
 
 	var cells: Dictionary[Vector2i, PackedInt32Array] = cells_of(transforms)
