@@ -476,11 +476,8 @@ func _draw_course_position(size: Vector2) -> void:
 ## crosswind you are about to be pushed by.
 ##
 ## Drawn only when the course has wind, which is `g_game.wind_id < 1` in the
-## original and [member WindField.windy] here. Nothing in this build sets it
-## yet except `--wind=`: wind is a property of a *cup race* in `events.lst`
-## and there are no cups, so a practice run is calm in both games. The rose is
-## ported anyway because the state machine behind it already is, and a HUD
-## control with no way to see it is a control nobody will notice is broken.
+## original and [member WindField.windy] here: the course screen's *Wind* row
+## (a crosswind, [enum WindField.Strength]) or ETR's own grades via `--wind=`.
 func _draw_wind(size: Vector2) -> void:
 	var wind: WindField = race.physics.wind
 	if wind == null or not wind.windy:

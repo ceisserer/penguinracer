@@ -111,6 +111,8 @@ func restart(start_x: float, start_z: float, course_dir: String) -> void:
 	snap()
 	if recorder != null:
 		recorder.begin(course_dir, character_dir, display_name)
+		recorder.recording.wind = physics.wind.strength
+		recorder.recording.wind_seed = physics.wind.seed_used
 
 ## One simulation tick: read intent, step the world, publish the result.
 ##

@@ -337,7 +337,7 @@ func calc_roll_normal(speed: float) -> Vector3:
 ## Reynolds-table air drag. ETR `CalcAirForce`.
 func calc_air_force() -> Vector3:
 	var windvec: Vector3 = -_ff_vel
-	if wind != null and wind.windy:
+	if wind != null and wind.drives_drag():
 		windvec += PhysConst.WIND_FACTOR * wind.vector
 	var windspeed: float = windvec.length()
 	if windspeed < 1e-9:
@@ -451,8 +451,18 @@ func calc_net_force(p: Vector3, v: Vector3) -> Vector3:
 	var brakeforce: Vector3 = calc_brake_force(speed)
 	var airforce: Vector3 = calc_air_force()
 	var paddleforce: Vector3 = calc_paddle_force(speed)
+	var windforce: Vector3 = calc_flight_wind_force()
 
-	return jumpforce + gravforce + nmlforce + frictforce + airforce + brakeforce + paddleforce
+	return jumpforce + gravforce + nmlforce + frictforce + airforce + brakeforce + paddleforce \
+		+ windforce
+
+## DEVIATION: the course screen's crosswind pushes a racer only while airborne
+## — see [method WindField.flight_force]. ETR's wind goes through
+## [method calc_air_force] instead, and still does for `--wind=`.
+func calc_flight_wind_force() -> Vector3:
+	if wind == null or not airborne:
+		return Vector3.ZERO
+	return wind.flight_force()
 
 # ====================================================================
 #                           ODE solver

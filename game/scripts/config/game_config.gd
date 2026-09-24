@@ -134,6 +134,13 @@ var snowfall: int = 0
 ## capture in the repository still means what it meant.
 var conditions: LightCondition.Kind = LightCondition.Kind.SUNNY
 
+## How hard the crosswind blows: none, light or strong — see [WindField]. The
+## third of the course screen's weather, kept beside the other two. The side it
+## blows from is not a setting: it is rolled on every start.
+##
+## None by default, for the same reason as the other two.
+var wind: WindField.Strength = WindField.Strength.NONE
+
 # --- multiplayer ---
 
 ## What other racers see this player called. ETR has `players.lst` and an avatar
@@ -250,6 +257,8 @@ func read(cfg: ConfigFile) -> void:
 		0, SnowFall.MAX_GRADE)
 	conditions = LightCondition.parse(str(cfg.get_value("game", "conditions",
 		LightCondition.name_of(conditions))))
+	wind = WindField.parse_strength(str(cfg.get_value("game", "wind",
+		WindField.strength_name(wind))))
 	player_name = str(cfg.get_value("multiplayer", "player_name",
 		player_name)).strip_edges()
 	if player_name.is_empty():
@@ -364,6 +373,13 @@ snowfall = %d
 ; Also `--light=night` on the command line, which outranks this for one run.
 conditions = "%s"
 
+; How hard the wind blows across the hill: none, light or strong. It comes from
+; the left or the right — picked afresh at every start — sways the trees, blows
+; the snow sideways and, a little, pushes a penguin in the air downwind. On
+; the ground it changes nothing.
+; Also `--crosswind=strong` on the command line, which outranks this for one run.
+wind = "%s"
+
 [multiplayer]
 
 ; What other racers see you called.
@@ -383,7 +399,7 @@ port = %d
 		str(ice_reflections).to_lower(), str(shadows).to_lower(),
 		fog_start_distance, fog_distance_scale, character,
 		opponents, AISkill.name_of(opponent_skill), snowfall,
-		LightCondition.name_of(conditions),
+		LightCondition.name_of(conditions), WindField.strength_name(wind),
 		player_name, multiplayer_server, multiplayer_port]
 
 ## `"auto"` when the window is the platform's to size, `"1280x720"` otherwise.

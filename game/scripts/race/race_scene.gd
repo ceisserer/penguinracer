@@ -373,6 +373,9 @@ func _ready() -> void:
 	_cli_setup.conditions = Config.conditions
 	if not args.light.is_empty():
 		_cli_setup.conditions = LightCondition.parse(args.light)
+	_cli_setup.wind = Config.wind
+	if not args.crosswind.is_empty():
+		_cli_setup.wind = WindField.parse_strength(args.crosswind)
 	# The shell outranks the command line here, unlike `--course=`: the two flags
 	# are a way to start a race without a menu, not a way to keep overriding a
 	# choice the player has just made on one.
@@ -592,14 +595,7 @@ func _build_simulation(racer: SimulatedRacer, course: CourseData) -> void:
 	sim.bounds_polygon = course.effective_play_bounds()
 	sim.play_length = course.play_size.y
 	sim.finish_brake = course.finish_brake
-	# ETR's `[wind]` grade belongs to a *cup race* in `events.lst`, and there
-	# are no cups here yet, so `--wind=` is the only thing that asks for
-	# weather — and the only way to see the HUD's wind rose. Every racer gets
-	# its own [WindField] on the same seed rather than sharing one: they are all
-	# stepped with the same [constant SIM_DT] on the same tick, so identical
-	# seeds evolve identically, where one shared field would be advanced once
-	# per racer and blow a field of ten about ten times too fast.
-	sim.wind.init_wind(LaunchArgs.current().wind)
+	# The wind is seeded on every start, not here — see [method _init_wind].
 	racer.attach_physics(sim)
 	# One 64 m GPU window exists and it follows the view target, so only that
 	# racer can usefully stamp it. Everyone else deforms the CPU mirror, which
@@ -681,9 +677,12 @@ func restart(with_intro: bool = true) -> void:
 	# left the course stripped of everything the last run picked up, which a
 	# ghost of that run makes obvious — it collects fish that are not there.
 	course_root.reset_items()
+	var wind_seed: int = _wind_seed_for_start()
 	for racer: Racer in roster.all:
 		if racer is SimulatedRacer:
 			var sim: SimulatedRacer = racer
+			# Before the restart: the recording it begins notes the wind.
+			_init_wind(sim.physics.wind, wind_seed)
 			# The player has no offset and is not put through the clamp at all:
 			# their start point is the course's own, whoever else is on the line.
 			# A course whose start sits inside [constant RaceSetup.LANE_MARGIN]
@@ -1432,9 +1431,41 @@ func _apply_snowfall() -> void:
 		snowfall.tint = _preset.particle_color
 	snowfall.set_grade(setup.snowfall if setup != null else 0)
 
+## Blow [param wind] the way this start asks for.
+##
+## Every racer gets its own [WindField] on the same seed rather than sharing
+## one: they are all stepped with the same [constant SIM_DT] on the same tick,
+## so identical seeds evolve identically, where one shared field would be
+## advanced once per racer and blow a field of ten about ten times too fast.
+##
+## ETR's `[wind]` grade belongs to a *cup race* in `events.lst`, and there are
+## no cups here yet, so `--wind=` is the only thing that asks for one and it
+## outranks the course screen's crosswind when it does.
+func _init_wind(wind: WindField, seed_value: int) -> void:
+	var grade: int = LaunchArgs.current().wind
+	if grade > 0:
+		wind.init_wind(grade, seed_value)
+	else:
+		wind.init_crosswind(setup.wind if setup != null else WindField.Strength.NONE,
+			seed_value)
+
+## Which side the wind comes from this time, and how it gusts: rolled afresh on
+## every start unless something needs it pinned — a network race (the server's
+## seed, so every machine feels the same wind), `--wind-seed=`, or a scripted
+## or captured run, which has to reproduce.
+func _wind_seed_for_start() -> int:
+	if setup != null and setup.wind_seed != RaceSetup.ROLL_WIND_SEED:
+		return setup.wind_seed
+	var args: LaunchArgs = LaunchArgs.current()
+	if args.wind_seed >= 0:
+		return args.wind_seed
+	if _scripted_run() or not args.capture_path.is_empty():
+		return 0
+	return randi() & 0x7fffffff
+
 ## The wind the weather is blown by: the local player's, since every racer is
-## given its own [WindField] on the same seed and they evolve identically. Null
-## on a course with no wind, which is all of them until `--wind=` says otherwise.
+## given its own [WindField] on the same seed and they evolve identically. Calm
+## ([member WindField.windy] false) unless the course screen or `--wind=` asked.
 func _racer_wind() -> WindField:
 	var sim: RacePhysics = physics
 	return sim.wind if sim != null else null

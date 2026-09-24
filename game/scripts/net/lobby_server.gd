@@ -75,6 +75,11 @@ class Room extends RefCounted:
 	## `light_id`. The admin's to set, through [method set_course].
 	var snowfall: int = 0
 	var conditions: int = 0
+	## ... and the crosswind ([enum WindField.Strength]), with the seed that
+	## picks its side and gusts. The seed is rolled on every start, here, so
+	## every machine in the race feels the same wind and the next race may not.
+	var wind: int = 0
+	var wind_seed: int = 0
 	var state: LobbyServer.State = LobbyServer.State.LOBBY
 	## Who has finished building the course, while [member state] is
 	## [constant State.LOADING].
@@ -216,9 +221,11 @@ func room_of(peer: int) -> Room:
 ##
 ## [param conditions] is ETR's `light_id` ([LightCondition]) and defaults to
 ## sunny, which is what a caller that has not been taught about the sky — an
-## older client, a test — means by leaving it out.
+## older client, a test — means by leaving it out. [param wind] likewise
+## defaults to calm.
 func create_room(peer: int, room_name: String, password_digest: String,
-		course_dir: String, snowfall: int, conditions: int = 0) -> Dictionary:
+		course_dir: String, snowfall: int, conditions: int = 0,
+		wind: int = 0) -> Dictionary:
 	if not peers.has(peer):
 		return _error("unknown_peer")
 	if rooms.size() >= MAX_ROOMS:
@@ -242,6 +249,7 @@ func create_room(peer: int, room_name: String, password_digest: String,
 	created.course_dir = course_dir
 	created.snowfall = clampi(snowfall, 0, 3)
 	created.conditions = LightCondition.of(conditions)
+	created.wind = WindField.strength_of(wind)
 	rooms[created.id] = created
 	peers[peer].room = created.id
 	return {"ok": true, "room": created.id}
@@ -307,7 +315,7 @@ func _promote(room: Room) -> void:
 
 ## Change what the room is about to race. Admin only, and only before it starts.
 func set_course(peer: int, course_dir: String, snowfall: int,
-		conditions: int = 0) -> Dictionary:
+		conditions: int = 0, wind: int = 0) -> Dictionary:
 	var room: Room = room_of(peer)
 	if room == null:
 		return _error("not_in_a_room")
@@ -320,6 +328,7 @@ func set_course(peer: int, course_dir: String, snowfall: int,
 	room.course_dir = course_dir
 	room.snowfall = clampi(snowfall, 0, 3)
 	room.conditions = LightCondition.of(conditions)
+	room.wind = WindField.strength_of(wind)
 	return {"ok": true, "room": room.id}
 
 # ==================================================================
@@ -343,6 +352,7 @@ func start_race(peer: int) -> Dictionary:
 	room.ready_peers.clear()
 	room.results.clear()
 	room.first_finish_msec = 0
+	room.wind_seed = randi() & 0x7fffffff
 	return {"ok": true, "room": room.id}
 
 ## A racer has the course built and is sitting on the start line. Returns true
@@ -440,6 +450,7 @@ func room_list() -> Array[Dictionary]:
 			"course": room.course_dir,
 			"snowfall": room.snowfall,
 			"conditions": room.conditions,
+			"wind": room.wind,
 			"locked": room.locked(),
 		})
 	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
@@ -465,6 +476,7 @@ func room_state(room: Room) -> Dictionary:
 		"course": room.course_dir,
 		"snowfall": room.snowfall,
 		"conditions": room.conditions,
+		"wind": room.wind,
 		"locked": room.locked(),
 		"state": int(room.state),
 		"members": members,

@@ -216,9 +216,8 @@ and it is now `hud.cpp`'s six controls, in `hud.cpp`'s places:
   player read "past green" without reading the number.
 - **The course-position bar**, up the right edge, filling from the bottom as you descend.
 - **The wind rose**, bottom left, with a fat needle for the wind and a thin one for your heading.
-  Drawn only when the course has wind, which — as in the original's practice mode — is never,
-  because wind is a property of a cup race in `events.lst` and there are no cups. `--wind=1..3`
-  makes it reachable; the [WindField] behind it was already ported and already feeds air drag.
+  Drawn only when the course has wind: the course screen's *Wind* row (2026-09-24), or ETR's own
+  grades through `--wind=1..3`.
 - **The frame rate**, centred across the top, behind `--fps` where ETR has `param.display_fps`.
 
 **Redrawn, not copied.** All of it is textured quads in the original and none of that art is in
@@ -1844,6 +1843,39 @@ little sparser at its edges than LOD 2 at the 75 m hand-over, inside the fog.
 
 ---
 
+### The wind is a choice now (2026-09-24) · **done**
+
+The third of ETR's weather controls, on the course screen beside the other two as a **Wind**
+spinner: none, light or strong. It is not ETR's `wind_id`. ETR's grades blow from wherever their
+tables allow and go through the air drag everywhere (`WIND_FACTOR` × 30–100 units of crosswind),
+which makes a hard course of an easy one; they stay reachable as `--wind=1..3`, unchanged.
+
+**A crosswind, from one side.** `WindField.init_crosswind` runs the same `CWind` state machine on
+tables of its own: within 15° of square to the fall line, on a side the seed picks — from the left
+or from the right — with gusts (light 6–26 units, never over 35; strong 25–70, gusting to 85). The
+side is rolled on every start. Every racer carries a field on the same seed, so the whole field
+feels the same gusts; a network race uses a seed the server rolls at Start
+(`LobbyServer.Room.wind_seed`, sent with `cli_race_starting`), and a scripted or captured run pins
+it to 0 (`--wind-seed=` overrides) so captures still reproduce.
+
+**What it moves.** The trees: `wind_strength` is `speed / 100`, and the sway coefficients were
+raised so that a strong wind reads — a steady lean downwind (`lean_per_wind` 0.06), a wider sway
+(0.05) and a quicker flutter on top (`flutter_per_wind`) that a still day does not have. The snow:
+flakes near and far drift with `WIND_DRIFT` × the wind, as they already did for `--wind=`. The HUD's
+wind rose, which until now nobody could see. And **the racer, only in the air**: a level push of
+`FLIGHT_ACCEL_PER_SPEED` (0.04 m/s² per unit) along the wind while airborne, nothing on the
+ground (`RacePhysics.calc_flight_wind_force`, marked DEVIATION). The drag stays ETR's still-air
+drag. A 0.9 s jump lands about 0.5 m downwind in a light wind and 1.5–2.4 m in a strong one, and
+the heading follows the velocity, so the penguin comes down pointed slightly downwind. Straight
+down Bunny Hill with no steering never leaves the ground and runs identical to a calm one.
+
+Carried like the sky: `RaceSetup.wind` (+ `wind_seed`), `[game] wind` in `penguinracer.cfg`,
+`--crosswind=`/`?crosswind=` for one run, `SHOT_WIND=` in `tools/shot.sh`, a lobby room's `wind`.
+A recording notes the strength and seed it was raced in (`RaceRecording.wind`/`wind_seed`, 0 on
+every older file = calm) and the flight constant is in the physics signature. `TestWind`: the
+strengths' ranges, both sides across seeds and each staying on its own, one seed one weather,
+bit-identical ground runs, the flight drift's bounds, the setup/lobby round trip.
+
 ## Known gaps
 
 - **The near-field terrain mesh is too coarse for the trench to read as geometry.** Chunk
@@ -2026,13 +2058,10 @@ little sparser at its edges than LOD 2 at the 75 m hand-over, inside the fog.
   not in the tree: `pave04` wants a `pave04.png` nobody shipped and `snowy_hockey_ice` writes
   `snowy_ice02` without the extension. Untextured in the original too, and no shipped course
   paints either colour key, so this is a note rather than a bug — the importer warns.
-- **One of ETR's three weather controls is still missing, and one of its four skies is not
-  offered.** The race-select screen offers light, snow and wind; the snow and the light are on the
-  course screen (`[game] snowfall` and `[game] conditions`) and the **wind** is still only
-  `--wind=`. `WindField` and the HUD's rose are built and feed air drag, but wind belongs to a cup
-  race in `events.lst` and there are no cups yet, so there has been nowhere for the player to ask
-  for it. Adding it to the same row the other two are on is a small job — `RaceSetup` is the
-  object that carries this. The fourth sky, **evening**, is imported and carries a derived gain
+- **One of ETR's four skies is not offered, and ETR's own wind grades are not either.** The
+  course screen has all three weather controls (`[game] snowfall`, `conditions`, `wind`), but its
+  wind is a crosswind of its own; ETR's `events.lst` grades, which push through the drag
+  everywhere, are only `--wind=`, waiting on cups. The fourth sky, **evening**, is imported and carries a derived gain
   like the other two, and is reachable from the Inspector; it is simply not on the screen, because
   three were asked for. Adding it is one entry in `LightCondition.NAMES` and one in `LABELS`.
 - **Nothing occludes a racer in the ice mirror.** The mirror pass narrows `cull_mask` to the

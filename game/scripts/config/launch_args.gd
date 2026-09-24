@@ -56,6 +56,14 @@ var show_fps: bool = false
 ## Nothing else sets it: wind belongs to a cup race and there are no cups yet,
 ## so this is how the [WindField] and the HUD's rose are reachable at all.
 var wind: int = 0
+## `--crosswind=none|light|strong` — the course screen's wind
+## ([enum WindField.Strength]), unparsed like [member light]. Empty means
+## "whatever the settings file says". `--wind=` outranks it.
+var crosswind: String = ""
+## `--wind-seed=N` — which side the crosswind comes from and how it gusts.
+## Unset ([constant RaceSetup.ROLL_WIND_SEED]) rolls one per start, except in a
+## scripted run, which pins it so a capture reproduces.
+var wind_seed: int = -1
 ## `--snow=0..3` — how hard it is snowing, ETR's `g_game.snow_id`. Unlike the
 ## wind this is also a settings key and a control on the course screen; the flag
 ## is how a capture names the weather without going through either.
@@ -155,6 +163,10 @@ func parse(argv: PackedStringArray, query: Dictionary) -> void:
 			show_fps = true
 		elif arg.begins_with("--wind="):
 			wind = arg.trim_prefix("--wind=").to_int()
+		elif arg.begins_with("--crosswind="):
+			crosswind = arg.trim_prefix("--crosswind=")
+		elif arg.begins_with("--wind-seed="):
+			wind_seed = arg.trim_prefix("--wind-seed=").to_int()
 		elif arg.begins_with("--snow="):
 			snow = arg.trim_prefix("--snow=").to_int()
 		elif arg.begins_with("--light="):
@@ -194,6 +206,9 @@ func parse(argv: PackedStringArray, query: Dictionary) -> void:
 	show_fps = show_fps or query.has("fps")
 	if wind == 0 and query.has("wind"):
 		wind = str(query["wind"]).to_int()
+	crosswind = _str(query, "crosswind", crosswind)
+	if wind_seed < 0 and query.has("wind-seed"):
+		wind_seed = str(query["wind-seed"]).to_int()
 	if snow == NO_SNOW and query.has("snow"):
 		snow = str(query["snow"]).to_int()
 	light = _str(query, "light", light)

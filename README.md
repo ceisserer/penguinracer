@@ -48,7 +48,7 @@ the original, and each one is marked `DEVIATION` in the source with its reason.
 | **Terrain** | 43 material types, friction blended per-texel, splat-mapped PBR over a float32 heightmap |
 | **Modes** | Practice against the clock, a field of 1–9 computer opponents, a ghost of any saved run, and network multiplayer for up to eight people — desktop and browser in the same race |
 | **Snow** | GPU trail deformation with a shaded trench and a ploughed lip, plus carve spray and four levels of falling snow |
-| **Weather** | Two of the original's three race-screen controls: how hard it is snowing, and the sky — sunny, cloudy or night, each with its own migrated light, fog and skybox |
+| **Weather** | The original's three race-screen controls: how hard it is snowing; the sky — sunny, cloudy or night, each with its own migrated light, fog and skybox; and a crosswind — none, light or strong, from the left or the right — that bends the trees, drives the snow and nudges a penguin in flight |
 | **Shell** | Main menu, course and character screens, the multiplayer lobby, in-race HUD, results and settings, 13 languages |
 | **Server** | One headless process serves the web build over HTTP and the race sessions over WebSocket — `tools/serve.sh` |
 | **Tests** | 4951 headless assertions, 0 failures, 11 s — physics, surface, input, audio, terrain, camera, replay, opponents, the lobby server |

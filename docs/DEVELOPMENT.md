@@ -104,7 +104,8 @@ godot --path game res://scenes/key_log.tscn          # keyboard delivery probe
 godot --path game -- --no-audio                      # play with the sound off
 godot --path game -- --no-intro                      # ... and without the start animation
 godot --path game -- --fps                           # ... showing the HUD's frame-rate readout
-godot --path game -- --wind=2                        # ... with wind, and so the HUD's wind rose
+godot --path game -- --crosswind=strong              # ... in a crosswind (none, light or strong)
+godot --path game -- --wind=2                        # ... in ETR's own wind grade (1..3) instead
 godot --path game -- --snow=3                        # ... snowing hard (0..3)
 godot --path game -- --light=night                   # ... after dark (sunny, cloudy or night)
 godot --path game -- --server=<address>              # ... straight to the multiplayer lobby
@@ -339,6 +340,7 @@ opponents = 3             ; how many computer racers "Race the computer" starts 
 opponent_skill = "medium" ; easy, medium or hard
 snowfall = 0              ; how hard it is snowing [0...3]: none, a little, more, a lot
 conditions = "sunny"      ; what the sky is doing: sunny, cloudy or night
+wind = "none"             ; the crosswind: none, light or strong
 
 [multiplayer]
 player_name = "Racer"     ; what other racers see you called
@@ -387,10 +389,13 @@ nor the settings screen yet. The two multiplayer keys are in the file but not on
 you cannot see anyone use and a port with no session to open are settings for a lobby that does not
 exist. The two opponent keys are in the file and on the *course* screen rather than the settings
 one, because that is where the choice is actually made — beside the course you are about to race.
-The two weather keys are there for the same reason, and they are the original's own arrangement:
-`CRaceSelect` puts light, snow and wind under its course list. Two of the three are offered here —
-`snowfall` and `conditions` — and the wind is still `--wind=` only, because wind belongs to a cup
-race in `events.lst` and there are no cups yet.
+The three weather keys are there for the same reason, and they are the original's own arrangement:
+`CRaceSelect` puts light, snow and wind under its course list. All three are offered here —
+`snowfall`, `conditions` and `wind`. The wind is a crosswind of the course screen's own (none,
+light, strong) from a side picked afresh at every start: it sways the trees, blows the snow and
+the HUD's wind rose, and pushes a penguin a little downwind only while it is in the air. ETR's own
+wind grades, which belong to a cup race in `events.lst` and push through the drag everywhere, are
+still `--wind=` only.
 
 **The sky is chosen per race, not per course.** A course names a *place* (`[env] etr` or
 `[env] tuxracer`, a location with skyboxes and a `light.lst` authored under it for each time of
@@ -420,6 +425,7 @@ SHOT_METHOD=gl_compatibility tools/shot.sh /tmp/web.png 200 bunny_hill paddle
 SHOT_RESOLUTION=1024x576 tools/shot.sh /tmp/shot.png  # ... at a true 1280x720 under a 1.25 scale
 SHOT_LIGHT=night SHOT_SNOW=2 tools/shot.sh /tmp/night.png
                                                      # ... after dark, in moderate snow
+SHOT_WIND=strong tools/shot.sh /tmp/windy.png        # ... in a strong crosswind (side pinned)
 ```
 
 `SHOT_METHOD` is `mobile`, `gl_compatibility` or `forward_plus` and the driver follows it; unset

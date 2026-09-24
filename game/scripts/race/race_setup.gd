@@ -9,10 +9,10 @@
 ## [b]Weather is here for the same reason the field is.[/b] ETR keeps
 ## `light_id`, `snow_id` and `wind_id` in `g_game` beside the course, all four
 ## set on the one screen (`CRaceSelect`) and read by whatever needs them; this
-## is that object, and [CourseMenu] is that screen. Two of the three are carried
-## now — the snow and the sky; the wind is still `--wind=` (see
-## [member RacePhysics.wind]), because wind belongs to a cup race in
-## `events.lst` and there are no cups yet.
+## is that object, and [CourseMenu] is that screen. All three are carried: the
+## snow, the sky and the wind — the wind as the course screen's crosswind
+## ([enum WindField.Strength]) rather than ETR's `events.lst` grade, which
+## belongs to a cup race and is still `--wind=` only.
 ##
 ## Zero opponents is Practice — the mode the game had until now, and still the
 ## default. `--auto-input=` and every reference capture get it, which is what
@@ -67,6 +67,19 @@ var snowfall: int = 0
 ## [constant LightCondition.Kind.SUNNY] is the default and every reference
 ## capture, and it is what all 44 courses select when nobody says otherwise.
 var conditions: LightCondition.Kind = LightCondition.Kind.SUNNY
+## How hard the crosswind blows — see [WindField]. Unlike the other two halves
+## of the weather this one reaches the simulation, if only in flight, which is
+## why it comes with a seed: every racer on the hill (and every machine in a
+## network race) has to feel the same gusts from the same side.
+##
+## [constant WindField.Strength.NONE] is the default and every reference capture.
+var wind: WindField.Strength = WindField.Strength.NONE
+## What the wind is seeded with, or [constant ROLL_WIND_SEED] for a fresh roll
+## — and so a fresh side — on every start. A network race is handed the
+## server's; a scripted run a fixed one, or its captures would not reproduce.
+var wind_seed: int = ROLL_WIND_SEED
+
+const ROLL_WIND_SEED := -1
 
 static func practice() -> RaceSetup:
 	return RaceSetup.new()
@@ -98,6 +111,14 @@ func under_sky(kind: LightCondition.Kind) -> RaceSetup:
 	conditions = LightCondition.of(kind)
 	return self
 
+## The same setup in [param level] of wind, seeded by [param seed_value] — or
+## rolled afresh on every start when it is [constant ROLL_WIND_SEED]. The third
+## weather builder.
+func in_wind(level: WindField.Strength, seed_value: int = ROLL_WIND_SEED) -> RaceSetup:
+	wind = WindField.strength_of(level)
+	wind_seed = seed_value
+	return self
+
 ## Whether there is anyone else on the hill to beat. True for a network race
 ## before anybody has connected, which is deliberate: the HUD draws standings
 ## and the results screen reports a place, and both are right for a race of one
@@ -109,7 +130,7 @@ func is_race() -> bool:
 ## decide whether picking a course from the in-race menu has to rebuild the
 ## opponents or can just put everyone back on the start line.
 ##
-## The weather — [member snowfall] and [member conditions] — is deliberately not
+## The weather — [member snowfall], [member conditions], [member wind] — is deliberately not
 ## part of it: the weather is not the field, and rebuilding nine [RacePhysics]
 ## because the player asked for heavier snow or a darker sky would throw away
 ## the opponents for a change none of them can see.
@@ -119,7 +140,7 @@ func matches(other: RaceSetup) -> bool:
 
 func copy() -> RaceSetup:
 	var s: RaceSetup = RaceSetup.against(opponents, skill).in_snow(snowfall) \
-		.under_sky(conditions)
+		.under_sky(conditions).in_wind(wind, wind_seed)
 	s.networked = networked
 	return s
 
@@ -157,6 +178,8 @@ func describe() -> String:
 	var weather: String = "" if snowfall <= 0 else ", snow %d" % snowfall
 	if conditions != LightCondition.Kind.SUNNY:
 		weather += ", %s" % LightCondition.name_of(conditions)
+	if wind != WindField.Strength.NONE:
+		weather += ", %s wind" % WindField.strength_name(wind)
 	if networked:
 		return "network race%s" % weather
 	if not is_race():

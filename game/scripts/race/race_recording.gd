@@ -78,6 +78,11 @@ const POSE_HZ := 20
 ## Hash of the force constants the run was simulated under. See
 ## [method current_physics_signature].
 @export var physics_signature: String = ""
+## The course screen's wind the run was raced in ([enum WindField.Strength]) and
+## the seed that picked its side and gusts. Re-simulating the trace needs both;
+## zero is calm, which is what every file from before the wind reads back as.
+@export var wind: int = 0
+@export var wind_seed: int = 0
 @export var recorded_unix: int = 0
 
 ## Finish time in seconds, or the time at which recording stopped.
@@ -171,6 +176,7 @@ static func current_physics_signature() -> String:
 		PhysConst.BRAKE_FORCE, PhysConst.MIN_TIME_STEP, PhysConst.MAX_TIME_STEP,
 		PhysConst.MAX_STEP_DIST, PhysConst.MAX_POS_ERR, PhysConst.MAX_VEL_ERR,
 		PhysConst.MAX_ROLL_ANGLE, PhysConst.BRAKING_ROLL_ANGLE, PhysConst.TUX_WIDTH,
+		WindField.FLIGHT_ACCEL_PER_SPEED,
 	])
 	var text := PackedStringArray()
 	# `String.num` rather than a `%` format: GDScript's formatter has no `%g`,

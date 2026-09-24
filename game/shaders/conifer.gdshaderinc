@@ -27,11 +27,14 @@ uniform float wind_strength = 0.0;
 uniform float snow_level = 0.0;
 // Tip movement as a fraction of the tree's height. `sway_calm` is what a still
 // day still does — a conifer is never quite motionless — and the other two add
-// to it. `lean_per_wind` is the steady bend downwind under the oscillation.
+// to it. `lean_per_wind` is the steady bend downwind under the oscillation, and
+// `flutter_per_wind` a quicker, smaller shake on top that only wind brings.
+// A light crosswind is `wind_strength` ~0.15, a strong one ~0.5, gusting to 0.85.
 uniform float sway_calm = 0.004;
-uniform float sway_per_wind = 0.02;
+uniform float sway_per_wind = 0.05;
 uniform float sway_per_snow = 0.006;
-uniform float lean_per_wind = 0.02;
+uniform float lean_per_wind = 0.06;
+uniform float flutter_per_wind = 0.012;
 
 group_uniforms Snow;
 // DEVIATION: ETR's trees are only as snowy as their texture. Here the surfaces
@@ -96,7 +99,9 @@ vec3 conifer_sway(mat4 model, float h, float time) {
 	float phase = dot(origin.xz, vec2(0.37, 0.61));
 	float osc = sin(time * 1.3 + phase) * 0.7 + sin(time * 2.9 + phase * 1.7) * 0.3;
 	float swing = sway_calm + sway_per_wind * wind_strength + sway_per_snow * snow_level;
-	float amount = lean_per_wind * wind_strength + swing * osc;
+	float flutter = sin(time * 6.1 + phase * 2.3) * sin(time * 0.7 + phase);
+	float amount = lean_per_wind * wind_strength + swing * osc
+		+ flutter_per_wind * wind_strength * flutter;
 	vec3 dw = vec3(wind_direction.x, 0.0, wind_direction.y) * tree_height * h * h * amount;
 	vec3 c0 = model[0].xyz;
 	vec3 c1 = model[1].xyz;

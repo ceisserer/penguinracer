@@ -108,7 +108,8 @@ godot --path game -- --remote-keyboard                             # ... over a 
 godot --path game -- --no-audio                                    # ... silent, for captures
 godot --path game -- --no-intro                                    # ... skipping the start animation
 godot --path game -- --fps                                         # ... with a frame-rate readout
-godot --path game -- --wind=2                                      # ... with wind (and the wind rose)
+godot --path game -- --crosswind=strong                             # ... in a crosswind (none|light|strong)
+godot --path game -- --wind=2                                      # ... in ETR's wind grade 1..3 instead
 godot --path game -- --snow=3                                      # ... snowing (0..3)
 godot --path game -- --light=night                                 # ... under another sky (sunny|cloudy|night)
 godot --path game -- --server=penguin.example                      # ... lobby on that server
@@ -155,7 +156,7 @@ SHOT_METHOD=gl_compatibility SHOT_RESOLUTION=1024x576 tools/shot.sh /tmp/web-loo
 written with comments on first run; delete it for defaults. The **Configuration** screen edits
 the display rows (window size, render scale, ice reflections, shadows, fog distance) and writes
 the same commented file back. Elsewhere: `[multiplayer] player_name`/`server` on the **Network
-multiplayer** screen, `port` file-only, `opponents`/`opponent_skill`/`snowfall`/`conditions` on
+multiplayer** screen, `port` file-only, `opponents`/`opponent_skill`/`snowfall`/`conditions`/`wind` on
 the course screen. Resolution offers the display's own modes (`DisplayModes`); resolution and
 fullscreen are hidden on the web, where the page sizes the canvas. The shadows row is hidden
 wherever `RenderBackend.supports_light_shadows()` is false but the value is still written back,
@@ -190,7 +191,7 @@ Detail is in `PROGRESS.md`; this is the summary.
 | 4 — character | **done for all five** — skinned mesh from `shape.lst`, keyframe clips as `AnimationLibrary` + `KeyframePath` root motion, start animation (`CIntro`), finish clips on the results screen (`RaceOutcome.clip`), racing pose layer (`CharacterRig.adjust_joints`, ETR's `AdjustJoints`) driven off `RacerState` alone so ghosts and peers animate. `GameConfig.character` picks one. |
 | 5 — game shell | partial — main menu → Practice / Race the computer / Network multiplayer / Race against ghost / character / Configuration; results screen with named runs; ETR palette theme; course + character catalogs; 13 languages; audio (`AudioDirector`, ETR's one-voice-per-cue mixer). Missing: cups, medals, profiles (data imported), volume/language controls, ETR's menu art (licence audit). |
 | 6 — polish/ship | not started. |
-| weather | **snow (0–3) and sky (sunny/cloudy/night) done** — `SnowFall` (world-anchored streaking flakes + far snow, deterministic) and `LightCondition`, both on the course screen, remembered in `[game] snowfall`/`conditions`, carried on a lobby room. The sky moves sun, ambient, fog, skybox, tints, ice, and shadows (`EnvironmentPreset.casts_shadows`). `evening` is imported but not offered. Wind is still `--wind=` only. |
+| weather | **snow (0–3), sky (sunny/cloudy/night) and wind (none/light/strong) done** — `SnowFall` (world-anchored streaking flakes + far snow, deterministic), `LightCondition` and `WindField.init_crosswind`, all on the course screen, remembered in `[game] snowfall`/`conditions`/`wind`, carried on a lobby room. The sky moves sun, ambient, fog, skybox, tints, ice, and shadows (`EnvironmentPreset.casts_shadows`). The wind blows from a side rolled per start and moves the trees, the snow, the HUD's rose and a racer in flight. `evening` and ETR's wind grades (`--wind=`) are not offered. |
 | computer opponents | **done** (beyond ETR) — `RaceSetup` 1–9 opponents, each a `SimulatedRacer` + `AIInputSource` scoring nine candidate lines. Skill moves habits, never physics: 30 s on a 22° slope gives easy 231 m, medium 333 m, hard 422 m, a player holding straight 413 m. Deterministic from a seed. Solid via `RacerField`. |
 | multiplayer foundation | **done** — fixed 60 Hz tick with interpolated presentation; `SimulatedRacer`/`PlaybackRacer`; `RacerState` is the only thing drawn and is the ghost and wire format. Ghosts end to end: record, keep from the results screen, race from `GhostMenu`. |
 | network multiplayer | **done** (beyond ETR, plan §8.4), works in a browser — one dedicated server serves the web build over HTTP and races over WebSocket. Rooms with optional passwords, admin picks course and starts. Server relays snapshots; each peer simulates itself. Names unique server-wide. Countdown instead of intro; race ends when the last racer finishes. See the deviations. |
@@ -227,8 +228,6 @@ Detail is in `PROGRESS.md`; this is the summary.
   `character.gdshader` (+ a transparent variant for `Racer.make_translucent`) and a re-import.
 - Ice is 16 levels darker under Compatibility than Mobile (`tuxway` mid-lake: 160.5 R vs 176.6)
   after the `EMISSION` fix; the residual is elsewhere in the ice branch. Snow agrees within a level.
-- Wind, ETR's third weather control, is only `--wind=`: it belongs to a cup race and there are no
-  cups. `RaceSetup` is where it would go.
 - Asset licence audit not started — blocks Phase 5, long lead time.
 
 ## Architecture rules
@@ -676,6 +675,12 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   centred on the player has no parallax and was the most overlay-like thing on screen. The far
   snow is a fourth area in the same shader (`FAR_AREAS`) — a 150 m square box of 5–6.5 m quads,
   each a random 128² patch of a curtain tile, drawn only 25–72 m from the camera (`FAR_FADE`).
+- **The course screen's wind is a crosswind that pushes only in flight**, not ETR's `wind_id`
+  (which drives the air drag everywhere and blows from anywhere — still `--wind=1..3`).
+  `WindField.init_crosswind`: within 15° of square to the fall line, from a side rolled per start
+  (server-rolled in a network race, pinned in a scripted one), gusting on `CWind`'s state machine.
+  `RacePhysics.calc_flight_wind_force` adds `FLIGHT_ACCEL_PER_SPEED` × the wind while airborne —
+  0.5 m of drift over a light-wind jump, ~2 m in a strong one; the ground run is bit-identical.
 - **Which layers are ice is `TerrainLayer.is_ice()`, not `[shiny]`**: seven ice records, only three
   marked shiny. Every ETR ice is `[friction] 0.2`, and nothing else goes below 0.3.
 - **The drawn body is lifted by the trench it stands in** (`Racer._drawn_snow_lift`, adding back

@@ -201,6 +201,23 @@ custom_minimum_size = Vector2(150, 38)
 layout_mode = 2
 theme_override_font_sizes/font_size = 17
 
+[node name="WindRow" type="HBoxContainer" parent="Frame/Body/Columns/InfoPanel/Info"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="WindLabel" type="Label" parent="Frame/Body/Columns/InfoPanel/Info/WindRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Wind:"
+
+[node name="WindOption" type="OptionButton" parent="Frame/Body/Columns/InfoPanel/Info/WindRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 38)
+layout_mode = 2
+theme_override_font_sizes/font_size = 17
+
 [node name="Buttons" type="HBoxContainer" parent="Frame/Body/Columns/InfoPanel/Info"]
 layout_mode = 2
 alignment = 2

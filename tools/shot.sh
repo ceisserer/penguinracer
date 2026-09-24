@@ -5,7 +5,8 @@
 #
 # The weather is two environment variables rather than two more positionals, so
 # that every existing invocation still means the clear sunny day every reference
-# capture was taken on: SHOT_LIGHT=sunny|cloudy|night and SHOT_SNOW=0..3.
+# capture was taken on: SHOT_LIGHT=sunny|cloudy|night, SHOT_SNOW=0..3 and
+# SHOT_WIND=none|light|strong (the crosswind; its side is pinned in a capture).
 #
 # The game ships two renderers — Mobile on the desktop and Compatibility on the
 # web, which is the only one a browser offers — and they do not light a frame
@@ -68,9 +69,11 @@ ARGS+=(--resolution "${SHOT_RESOLUTION:-1280x720}" --fixed-fps 60 --
     --auto-input="$INPUT" --course="$COURSE" --no-audio)
 # The weather, which is not in the positional arguments because every reference
 # capture in the repository is a clear sunny day and has to stay one.
-# SHOT_LIGHT is sunny, cloudy or night; SHOT_SNOW is 0..3.
+# SHOT_LIGHT is sunny, cloudy or night; SHOT_SNOW is 0..3; SHOT_WIND is none,
+# light or strong.
 [[ -n "${SHOT_LIGHT:-}" ]] && ARGS+=(--light="$SHOT_LIGHT")
 [[ -n "${SHOT_SNOW:-}" ]] && ARGS+=(--snow="$SHOT_SNOW")
+[[ -n "${SHOT_WIND:-}" ]] && ARGS+=(--crosswind="$SHOT_WIND")
 
 WL_SOCKET="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/${WAYLAND_DISPLAY:-wayland-0}"
 if [[ -z "${SHOT_FORCE_SOFTWARE:-}" && -S "$WL_SOCKET" && -e /dev/dri/renderD128 ]]; then
