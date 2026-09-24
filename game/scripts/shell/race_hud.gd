@@ -526,11 +526,11 @@ func _draw_needle(center: Vector2, angle: float, half_width: float, length: floa
 # ==================================================================
 
 ## `DrawFps` — the 50-frame average across the top, and only when it is asked
-## for. ETR asks with `param.display_fps` in its config file; this asks with
-## `--fps` on the command line or `?fps` in the URL, because a debug readout is
-## something you turn on for a session rather than a preference you keep.
+## for. ETR asks with `param.display_fps` in its config file, and so does this
+## ([member GameConfig.show_fps], on the Configuration screen); `--fps` on the
+## command line or `?fps` in the URL asks for one run without touching the file.
 func _draw_fps(size: Vector2) -> void:
-	if not LaunchArgs.current().show_fps or _fps_average < 1.0:
+	if not (Config.show_fps or LaunchArgs.current().show_fps) or _fps_average < 1.0:
 		return
 	_draw_digits("%d" % int(_fps_average), fps_digits_at(size), 1.0, Color.WHITE)
 

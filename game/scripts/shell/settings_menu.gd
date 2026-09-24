@@ -4,8 +4,8 @@
 ## also set, and the keys only the file carries — and [GameConfig] started as
 ## the second half because there was no screen. This is the screen, and it moves
 ## every key a player can act on today: window size, fullscreen, render scale,
-## whether ice reflects the racers, whether anything casts a shadow, and the two
-## fog distances. Nothing else lands here; a value migrated out of
+## whether ice reflects the racers, whether anything casts a shadow, the HUD's
+## frame-rate readout, and the two fog distances. Nothing else lands here; a value migrated out of
 ## `etr-0.8.4/data` belongs on a resource, not in a settings panel.
 ##
 ## Two keys are deliberately file-only for now — `[multiplayer] player_name` and
@@ -50,6 +50,8 @@ signal closed()
 @onready var _shadows_row: Control = %ShadowsRow
 @onready var _shadows_label: Label = %ShadowsLabel
 @onready var _shadows: CheckBox = %ShadowsCheck
+@onready var _show_fps_label: Label = %ShowFpsLabel
+@onready var _show_fps: CheckBox = %ShowFpsCheck
 @onready var _fog_start: HSlider = %FogStartSlider
 @onready var _fog_start_value: Label = %FogStartValue
 @onready var _fog_scale: HSlider = %FogScaleSlider
@@ -66,6 +68,8 @@ func _ready() -> void:
 	# resolve to nothing in all 13 languages.
 	_ice_reflection_label.text = "Ice reflections:"
 	_shadows_label.text = "Shadows:"
+	# ETR has `param.display_fps` but no screen for it, so no string either.
+	_show_fps_label.text = "Show frame rate:"
 	_ok_button.text = tr("OK")
 	_cancel_button.text = tr("CANCEL")
 	_path_label.text = ProjectSettings.globalize_path(GameConfig.PATH)
@@ -101,6 +105,7 @@ func open() -> void:
 	_render_scale.value = Config.render_scale
 	_ice_reflection.button_pressed = Config.ice_reflections
 	_shadows.button_pressed = Config.shadows
+	_show_fps.button_pressed = Config.show_fps
 	_fog_start.value = Config.fog_start_distance
 	_fog_scale.value = Config.fog_distance_scale
 	# `value_changed` does not fire when the value assigned is the one already
@@ -155,6 +160,7 @@ func _accept() -> void:
 	# widget was filled from the file either way, so this writes back what was
 	# read.
 	Config.shadows = _shadows.button_pressed
+	Config.show_fps = _show_fps.button_pressed
 	Config.fog_start_distance = _fog_start.value
 	Config.fog_distance_scale = _fog_scale.value
 	# `forced`: the player has just named a window size, which outranks the

@@ -112,7 +112,7 @@ godot --path game -- --character=trixi                             # ... as anot
 godot --path game -- --remote-keyboard                             # ... over a pulsed remote keyboard
 godot --path game -- --no-audio                                    # ... silent, for captures
 godot --path game -- --no-intro                                    # ... skipping the start animation
-godot --path game -- --fps                                         # ... with a frame-rate readout
+godot --path game -- --fps                                         # ... with a frame-rate readout (this run only)
 godot --path game -- --crosswind=strong                             # ... in a crosswind (none|light|strong)
 godot --path game -- --wind=2                                      # ... in ETR's wind grade 1..3 instead
 godot --path game -- --snow=3                                      # ... snowing (0..3)
@@ -160,7 +160,8 @@ SHOT_METHOD=gl_compatibility SHOT_RESOLUTION=1024x576 tools/shot.sh /tmp/web-loo
 
 **Settings** live in `user://penguinracer.cfg` (Linux: `~/.local/share/godot/app_userdata/PenguinRacer/`),
 written with comments on first run; delete it for defaults. The **Configuration** screen edits
-the display rows (window size, render scale, ice reflections, shadows, fog distance) and writes
+the display rows (window size, render scale, ice reflections, shadows, frame-rate
+readout, fog distance) and writes
 the same commented file back. Elsewhere: `[multiplayer] player_name`/`server` on the **Network
 multiplayer** screen, `port` file-only, `opponents`/`opponent_skill`/`snowfall`/`conditions`/`wind` on
 the course screen. Resolution offers the display's own modes (`DisplayModes`); resolution and

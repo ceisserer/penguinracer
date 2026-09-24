@@ -218,7 +218,9 @@ and it is now `hud.cpp`'s six controls, in `hud.cpp`'s places:
 - **The wind rose**, bottom left, with a fat needle for the wind and a thin one for your heading.
   Drawn only when the course has wind: the course screen's *Wind* row (2026-09-24), or ETR's own
   grades through `--wind=1..3`.
-- **The frame rate**, centred across the top, behind `--fps` where ETR has `param.display_fps`.
+- **The frame rate**, centred across the top, behind `[display] show_fps` (ETR's
+  `param.display_fps`, off by default, a checkbox on the Configuration screen), or `--fps` / `?fps`
+  for one run.
 
 **Redrawn, not copied.** All of it is textured quads in the original and none of that art is in
 this tree, for the same reason the menus wear ETR's palette without ETR's corner ornaments: the

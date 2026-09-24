@@ -79,6 +79,11 @@ var procedural_sky: bool = true
 ## Whether a night course has torches along its edges and lanterns on its
 ## flags ([CourseLights]). ETR lights nothing but the sky; off is its night.
 var night_lights: bool = true
+## Whether the race HUD shows the frame rate across the top ([RaceHUD]).
+##
+## ETR's `param.display_fps`, off by default as it is there. `--fps` on the
+## command line or `?fps` in the URL turns it on for one run whatever this says.
+var show_fps: bool = false
 
 # --- fog ---
 
@@ -256,6 +261,7 @@ func read(cfg: ConfigFile) -> void:
 	procedural_sky = str(cfg.get_value("display", "sky",
 		"procedural" if procedural_sky else "etr")).strip_edges().to_lower() != "etr"
 	night_lights = bool(cfg.get_value("display", "night_lights", night_lights))
+	show_fps = bool(cfg.get_value("display", "show_fps", show_fps))
 	fog_start_distance = maxf(float(cfg.get_value("fog", "start_distance",
 		fog_start_distance)), 0.0)
 	fog_distance_scale = clampf(float(cfg.get_value("fog", "distance_scale",
@@ -356,6 +362,10 @@ sky = "%s"
 ; The original lights nothing at night but the sky.
 night_lights = %s
 
+; A frame-rate readout across the top of the race screen, averaged over 50
+; frames. Also `--fps` on the command line, which turns it on for one run.
+show_fps = %s
+
 [fog]
 
 ; Metres of clear air before fog starts to build.
@@ -421,6 +431,7 @@ port = %d
 """ % [_resolution_text(), str(fullscreen).to_lower(), render_scale,
 		str(ice_reflections).to_lower(), str(shadows).to_lower(),
 		"procedural" if procedural_sky else "etr", str(night_lights).to_lower(),
+		str(show_fps).to_lower(),
 		fog_start_distance, fog_distance_scale, character,
 		opponents, AISkill.name_of(opponent_skill), snowfall,
 		LightCondition.name_of(conditions), WindField.strength_name(wind),

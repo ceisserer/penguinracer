@@ -50,6 +50,7 @@ static func _defaults(t: TestCase) -> void:
 	# Wanting shadows is the default; getting them is also up to the renderer
 	# and the sky. See [method RaceScene._shadows_wanted].
 	t.ok(c.shadows, "and the racers and the trees cast a shadow")
+	t.ok(not c.show_fps, "and the HUD shows no frame rate, as in ETR")
 	t.eq_f(c.fog_start_distance, 40.0, 1e-6, "40 m of clear air in front of the camera")
 	t.eq_f(c.fog_distance_scale, 2.0, 1e-6, "the migrated fog range is doubled")
 	t.ok(c.character == "tux", "and you race as the first row of characters.lst")
@@ -215,6 +216,7 @@ static func _round_trip(t: TestCase) -> void:
 	c.shadows = false
 	c.snowfall = 2
 	c.conditions = LightCondition.Kind.NIGHT
+	c.show_fps = true
 
 	var back: GameConfig = _read(c.file_text())
 	t.ok(back.resolution == Vector2i(1920, 1080), "a chosen resolution comes back")
@@ -223,6 +225,7 @@ static func _round_trip(t: TestCase) -> void:
 	t.eq_f(back.fog_start_distance, 15.0, 1e-6, "and where fog starts")
 	t.eq_f(back.fog_distance_scale, 1.3, 1e-6, "and how far it reaches")
 	t.ok(back.character == "boris", "and who the next race is run as")
+	t.ok(back.show_fps, "and whether the HUD shows the frame rate")
 	# Zero is the default and a real answer, so a key that fails to round-trip
 	# looks exactly like a player who asked for clear weather.
 	t.ok(back.snowfall == 2, "and how hard it was snowing last time")
