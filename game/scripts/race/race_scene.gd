@@ -825,6 +825,7 @@ func _present(delta: float) -> void:
 	# state draws the snow without updating it. `_process` returns before this
 	# whole function while paused, which is the same thing.
 	snowfall.update(view.position, _racer_wind(), delta)
+	course_root.set_weather(_racer_wind(), snowfall.grade)
 	if snow_deformation and snow_gpu != null:
 		snow_gpu.update(view.position.x, view.position.z, delta)
 		terrain.set_trail_map(snow_gpu.trail_texture(), snow_gpu.window_origin(),

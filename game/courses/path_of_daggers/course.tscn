@@ -127,6 +127,7 @@ id = &"tree"
 mesh = SubResource("ArrayMesh_usjam")
 material = SubResource("ShaderMaterial_fgdwc")
 collidable = true
+conifer = true
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_vqipt"]
 render_priority = 0
@@ -247,6 +248,7 @@ id = &"tree1"
 mesh = SubResource("ArrayMesh_440gf")
 material = SubResource("ShaderMaterial_nbulg")
 collidable = true
+conifer = true
 
 [sub_resource type="Resource" id="Resource_1sv0t"]
 script = ExtResource("3_c18d2")

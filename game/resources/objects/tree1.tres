@@ -33,3 +33,4 @@ id = &"tree1"
 mesh = SubResource("ArrayMesh_440gf")
 material = SubResource("ShaderMaterial_nbulg")
 collidable = true
+conifer = true

@@ -33,3 +33,4 @@ id = &"tree"
 mesh = SubResource("ArrayMesh_usjam")
 material = SubResource("ShaderMaterial_fgdwc")
 collidable = true
+conifer = true

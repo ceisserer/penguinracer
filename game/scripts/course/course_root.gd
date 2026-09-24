@@ -24,6 +24,8 @@ var _item_instances: Dictionary[int, Array] = {}
 ## lookup rather than a string format and a `get_node_or_null` down the scene
 ## tree — which a restart on a fish-heavy course paid once per collected item.
 var _batches: Dictionary[String, MultiMeshInstance3D] = {}
+## The conifer types, drawn by a [Forest] each instead of a batch above.
+var _forests: Array[Forest] = []
 ## The transform each of those slots was built with, so a restart can put a
 ## collected herring back. Kept here rather than re-read off the MultiMesh
 ## because [method hide_item] has already overwritten it by then.
@@ -72,7 +74,10 @@ func build_runtime() -> void:
 				var idx: int = items.add(p + Vector3(0.0, height * 0.5, 0.0), diam, height, 0)
 				_item_instances[idx] = [type_name, transforms.size() - 1]
 				_item_transforms[idx] = transforms[transforms.size() - 1]
-		if prefab != null and prefab.mesh != null and not transforms.is_empty():
+		if prefab != null and prefab.conifer and not transforms.is_empty() \
+				and not Engine.is_editor_hint():
+			_add_forest(type_name, prefab, transforms)
+		elif prefab != null and prefab.mesh != null and not transforms.is_empty():
 			_add_batch(type_name, prefab, transforms)
 
 	trees.build()
@@ -123,6 +128,24 @@ func _add_batch(type_name: String, prefab: ObjectPrefab, transforms: Array[Trans
 	add_child(mmi)
 	_batches[type_name] = mmi
 
+## A conifer type as a [Forest]: the same transforms the crossed quads would
+## have had, the prefab's own texture on a 3D tree.
+func _add_forest(type_name: String, prefab: ObjectPrefab, transforms: Array[Transform3D]) -> void:
+	var mat: ShaderMaterial = prefab.material as ShaderMaterial
+	var texture: Texture2D = mat.get_shader_parameter("albedo_texture") if mat != null else null
+	var forest := Forest.new()
+	forest.name = "Forest_%s" % type_name
+	add_child(forest)
+	forest.build(texture, transforms)
+	forest.set_shadow_casting(_shadow_setting())
+	_forests.push_back(forest)
+
+## The weather the forests sway and hold snow in. Presentation only; called
+## every frame by [method RaceScene._present].
+func set_weather(wind: WindField, snow_grade: int) -> void:
+	for forest: Forest in _forests:
+		forest.set_weather(wind, snow_grade)
+
 ## Hand every object batch the environment's ambient.
 ##
 ## Same reason the terrain needs it and the same number — the object shaders are
@@ -137,6 +160,8 @@ func set_ambient(ambient: Vector3) -> void:
 		var mat: ShaderMaterial = mmi.material_override as ShaderMaterial
 		if mat != null:
 			mat.set_shader_parameter("etr_ambient", ambient)
+	for forest: Forest in _forests:
+		forest.set_ambient(ambient)
 
 ## Turn the standing objects' shadow casting on or off for the whole course.
 ##
@@ -149,6 +174,8 @@ func set_casting_shadows(enabled: bool) -> void:
 	_casts_shadows = enabled
 	for mmi: MultiMeshInstance3D in _batches.values():
 		mmi.cast_shadow = _shadow_setting()
+	for forest: Forest in _forests:
+		forest.set_shadow_casting(_shadow_setting())
 
 ## `DOUBLE_SIDED` rather than `ON`, and that is not a detail. A tree here is two
 ## crossed quads with `cull_disabled` and an alpha cutout, so it has no back

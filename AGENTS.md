@@ -33,7 +33,9 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           (EnvironmentPreset + LightCondition: a course names a place,
                           a race names the time of day — ETR's light_id)
   scripts/render/         terrain chunks, GPU snow field, spray, SnowFall (falling flakes +
-                          far snow, all world-anchored), IceReflection (planar mirror for the ice)
+                          far snow, all world-anchored), IceReflection (planar mirror for the ice),
+                          ConiferMesh (3 LOD meshes + hemi-octahedral maths), Forest (cells ×
+                          levels, per-tree dithered LOD, wind + snow uniforms)
   scripts/camera/         chase camera
   scripts/shell/          main/course/settings menus, HUD, LobbyMenu (connect → browse → room,
                           own CourseMenu instance), LoadingScreen (shared by menu and race)
@@ -52,27 +54,32 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           and shadows), LaunchArgs (command line + URL query), DisplayModes,
                           PackStream (streamed web packs, risk S6; no-op elsewhere)
   scripts/debug/          DebugCapture autoload (headless screenshots / scripted input), key_log
-  shaders/                terrain, etr_skybox, object_billboard (items), object_cross (trees),
-                          snow_trail, snow_flakes, s1_displace, etr_illumination.gdshaderinc
-                          (ETR's sum-then-clamp, included by everything lit)
+  shaders/                terrain, etr_skybox, object_billboard (items), object_cross (bare
+                          trees, shrubs), conifer + conifer_impostor (+ conifer.gdshaderinc:
+                          LOD fade, sway, snow), conifer_bake, snow_trail, snow_flakes,
+                          s1_displace, etr_illumination.gdshaderinc (ETR's sum-then-clamp,
+                          included by everything lit)
   addons/etr_import/      one-way, re-runnable importer from the ETR data tree
   courses/<name>/         GENERATED: course.tres, course.tscn, heightmap.res, splat_*.png
   resources/  i18n/       GENERATED: layers, prefabs, environments, events, course + character
                           catalogs, five rigs + previews, sound bank, music, 13 translations
   assets/sounds|music/    GENERATED: 10 effects, 10 pieces, copied verbatim
+  assets/trees/           BAKED: conifer impostor atlases (tools/bake_conifer_impostor.sh)
   scenes/                 main_menu.tscn (main scene), course/character/settings/ghost/lobby/
                           results menus, race.tscn, loading_screen.tscn, key_log.tscn,
                           server.tscn (the same project headless, no course)
   user://runs/            NOT in the repo: runs kept from the results screen (SavedRunStore),
                           raced as a translucent ghost from the main menu
   themes/                 etr_menu.tres — ETR's `common.cpp` palette + checkbox icons
-  tests/                  headless suite + ODE benchmark + tone_report.gd (not a test)
+  tests/                  headless suite + ODE benchmark + tone_report.gd and
+                          bake_conifer_impostor.gd (not tests)
   spikes/s1_pingpong/     ping-pong render-target spike (S1)
   spikes/s7_reflection/   planar reflection spike (S7)
 etr-0.8.4/                original source + data — READ-ONLY, never write here
 tools/                    import_all.sh; serve.sh (dedicated server + web export);
                           build_server.sh (Linux server export + build/web → build/server/);
                           shot.sh (deterministic screenshot, real GPU when present);
+                          bake_conifer_impostor.sh (re-bake after changing ConiferMesh);
                           png.py, regionstats.py, linstats.py (slow pure-Python capture stats —
                           tests/tone_report.gd does the same in a second); webtest/ (COOP/COEP
                           server + puppeteer runner); gen_course_export_presets.py +
@@ -120,6 +127,7 @@ godot --headless --path game res://scenes/server.tscn -- --port=27015 \
 ./tools/build_server.sh [--build-web]                              # ... packaged into build/server/
 
 ./tools/import_all.sh [--course=bunny_hill] [--force]              # 4-pass importer
+./tools/bake_conifer_impostor.sh                                   # after any ConiferMesh change
 
 # headless verification
 godot --path game -- --capture=/tmp/shot.png --capture-frames=200 \
@@ -176,7 +184,7 @@ Detail is in `PROGRESS.md`; this is the summary.
 |---|---|
 | 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 4724 assertions, 0 failures, 13 s headless. |
 | 1 — importer + first course | **done** — 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. |
-| 2 — rendering | partial — Mobile on the desktop, Compatibility on the web (trap list: *sRGB-blended shadow pass*). ETR's illumination clamp in every lit shader except the character's; desktop-only PSSM shadow. Splat PBR, chunked terrain, instanced objects (trees are ETR's two crossed planes with a hashed yaw; items are billboards), ETR's HUD redrawn as primitives ([RaceHUD]), migrated skyboxes. Tone matched on Bunny Hill at both ends in all three channels; no LightmapGI. Snow/ice micro-relief, glint, Fresnel sky, ice reflecting the racers (`IceReflection`), textured carve spray. |
+| 2 — rendering | partial — Mobile on the desktop, Compatibility on the web (trap list: *sRGB-blended shadow pass*). ETR's illumination clamp in every lit shader except the character's; desktop-only PSSM shadow. Splat PBR, chunked terrain, instanced objects (conifers are 3D meshes at 3 LODs + an octahedral impostor, dithered hand-overs, wind sway, shader snow — [Forest]; bare trees and shrubs are ETR's two crossed planes with a hashed yaw; items are billboards), ETR's HUD redrawn as primitives ([RaceHUD]), migrated skyboxes. Tone matched on Bunny Hill at both ends in all three channels; no LightmapGI. Snow/ice micro-relief, glint, Fresnel sky, ice reflecting the racers (`IceReflection`), textured carve spray. |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror; a carve leaves a shaded trench with a ploughed lip. |
 | 4 — character | **done for all five** — skinned mesh from `shape.lst`, keyframe clips as `AnimationLibrary` + `KeyframePath` root motion, start animation (`CIntro`), finish clips on the results screen (`RaceOutcome.clip`), racing pose layer (`CharacterRig.adjust_joints`, ETR's `AdjustJoints`) driven off `RacerState` alone so ghosts and peers animate. `GameConfig.character` picks one. |
 | 5 — game shell | partial — main menu → Practice / Race the computer / Network multiplayer / Race against ghost / character / Configuration; results screen with named runs; ETR palette theme; course + character catalogs; 13 languages; audio (`AudioDirector`, ETR's one-voice-per-cue mixer). Missing: cups, medals, profiles (data imported), volume/language controls, ETR's menu art (licence audit). |
@@ -375,11 +383,29 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
 - **A trail-map normal is added to the terrain normal, never mixed into it**, or the whole course
   flattens.
 - **Godot imports textures without mipmaps, and `filter_linear` ignores them anyway.** Forced via
-  `[importer_defaults]`; terrain/splat samplers are `filter_linear_mipmap_anisotropic`; mipmapped
+  `[importer_defaults]`; terrain/splat samplers are `filter_linear_mipmap_anisotropic`, whose level
+  is the project's `default_filters/anisotropic_filtering_level` (4 = 16x; unset is 4x); mipmapped
   alpha needs an `fwidth` sharpen before the scissor test.
 - **A tree in ETR is not a billboard**: two fixed crossed quads for collidable objects (split on
   `[coll]`), camera-facing quads only for items. `object_cross.gdshader` + `ETRImport._cross_quad_mesh`
   vs `object_billboard.gdshader` + `QuadMesh`; `TestObjects` asserts it on vertex data.
+- **A conifer's cross is still on the prefab, and still ETR's** — `TestObjects` asserts it — but
+  it is only the editor's picture and a fallback. `ObjectPrefab.conifer` hands the type to
+  `Forest`, which draws `ConiferMesh` instead. The flag lives in `resources/objects/tree{,1}.tres`
+  *and* in every `course.tscn`'s embedded copy, and the importer sets it (`CONIFER_TEXTURE`).
+- **The conifer impostor is baked under Compatibility, which converts nothing**: an unshaded
+  material's `source_color` texture is not decoded and ALBEDO is not encoded (a constant 0.214
+  reads back 0.212). `conifer_bake.gdshader` writes both atlases raw on that basis; baked under
+  Mobile they would be an sRGB curve off. The normal atlas is an object-space normal, so it must
+  never be sampled `hint_normal` or imported as a normal map (`compress/normal_map=2` in its
+  `.import`) — the importer would rebuild blue as if it were tangent-space.
+- **`SurfaceTool.commit()` without `index()` writes no index array** — the mesh draws, but
+  `surface_get_arrays()[ARRAY_INDEX]` is null. `ConiferMesh` indexes before committing.
+- **Per-object LOD cannot be a Godot visibility range on a `MultiMesh`**: the range switches the
+  whole batch. `Forest` picks the level per tree in the vertex shader (out of band → collapse to a
+  point) and uses node visibility ranges only to cull whole cells, with slack for the cell's reach.
+  Distances are from `lod_origin` (the main camera), not `CAMERA_POSITION_WORLD`, which is the sun
+  in the shadow pass.
 - **Never let a billboard's shading normal follow the billboard** — N·L tracks the camera and
   trees pulse. `object_billboard.gdshader` shades as a vertical cylinder.
 - **Two axis-aligned cards on a grid are the same plane.** Grid-placed trees closer than their radii
@@ -595,7 +621,16 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   and 15° of the plane, 1.6x hysteresis; the watched racer exempt) or `Racer.reflected` clears
   their layer bit; the whole term fades by `IceReflection.attachment()` between 0.94 and 0.80.
   `[display] ice_reflections = false` or `character_reflection_opacity = 0` turns it off.
-- **Trees are shaded as a cylinder across both planes**, where ETR gives all eight vertices
+- **Conifers are 3D trees**, where ETR draws the same two crossed quads for every tree.
+  `ConiferMesh` builds three levels from `snowy_tree1.png`, unchanged — radial fins carrying the
+  picture's halves for the silhouette, drooping whorl cards for depth, a trunk at LOD 0 — and
+  `Forest` hands them over at 22 / 45 / 75 m with a 4 m Bayer-dithered cross-fade per tree, then
+  to a hemi-octahedral impostor (64 baked views, three blended, lit from a baked normal atlas).
+  Upward faces are whitened in the shader by `[game] snowfall`; the tree sways with the watched
+  racer's `WindField` and the snowfall. Same markers, same scale, same collision cylinder. Bare
+  trees and the shrub keep the cross. Clearing `conifer` on a prefab (both copies — see the trap
+  list) draws ETR's cross again.
+- **Crossed-quad trees are shaded as a cylinder across both planes**, where ETR gives all eight vertices
   normal (0,0,1). Per-face normals would split each tree into bright and dark halves.
   `normal_roundness = 0` in `object_cross.gdshader` is the flat card.
 - **Each collidable object gets a position-hashed yaw** (±20°, `CourseRoot.decorrelating_yaw`) so

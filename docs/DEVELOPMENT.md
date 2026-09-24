@@ -443,6 +443,19 @@ python3 tools/linstats.py shot.png 0.25 200 550 500 700     # pre-tonemap linear
                                                             # rendered with tonemap_exposure = 0.25
 ```
 
+### The conifer impostor
+
+The far conifers are cards showing one of 64 pre-rendered views of `ConiferMesh` LOD 0, stored in
+`game/assets/trees/conifer_{albedo,normal}.png` (1024², committed). Any change to the tree's shape
+in `ConiferMesh` needs a re-bake, or the far forest shows the old tree:
+
+```bash
+tools/bake_conifer_impostor.sh     # real GPU when present, llvmpipe otherwise; ~2 s
+```
+
+It bakes under Compatibility on purpose (see the trap list) and prints a probe of the normal atlas
+near the pole, which should unpack to roughly +Y.
+
 ## Web
 
 The web export is streamed: `Web` builds a slim base (engine + shell + all 44 course preview

@@ -1798,6 +1798,29 @@ clamp angle through.
 
 4951 assertions, 0 failures.
 
+### The far slope stopped smearing (2026-09-23) · **done**
+
+The terrain samplers were already `filter_linear_mipmap_anisotropic` (history §7), but a sampler
+hint only switches anisotropy on; the *level* is the project setting
+`rendering/textures/default_filters/anisotropic_filtering_level`, which was unset — Godot's 4x.
+A downhill camera reads most of the frame at a grazing angle, which is exactly where 4x runs out.
+It is now 16x on both renderers. On the web, Godot's GLES3 driver enables it whenever the browser
+offers `EXT_texture_filter_anisotropic` and caps it at the setting, so the same line reaches WebGL2.
+
+Bunny Hill, `carve`, 250 frames, 1280x720, mean absolute error per 120-pixel band, top to bottom:
+
+| | 0–120 | 120–240 | 240–360 | 360–480 | 480–600 | 600–720 |
+|---|---|---|---|---|---|---|
+| Compatibility, 4x → 16x | 0.1 | 13.6 | 44.7 | 14.1 | 0.1 | 0.0 |
+| Compatibility, off → 4x | 2.3 | 72.6 | 182.4 | 108.8 | 18.0 | 0.1 |
+| Mobile, 4x → 16x | 0.2 | 17.5 | 55.9 | 39.1 | 0.2 | 0.0 |
+
+The change lives entirely in the middle and far slope; the near field and the sky do not move,
+and an unset setting reproduces an explicit 4x (the 360–480 band excepted — the spray). Held
+at trilinear on purpose: `sparkle_noise`, whose mip chain *is* the fade that stops the glints
+aliasing, and `detail_map`, which fades its octaves explicitly with distance anyway.
+Not yet looked at in a browser.
+
 ---
 
 ## Known gaps

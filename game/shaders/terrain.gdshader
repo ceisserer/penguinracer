@@ -19,12 +19,17 @@ render_mode cull_back, depth_draw_opaque, diffuse_burley, specular_schlick_ggx,
 #include "res://shaders/etr_illumination.gdshaderinc"
 
 group_uniforms Splat;
-// Two things about these samplers matter and neither is obvious.
+// Three things about these samplers matter and none is obvious.
 //
 // `filter_linear` ignores the mip chain even when the texture has one. A splat
 // map carries roughly one texel per half metre and is read across the whole
 // course, so at the grazing angles a ski slope is mostly made of, unmipped
 // sampling scrambles the layer weights from pixel to pixel.
+//
+// `_anisotropic` only switches anisotropy on; how much is the project setting
+// `rendering/textures/default_filters/anisotropic_filtering_level`, which is
+// set to 16x because Godot's unset 4x still smears the far slope. It covers the
+// albedo samplers below as well.
 //
 // And these are **weights, not colour**: `source_color` sRGB-decodes them,
 // which crushes a minority layer's weight by roughly 10× (a 0.12 blend weight

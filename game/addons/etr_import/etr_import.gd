@@ -1457,6 +1457,9 @@ static func _csv(s: String) -> String:
 ##
 ## Swapping in authored meshes later is still a matter of pointing the prefab at
 ## a different [Mesh]; [method _cross_quad_mesh] is only the default.
+## The texture [ConiferMesh] is built around; a prefab that draws it is a conifer.
+const CONIFER_TEXTURE := "snowy_tree1.png"
+
 func build_object_prefabs(object_types: Array[Dictionary]) -> Dictionary[String, ObjectPrefab]:
 	ensure_dir(OUT_OBJECTS)
 	var out: Dictionary[String, ObjectPrefab] = {}
@@ -1475,6 +1478,10 @@ func build_object_prefabs(object_types: Array[Dictionary]) -> Dictionary[String,
 				if entry["collidable"]:
 					prefab.mesh = _cross_quad_mesh()
 					mat.shader = load("res://shaders/object_cross.gdshader")
+					# The one conifer picture: [Forest] draws it as a 3D tree
+					# built from this same texture. The cross stays as the
+					# fallback and what the editor shows.
+					prefab.conifer = entry["texture"] == CONIFER_TEXTURE
 				else:
 					var quad := QuadMesh.new()
 					# Unit quad: the per-instance transform carries diameter and

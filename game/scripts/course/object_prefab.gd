@@ -16,3 +16,7 @@ extends Resource
 @export var collectable: bool = false
 ## Purely decorative — start/finish banners and flags.
 @export var decorative: bool = false
+## Drawn as a 3D conifer by [Forest] rather than as [member mesh]'s crossed
+## quads, which stay the fallback and the editor's picture. Set by the importer
+## for the one conifer picture ETR ships, `snowy_tree1.png`.
+@export var conifer: bool = false
