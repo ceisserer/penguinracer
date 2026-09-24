@@ -37,7 +37,9 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           far snow, all world-anchored), IceReflection (planar mirror for the ice),
                           ConiferMesh (3 LOD meshes + hemi-octahedral maths), BareTreeMesh
                           (grown leafless tree, 3 LODs + its drawn twig/bark texture), Forest
-                          (either species: cells × levels, per-tree dithered LOD, wind + snow)
+                          (either species: cells × levels, per-tree dithered LOD, wind + snow),
+                          Atmosphere (the procedural sky's globals: haze, mist, ridges),
+                          CourseLights (night torches + flag lanterns)
   scripts/camera/         chase camera
   scripts/shell/          main/course/settings menus, HUD, LobbyMenu (connect → browse → room,
                           own CourseMenu instance), LoadingScreen (shared by menu and race)
@@ -56,11 +58,12 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           and shadows), LaunchArgs (command line + URL query), DisplayModes,
                           PackStream (streamed web packs, risk S6; no-op elsewhere)
   scripts/debug/          DebugCapture autoload (headless screenshots / scripted input), key_log
-  shaders/                terrain, etr_skybox, object_billboard (items), object_cross (shrubs),
+  shaders/                terrain, etr_skybox, procedural_sky, object_billboard (items), object_cross (shrubs),
                           conifer + conifer_impostor (both tree species; + conifer.gdshaderinc:
                           LOD fade, sway, snow, twig alpha), conifer_bake, snow_trail, snow_flakes,
-                          s1_displace, etr_illumination.gdshaderinc (ETR's sum-then-clamp,
-                          included by everything lit)
+                          s1_displace, torch_flame, etr_illumination.gdshaderinc (ETR's
+                          sum-then-clamp, included by everything lit), atmosphere.gdshaderinc
+                          (sky gradient, ridges, the `FOG` every lit shader writes, torchlight)
   addons/etr_import/      one-way, re-runnable importer from the ETR data tree
   courses/<name>/         GENERATED: course.tres, course.tscn, heightmap.res,
                           ambient_occlusion.res, splat_*.png
@@ -114,6 +117,7 @@ godot --path game -- --crosswind=strong                             # ... in a c
 godot --path game -- --wind=2                                      # ... in ETR's wind grade 1..3 instead
 godot --path game -- --snow=3                                      # ... snowing (0..3)
 godot --path game -- --light=night                                 # ... under another sky (sunny|cloudy|night)
+godot --path game -- --sky=etr                                     # ... with ETR's skybox and flat fog (procedural|etr)
 godot --path game -- --server=penguin.example                      # ... lobby on that server
 godot --path game -- --lobby                                       # ... lobby on the configured one
 godot --path game res://scenes/key_log.tscn                        # what the link does to the keyboard
@@ -193,6 +197,7 @@ Detail is in `PROGRESS.md`; this is the summary.
 | 4 — character | **done for all five** — skinned mesh from `shape.lst`, keyframe clips as `AnimationLibrary` + `KeyframePath` root motion, start animation (`CIntro`), finish clips on the results screen (`RaceOutcome.clip`), racing pose layer (`CharacterRig.adjust_joints`, ETR's `AdjustJoints`) driven off `RacerState` alone so ghosts and peers animate. `GameConfig.character` picks one. |
 | 5 — game shell | partial — main menu → Practice / Race the computer / Network multiplayer / Race against ghost / character / Configuration; results screen with named runs; ETR palette theme; course + character catalogs; 13 languages; audio (`AudioDirector`, ETR's one-voice-per-cue mixer). Missing: cups, medals, profiles (data imported), volume/language controls, ETR's menu art (licence audit). |
 | 6 — polish/ship | not started. |
+| sky + atmosphere | **done** (beyond ETR) — procedural sky (sun disc, drifting clouds; stars, moon, aurora at night), three layers of distant ridges, aerial perspective and valley mist in every lit shader's `FOG`, night torches and flag lanterns inside the clamp. `[display] sky = etr` / `--sky=etr` is the old frame to the level. See the deviations. |
 | weather | **snow (0–3), sky (sunny/cloudy/night) and wind (none/light/strong) done** — `SnowFall` (world-anchored streaking flakes + far snow, deterministic), `LightCondition` and `WindField.init_crosswind`, all on the course screen, remembered in `[game] snowfall`/`conditions`/`wind`, carried on a lobby room. The sky moves sun, ambient, fog, skybox, tints, ice, and shadows (`EnvironmentPreset.casts_shadows`). The wind blows from a side rolled per start and moves the trees, the snow, the HUD's rose and a racer in flight. `evening` and ETR's wind grades (`--wind=`) are not offered. |
 | computer opponents | **done** (beyond ETR) — `RaceSetup` 1–9 opponents, each a `SimulatedRacer` + `AIInputSource` scoring nine candidate lines. Skill moves habits, never physics: 30 s on a 22° slope gives easy 231 m, medium 333 m, hard 422 m, a player holding straight 413 m. Deterministic from a seed. Solid via `RacerField`. |
 | multiplayer foundation | **done** — fixed 60 Hz tick with interpolated presentation; `SimulatedRacer`/`PlaybackRacer`; `RacerState` is the only thing drawn and is the ghost and wire format. Ghosts end to end: record, keep from the results screen, race from `GhostMenu`. |
@@ -429,6 +434,27 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   fixes it. To measure flicker, capture at 1/10 speed (`--fixed-fps 600`).
 - **ETR's skybox is three flat quads** (front, left, right). `etr_skybox.gdshader` intersects the
   cube and fades outside it — do not "fix" it into a panorama.
+- **Compatibility's sky pass does not encode its output**, and does not decode a `source_color`
+  sampler or uniform either — so the migrated skybox (sRGB in, sRGB out) matched Mobile by accident.
+  A sky computed in linear lands an sRGB curve too dark on the web; `procedural_sky.gdshader`
+  encodes for itself under `#if CURRENT_RENDERER == RENDERER_COMPATIBILITY`.
+- **A written `FOG` is blended the same way by both renderers**, in linear, and replaces the
+  engine's fog for that material (only while `Environment.fog_enabled`). Reproduce the engine's depth
+  fog as `smoothstep(begin, end, dist)` and it matches to the level — that is how `--sky=etr` gives
+  the pre-atmosphere frame back. Additive materials want `fog_disabled` and a manual fade instead.
+- **A fully fogged surface becomes a shape cut out of whatever is behind it** unless the fog colour
+  *is* what is behind it. That is why the distant ridges are a function of direction in
+  `atmosphere.gdshaderinc` and not meshes: the fog function can ask the same question the sky does.
+- **A `global uniform` the project does not declare is a compile error**, and the shader then draws
+  nothing — every lit surface includes `atmosphere.gdshaderinc`, so one missing `[shader_globals]`
+  entry empties the course. Global uniforms cannot be arrays (hence `atmo_torch_0..7`).
+  `TestAtmosphere` checks the include against `project.godot`.
+- **A chase camera on a steep course sees nothing above the horizon.** Past about 21° it sits at its
+  40° pitch clamp with 35° either side, so the top of the frame is at −5°. Ridges on the true
+  horizon filled every pixel the terrain left (no sky at all on Bumpy Ride), and the sky below 0° is
+  the grey ground colour. The whole backdrop is therefore drawn about a dipped horizon
+  (`atmo_dip`, `Atmosphere.horizon_dip`, 0.7 × the course's slope, capped at 30°). Anything that
+  samples the backdrop has to go through `atmo_backdrop_dir`, or the far fog stops matching it.
 - **A screen-space effect derived from one object is wrong for every other**, and a guard on the
   shaded fragment does not bound it. The ice mirror's plane belongs to the watched racer; other
   racers need a per-object admission test (`IceReflection.admits`), with the source racer exempt.
@@ -617,6 +643,22 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
 - **Fog is pushed out**: 40 m clear, 2x distance (40–150 m where `light.lst` says 0–75), because
   six presets ship `[fogstart] 0`. Tree-band contrast returns (p5 143 → 65); the fitted near field
   does not move. `start_distance = 0` + `distance_scale = 1` in `penguinracer.cfg` is ETR's fog.
+- **The sky is drawn, not photographed** (`procedural_sky.gdshader`, `Atmosphere`): gradient from the
+  migrated faces' averages (turned toward a clear blue per light at their own brightness, `Atmosphere.LOOKS`), sun disc, two drifting cloud
+  decks, three low layers of distant ridges seeded per course; stars, a moon and an aurora at night,
+  all about a horizon **dipped by the course's slope** so a chase camera sees open sky. **The
+  moon stands 9° up ahead of the racer** (`MOON_DIRECTION`), not where ETR's night light comes from,
+  because a chase camera never sees that part of the sky; nothing casts a shadow at night. The fog
+  fades to the sky along the horizon (aerial perspective) and, as it reaches full, to the ridges
+  behind; exponential **valley mist** settles 4 m under the course's lowest point, kept light under
+  clear skies (it greys everything it lies over). Both start at the
+  fog's clear distance, so the fitted near field does not move. `[display] sky = etr` / `--sky=etr`
+  is ETR's skybox and flat `[fogcol]`, to the level.
+- **Night courses are lit** (`CourseLights`): a lantern on every flag, a torch every 22 m down the
+  play area's long edges (outside it, clear of trees, no collision). The eight nearest the camera
+  are globals summed inside the illumination clamp by every lit shader — no `OmniLight3D`, which
+  would run the one-light `light()` again and add the ambient twice. Racers are not torch-lit.
+  `[display] night_lights = false` is ETR's dark night.
 - **The sun casts a real shadow map on the desktop only**; ETR casts a character blob. Off by
   renderer (`RenderBackend`), sky (`EnvironmentPreset.casts_shadows`, ETR's `light_id` rule) and
   player (`GameConfig.shadows`, ETR's `perf_level`). The web has no shadows at all, deliberately;

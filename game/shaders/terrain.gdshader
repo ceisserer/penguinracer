@@ -17,6 +17,11 @@ render_mode cull_back, depth_draw_opaque, diffuse_burley, specular_schlick_ggx,
 	ambient_light_disabled;
 
 #include "res://shaders/etr_illumination.gdshaderinc"
+#include "res://shaders/atmosphere.gdshaderinc"
+
+// Torchlight on this fragment, handed from `fragment()` to `light()`, which
+// sums it inside the clamp. Black by day. See `atmo_torch_glow`.
+varying vec3 torch_glow;
 
 group_uniforms Splat;
 // Three things about these samplers matter and none is obvious.
@@ -726,6 +731,11 @@ void fragment() {
 	}
 
 	SPECULAR = specular_f0;
+	// The sky's haze and the valley mist, not the engine's flat fog: see
+	// `atmosphere.gdshaderinc`.
+	torch_glow = atmo_torch_glow((INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz,
+		(INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	FOG = atmo_fog_at((INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz, CAMERA_POSITION_WORLD);
 }
 
 void light() {
@@ -782,8 +792,9 @@ void light() {
 	// The sun's part of the relief occlusion — see `terrain_ao_sun`.
 	float sun_sky = mix(1.0, pow(clamp(terrain_sky, 0.0, 1.0), terrain_ao_strength),
 		terrain_ao_sun);
-	DIFFUSE_LIGHT += etr_illumination(LIGHT_COLOR / PI, shaped * sun_sky, ATTENUATION,
-		ambient_filter);
+	DIFFUSE_LIGHT += min(etr_illumination(LIGHT_COLOR / PI, shaped * sun_sky, ATTENUATION,
+		ambient_filter) + torch_glow,
+		vec3(1.0));
 
 	// LIGHT_COLOR arrives premultiplied by PI, because Godot folds the 1/PI of
 	// the diffuse BRDF into it. Both terms divide it back out so they stay in

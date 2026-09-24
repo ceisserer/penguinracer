@@ -1912,6 +1912,93 @@ Compatibility moves the same way (Bunny Hill, 3.9 % of the frame by more than tw
 `TestOcclusion`: flat and crest open, a V gully darker down its wall, the foot of a bank darker than
 its top, every course's image on its heightmap's grid. All the new uniforms at 0 are the old frame.
 
+### The sky is drawn, and the air has depth (2026-09-24) · **done**
+
+ETR's sky is three photographs on three flat quads and its air is a flat linear fog of `[fogcol]` —
+white on 40 of the 44 courses. Both are replaced by default, and both come back with
+`[display] sky = "etr"` (`--sky=etr`, `?sky=etr`, `SHOT_SKY=etr`). All of it is a DEVIATION.
+
+**One include, `shaders/atmosphere.gdshaderinc`, read by the sky and by every lit surface**, driven
+by global uniforms (`[shader_globals]` in `project.godot`) that `Atmosphere` fills from the preset
+and the course. It holds the sky's gradient and sun glow, the distant ridges, and a fog function
+each lit shader writes to `FOG` — so the colour a far slope fades to is by construction whatever
+the sky draws behind it.
+
+- **Procedural sky** (`procedural_sky.gdshader`): the gradient is the migrated faces' own averages
+  (`sky_zenith_color` and siblings), turned toward a clear sky's hue at their own brightness by a
+  per-light `blue` (0.85 sunny, 0.5 night, 0 cloudy) and a sunny `zenith_lift` of 1.8, because
+  those averages are half mountain and drawn as they are the sky is grey-lavender. A saturation
+  boost was tried first and cannot get there: the averages have almost no hue to boost. A sun disc and halo at the light's direction, a horizon band, two
+  cloud decks of value noise sheared against each other and drifting downwind of the crosswind
+  (accumulated, so a gust turns them rather than teleporting them). Per light (`Atmosphere.LOOKS`):
+  cover 0.3 sunny, 0.93 cloudy with the disc all but gone. At night: stars (hash cells, at least a
+  pixel wide, twinkling, a Milky Way band), a moon with a phase and maria, and an aurora — curtains
+  stacked on a plane ahead of the racer.
+- **The moon is not where the light is.** ETR's night light is `[pos] 1 1 1`, behind and above a
+  racer heading down −Z; a chase camera looking down a 25° slope sees at most a few degrees above
+  the horizon, so the moon stands 9° up, ahead and to the right (`Atmosphere.MOON_DIRECTION`).
+  Nothing casts a shadow at night, which is what makes the two impossible to tell apart on snow.
+- **Distant ridges**: three layers of ridged noise round the horizon, seeded per course, back to
+  front, each hazed by distance, snow on the faces that turn upward, forest on the lower flanks,
+  mist pooled at each foot. **Why not meshes:** the race keeps ETR's 40–150 m fog, so terrain is
+  fogged out completely long before the horizon, and a fully fogged slope has to turn into *some*
+  colour. With a mesh backdrop behind it that colour is a flat shape cut out of the mountains; with
+  the ridges as a function of direction the fog function can ask what is behind the slope. The
+  near ranges reach well below the horizon — a chase camera on a steep course looks *down* the
+  valley, and on Bunny Hill the whole "sky" in shot is below 0° — and they sink by the camera's
+  height above the valley floor over 4 km (capped at 0.07, about 4°).
+- **Dipped horizon** (`atmo_dip`, `Atmosphere.horizon_dip`): the first cut put the ridges on the true
+  horizon, up to ~15° tall. A chase camera at its 40° pitch clamp sees nothing above −5°, so on
+  Bumpy Ride they filled all of the backdrop, with grey valley mist between the layers, and no sky
+  showed at all. That lost the sunny feel ETR's photographs had. Now sky, sun, clouds and ridges
+  are all drawn about a horizon lowered by 0.7 × the course's `base_angle` (capped at 30°). The
+  ridges are about half as tall and tighter (feet at −0.02/−0.06/−0.10, height 0.15 − 0.025·layer),
+  so they rise off the far end of the course with open sky above them. The fog samples the
+  backdrop through the same `atmo_backdrop_dir`, so a far slope still fades into exactly what is
+  behind it. The sky only fades to its ground colour from 0.2 under the dipped horizon; fading
+  from 0 drew the dip as a grey arc. What is left is a faint curved brightening where the horizon
+  haze band follows the dipped horizon, which projects as a curve.
+- **Aerial perspective**: the fog colour is the clear sky along the horizon in the view direction,
+  glow round the sun included, and as depth fog reaches 1 it becomes the ridges and sky behind.
+- **Height fog**: exponential mist, integrated along the ray in closed form, based 4 m below the
+  course's lowest point with a 16 m falloff (`MIST_*`), so the top of a descent looks down into it
+  and the finish sits in its thin upper edge. It starts at the fog's clear distance. Per light
+  (`LOOKS.mist`): light on the clear skies — 0.35 of `MIST_DENSITY` sunny, 0.3 night, 1.6
+  overcast — because mist greys whatever it lies over and a clear day reads by its colour. The same
+  number thins the mist at the ridges' feet (`atmo_valley_mist`), and `ridge_haze` (0.55 sunny,
+  1.0 overcast) how far the ridges fade into the horizon's colour.
+- **Night lights** (`CourseLights`, `[display] night_lights`): a lantern on every flag and a torch
+  every 22 m down both long edges of the play area, 1.2 m outside it and clear of trees. Flames are
+  additive camera-facing quads (`torch_flame.gdshader`) dimmed by the atmosphere's fog amount. The
+  light is the eight nearest to the camera, in eight more globals, summed by `atmo_torch_glow`
+  **inside** ETR's illumination clamp in every lit shader — a torch is one more light in the
+  fixed-function sum. No `OmniLight3D`: a second engine light would run every lit shader's
+  `light()` again and add the ambient twice. The racers are not torch-lit.
+
+**Measured**, Bunny Hill, 1280x720:
+
+| | |
+|---|---|
+| `--sky=etr` against the pre-atmosphere frame, Mobile | mean 0.04 levels, 0.1 % of pixels over 8 (the spray) |
+| ... Compatibility | mean 0.02 levels, 0.1 % over 8 |
+| procedural, lower half of frame (near field) vs `--sky=etr` | mean 0.02 levels — the fitted near field does not move |
+| Mobile vs Compatibility, procedural | mean 5.1, 21 % over 8 — the same as the two renderers already differed (5.2, 21 %) |
+| frame cost, 1500 frames at night, Renoir iGPU | +0.7 ms Mobile, +0.5 ms Compatibility |
+| cold shader compile | +0.3 s Mobile, +0.8 s Compatibility |
+
+Two things found on the way, both in the trap list: **Compatibility's sky pass does not encode its
+output** (the migrated skybox never showed it, because its `source_color` faces are not decoded
+there either), so the sky encodes for itself under `#if CURRENT_RENDERER == RENDERER_COMPATIBILITY`;
+and **a written `FOG` is blended identically by both renderers**, linear, which is what lets the
+`etr` switch reproduce the engine's fog to the level. `TestAtmosphere` holds the rest: every global
+the include reads is declared, every lit shader writes `FOG` and clamps the torchlight, `sky = etr`
+asks for exactly `[fogcol]` with no mist or ridges, torches stand outside the play area, clear of
+trees, on the snow, in the same places every run.
+
+Not done: the evening preset (not offered) comes out sepia, because its photo averages are brown;
+the ice still reflects the migrated sky averages, not the bluer procedural ones (its tone was fitted
+against those); nothing has been checked in a real browser, only under desktop Compatibility.
+
 ## Known gaps
 
 - **The near-field terrain mesh is too coarse for the trench to read as geometry.** Chunk

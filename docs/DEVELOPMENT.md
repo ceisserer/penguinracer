@@ -426,6 +426,7 @@ SHOT_RESOLUTION=1024x576 tools/shot.sh /tmp/shot.png  # ... at a true 1280x720 u
 SHOT_LIGHT=night SHOT_SNOW=2 tools/shot.sh /tmp/night.png
                                                      # ... after dark, in moderate snow
 SHOT_WIND=strong tools/shot.sh /tmp/windy.png        # ... in a strong crosswind (side pinned)
+SHOT_SKY=etr tools/shot.sh /tmp/etr-sky.png          # ... under ETR's skybox and flat fog
 ```
 
 `SHOT_METHOD` is `mobile`, `gl_compatibility` or `forward_plus` and the driver follows it; unset

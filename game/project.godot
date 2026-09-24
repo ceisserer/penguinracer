@@ -107,3 +107,98 @@ renderer/rendering_method.mobile="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
 textures/default_filters/anisotropic_filtering_level=1
 anti_aliasing/quality/msaa_3d=1
+
+[shader_globals]
+
+atmo_time={
+"type": "float",
+"value": 0.0
+}
+atmo_sun_dir={
+"type": "vec3",
+"value": Vector3(0.70710677, 0.70710677, 0)
+}
+atmo_sun_color={
+"type": "vec3",
+"value": Vector3(0.9, 0.8, 0.65)
+}
+atmo_zenith={
+"type": "vec3",
+"value": Vector3(0.17, 0.33, 0.66)
+}
+atmo_horizon={
+"type": "vec3",
+"value": Vector3(0.6, 0.7, 0.85)
+}
+atmo_ground={
+"type": "vec3",
+"value": Vector3(0.5, 0.55, 0.62)
+}
+atmo_fog_color={
+"type": "vec3",
+"value": Vector3(1, 1, 1)
+}
+atmo_fog={
+"type": "vec4",
+"value": Vector4(40, 150, 0, 0)
+}
+atmo_mist={
+"type": "vec4",
+"value": Vector4(0, 20, 0, 40)
+}
+atmo_mist_color={
+"type": "vec3",
+"value": Vector3(0.8, 0.85, 0.92)
+}
+atmo_valley_mist={
+"type": "float",
+"value": 1.0
+}
+atmo_ridges={
+"type": "vec4",
+"value": Vector4(0, 1, 1, 0)
+}
+atmo_dip={
+"type": "float",
+"value": 0.0
+}
+atmo_night={
+"type": "float",
+"value": 0.0
+}
+atmo_torch_0={
+"type": "vec4",
+"value": Vector4(0, 0, 0, 0)
+}
+atmo_torch_1={
+"type": "vec4",
+"value": Vector4(0, 0, 0, 0)
+}
+atmo_torch_2={
+"type": "vec4",
+"value": Vector4(0, 0, 0, 0)
+}
+atmo_torch_3={
+"type": "vec4",
+"value": Vector4(0, 0, 0, 0)
+}
+atmo_torch_4={
+"type": "vec4",
+"value": Vector4(0, 0, 0, 0)
+}
+atmo_torch_5={
+"type": "vec4",
+"value": Vector4(0, 0, 0, 0)
+}
+atmo_torch_6={
+"type": "vec4",
+"value": Vector4(0, 0, 0, 0)
+}
+atmo_torch_7={
+"type": "vec4",
+"value": Vector4(0, 0, 0, 0)
+}
+atmo_torch_light={
+"type": "vec4",
+"value": Vector4(0, 0, 0, 0)
+}

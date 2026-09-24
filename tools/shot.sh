@@ -74,6 +74,9 @@ ARGS+=(--resolution "${SHOT_RESOLUTION:-1280x720}" --fixed-fps 60 --
 [[ -n "${SHOT_LIGHT:-}" ]] && ARGS+=(--light="$SHOT_LIGHT")
 [[ -n "${SHOT_SNOW:-}" ]] && ARGS+=(--snow="$SHOT_SNOW")
 [[ -n "${SHOT_WIND:-}" ]] && ARGS+=(--crosswind="$SHOT_WIND")
+# SHOT_SKY is procedural or etr: the drawn sky or the original's three faces
+# and flat fog. Unset takes the settings file's `[display] sky`.
+[[ -n "${SHOT_SKY:-}" ]] && ARGS+=(--sky="$SHOT_SKY")
 
 WL_SOCKET="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/${WAYLAND_DISPLAY:-wayland-0}"
 if [[ -z "${SHOT_FORCE_SOFTWARE:-}" && -S "$WL_SOCKET" && -e /dev/dri/renderD128 ]]; then

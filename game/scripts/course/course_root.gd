@@ -35,6 +35,11 @@ var _item_transforms: Dictionary[int, Transform3D] = {}
 ## [method set_casting_shadows] says otherwise, because the default has to be
 ## the one that is safe on every renderer — see [RenderBackend].
 var _casts_shadows: bool = false
+## Where every object of each type stands, as the instance transform it was
+## drawn with (origin on the surface, basis scaled to diameter and height), for
+## anything else that decorates the course — [CourseLights] hangs a lantern on
+## every flag. Filled by [method build_runtime].
+var object_transforms: Dictionary[String, Array] = {}
 
 ## Build the runtime representation. Safe to call once, from the race scene.
 func build_runtime() -> void:
@@ -75,6 +80,7 @@ func build_runtime() -> void:
 				var idx: int = items.add(p + Vector3(0.0, height * 0.5, 0.0), diam, height, 0)
 				_item_instances[idx] = [type_name, transforms.size() - 1]
 				_item_transforms[idx] = transforms[transforms.size() - 1]
+		object_transforms[type_name] = transforms
 		if prefab != null and (prefab.conifer or prefab.bare) and not transforms.is_empty() \
 				and not Engine.is_editor_hint():
 			_add_forest(type_name, prefab, transforms)

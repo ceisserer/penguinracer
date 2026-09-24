@@ -14,6 +14,11 @@ render_mode cull_disabled, depth_draw_opaque, diffuse_burley, specular_schlick_g
 	ambient_light_disabled;
 
 #include "res://shaders/etr_illumination.gdshaderinc"
+#include "res://shaders/atmosphere.gdshaderinc"
+
+// Torchlight on this fragment, handed from `fragment()` to `light()`, which
+// sums it inside the clamp. Black by day. See `atmo_torch_glow`.
+varying vec3 torch_glow;
 
 uniform sampler2D albedo_texture : source_color, filter_linear_mipmap, repeat_disable;
 uniform vec4 albedo_tint : source_color = vec4(1.0);
@@ -84,6 +89,11 @@ void fragment() {
 	vec3 curved = axis_right * u + axis_out * sqrt(max(0.0, 1.0 - u * u));
 	vec3 n = mix(axis_out, curved, normal_roundness);
 	NORMAL = normalize(mix(n, axis_up, normal_up_bias));
+	// The sky's haze and the valley mist, not the engine's flat fog: see
+	// `atmosphere.gdshaderinc`.
+	torch_glow = atmo_torch_glow((INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz,
+		(INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	FOG = atmo_fog_at((INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz, CAMERA_POSITION_WORLD);
 }
 
 // ETR clamps every fragment it draws, not just the terrain: `DrawTrees` goes
@@ -98,6 +108,7 @@ void fragment() {
 // plaster without one), and foliage has no such excuse. `normal_up_bias` is
 // already doing the "catches light from above" job the wrap would do here.
 void light() {
-	DIFFUSE_LIGHT += etr_illumination(LIGHT_COLOR / PI,
-		max(dot(NORMAL, LIGHT), 0.0), ATTENUATION, vec3(1.0));
+	DIFFUSE_LIGHT += min(etr_illumination(LIGHT_COLOR / PI,
+		max(dot(NORMAL, LIGHT), 0.0), ATTENUATION, vec3(1.0)) + torch_glow,
+		vec3(1.0));
 }

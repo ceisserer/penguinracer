@@ -25,6 +25,7 @@ func _run() -> void:
 	TestSplat.run(t)
 	TestEnvironments.run(t)
 	TestLighting.run(t)
+	TestAtmosphere.run(t)
 	TestOcclusion.run(t)
 	TestObjects.run(t)
 	TestForest.run(t)

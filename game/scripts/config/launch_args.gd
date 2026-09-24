@@ -73,6 +73,10 @@ var snow: int = NO_SNOW
 ## would make the transport know the caller's vocabulary. Empty means "whatever
 ## the settings file says".
 var light: String = ""
+## `--sky=procedural|etr` — [member GameConfig.procedural_sky] for one run, so
+## a capture can draw either sky without touching the settings file. Empty
+## means "whatever the settings file says".
+var sky: String = ""
 ## `?autostart` — the browser's way of saying "skip the menu" without naming a
 ## course, since it has no `--auto-input=` either.
 var autostart: bool = false
@@ -171,6 +175,8 @@ func parse(argv: PackedStringArray, query: Dictionary) -> void:
 			snow = arg.trim_prefix("--snow=").to_int()
 		elif arg.begins_with("--light="):
 			light = arg.trim_prefix("--light=")
+		elif arg.begins_with("--sky="):
+			sky = arg.trim_prefix("--sky=")
 		elif arg.begins_with("--capture="):
 			capture_path = arg.trim_prefix("--capture=")
 		elif arg.begins_with("--capture-frames="):
@@ -212,6 +218,7 @@ func parse(argv: PackedStringArray, query: Dictionary) -> void:
 	if snow == NO_SNOW and query.has("snow"):
 		snow = str(query["snow"]).to_int()
 	light = _str(query, "light", light)
+	sky = _str(query, "sky", sky)
 	autostart = autostart or query.has("autostart")
 	# The lobby, from a link. `?server=` names one and `?lobby` takes the one
 	# the page's own host implies — see [method RaceNetwork.default_address],

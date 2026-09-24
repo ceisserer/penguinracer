@@ -13,6 +13,11 @@ render_mode cull_disabled, depth_draw_opaque, diffuse_burley, specular_schlick_g
 
 #include "res://shaders/etr_illumination.gdshaderinc"
 #include "res://shaders/conifer.gdshaderinc"
+#include "res://shaders/atmosphere.gdshaderinc"
+
+// Torchlight on this fragment, handed from `fragment()` to `light()`, which
+// sums it inside the clamp. Black by day. See `atmo_torch_glow`.
+varying vec3 torch_glow;
 
 group_uniforms Surface;
 uniform sampler2D albedo_texture : source_color, filter_linear_mipmap, repeat_disable;
@@ -71,10 +76,16 @@ void fragment() {
 	ALPHA_SCISSOR_THRESHOLD = 0.5;
 	ROUGHNESS = roughness_value;
 	METALLIC = 0.0;
+	// The sky's haze and the valley mist, not the engine's flat fog: see
+	// `atmosphere.gdshaderinc`.
+	torch_glow = atmo_torch_glow((INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz,
+		(INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	FOG = atmo_fog_at((INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz, CAMERA_POSITION_WORLD);
 }
 
 // ETR's sum-then-clamp, as every lit object here. See `object_cross.gdshader`.
 void light() {
-	DIFFUSE_LIGHT += etr_illumination(LIGHT_COLOR / PI,
-		max(dot(NORMAL, LIGHT), 0.0), ATTENUATION, vec3(1.0));
+	DIFFUSE_LIGHT += min(etr_illumination(LIGHT_COLOR / PI,
+		max(dot(NORMAL, LIGHT), 0.0), ATTENUATION, vec3(1.0)) + torch_glow,
+		vec3(1.0));
 }

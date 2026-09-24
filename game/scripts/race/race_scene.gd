@@ -177,6 +177,11 @@ var _preset: EnvironmentPreset
 ## this, and picking another sky re-resolves [member _preset] off it without the
 ## course moving. See [method LightCondition.preset_for].
 var _course_preset: EnvironmentPreset
+## The sky, the haze and the valley mist — see [Atmosphere].
+var atmosphere := Atmosphere.new()
+## Torches and flag lanterns, lit under a night sky. A child of
+## [member course_root], so it goes when the course does.
+var course_lights: CourseLights
 var camera: ChaseCamera
 
 ## Everyone on the hill: the player, the field, the ghost and any peers. See
@@ -373,6 +378,10 @@ func _ready() -> void:
 	_cli_setup.conditions = Config.conditions
 	if not args.light.is_empty():
 		_cli_setup.conditions = LightCondition.parse(args.light)
+	# A display setting rather than weather, so it goes straight to the config
+	# for this process: the file is only written by the settings screen.
+	if not args.sky.is_empty():
+		Config.procedural_sky = args.sky.strip_edges().to_lower() != "etr"
 	_cli_setup.wind = Config.wind
 	if not args.crosswind.is_empty():
 		_cli_setup.wind = WindField.parse_strength(args.crosswind)
@@ -513,6 +522,10 @@ func load_course(path: String) -> void:
 	add_child(course_root)
 	await _load_step(LOAD_INSTANTIATED, streaming)
 	course_root.build_runtime()
+	course_lights = CourseLights.new()
+	course_lights.name = "CourseLights"
+	course_root.add_child(course_lights)
+	course_lights.build(course_root)
 	await _load_step(LOAD_RUNTIME_BUILT, streaming)
 
 	var course: CourseData = course_root.course_data
@@ -824,12 +837,26 @@ func _present(delta: float) -> void:
 	# state draws the snow without updating it. `_process` returns before this
 	# whole function while paused, which is the same thing.
 	snowfall.update(view.position, _racer_wind(), delta)
+	atmosphere.advance(delta, camera.global_position.y, _downwind())
+	if course_lights != null:
+		course_lights.update(camera.global_position, atmosphere.atmo_time)
 	course_root.set_weather(_racer_wind(), snowfall.grade)
 	if snow_deformation and snow_gpu != null:
 		snow_gpu.update(view.position.x, view.position.z, delta)
 		terrain.set_trail_map(snow_gpu.trail_texture(), snow_gpu.window_origin(),
 			snow_gpu.window_extent(), snow_gpu.max_depth)
 	_update_reflection(view, delta)
+
+## Which way the wind the watched racer feels is blowing, flat, for the clouds.
+## Zero on a calm day.
+func _downwind() -> Vector2:
+	var wind: WindField = _racer_wind()
+	if wind == null or wind.speed() <= 0.0:
+		return Vector2.ZERO
+	# The angle, not [member WindField.vector], which carries ETR's 0.2 weight
+	# on its z and so points the wrong way for anything but the drag.
+	var a: float = deg_to_rad(wind.angle())
+	return Vector2(sin(a), cos(a))
 
 ## Aim the ice's mirror at the racer being watched and hand the result to the
 ## terrain. See [IceReflection] for why the plane is the one under that racer.
@@ -1359,6 +1386,9 @@ func _apply_environment(preset: EnvironmentPreset) -> void:
 	# The preset knows what `light.lst` said; the settings file knows how far
 	# the player wants to see. Fog distance is the one place the two meet.
 	Config.apply_fog(env, preset)
+	atmosphere.apply(env, preset,
+		course_root.course_data if course_root != null else null,
+		course_root.surface if course_root != null else null, Config.procedural_sky)
 	we.environment = env
 	# The mirror renders through a camera of its own, and a camera that is not
 	# given an environment does not inherit this one — see
@@ -1371,6 +1401,9 @@ func _apply_environment(preset: EnvironmentPreset) -> void:
 	if course_root != null:
 		course_root.set_casting_shadows(_sun.shadow_enabled)
 		course_root.set_ambient(preset.ambient_illumination())
+	if course_lights != null:
+		course_lights.set_active(Config.night_lights
+			and float(Atmosphere.look_for(preset)["night"]) > 0.0)
 	for racer: Racer in roster.all:
 		if racer is SimulatedRacer:
 			(racer as SimulatedRacer).spray.particle_color = preset.particle_color

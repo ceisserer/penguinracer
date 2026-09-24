@@ -68,6 +68,17 @@ var ice_reflections: bool = true
 ## three. Nothing writes it back to `false` when the renderer refuses — the file
 ## records the preference, not what the hardware made of it.
 var shadows: bool = true
+## Which sky is drawn: the procedural one ([Atmosphere]: sun disc, drifting
+## clouds, distant ridges, aerial perspective, valley mist, and stars, a moon
+## and an aurora at night), or ETR's three photographed faces with its flat fog.
+##
+## DEVIATION, and the revert switch for it: `false` is the frame as it was
+## before the atmosphere existed, to the level — the fog is ETR's flat
+## `[fogcol]`, there is no mist, and the sky is `etr_skybox.gdshader`.
+var procedural_sky: bool = true
+## Whether a night course has torches along its edges and lanterns on its
+## flags ([CourseLights]). ETR lights nothing but the sky; off is its night.
+var night_lights: bool = true
 
 # --- fog ---
 
@@ -242,6 +253,9 @@ func read(cfg: ConfigFile) -> void:
 	ice_reflections = bool(cfg.get_value("display", "ice_reflections",
 		ice_reflections))
 	shadows = bool(cfg.get_value("display", "shadows", shadows))
+	procedural_sky = str(cfg.get_value("display", "sky",
+		"procedural" if procedural_sky else "etr")).strip_edges().to_lower() != "etr"
+	night_lights = bool(cfg.get_value("display", "night_lights", night_lights))
 	fog_start_distance = maxf(float(cfg.get_value("fog", "start_distance",
 		fog_start_distance)), 0.0)
 	fog_distance_scale = clampf(float(cfg.get_value("fog", "distance_scale",
@@ -333,6 +347,15 @@ ice_reflections = %s
 ; blowing the whole frame out.
 shadows = %s
 
+; Which sky: "procedural" (sun, drifting clouds, distant mountains, haze that
+; takes the sky's colour, mist in the valley, and stars, a moon and an aurora at
+; night) or "etr" (the original's three photographed faces and its flat fog).
+sky = "%s"
+
+; Torches along the course and lanterns on the flags, under a night sky.
+; The original lights nothing at night but the sky.
+night_lights = %s
+
 [fog]
 
 ; Metres of clear air before fog starts to build.
@@ -397,6 +420,7 @@ server = "%s"
 port = %d
 """ % [_resolution_text(), str(fullscreen).to_lower(), render_scale,
 		str(ice_reflections).to_lower(), str(shadows).to_lower(),
+		"procedural" if procedural_sky else "etr", str(night_lights).to_lower(),
 		fog_start_distance, fog_distance_scale, character,
 		opponents, AISkill.name_of(opponent_skill), snowfall,
 		LightCondition.name_of(conditions), WindField.strength_name(wind),
