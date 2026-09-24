@@ -20,8 +20,12 @@ render_mode cull_back, depth_draw_opaque, diffuse_burley, specular_schlick_ggx,
 #include "res://shaders/atmosphere.gdshaderinc"
 
 // Torchlight on this fragment, handed from `fragment()` to `light()`, which
-// sums it inside the clamp. Black by day. See `atmo_torch_glow`.
+// sums it inside the clamp. Black by day.
 varying vec3 torch_glow;
+// Every torch on the course, baked per vertex by [CourseLights.bake_terrain]
+// and stored as a square root. Not `atmo_torch_glow`, whose eight nearest
+// torches left every farther flame burning over dark snow.
+varying float terrain_torch;
 
 group_uniforms Splat;
 // Three things about these samplers matter and none is obvious.
@@ -434,6 +438,7 @@ void vertex() {
 	// Godot's default colour is white for a mesh without one, which is a chunk
 	// from a course imported before the occlusion was baked: open sky.
 	terrain_sky = COLOR.r;
+	terrain_torch = COLOR.g;
 
 	ridge_lip = 0.0;
 	if (trail_enabled) {
@@ -733,8 +738,8 @@ void fragment() {
 	SPECULAR = specular_f0;
 	// The sky's haze and the valley mist, not the engine's flat fog: see
 	// `atmosphere.gdshaderinc`.
-	torch_glow = atmo_torch_glow((INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz,
-		(INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	// `atmo_torch_light` is zero whenever the torches are out.
+	torch_glow = atmo_torch_light.rgb * (terrain_torch * terrain_torch);
 	FOG = atmo_fog_at((INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz, CAMERA_POSITION_WORLD);
 }
 

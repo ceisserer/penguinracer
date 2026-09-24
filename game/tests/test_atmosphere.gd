@@ -85,7 +85,10 @@ static func _torchlight_is_inside_the_clamp(t: TestCase) -> void:
 		var text: String = _read(path)
 		t.ok(re.search(text) != null,
 			"%s sums the torchlight with the ambient and sun, then clamps" % path.get_file())
-		t.ok(text.contains("torch_glow = atmo_torch_glow("),
+		# The terrain reads every torch from its bake; the rest the nearest eight.
+		var how: String = "torch_glow = atmo_torch_light.rgb * (terrain_torch" \
+			if path.ends_with("terrain.gdshader") else "torch_glow = atmo_torch_glow("
+		t.ok(text.contains(how),
 			"%s works the torchlight out in fragment()" % path.get_file())
 
 ## Compatibility's sky pass does not encode its output, and this sky is built
@@ -216,7 +219,7 @@ static func _torches(t: TestCase) -> void:
 	var root: CourseRoot = scene.instantiate() as CourseRoot
 	root.build_runtime()
 	var flags: Array = root.object_transforms.get("flag", [])
-	t.ok(not flags.is_empty(), "Bunny Hill's flags are on record for their lanterns")
+	t.ok(not flags.is_empty(), "Bunny Hill's flags are on record for their torches")
 	var course: CourseData = root.course_data
 	var placed: PackedVector3Array = CourseLights.torch_positions(course, root.surface,
 		root.trees, flags)
@@ -246,11 +249,36 @@ static func _torches(t: TestCase) -> void:
 	root.add_child(lights)
 	lights.build(root)
 	t.eq_f(float(lights.lights.size()), float(flags.size() + placed.size()), 0.0,
-		"a light per lantern and per torch")
+		"a torch per flag and per edge position")
+	var flag_batch: Node3D = root.get_node("Batch_flag")
 	lights.set_active(true)
-	t.ok(lights.visible, "lit, they show")
+	t.ok(lights.visible and not flag_batch.visible, "lit, they show and the flags step aside")
 	lights.set_active(false)
-	t.ok(not lights.visible, "out, they do not")
+	t.ok(not lights.visible and flag_batch.visible, "out, they do not and the flags are back")
+
+	var surface: HeightmapSurface = root.surface
+	var baked: PackedByteArray = lights.terrain_light
+	t.ok(baked.size() == surface.size.x * surface.size.y, "the bake covers the terrain grid")
+	t.ok(baked == CourseLights.bake_terrain(lights.lights, surface, CourseLights.REACH),
+		"and comes out the same every time")
+	var lit: int = 0
+	for b: int in baked:
+		if b > 0:
+			lit += 1
+	t.ok(lit > 0 and lit < baked.size() / 2,
+		"pools under the torches, dark snow between (%d of %d lit)" % [lit, baked.size()])
+	# Every torch has a pool under it, however far it is from any camera.
+	var sx: float = surface.world_size.x / float(surface.size.x - 1)
+	var sz: float = surface.world_size.y / float(surface.size.y - 1)
+	var dark: int = 0
+	for l: Vector4 in lights.lights:
+		var i: int = clampi(roundi(l.x / sx), 0, surface.size.x - 1)
+		var j: int = clampi(roundi(-l.z / sz), 0, surface.size.y - 1)
+		if baked[j * surface.size.x + i] < 64:
+			dark += 1
+	t.ok(dark == 0, "and every torch lights the snow at its foot (%d did not)" % dark)
+	t.ok(CourseLights.bake_terrain([], surface, CourseLights.REACH).is_empty(),
+		"no torches, nothing baked")
 	root.free()
 
 static func _nearest_lights(t: TestCase) -> void:

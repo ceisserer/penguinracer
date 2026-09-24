@@ -37,8 +37,8 @@ var _item_transforms: Dictionary[int, Transform3D] = {}
 var _casts_shadows: bool = false
 ## Where every object of each type stands, as the instance transform it was
 ## drawn with (origin on the surface, basis scaled to diameter and height), for
-## anything else that decorates the course — [CourseLights] hangs a lantern on
-## every flag. Filled by [method build_runtime].
+## anything else that decorates the course — [CourseLights] stands a torch in
+## place of every flag at night. Filled by [method build_runtime].
 var object_transforms: Dictionary[String, Array] = {}
 
 ## Build the runtime representation. Safe to call once, from the race scene.
@@ -195,6 +195,14 @@ func _shadow_setting() -> GeometryInstance3D.ShadowCastingSetting:
 	if _casts_shadows:
 		return GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED
 	return GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+## Show or hide every object of [param type_name] — [CourseLights] puts the
+## flags away while its torches stand in their places. Drawing only: the grids
+## are untouched, and a type with no batch is left alone.
+func set_type_visible(type_name: String, on: bool) -> void:
+	var mmi: MultiMeshInstance3D = _batches.get(type_name, null)
+	if mmi != null:
+		mmi.visible = on
 
 ## Hide a collected herring by collapsing its instance transform.
 func hide_item(index: int) -> void:

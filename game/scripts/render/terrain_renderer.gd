@@ -29,6 +29,9 @@ var _material: ShaderMaterial
 ## [member CourseData.ambient_occlusion]'s bytes, one per heightmap vertex, or
 ## empty for a course imported before it existed.
 var _occlusion: PackedByteArray = PackedByteArray()
+## [member CourseLights.terrain_light]'s bytes, one per heightmap vertex, or
+## empty for a course with no torches.
+var _torchlight: PackedByteArray = PackedByteArray()
 var _chunks: Dictionary[Vector2i, MeshInstance3D] = {}
 var _chunk_world: Dictionary[Vector2i, AABB] = {}
 var _chunks_x: int = 0
@@ -38,9 +41,14 @@ var _last_center: Vector3 = Vector3(INF, INF, INF)
 ## budget by [method _build_pending].
 var _pending: Array[Vector2i] = []
 
-func setup(p_course: CourseData, p_surface: HeightmapSurface) -> void:
+## [param torchlight] is [member CourseLights.terrain_light]; the chunks carry
+## it from the start, so it has to be here before the first one is built.
+func setup(p_course: CourseData, p_surface: HeightmapSurface,
+		torchlight: PackedByteArray = PackedByteArray()) -> void:
 	course = p_course
 	surface = p_surface
+	if torchlight.size() == surface.size.x * surface.size.y:
+		_torchlight = torchlight
 	_material = _build_material()
 	var ao: Image = course.ambient_occlusion
 	if ao != null and ao.get_format() == Image.FORMAT_L8 \
@@ -400,14 +408,15 @@ func _build_chunk(key: Vector2i) -> void:
 	verts.resize(nx * nz)
 	normals.resize(nx * nz)
 	uvs.resize(nx * nz)
-	# The baked sky visibility rides in vertex colour rather than a texture:
-	# the terrain shader already binds 13 of WebGL2's 16 guaranteed units, and
-	# the occlusion lives on exactly this grid anyway. Absent, the mesh has no
-	# colour array and the shader reads Godot's default white — unoccluded.
+	# The baked sky visibility (R) and torchlight (G) ride in vertex colour
+	# rather than a texture: the terrain shader already binds 13 of WebGL2's 16
+	# guaranteed units, and both live on exactly this grid anyway. Always
+	# written, since Godot's default colour for a mesh without one is white —
+	# open sky, but also every vertex under a torch.
 	var has_ao: bool = not _occlusion.is_empty()
+	var has_torches: bool = not _torchlight.is_empty()
 	var colors := PackedColorArray()
-	if has_ao:
-		colors.resize(nx * nz)
+	colors.resize(nx * nz)
 
 	var min_y: float = INF
 	var max_y: float = -INF
@@ -440,9 +449,9 @@ func _build_chunk(key: Vector2i) -> void:
 			verts[idx] = Vector3(wx, y, wz)
 			normals[idx] = grid_normals[row + i]
 			uvs[idx] = Vector2(wx * inv_world_x, v)
-			if has_ao:
-				var sky: float = float(_occlusion[row + i]) / 255.0
-				colors[idx] = Color(sky, sky, sky)
+			var sky: float = float(_occlusion[row + i]) / 255.0 if has_ao else 1.0
+			var torch: float = float(_torchlight[row + i]) / 255.0 if has_torches else 0.0
+			colors[idx] = Color(sky, torch, 0.0)
 			min_y = minf(min_y, y)
 			max_y = maxf(max_y, y)
 
@@ -470,8 +479,7 @@ func _build_chunk(key: Vector2i) -> void:
 	arrays[Mesh.ARRAY_VERTEX] = verts
 	arrays[Mesh.ARRAY_NORMAL] = normals
 	arrays[Mesh.ARRAY_TEX_UV] = uvs
-	if has_ao:
-		arrays[Mesh.ARRAY_COLOR] = colors
+	arrays[Mesh.ARRAY_COLOR] = colors
 	arrays[Mesh.ARRAY_INDEX] = indices
 
 	var mesh := ArrayMesh.new()

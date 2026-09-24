@@ -76,7 +76,7 @@ var shadows: bool = true
 ## before the atmosphere existed, to the level — the fog is ETR's flat
 ## `[fogcol]`, there is no mist, and the sky is `etr_skybox.gdshader`.
 var procedural_sky: bool = true
-## Whether a night course has torches along its edges and lanterns on its
+## Whether a night course has torches along its edges and in place of its
 ## flags ([CourseLights]). ETR lights nothing but the sky; off is its night.
 var night_lights: bool = true
 ## Whether the race HUD shows the frame rate across the top ([RaceHUD]).
@@ -358,7 +358,7 @@ shadows = %s
 ; night) or "etr" (the original's three photographed faces and its flat fog).
 sky = "%s"
 
-; Torches along the course and lanterns on the flags, under a night sky.
+; Torches along the course and in place of the flags, under a night sky.
 ; The original lights nothing at night but the sky.
 night_lights = %s
 

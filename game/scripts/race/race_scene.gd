@@ -179,7 +179,7 @@ var _preset: EnvironmentPreset
 var _course_preset: EnvironmentPreset
 ## The sky, the haze and the valley mist — see [Atmosphere].
 var atmosphere := Atmosphere.new()
-## Torches and flag lanterns, lit under a night sky. A child of
+## Torches down the edges and in place of the flags, lit under a night sky. A child of
 ## [member course_root], so it goes when the course does.
 var course_lights: CourseLights
 var camera: ChaseCamera
@@ -543,7 +543,7 @@ func load_course(path: String) -> void:
 	terrain = TerrainRenderer.new()
 	terrain.name = "Terrain"
 	add_child(terrain)
-	terrain.setup(course, course_root.surface)
+	terrain.setup(course, course_root.surface, course_lights.terrain_light)
 	await _load_step(LOAD_TERRAIN_READY, streaming)
 
 	camera.surface = course_root.surface

@@ -1,19 +1,28 @@
-## Torches down both edges of the course and a lantern on every flag, under a
+## Torches down both edges of the course and in place of every flag, under a
 ## night sky.
 ##
 ## DEVIATION: ETR lights nothing at night but the sky. Here each torch is a
 ## pole, a flame ([code]shaders/torch_flame.gdshader[/code]) and a pool of warm
-## light on the snow and the trees round it — the eight nearest the camera, as
-## global uniforms every lit shader reads through
-## [code]atmo_torch_glow[/code] in [code]atmosphere.gdshaderinc[/code]. No
-## [OmniLight3D]: the lit shaders here are ETR's one-light sum-then-clamp, and a
-## second engine light would add the ambient to every fragment a second time.
-## The racers use the engine's material and are not lit by it.
+## light on the snow and the trees round it. A flag gives its place up to a
+## torch while they burn: the flag's batch is hidden and a torch stands where
+## it stood. No [OmniLight3D]: the lit shaders here are ETR's one-light
+## sum-then-clamp, and a second engine light would add the ambient to every
+## fragment a second time. The racers use the engine's material and are not
+## lit by it.
 ##
-## Presentation only: a torch has no collision, and stands a metre outside the
-## play area so no racer ever rides through one. Placed deterministically from
-## the course, so a capture reproduces. `[display] night_lights = false`
-## ([member GameConfig.night_lights]) is ETR's dark night.
+## Two paths to the shaders. The terrain's pools are **baked** once, for every
+## torch on the course, into the terrain's vertex colour
+## ([method bake_terrain], [member terrain_light]) — a flame seen 200 m down
+## the hill has its pool under it. Trees and objects still read the eight
+## nearest the camera, as global uniforms through [code]atmo_torch_glow[/code]
+## in [code]atmosphere.gdshaderinc[/code]. Both are scaled by the same
+## [code]atmo_torch_light[/code], which is zero whenever the torches are out.
+##
+## Presentation only: a torch has no collision. An edge torch stands a metre
+## outside the play area so no racer ever rides through one; a flag's torch
+## stands where the (equally intangible) flag did. Placed deterministically
+## from the course, so a capture reproduces. `[display] night_lights = false`
+## ([member GameConfig.night_lights]) is ETR's dark night, flags and all.
 class_name CourseLights
 extends Node3D
 
@@ -23,49 +32,110 @@ const SPACING := 22.0
 const OUTSET := 1.2
 ## How close a tree may stand before a torch gives its place up.
 const TREE_CLEARANCE := 1.6
-const POLE_HEIGHT := 1.5
+const POLE_HEIGHT := 0.9
 ## Flame quad height, metres.
 const FLAME_SIZE := 0.75
-const LANTERN_SIZE := 0.55
 ## Reach of a torch's light on the snow, metres.
 const REACH := 8.0
-## The torchlight's colour times strength, linear; a lantern gives this share.
+## The torchlight's colour times strength, linear; a flag's torch gives this
+## share, since it stands in the middle of the run rather than at its edge and
+## at full strength warms the whole piste.
 const LIGHT := Color(1.0, 0.7, 0.32) * 1.1
-const LANTERN_SHARE := 0.3
+const FLAG_SHARE := 0.3
+## The object type a torch replaces at night.
+const FLAG_TYPE := "flag"
 ## Globals written per frame, see `atmosphere.gdshaderinc`.
 const SLOTS := 8
 
 ## Every light, as position (the flame) and brightness.
 var lights: Array[Vector4] = []
+## Every light's pool on the terrain, one byte per heightmap vertex — see
+## [method bake_terrain]. Empty when the course has no torches.
+var terrain_light: PackedByteArray = PackedByteArray()
+var _root: CourseRoot
 var _flames: MultiMeshInstance3D
 var _poles: MultiMeshInstance3D
 var _active: bool = false
 
-## Place the torches for [param root]'s course. Call once, after
-## [method CourseRoot.build_runtime].
+## Place the torches for [param root]'s course and bake their light into
+## [member terrain_light]. Call once, after [method CourseRoot.build_runtime],
+## and before the terrain builds its first chunk.
 func build(root: CourseRoot) -> void:
+	_root = root
 	lights.clear()
 	var flames: Array[Transform3D] = []
 	var poles: Array[Transform3D] = []
 	var course: CourseData = root.course_data
 	var surface: SurfaceProvider = root.surface
 
-	# A lantern at the top of every flag.
-	var flags: Array = root.object_transforms.get("flag", [])
+	# A torch where every flag stands, then the two edges.
+	var flags: Array = root.object_transforms.get(FLAG_TYPE, [])
+	var feet := PackedVector3Array()
 	for xf: Transform3D in flags:
-		var top: Vector3 = xf.origin + Vector3(0.0, xf.basis.y.length() + LANTERN_SIZE * 0.3, 0.0)
-		lights.push_back(Vector4(top.x, top.y, top.z, LANTERN_SHARE))
-		flames.push_back(Transform3D(Basis().scaled(Vector3.ONE * LANTERN_SIZE), top))
-
-	for p: Vector3 in torch_positions(course, surface, root.trees, flags):
+		feet.push_back(xf.origin)
+	feet.append_array(torch_positions(course, surface, root.trees, flags))
+	for k: int in feet.size():
+		var p: Vector3 = feet[k]
 		var flame := p + Vector3(0.0, POLE_HEIGHT + FLAME_SIZE * 0.25, 0.0)
-		lights.push_back(Vector4(flame.x, flame.y, flame.z, 1.0))
+		var share: float = FLAG_SHARE if k < flags.size() else 1.0
+		lights.push_back(Vector4(flame.x, flame.y, flame.z, share))
 		flames.push_back(Transform3D(Basis().scaled(Vector3.ONE * FLAME_SIZE), flame))
 		poles.push_back(Transform3D(Basis(), p + Vector3(0.0, POLE_HEIGHT * 0.5, 0.0)))
 
+	terrain_light = bake_terrain(lights, root.surface, REACH)
 	_flames = _batch("Flames", _flame_mesh(), flames, _flame_material())
 	_poles = _batch("Poles", _pole_mesh(), poles, _pole_material())
 	set_active(false)
+
+## Every light in [param from] summed onto each vertex of [param surface]'s
+## grid, as one byte per vertex in the grid's row-major order — or empty for no
+## lights. The same falloff and wrapped facing as `atmo_torch_one` in
+## `atmosphere.gdshaderinc`, at full brightness (no flicker), against the
+## vertex's smooth normal: the terrain mesh puts a vertex on every texel of
+## this grid ([method TerrainRenderer._build_chunk]), so it reads these bytes
+## straight into its vertex colour.
+##
+## Stored as the square root of the sum, clamped to 1, and squared back by
+## `terrain.gdshader`: a pool's edge is where the value is small, and a linear
+## byte there steps by 1/255 of full torchlight — a visible contour on dark
+## night snow. Pools stand 22 m apart and reach 8 m, so the clamp is never met
+## in practice.
+static func bake_terrain(from: Array[Vector4], surface: HeightmapSurface,
+		reach: float) -> PackedByteArray:
+	if from.is_empty() or surface == null or reach <= 0.0:
+		return PackedByteArray()
+	var w: int = surface.size.x
+	var h: int = surface.size.y
+	var sx: float = surface.world_size.x / maxf(1.0, float(w - 1))
+	var sz: float = surface.world_size.y / maxf(1.0, float(h - 1))
+	var heights: PackedFloat32Array = surface.heights
+	var normals: PackedVector3Array = surface.normals
+	var sum := PackedFloat32Array()
+	sum.resize(w * h)
+	for light: Vector4 in from:
+		var at := Vector3(light.x, light.y, light.z)
+		# Grid x runs along +X, grid y along -Z.
+		var i0: int = maxi(0, floori((at.x - reach) / sx))
+		var i1: int = mini(w - 1, ceili((at.x + reach) / sx))
+		var j0: int = maxi(0, floori((-at.z - reach) / sz))
+		var j1: int = mini(h - 1, ceili((-at.z + reach) / sz))
+		for j: int in range(j0, j1 + 1):
+			var wz: float = -float(j) * sz
+			var base_y: float = surface.slope * wz
+			for i: int in range(i0, i1 + 1):
+				var idx: int = j * w + i
+				var l: Vector3 = at - Vector3(float(i) * sx, heights[idx] + base_y, wz)
+				var d: float = maxf(l.length(), 1e-3)
+				var fall: float = 1.0 - d / reach
+				if fall <= 0.0:
+					continue
+				var facing: float = maxf(normals[idx].dot(l / d), 0.0) * 0.75 + 0.25
+				sum[idx] += light.w * fall * fall * facing
+	var out := PackedByteArray()
+	out.resize(w * h)
+	for idx: int in w * h:
+		out[idx] = roundi(sqrt(clampf(sum[idx], 0.0, 1.0)) * 255.0)
+	return out
 
 ## Where the torches stand: every [constant SPACING] metres along each edge of
 ## the play area, [constant OUTSET] outside it, dropped where a tree or a flag
@@ -115,10 +185,13 @@ static func _clear_of(at: Vector2, trees: ObjectGrid, near: PackedInt32Array,
 			return false
 	return true
 
-## Show the torches and light the course by them, or put both out.
+## Show the torches and light the course by them, or put both out. The flags
+## step aside while the torches burn and come back when they go out.
 func set_active(on: bool) -> void:
 	_active = on and not lights.is_empty()
 	visible = _active
+	if _root != null:
+		_root.set_type_visible(FLAG_TYPE, not _active)
 	if not _active:
 		RenderingServer.global_shader_parameter_set("atmo_torch_light", Vector4.ZERO)
 
