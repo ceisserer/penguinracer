@@ -149,7 +149,7 @@ vec3 aurora_light(vec3 d) {
 		acc += tint * curtain * streak * (1.0 - k * 0.5);
 	}
 	float horizon = smoothstep(0.01, 0.12, d.y);
-	return acc * 0.09 * horizon;
+	return acc * 0.055 * horizon;
 }
 
 // Compatibility's sky pass writes what the shader returns without encoding it:
