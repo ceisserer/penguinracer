@@ -30,6 +30,7 @@ static func run(t: TestCase) -> void:
 	_every_light_has_a_look(t)
 	_etr_sky_is_etr_fog(t)
 	_the_procedural_sky(t)
+	_sky_detail(t)
 	_the_valley_floor(t)
 	_the_ridges_sink_as_you_climb(t)
 	_the_ridge_map(t)
@@ -147,6 +148,26 @@ static func _etr_sky_is_etr_fog(t: TestCase) -> void:
 		var c: Color = preset.fog_color.srgb_to_linear()
 		t.eq_v(g["atmo_fog_color"], Vector3(c.r, c.g, c.b), 1e-6,
 			"%s: the fog fades to `[fogcol]`, as the engine's did" % id)
+
+## `[quality] sky_detail`: the top level is the shader file itself, the lower
+## two its code with `ATMO_SKY_DETAIL` defined where the file expects it.
+static func _sky_detail(t: TestCase) -> void:
+	t.begin("atmosphere/sky detail")
+	var base: Shader = load(Atmosphere.SKY_SHADER)
+	t.ok(Atmosphere.sky_shader(QualityPreset.SKY_DETAIL_HIGH) == base,
+		"high detail is the shader file as written")
+	t.ok(base.code.count(Atmosphere.SKY_SHADER_TYPE_LINE) == 1,
+		"the file has one shader_type line to put a define under")
+	t.ok(base.code.contains("#ifndef ATMO_SKY_DETAIL"),
+		"and only defaults the detail when nobody has defined it")
+	for detail: int in [0, 1]:
+		var code: String = Atmosphere.sky_variant_code(base.code, detail)
+		var define: String = "#define ATMO_SKY_DETAIL %d" % detail
+		t.ok(code.count(define) == 1, "level %d defines its detail once" % detail)
+		t.ok(code.find(define) < code.find("#ifndef ATMO_SKY_DETAIL"),
+			"before the file's own default (level %d)" % detail)
+		t.ok(Atmosphere.sky_shader(detail) == Atmosphere.sky_shader(detail),
+			"and is compiled once, not per race (level %d)" % detail)
 
 static func _the_procedural_sky(t: TestCase) -> void:
 	t.begin("atmosphere/sky = procedural")

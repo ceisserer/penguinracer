@@ -35,6 +35,13 @@ var _item_transforms: Dictionary[int, Transform3D] = {}
 ## [method set_casting_shadows] says otherwise, because the default has to be
 ## the one that is safe on every renderer — see [RenderBackend].
 var _casts_shadows: bool = false
+## How many of each [Forest]'s levels cast into it — see
+## [method Forest.set_shadow_casting].
+var _tree_shadow_levels: int = 1 << 16
+## [member Forest.lod_scale] for every forest built here. The race sets it from
+## the player's `[quality] tree_detail` before [method build_runtime]; this node
+## is also the editor's, which has no settings file to ask.
+var tree_lod_scale: float = 1.0
 ## Where every object of each type stands, as the instance transform it was
 ## drawn with (origin on the surface, basis scaled to diameter and height), for
 ## anything else that decorates the course — [CourseLights] stands a torch in
@@ -142,10 +149,11 @@ func _add_forest(type_name: String, prefab: ObjectPrefab, transforms: Array[Tran
 	var texture: Texture2D = mat.get_shader_parameter("albedo_texture") if mat != null else null
 	var forest := Forest.new()
 	forest.name = "Forest_%s" % type_name
+	forest.lod_scale = tree_lod_scale
 	add_child(forest)
 	forest.build(texture, transforms,
 		Forest.Species.CONIFER if prefab.conifer else Forest.Species.BARE)
-	forest.set_shadow_casting(_shadow_setting())
+	forest.set_shadow_casting(_shadow_setting(), _tree_shadow_levels)
 	_forests.push_back(forest)
 
 ## The weather the forests sway and hold snow in. Presentation only; called
@@ -177,13 +185,16 @@ func set_ambient(ambient: Vector3) -> void:
 ## because two of the three things that decide it — the renderer and the sky —
 ## are not visible from here. Batches built later take it from
 ## [member _casts_shadows] instead, which is what keeps a course streamed in
-## mid-race in step with one built at load.
-func set_casting_shadows(enabled: bool) -> void:
+## mid-race in step with one built at load. [param tree_levels] is how many of
+## the 3D trees' levels, nearest first, join in (the player's
+## `[quality] tree_shadows`); the other objects follow [param enabled] alone.
+func set_casting_shadows(enabled: bool, tree_levels: int = 1 << 16) -> void:
 	_casts_shadows = enabled
+	_tree_shadow_levels = tree_levels
 	for mmi: MultiMeshInstance3D in _batches.values():
 		mmi.cast_shadow = _shadow_setting()
 	for forest: Forest in _forests:
-		forest.set_shadow_casting(_shadow_setting())
+		forest.set_shadow_casting(_shadow_setting(), tree_levels)
 
 ## `DOUBLE_SIDED` rather than `ON`, and that is not a detail. A tree here is two
 ## crossed quads with `cull_disabled` and an alpha cutout, so it has no back

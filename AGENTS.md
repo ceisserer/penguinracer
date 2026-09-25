@@ -54,7 +54,8 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           WebFileServer (web export over HTTP with COOP/COEP), ServerMain
   scripts/character/      CharacterRig, KeyframePath (root motion), CharacterCatalog/Listing
   scripts/audio/          AudioDirector autoload + generated sound/music banks
-  scripts/config/         GameConfig autoload (settings file), RenderBackend (which renderer,
+  scripts/config/         GameConfig autoload (settings file), QualityPreset (the five
+                          quality presets and the knobs they set), RenderBackend (which renderer,
                           and shadows), LaunchArgs (command line + URL query), DisplayModes,
                           PackStream (streamed web packs, risk S6; no-op elsewhere)
   scripts/debug/          DebugCapture autoload (headless screenshots / scripted input), key_log
@@ -118,6 +119,7 @@ godot --path game -- --wind=2                                      # ... in ETR'
 godot --path game -- --snow=3                                      # ... snowing (0..3)
 godot --path game -- --light=night                                 # ... under another sky (sunny|cloudy|night)
 godot --path game -- --sky=etr                                     # ... with ETR's skybox and flat fog (procedural|etr)
+godot --path game -- --quality=fast                                # ... at a quality preset (fastest|fast|medium|high|best)
 godot --path game -- --server=penguin.example                      # ... lobby on that server
 godot --path game -- --lobby                                       # ... lobby on the configured one
 godot --path game res://scenes/key_log.tscn                        # what the link does to the keyboard
@@ -160,9 +162,13 @@ SHOT_METHOD=gl_compatibility SHOT_RESOLUTION=1024x576 tools/shot.sh /tmp/web-loo
 
 **Settings** live in `user://penguinracer.cfg` (Linux: `~/.local/share/godot/app_userdata/PenguinRacer/`),
 written with comments on first run; delete it for defaults. The **Configuration** screen edits
-the display rows (window size, render scale, ice reflections, shadows, frame-rate
-readout, fog distance) and writes
-the same commented file back. Elsewhere: `[multiplayer] player_name`/`server` on the **Network
+the display rows (window size, frame-rate readout, fog distance), the quality rows
+(render scale, anti-aliasing, sky and sky detail, tree detail distance, shadows, tree shadows,
+shadow detail, ice reflections) and writes the same commented file back. The **quality preset**
+drop-down (Fastest … Best quality) sets the quality rows together and is *derived*, never stored:
+`QualityPreset.matching` names whichever preset the values are, else "Custom". **High quality is
+the shipped frame and `GameConfig`'s defaults** — `TestConfig` holds them together, so an untouched
+file moves no reference capture; keep it that way when adding a knob. Elsewhere: `[multiplayer] player_name`/`server` on the **Network
 multiplayer** screen, `port` file-only, `opponents`/`opponent_skill`/`snowfall`/`conditions`/`wind` on
 the course screen. Resolution offers the display's own modes (`DisplayModes`); resolution and
 fullscreen are hidden on the web, where the page sizes the canvas. The shadows row is hidden
@@ -426,6 +432,9 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
 - **A hand-over is a change of shape, so put it where it cannot be seen.** The levels differ in
   fins, tiers and trunk, not just density; at 22 / 45 / 75 m a tree ~140 px tall morphed right ahead
   of the racer. `Forest.LOD_ENDS` is 50 / 90 / 130 m — small and fogged — for ~0–5 % frame rate.
+  **Those are pixel sizes at 720p**: at 2560x1440 the 60 m hand-over was a tree twice as tall,
+  visibly grainy mid-dither right ahead of the racer. `Forest.screen_scale_for` pushes them out
+  with the window's physical height (never in, capped at 2x), live on a resize.
   The bare impostor's limbs are widened for the last edge: re-bake it after moving that one.
 - **Per-object LOD cannot be a Godot visibility range on a `MultiMesh`**: the range switches the
   whole batch. `Forest` picks the level per tree in the vertex shader (out of band → collapse to a

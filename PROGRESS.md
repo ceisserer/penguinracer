@@ -2251,3 +2251,59 @@ Without it — no map means bare sky, below the map reads its bottom row — pai
 
 Front-to-back compositing with an early out was tried first, alone: exact, but −0.1 ms. It stays,
 in the layer loop both paths share. Not yet looked at in a browser; the map is 16 MB of VRAM there.
+
+### Quality presets on the Configuration screen (2026-09-25) · **done**
+
+The `visual_improvements` work made the frame too dear for a slow machine, and all of it was one
+setting: on or off. The **Configuration** screen now has a quality preset — Fastest, Fast,
+Medium, High quality, Best quality — over the knobs that move the frame time, each also its own
+row and its own key (`[quality]` in `penguinracer.cfg`, besides the existing `render_scale`,
+`ice_reflections`, `shadows` and `sky`):
+
+- **Anti-aliasing** off / 2x / 4x (`Viewport.msaa_3d`; 2x is what `project.godot` always set).
+- **Sky detail** low / medium / high. Compile-time variants of `procedural_sky.gdshader`
+  (`ATMO_SKY_DETAIL`, defined by `Atmosphere.sky_shader`), not a uniform — a never-taken branch
+  still costs. Fewer cloud octaves; low also reads the ridges from `RidgeMap`'s bake, as the fog
+  does, a little softer at the crest.
+- **Tree detail distance** 0.5–1.5 × `Forest.LOD_ENDS`. Below 1 the bare impostor takes over a
+  little thicker than LOD 2 (it is baked for 130 m).
+- **Tree shadows** off / near (LOD 0 only) / all.
+- **Shadow detail** low (2048, 2 splits) / medium (2048, 4) / high (4096, 4, as shipped) / best
+  (8192, 4).
+
+The preset is derived, never stored (`QualityPreset.matching`; anything else reads "Custom").
+**High quality is the defaults and the shipped frame**, so an untouched file moves no capture.
+`--quality=<preset>` / `?quality=` runs one session at a preset.
+
+One knob at a time against High, Mobile, the iGPU, 1024x576 logical, vsync off, `--fixed-fps 60`
+(so every run draws the same 50 s of `paddle`), 3000 frames, median `--print-fps`, two runs; ms a
+frame saved, Bunny Hill / `bronze_set`: 2048 atlas 1.1 / 0.6 (two splits as well 1.7 / 1.0), no tree
+shadows 1.5 / 0.2, no MSAA 0.7 / 0.8, low sky 0.6 / 0.6, trees at 0.5× 0.4 / 0.2, LOD-0-only tree
+shadows 0.25 / 0.2. Next to nothing: medium sky, 4096 in two splits, LOD 0+1 tree shadows (the
+near trees in the fine cascades are the whole bill). Dearer: the 8192 atlas +3.9 / +1.9, 4x MSAA
++0.1 / +0.3, trees at 1.2× ~0. The presets, FPS:
+
+| | Fastest | Fast | Medium | High | Best |
+|---|---|---|---|---|---|
+| Mobile, Bunny Hill | 458 | 267 | 171 | 129 | 82 |
+| Mobile, `bronze_set` | 406 | 252 | 175 | 144 | 108 |
+| Compatibility, Bunny Hill | 447 | 348 | 259 | 230 | 207 |
+| Compatibility, `bronze_set` | 394 | 309 | 231 | 199 | 178 |
+
+Compatibility draws no shadows, so its spread is narrower. Not yet looked at in a browser.
+
+**Follow-up: the hand-overs are sized for the screen.** At Best in a 2560x1440 window a conifer
+right ahead of the racer went grainy for a moment — the Bayer cross-fade of its 60 m hand-over.
+`LOD_ENDS` were chosen as pixel sizes at 720p, and at 1440p the same tree is twice as tall.
+`Forest.screen_scale_for` now scales every hand-over by the window's physical height / 720,
+never below 1 (small windows and every capture at 1024x576 logical are unchanged) and capped at
+2, and re-lays the bands if the window is resized mid-race; the screen's tree-detail label shows
+the distances that result. Level-tinted captures confirm it (at 1440p the trees that were
+handing over at 60 m draw LOD 0). Cost at 1440p, High, interleaved pairs: 47 → 46 FPS. A first
+unpaired run said 44 → 63 — the iGPU's clock states, not the change.
+
+Best no longer uses the 8192 shadow atlas: paired against 4096 at 1/5 speed it differs by a few
+hundred pixels of 230 000 on any frame, and it cost 3.9 ms on Bunny Hill. The row keeps it.
+
+About one run in six on this machine writes its capture and then never exits — HEAD before this
+change too (1 of 6 on `bronze_set`), so the benchmark wraps each run in a `timeout`. Not chased.

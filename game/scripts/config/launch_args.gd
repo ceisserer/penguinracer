@@ -77,6 +77,11 @@ var light: String = ""
 ## a capture can draw either sky without touching the settings file. Empty
 ## means "whatever the settings file says".
 var sky: String = ""
+## `--quality=fastest|fast|medium|high|best` — a [QualityPreset] for one run,
+## so the presets can be captured and timed without touching the settings file.
+## Applied before [member sky], which can still override its sky. Empty means
+## "whatever the settings file says".
+var quality: String = ""
 ## `?autostart` — the browser's way of saying "skip the menu" without naming a
 ## course, since it has no `--auto-input=` either.
 var autostart: bool = false
@@ -177,6 +182,8 @@ func parse(argv: PackedStringArray, query: Dictionary) -> void:
 			light = arg.trim_prefix("--light=")
 		elif arg.begins_with("--sky="):
 			sky = arg.trim_prefix("--sky=")
+		elif arg.begins_with("--quality="):
+			quality = arg.trim_prefix("--quality=")
 		elif arg.begins_with("--capture="):
 			capture_path = arg.trim_prefix("--capture=")
 		elif arg.begins_with("--capture-frames="):
@@ -219,6 +226,7 @@ func parse(argv: PackedStringArray, query: Dictionary) -> void:
 		snow = str(query["snow"]).to_int()
 	light = _str(query, "light", light)
 	sky = _str(query, "sky", sky)
+	quality = _str(query, "quality", quality)
 	autostart = autostart or query.has("autostart")
 	# The lobby, from a link. `?server=` names one and `?lobby` takes the one
 	# the page's own host implies — see [method RaceNetwork.default_address],

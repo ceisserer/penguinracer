@@ -85,6 +85,34 @@ var night_lights: bool = true
 ## command line or `?fps` in the URL turns it on for one run whatever this says.
 var show_fps: bool = false
 
+# --- quality ---
+#
+# The knobs [QualityPreset] sets together. Every default here is its HIGH row —
+# the frame as it shipped before these existed — and [TestConfig] holds them to
+# it, so an untouched settings file changes no reference capture.
+
+## Multisample anti-aliasing on the 3D scene: an index into
+## [constant QualityPreset.ANTIALIASING_NAMES] (off, 2x, 4x). 2x is what
+## `project.godot` has always asked for.
+var antialiasing: int = 1
+## How much of the procedural sky is worked out per pixel: an index into
+## [constant QualityPreset.SKY_DETAIL_NAMES]. Medium thins the clouds' noise;
+## low thins it further and reads the distant ridges from the map the fog
+## already uses ([RidgeMap]) instead of evaluating them, a little softer at the
+## crest. Nothing to do with `sky = "etr"`, which draws no procedural sky.
+var sky_detail: int = QualityPreset.SKY_DETAIL_HIGH
+## How far out the 3D trees keep their finer levels, as a multiple of
+## [constant Forest.LOD_ENDS] (50 / 90 / 130 m at 1.0). Nearer hand-overs are
+## cheaper and easier to see: the levels differ in shape, not only in density.
+var tree_detail: float = 1.0
+## Which tree levels cast a shadow when [member shadows] is on: an index into
+## [constant QualityPreset.TREE_SHADOW_NAMES] (off, near, all).
+var tree_shadows: int = QualityPreset.TREE_SHADOWS_ALL
+## The sun's shadow map: an index into [constant QualityPreset.SHADOW_DETAIL_NAMES],
+## which [method QualityPreset.shadow_map_for] turns into an atlas size and a
+## cascade count.
+var shadow_detail: int = 2
+
 # --- fog ---
 
 ## Metres of clear air in front of the camera before fog starts to build.
@@ -262,6 +290,16 @@ func read(cfg: ConfigFile) -> void:
 		"procedural" if procedural_sky else "etr")).strip_edges().to_lower() != "etr"
 	night_lights = bool(cfg.get_value("display", "night_lights", night_lights))
 	show_fps = bool(cfg.get_value("display", "show_fps", show_fps))
+	antialiasing = QualityPreset.parse(str(cfg.get_value("quality", "antialiasing",
+		"")), QualityPreset.ANTIALIASING_NAMES, antialiasing)
+	sky_detail = QualityPreset.parse(str(cfg.get_value("quality", "sky_detail",
+		"")), QualityPreset.SKY_DETAIL_NAMES, sky_detail)
+	tree_detail = clampf(float(cfg.get_value("quality", "tree_detail", tree_detail)),
+		QualityPreset.TREE_DETAIL_MIN, QualityPreset.TREE_DETAIL_MAX)
+	tree_shadows = QualityPreset.parse(str(cfg.get_value("quality", "tree_shadows",
+		"")), QualityPreset.TREE_SHADOW_NAMES, tree_shadows)
+	shadow_detail = QualityPreset.parse(str(cfg.get_value("quality", "shadow_detail",
+		"")), QualityPreset.SHADOW_DETAIL_NAMES, shadow_detail)
 	fog_start_distance = maxf(float(cfg.get_value("fog", "start_distance",
 		fog_start_distance)), 0.0)
 	fog_distance_scale = clampf(float(cfg.get_value("fog", "distance_scale",
@@ -366,6 +404,30 @@ night_lights = %s
 ; frames. Also `--fps` on the command line, which turns it on for one run.
 show_fps = %s
 
+[quality]
+
+; The Configuration screen's quality preset sets these together (and render_scale,
+; ice_reflections, shadows and sky above). The file keeps the values, not the
+; preset: any mix that is no preset's shows there as "Custom".
+
+; Smoothing of the 3D scene's edges: off, 2x or 4x.
+antialiasing = "%s"
+
+; How much of the procedural sky is worked out per pixel: low, medium or high.
+; Low has plainer clouds and slightly softer mountain crests.
+sky_detail = "%s"
+
+; How far out the trees keep their finer shapes, times 50 / 90 / 130 m
+; [0.5...1.5]. Lower is faster, and the change of shape is closer to you.
+tree_detail = %.2f
+
+; Which trees cast a shadow when shadows are on: off, near (the ones close by,
+; at full detail) or all.
+tree_shadows = "%s"
+
+; The sun's shadow map: low, medium, high or best. Lower is blurrier and cheaper.
+shadow_detail = "%s"
+
 [fog]
 
 ; Metres of clear air before fog starts to build.
@@ -432,6 +494,10 @@ port = %d
 		str(ice_reflections).to_lower(), str(shadows).to_lower(),
 		"procedural" if procedural_sky else "etr", str(night_lights).to_lower(),
 		str(show_fps).to_lower(),
+		QualityPreset.ANTIALIASING_NAMES[antialiasing],
+		QualityPreset.SKY_DETAIL_NAMES[sky_detail], tree_detail,
+		QualityPreset.TREE_SHADOW_NAMES[tree_shadows],
+		QualityPreset.SHADOW_DETAIL_NAMES[shadow_detail],
 		fog_start_distance, fog_distance_scale, character,
 		opponents, AISkill.name_of(opponent_skill), snowfall,
 		LightCondition.name_of(conditions), WindField.strength_name(wind),
@@ -489,6 +555,7 @@ func apply_fog(env: Environment, preset: EnvironmentPreset) -> void:
 func apply_display(forced: bool = false) -> void:
 	var root: Window = get_tree().root
 	root.scaling_3d_scale = render_scale
+	root.msaa_3d = QualityPreset.msaa_for(antialiasing)
 
 	if DisplayServer.get_name() == "headless" or OS.has_feature("web"):
 		return

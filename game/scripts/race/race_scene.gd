@@ -179,6 +179,12 @@ var _preset: EnvironmentPreset
 var _course_preset: EnvironmentPreset
 ## The sky, the haze and the valley mist — see [Atmosphere].
 var atmosphere := Atmosphere.new()
+## The directional shadow atlas's size as last set — the project's own until
+## [method _apply_shadow_detail] changes it. Static, because the atlas is the
+## renderer's and outlives this scene: the next race has to know what the last
+## one left it at.
+static var _shadow_atlas_size: int = ProjectSettings.get_setting(
+	"rendering/lights_and_shadows/directional_shadow/size", 4096)
 ## The ridges baked for the fog, once per sky — see [RidgeMap].
 var ridge_map: RidgeMap
 ## Torches down the edges and in place of the flags, lit under a night sky. A child of
@@ -382,8 +388,18 @@ func _ready() -> void:
 	_cli_setup.conditions = Config.conditions
 	if not args.light.is_empty():
 		_cli_setup.conditions = LightCondition.parse(args.light)
-	# A display setting rather than weather, so it goes straight to the config
-	# for this process: the file is only written by the settings screen.
+	# Display settings rather than weather, so they go straight to the config
+	# for this process: the file is only written by the settings screen. The
+	# preset first, so that `--sky=` can still pick the sky under it.
+	if not args.quality.is_empty():
+		var kind: int = QualityPreset.parse(args.quality, QualityPreset.NAMES,
+			QualityPreset.CUSTOM)
+		if kind == QualityPreset.CUSTOM:
+			push_warning("--quality=%s is not one of %s" % [args.quality,
+				", ".join(QualityPreset.NAMES)])
+		else:
+			QualityPreset.apply(kind, Config)
+			Config.apply_display()
 	if not args.sky.is_empty():
 		Config.procedural_sky = args.sky.strip_edges().to_lower() != "etr"
 	_cli_setup.wind = Config.wind
@@ -523,6 +539,7 @@ func load_course(path: String) -> void:
 	await _load_step(LOAD_DOWNLOADED, streaming)
 	var packed: PackedScene = load(path)
 	course_root = packed.instantiate()
+	course_root.tree_lod_scale = Config.tree_detail
 	add_child(course_root)
 	await _load_step(LOAD_INSTANTIATED, streaming)
 	course_root.build_runtime()
@@ -1392,7 +1409,8 @@ func _apply_environment(preset: EnvironmentPreset) -> void:
 	Config.apply_fog(env, preset)
 	atmosphere.apply(env, preset,
 		course_root.course_data if course_root != null else null,
-		course_root.surface if course_root != null else null, Config.procedural_sky)
+		course_root.surface if course_root != null else null, Config.procedural_sky,
+		Config.sky_detail)
 	if Config.procedural_sky:
 		ridge_map.bake()
 	else:
@@ -1406,8 +1424,10 @@ func _apply_environment(preset: EnvironmentPreset) -> void:
 	preset.apply_sun(_sun)
 	_sun.shadow_enabled = _shadows_wanted(preset)
 	_sun.directional_shadow_max_distance = _shadow_range_for(env)
+	_apply_shadow_detail()
 	if course_root != null:
-		course_root.set_casting_shadows(_sun.shadow_enabled)
+		course_root.set_casting_shadows(_sun.shadow_enabled,
+			QualityPreset.tree_shadow_levels(Config.tree_shadows))
 		course_root.set_ambient(preset.ambient_illumination())
 	if course_lights != null:
 		course_lights.set_active(Config.night_lights
@@ -1530,6 +1550,20 @@ func _racer_wind() -> WindField:
 func _shadows_wanted(preset: EnvironmentPreset) -> bool:
 	return RenderBackend.supports_light_shadows() \
 		and Config.shadows and preset.casts_shadows
+
+## The sun's shadow map at the player's `[quality] shadow_detail`: the atlas is
+## the renderer's, shared by every directional light, and the cascade count is
+## the sun's own. See [method QualityPreset.shadow_map_for].
+func _apply_shadow_detail() -> void:
+	var map: Vector2i = QualityPreset.shadow_map_for(Config.shadow_detail)
+	var is_16_bits: bool = ProjectSettings.get_setting(
+		"rendering/lights_and_shadows/directional_shadow/16_bits", true)
+	# Reallocated only when the size moves: this runs on every change of sky.
+	if map.x != _shadow_atlas_size:
+		RenderingServer.directional_shadow_atlas_set_size(map.x, is_16_bits)
+		_shadow_atlas_size = map.x
+	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS \
+		if map.y == 2 else DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 
 ## How far directional shadows have to reach for this environment.
 ##

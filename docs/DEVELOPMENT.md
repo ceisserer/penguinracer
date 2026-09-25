@@ -311,8 +311,9 @@ godot --path game -- --lobby                       # ... on the one the settings
 
 Written the first time the game runs, with its comments, read once at startup, and moved either by
 hand or from **Configuration** on the main menu — which writes the same file back, comments and
-all. Fog is read when a course loads, so a change to it shows on the next race; the window
-settings apply as soon as you press Ok. The file lives at:
+all. Fog, the sky, the trees and the shadows are read when a course loads, so a change to them
+shows on the next race; the window settings, render scale and anti-aliasing apply as soon as you
+press Ok. The file lives at:
 
 ```
 Linux     ~/.local/share/godot/app_userdata/PenguinRacer/penguinracer.cfg
@@ -329,6 +330,14 @@ ice_reflections = true    ; whether ice reflects the racers standing on it
 shadows = true            ; racers and trees cast a shadow. Desktop only — the browser's
                           ; renderer cannot draw one without blowing the frame out — and
                           ; off under a cloudy or a night sky either way
+sky = "procedural"        ; or "etr": the original's photographed skybox and flat fog
+
+[quality]
+antialiasing = "2x"       ; off, 2x or 4x
+sky_detail = "high"       ; low, medium or high: the procedural sky's clouds and crests
+tree_detail = 1.00        ; tree hand-overs at this times 50 / 90 / 130 m [0.5...1.5]
+tree_shadows = "all"      ; off, near (the nearest, full-detail level) or all
+shadow_detail = "high"    ; low, medium, high or best: the sun's shadow map
 
 [fog]
 start_distance = 40.0     ; metres of clear air before fog starts to build
@@ -365,6 +374,13 @@ window draws on 1680x720 and shows more of the hill to either side, a 4:3 window
 and shows more of it above and below, and nothing is ever letterboxed. The HUD anchors each of its
 pieces to the edge it belongs to, and the camera widens its own lens on anything narrower than
 16:9 so no window shape sees less of the course than another.
+
+The **quality preset** on the **Configuration** screen — Fastest, Fast, Medium, High quality,
+Best quality — sets `render_scale`, `ice_reflections`, `shadows`, `sky` and the whole `[quality]`
+section together. The file keeps only the values: the screen shows whichever preset they add up
+to, and "Custom" for any other mix. High quality is the defaults, the frame the game has always
+shipped. `--quality=fast` (or `?quality=fast` in the browser) runs one session at a preset without
+touching the file; `--sky=` still outranks its sky.
 
 The **Configuration** screen's resolution list is the display's, not a fixed one: the screen's own
 resolution, the standard modes that share its shape and fit beside the taskbar, and whatever the

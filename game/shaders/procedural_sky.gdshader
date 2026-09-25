@@ -10,10 +10,32 @@
 // ridges live in `atmosphere.gdshaderinc`, shared with every lit surface; this
 // file adds only what nothing in front of the sky needs to agree with.
 //
-// Compatibility draws a sky shader like any other; nothing here reads a texture.
+// Compatibility draws a sky shader like any other. Nothing here reads a texture
+// except the low-detail variant, which reads the ridges from `atmo_ridge_map`.
 shader_type sky;
 
+// The player's `[quality] sky_detail`: 2 is this file as written; [Atmosphere]
+// compiles the lower two by defining this under the `shader_type` line. A
+// define and not a uniform, because a branch that is never taken still costs
+// its registers (trap list) — each variant carries only its own path.
+#ifndef ATMO_SKY_DETAIL
+#define ATMO_SKY_DETAIL 2
+#endif
+
 #include "res://shaders/atmosphere.gdshaderinc"
+
+// Octaves of a cloud deck's shape, and of the second look toward the sun that
+// shades it. The top octaves are the fine curls at the clouds' edges.
+#if ATMO_SKY_DETAIL >= 2
+const int CLOUD_OCTAVES = 6;
+const int CLOUD_SHADE_OCTAVES = 4;
+#elif ATMO_SKY_DETAIL == 1
+const int CLOUD_OCTAVES = 4;
+const int CLOUD_SHADE_OCTAVES = 3;
+#else
+const int CLOUD_OCTAVES = 3;
+const int CLOUD_SHADE_OCTAVES = 2;
+#endif
 
 group_uniforms Sun;
 // Angular radius of the disc, radians. The real sun is 0.0047; a game's has to
@@ -59,13 +81,13 @@ vec4 cloud_deck(vec3 d, float height, float scale, vec2 drift, float cover,
 	// The plane projection runs to infinity at the horizon; flattening it with
 	// an offset keeps the far clouds from shrinking into noise.
 	vec2 uv = d.xz / (d.y + 0.14) * height * scale + drift;
-	float n = fbm(uv, 6);
+	float n = fbm(uv, CLOUD_OCTAVES);
 	float threshold = 1.0 - cover;
 	float density = smoothstep(threshold - softness, threshold + softness, n * 1.25 - 0.1);
 	// Light arriving through the cloud from the disc's side: sample again a
 	// step toward it and darken by what is in the way.
 	vec2 toward = normalize(atmo_sun_dir.xz + vec2(1e-4)) * 0.18;
-	float ahead = fbm(uv + toward, 4);
+	float ahead = fbm(uv + toward, CLOUD_SHADE_OCTAVES);
 	float lit = clamp(0.55 + (n - ahead) * 3.0, 0.0, 1.0);
 	float mu = max(dot(d, atmo_sun_dir), 0.0);
 	vec3 col = mix(cloud_shade, cloud_lit, lit);
@@ -194,8 +216,14 @@ void sky() {
 			c = mix(c, high.rgb, high.a * 0.6 * fade);
 			c = mix(c, low.rgb, low.a * fade);
 		}
-		// The ridges go over everything, clouds and moon included, and sharp.
+		// The ridges go over everything, clouds and moon included, and sharp —
+		// or, at low detail, as the fog sees them: two texels of the baked map,
+		// a little soft at the crest, instead of three layers of noise.
+#if ATMO_SKY_DETAIL >= 1
 		vec4 ridges = atmo_ridge_stack(d, fwidth(d.y / max(length(d.xz), 1e-4)));
+#else
+		vec4 ridges = atmo_ridge_stack_far(d);
+#endif
 		c = c * (1.0 - ridges.a) + ridges.rgb;
 		COLOR = display_encoded(c);
 	}

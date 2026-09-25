@@ -234,8 +234,12 @@ static func sky_colours(preset: EnvironmentPreset) -> Dictionary:
 ## Put [param preset]'s sky on [param env] and point every shader in the frame
 ## at it. [param env] has to have had its fog range set already —
 ## [method GameConfig.apply_fog] — because the shaders' copy is read off it.
+##
+## [param sky_detail] is the player's `[quality] sky_detail` — see
+## [method sky_shader].
 func apply(env: Environment, preset: EnvironmentPreset, course: CourseData,
-		surface: SurfaceProvider, procedural: bool) -> void:
+		surface: SurfaceProvider, procedural: bool,
+		sky_detail: int = QualityPreset.SKY_DETAIL_HIGH) -> void:
 	_valley_floor = valley_floor(course, surface)
 	var g: Dictionary = globals_for(preset, env.fog_depth_begin, env.fog_depth_end,
 		env.fog_enabled, _valley_floor, ridge_seed(course), procedural, horizon_dip(course))
@@ -246,7 +250,8 @@ func apply(env: Environment, preset: EnvironmentPreset, course: CourseData,
 		_sky_material = null
 		return
 	var colours: Dictionary = sky_colours(preset)
-	env.sky = _build_sky(look_for(preset), colours["zenith"], colours["horizon"])
+	env.sky = _build_sky(look_for(preset), colours["zenith"], colours["horizon"],
+		sky_detail)
 	# The sky is the backdrop the fog fades *to*; fogging it as well would lay
 	# the flat colour back over the ridges.
 	env.fog_sky_affect = 0.0
@@ -276,9 +281,10 @@ func advance(delta: float, camera_y: float, downwind: Vector2 = Vector2.ZERO) ->
 	_cloud_offset += _cloud_velocity * delta
 	_sky_material.set_shader_parameter("cloud_offset", _cloud_offset)
 
-func _build_sky(look: Dictionary, zenith: Color, horizon: Color) -> Sky:
+func _build_sky(look: Dictionary, zenith: Color, horizon: Color,
+		detail: int) -> Sky:
 	var mat := ShaderMaterial.new()
-	mat.shader = load("res://shaders/procedural_sky.gdshader")
+	mat.shader = sky_shader(detail)
 	mat.set_shader_parameter("cloud_cover", float(look["cover"]))
 	mat.set_shader_parameter("sun_disc", float(look["disc"]))
 	var glow: Color = look["glow"]
@@ -293,6 +299,31 @@ func _build_sky(look: Dictionary, zenith: Color, horizon: Color) -> Sky:
 	# off), so the smallest there is.
 	sky.radiance_size = Sky.RADIANCE_SIZE_32
 	return sky
+
+const SKY_SHADER := "res://shaders/procedural_sky.gdshader"
+## The line [method sky_shader] writes its define under.
+const SKY_SHADER_TYPE_LINE := "shader_type sky;"
+
+## The lower-detail variants, compiled once each and kept for the process.
+static var _sky_variants: Dictionary[int, Shader] = {}
+
+## The sky shader for `[quality] sky_detail` [param detail]. The top level is
+## the file itself; the others are its code with `ATMO_SKY_DETAIL` defined, so
+## each compiles only its own path — see the note at the top of the shader.
+static func sky_shader(detail: int) -> Shader:
+	var base: Shader = load(SKY_SHADER)
+	if detail >= QualityPreset.SKY_DETAIL_HIGH:
+		return base
+	if not _sky_variants.has(detail):
+		var variant := Shader.new()
+		variant.code = sky_variant_code(base.code, detail)
+		_sky_variants[detail] = variant
+	return _sky_variants[detail]
+
+## [param code] with `ATMO_SKY_DETAIL` set to [param detail]. Pure, for the tests.
+static func sky_variant_code(code: String, detail: int) -> String:
+	return code.replace(SKY_SHADER_TYPE_LINE,
+		"%s\n#define ATMO_SKY_DETAIL %d" % [SKY_SHADER_TYPE_LINE, detail])
 
 ## [param c] turned [param amount] of the way toward the hue of [param blue],
 ## at [param c]'s own luminance times [param lift].

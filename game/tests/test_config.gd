@@ -13,6 +13,7 @@ static func run(t: TestCase) -> void:
 	_resolution_choices(t)
 	_window_match(t)
 	_round_trip(t)
+	_quality_presets(t)
 	_fog_range(t)
 	_launch_args(t)
 
@@ -253,6 +254,77 @@ static func _round_trip(t: TestCase) -> void:
 	t.ok(c.file_text().begins_with("; PenguinRacer settings."),
 		"the file it writes is still the one a player can read")
 	back.free()
+	c.free()
+
+## [QualityPreset]: the five presets, the "Custom" that is everything else, and
+## the `[quality]` keys through the file.
+static func _quality_presets(t: TestCase) -> void:
+	t.begin("config/quality presets")
+	var c := GameConfig.new()
+	# The shipped frame is HIGH, and every reference capture was taken on it.
+	t.ok(QualityPreset.matching(QualityPreset.of(c)) == QualityPreset.Kind.HIGH,
+		"an untouched settings file is the High quality preset")
+	t.ok(QualityPreset.msaa_for(c.antialiasing) == \
+		int(ProjectSettings.get_setting("rendering/anti_aliasing/quality/msaa_3d")),
+		"and its anti-aliasing is what project.godot has always asked for")
+	t.ok(QualityPreset.shadow_map_for(c.shadow_detail) == Vector2i(4096, 4),
+		"and its shadow map is Godot's 4096 atlas in race.tscn's four splits")
+	t.eq_f(c.tree_detail, 1.0, 1e-6, "and the trees hand over at Forest.LOD_ENDS")
+	t.ok(QualityPreset.NAMES.size() == QualityPreset.VALUES.size()
+		and QualityPreset.VALUES.size() == QualityPreset.Kind.size(),
+		"one name and one row per preset")
+
+	for kind: int in QualityPreset.VALUES.size():
+		var name: String = QualityPreset.NAMES[kind]
+		t.ok(QualityPreset.VALUES[kind].size() == QualityPreset.KEYS.size(),
+			"%s sets every quality key and nothing else" % name)
+		for other: int in kind:
+			t.ok(QualityPreset.VALUES[other] != QualityPreset.VALUES[kind],
+				"%s is not the same preset as %s" % [name, QualityPreset.NAMES[other]])
+		QualityPreset.apply(kind, c)
+		t.ok(QualityPreset.matching(QualityPreset.of(c)) == kind,
+			"applying %s reads back as %s" % [name, name])
+		var back: GameConfig = _read(c.file_text())
+		t.ok(QualityPreset.matching(QualityPreset.of(back)) == kind,
+			"and so does the file it writes")
+		back.free()
+		t.ok(c.tree_detail >= QualityPreset.TREE_DETAIL_MIN
+			and c.tree_detail <= QualityPreset.TREE_DETAIL_MAX,
+			"%s's tree detail is inside what the file accepts" % name)
+		t.ok(c.render_scale >= 0.25 and c.render_scale <= 2.0,
+			"and so is its render scale")
+
+	# A preset is what the values are, not something stored: one row moved off
+	# a preset is Custom, and moved back it is the preset again.
+	QualityPreset.apply(QualityPreset.Kind.FAST, c)
+	c.tree_detail = 0.75
+	t.ok(QualityPreset.matching(QualityPreset.of(c)) == QualityPreset.CUSTOM,
+		"a preset with one row moved is Custom")
+	c.tree_detail = 0.6 + 1e-7
+	t.ok(QualityPreset.matching(QualityPreset.of(c)) == QualityPreset.Kind.FAST,
+		"and moved back — to a slider's float — it is the preset again")
+
+	# By name in the file, and a typo there keeps what was there.
+	c.antialiasing = 2
+	c.sky_detail = 0
+	c.tree_shadows = 1
+	c.shadow_detail = 3
+	var text: String = c.file_text()
+	t.ok(text.contains('antialiasing = "4x"') and text.contains('sky_detail = "low"')
+		and text.contains('tree_shadows = "near"') and text.contains('shadow_detail = "best"'),
+		"the quality keys are written by name")
+	var typo: GameConfig = _read('[quality]\nantialiasing = "16x"\nsky_detail = "ultra"\n'
+		+ 'tree_detail = 9.0\n')
+	t.ok(typo.antialiasing == 1 and typo.sky_detail == QualityPreset.SKY_DETAIL_HIGH,
+		"a name the file does not know keeps the default")
+	t.eq_f(typo.tree_detail, QualityPreset.TREE_DETAIL_MAX, 1e-6,
+		"and a tree detail past the end is clamped to it")
+	typo.free()
+
+	t.ok(QualityPreset.tree_shadow_levels(0) == 0, "tree shadows off: no level casts")
+	t.ok(QualityPreset.tree_shadow_levels(1) == 1, "near: the nearest mesh level")
+	t.ok(QualityPreset.tree_shadow_levels(2) >= Forest.level_count(true),
+		"all: every level, impostor included")
 	c.free()
 
 static func _fog_range(t: TestCase) -> void:

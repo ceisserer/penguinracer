@@ -120,6 +120,23 @@ static func _bands_tile_the_distance(t: TestCase) -> void:
 		t.ok(absf(out_near - in_far) < 1e-6,
 			"at %.1f m LOD 0 leaves exactly what LOD 1 takes (%.3f, %.3f)" % [d, out_near, in_far])
 
+	# `[quality] tree_detail` moves every hand-over by the same factor and
+	# leaves the ends open.
+	for scale: float in [0.5, 1.2]:
+		for level: int in 3:
+			t.eq_f(Forest.band(level, 4, scale).y, Forest.LOD_ENDS[level] * scale, 1e-4,
+				"at %.1fx level %d ends at %.1fx its distance" % [scale, level, scale])
+		t.ok(Forest.band(0, 4, scale).x < -1.0e5 and Forest.band(3, 4, scale).y > 1.0e5,
+			"and the nearest and farthest stay open at %.1fx" % scale)
+
+	# The hand-overs are pixel sizes chosen at 720p, so a taller window pushes
+	# them out — never in, and not past the cap.
+	t.eq_f(Forest.screen_scale_for(720.0), 1.0, 1e-6, "720p hands over at LOD_ENDS")
+	t.eq_f(Forest.screen_scale_for(480.0), 1.0, 1e-6, "a smaller window does not pull them in")
+	t.eq_f(Forest.screen_scale_for(1080.0), 1.5, 1e-6, "1080p hands over 1.5x further out")
+	t.eq_f(Forest.screen_scale_for(2160.0), Forest.MAX_SCREEN_SCALE, 1e-6,
+		"and 4K stops at the cap")
+
 ## `conifer_lod_fade`, for the test.
 static func _fade(d: float, b: Vector2) -> Vector2:
 	var h: float = Forest.FADE_WIDTH * 0.5
