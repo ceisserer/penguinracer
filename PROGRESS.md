@@ -1474,6 +1474,27 @@ The largest flakes were then trimmed by a fifth — the outer near box tops out 
 0.28 m instead of ETR's 0.18 / 0.22 / 0.35, and the far patches at 6.5 m instead of 8 (with more
 of them) — because world-anchored, the top of both ranges read as blobs.
 
+**Update, 2026-09-25: one flake size everywhere.** Trimming the outer flakes did not fix the
+blobs, because size was never the fault — the pairing was. On screen a flake's size and its speed
+both go as one over its distance, so their ratio is fixed per flake and says nothing about depth.
+ETR's outer flakes were ten times the near ones in the world, so on screen they were as big as the
+near flakes and ten times slower: large round discs drifting while small ones rushed past, which
+no real snowfall does. Every box now holds the near box's sizes (1.5–5 cm by grade), the middle
+and far boxes hold 2× and 4× the near count because each covers so much less of the screen, and a
+flake that would fall below 1.5 px is drawn at 1.5 px with its alpha cut by the area it gained
+(`MIN_PIXELS` in the shader), so it neither flickers nor adds coverage. The curtain tiles had the
+same flaw one layer out — specks up to 22 texels are half-metre flakes at 30–70 m — so they are
+now 1000 / 3000 / 10500 specks of 0.8–1.6 texels radius, which keeps the originals' coverage
+(about 1.5 / 4.5 / 14.6 %, simulated; `TestSnowFall` holds it) and turns the far snow from drifting discs into grain.
+
+**Same day: the near flakes are clumps, not discs.** With the size fixed, a close flake was still
+a perfect soft circle — ETR's spray puff, which is fine on a particle that lives a second and
+reads as a dot on one drifting past the lens. The flakes now draw `SnowFall.make_flake_image`: 16
+cells, each grown like an aggregate (a seed lobe and 6–12 smaller ones, each fused onto the rim
+of one already placed), and the shader turns each one at its own rate and wobbles it edge-on, so
+no two flakes on screen share an outline for long. The spray keeps its puffs. `TestSnowFall`
+asserts the clumps stay inside `FLAKE_REACH` and that none covers as much as the disc it reaches.
+
 Chosen on the course screen, in Practice and in a race alike — ETR puts it there too — and
 remembered as `[game] snowfall` in `penguinracer.cfg`. `--snow=0..3` and `?snow=` name a grade for
 one run without going through the menu, which is how the captures above were taken. It is

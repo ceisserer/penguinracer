@@ -733,10 +733,11 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
 - **Each collidable object gets a position-hashed yaw** (±20°, `CourseRoot.decorrelating_yaw`) so
   grid-placed forests do not share planes. Geometry, silhouette and collision unchanged.
   `YAW_JITTER = 0` is ETR's forest, flicker included.
-- **The spray's puff atlas and the snow curtain tiles are redrawn procedurally**, not copied
+- **The spray's puff atlas, the flake clumps and the snow curtain tiles are drawn procedurally**, not copied
   (licence audit): `SprayEmitter.make_puff_image` (ETR's 2×2 atlas, growth 0.035 → ≤0.18 m, linear
-  fade, `FRandom()` s life) and `SnowFall.make_curtain_image` (ETR's measured blob counts per tile,
-  cubed-uniform radius, white with alpha, edge-wrapped; `TestSnowFall` asserts coverage). Both
+  fade, `FRandom()` s life) and `SnowFall.make_curtain_image` (ETR's measured coverage per tile,
+  but in specks of 1–2 texels rather than its blobs of up to 22 px; white with alpha,
+  edge-wrapped; `TestSnowFall` asserts coverage). All
   deterministic. `SprayEmitter.particle_color` is a setter so an environment applied later reaches
   existing emitters.
 - **The falling snow is a `MultiMesh` moved in a vertex shader** (`snow_flakes.gdshader`), where
@@ -745,9 +746,18 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   follows and the flakes do not, and each is drawn as a streak of its motion against the camera
   over a 1/60 s shutter (previous view matrix as a uniform). Real fall speed (`FALL_SPEED`, ±30 %
   per flake, not size × 5), per-flake sway, level wind, fades at the box faces and the lens.
+  **Every flake is the same size in the world**, where ETR grows them with distance to hold their
+  screen size: on screen, size and speed both go as 1/distance, so a far flake drawn as big as a
+  near one is also slower than it, and reads as a round blob floating in front of the lens. A
+  flake below `MIN_PIXELS` is drawn at that size and faded by the area it gained; the curtain
+  tiles' specks are a pixel or so at far-snow range for the same reason.
   Every quad stays upright on screen and is *stretched* toward its tail, never turned along the
   streak — a turned far patch swings its sheet of specks round and reads as snow on rotating
-  planes. Atlas quadrant is index mod 4; flakes are soft-alpha without
+  planes. The near flakes do not use the spray's round puffs (ETR's `SNOW_PART`): they draw
+  `SnowFall.make_flake_image`, a 4×4 atlas of grown clumps (cell = index mod 16), and the fragment
+  stage turns and tumbles each clump inside its cell (`tumble`, 0 for the far area, whose patches
+  must never turn — see above). Clumps stay within `FLAKE_REACH` of the cell centre so a spun cell
+  never reads its neighbour. Flakes are soft-alpha without
   depth write, where ETR alpha-tests and writes depth. **ETR's `CCurtain` rings are gone**: a ring
   centred on the player has no parallax and was the most overlay-like thing on screen. The far
   snow is a fourth area in the same shader (`FAR_AREAS`) — a 150 m square box of 5–6.5 m quads,

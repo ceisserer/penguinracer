@@ -48,12 +48,17 @@ shader_type spatial;
 // length and direction are only known there.
 render_mode unshaded, cull_disabled, blend_mix, depth_draw_never, skip_vertex_transform;
 
-// What a quad is cut from. A near area binds `SNOW_PART` — the four-puff atlas
-// the spray draws from, one quadrant per flake chosen at birth — and the far
+// What a quad is cut from. A near area binds `SnowFall.make_flake_image` — an
+// atlas of irregular clumps, one cell per flake chosen at birth — and the far
 // area a curtain tile, one random patch of specks per quad. The instance data
 // says where in the texture its cut starts and [param uv_scale] how big it is.
 uniform sampler2D flake_texture : source_color, filter_linear_mipmap, repeat_disable;
 uniform float uv_scale = 0.5;
+// How fast a flake turns in its cell, rad/s before its own factor, and at the
+// same time how much it tumbles — a clump turning edge-on narrows. 0 for the
+// far area: its patches are sheets of specks, and a turned sheet reads as snow
+// on rotating planes (see below).
+uniform float tumble = 0.0;
 // The environment's `[partcol]`, modulated onto the puff exactly as ETR's
 // `glColor(Env.ParticleColor())` does. `source_color` is not decoration: the
 // original multiplies a display-space texture by a display-space number, and
@@ -103,16 +108,25 @@ const float FALL_SPREAD = 0.3;
 // The longest a streak is drawn, in metres. A camera cut is caught on the CPU;
 // this is the backstop for whatever it misses.
 const float MAX_STREAK = 2.0;
+// The smallest a quad is drawn, in pixels. Every flake is the same size in the
+// world, so the far ones fall below a pixel — and a sub-pixel quad is not a
+// faint flake, it is one that flickers in and out as it crosses pixel centres.
+// Drawn at this size instead, and faded by the area that adds, so what it
+// covers on screen stays what the real flake would.
+const float MIN_PIXELS = 1.5;
 
 varying vec2 cut;
 varying float fade;
+// The flake's turn as (cos, sin), and how edge-on it is: the cell is read
+// 1 / squash times wider across one axis.
+varying vec3 spin;
 
 void vertex() {
 	// The per-instance transform carries the flake's base position in the box
 	// and its size, which is all the per-flake state ETR keeps as well; the
 	// custom data adds where its cut of the texture starts and two fixed random
 	// numbers.
-	float flake_size = length(MODEL_MATRIX[0].xyz);
+	float world_size = length(MODEL_MATRIX[0].xyz);
 	vec2 seed = INSTANCE_CUSTOM.zw;
 	float fall_k = 1.0 + FALL_SPREAD * (2.0 * seed.x - 1.0);
 	float rate = SWAY_RATE * (0.7 + 0.6 * seed.y);
@@ -146,6 +160,11 @@ void vertex() {
 	// Keep the tail in front of the lens, or its projection flips.
 	tail.z = min(tail.z, -0.05);
 	float depth = max(-head.z, 0.05);
+	// One pixel's height in metres at the head's depth.
+	float pixel = 2.0 * depth / (PROJECTION_MATRIX[1][1] * VIEWPORT_SIZE.y);
+	float flake_size = max(world_size, MIN_PIXELS * pixel);
+	float coverage = world_size / flake_size;
+	fade *= coverage * coverage;
 
 	// Which way the streak runs on screen, and how long it is there — in metres
 	// at the head's depth, so it adds to the flake's own size.
@@ -178,10 +197,32 @@ void vertex() {
 	fade *= smoothstep(fade_band.x, fade_band.y, distance)
 		* (1.0 - smoothstep(fade_band.z, fade_band.w, distance));
 	cut = INSTANCE_CUSTOM.xy;
+
+	// Each flake turns one way or the other at its own rate from its own start,
+	// and wobbles edge-on at a rate of its own — a clump in free fall flutters.
+	// Two more numbers out of the flake's pair, decorrelated from the fall and
+	// the sway that already use them.
+	vec2 more = fract(seed.yx * vec2(12.9898, 78.233) + seed * 37.719);
+	float turn_rate = tumble * (0.4 + 0.8 * more.x) * (more.y < 0.5 ? -1.0 : 1.0);
+	// None at all without a tumble, not even the start: a far patch turned in
+	// its quad reads past its own edge at the corners, where the clamp below
+	// repeats the edge texels, and every speck on an edge becomes a line.
+	float angle = (6.2831853 * more.y + turn_rate * clock) * step(0.0001, tumble);
+	float wobble = 0.5 + 0.5 * cos(1.7 * turn_rate * clock + 6.2831853 * more.x);
+	spin = vec3(cos(angle), sin(angle), mix(1.0, 0.55 + 0.45 * wobble, step(0.0001, tumble)));
 }
 
 void fragment() {
-	vec4 puff = texture(flake_texture, UV * uv_scale + cut);
+	// Turned and squashed about the cell's centre. The shape stays within
+	// `SnowFall.FLAKE_REACH` of it, so whatever turns in from past the cell's
+	// inscribed circle is cut away rather than read from the neighbour. With
+	// no tumble this is the plain cut, corners and all.
+	vec2 p = UV - 0.5;
+	p = vec2(spin.x * p.x + spin.y * p.y, -spin.y * p.x + spin.x * p.y);
+	p.y /= spin.z;
+	float inside = tumble > 0.0 ? step(length(p), 0.5) : 1.0;
+	vec4 puff = texture(flake_texture, (clamp(p, -0.5, 0.5) + 0.5) * uv_scale + cut);
+	puff.a *= inside;
 	ALBEDO = tint.rgb * puff.rgb;
 	ALPHA = tint.a * puff.a * fade;
 }

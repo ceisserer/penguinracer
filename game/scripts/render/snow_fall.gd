@@ -13,9 +13,9 @@
 ## [b]Flakes[/b] ([constant FLAKE_AREAS]) are three nested boxes around the
 ## player — 5 m, 12 m and 30 m wide — each holding a fixed set of quads that
 ## wrap when they leave it. The boxes are staggered *ahead* of the player and
-## the flakes in them get bigger and fall faster with distance, so the three
-## together read as one field with depth in it while every flake stays about the
-## same size on screen. The whole of the per-frame motion is two numbers an area
+## hold flakes of one world size, so the three together read as one field with
+## depth in it: the near flakes are the big, fast ones on screen and the far
+## ones small and slow. The whole of the per-frame motion is two numbers an area
 ## shares, so this is a [MultiMesh] with static instance data and
 ## `shaders/snow_flakes.gdshader` doing the wrap in the vertex stage — see that
 ## file. Nothing spawns, nothing dies, and the field is identical on every run,
@@ -53,10 +53,10 @@
 ## [b]DEVIATION, licence-forced, and the same one the spray takes.[/b] ETR's
 ## flakes are drawn from `snowparticles.png` and its curtains from
 ## `snow1/2/3.png`; both are `data/textures` art waiting on the licence audit.
-## The flakes borrow [method SprayEmitter.make_puff_image], which is the atlas
-## ETR binds for them too (`SNOW_PART`), and the curtain tiles are
-## [method make_curtain_image] — redrawn to the originals' measured flake count
-## and coverage (1.5 %, 4.6 %, 14.7 % of a 512² tile), white with the alpha
+## The flakes are drawn from [method make_flake_image] — irregular clumps,
+## where ETR binds the spray's round puffs for them (`SNOW_PART`) — and the
+## curtain tiles are [method make_curtain_image], redrawn to the originals'
+## coverage (1.5 %, 4.6 %, 14.7 % of a 512² tile). Both white with the alpha
 ## doing the shaping, deterministic so captures stay comparable.
 class_name SnowFall
 extends Node3D
@@ -73,10 +73,18 @@ const MAX_GRADE := 3
 ## *in front of* the player. The near box straddles them (`zback` −2), the middle
 ## one covers 2–10 m ahead and the far one 10–25 m.
 ##
-## DEVIATION: the outer box's largest flakes are a fifth smaller than ETR's
-## (0.15 / 0.18 / 0.28 m where the original has 0.18 / 0.22 / 0.35). World-
-## anchored and streaking, the top of that range read as blobs rather than
-## flakes; the smallest are the original's.
+## DEVIATION: every area holds flakes of the same *world* size, where ETR grows
+## them with distance (up to 0.35 m in the outer box) so that all three read the
+## same size on screen. On a camera that holds still that is invisible; on one
+## that moves it is the one thing the eye checks. A flake's size and its speed
+## across the screen both scale as one over its distance, so their ratio says
+## nothing about depth and must be the same for every flake — ETR's outer
+## flakes were big *and* slow, which no real flake can be, and read as round
+## blobs drifting in front of the lens while the small ones rushed past. Here
+## the near box's sizes hold everywhere: what is close is big and fast, what is
+## far is small and slow, and a far flake that would fall below a pixel is drawn
+## at one and faded by the area it lost (the shader's `MIN_PIXELS`). The outer
+## boxes hold more of them, because each now covers so much less of the screen.
 ##
 ## The tenth column of `TFlakeArea` is `rotate`, which is true for the near area
 ## only; it is not here because every area billboards — see the shader.
@@ -84,18 +92,18 @@ const FLAKE_AREAS: Array = [
 	[],
 	[
 		[400, 5.0, 4.0, 4.0, -2.0, 4.0, 0.015, 0.03, 5.0],
-		[400, 12.0, 5.0, 8.0, 2.0, 8.0, 0.045, 0.07, 5.0],
-		[400, 30.0, 6.0, 15.0, 10.0, 15.0, 0.09, 0.15, 5.0],
+		[800, 12.0, 5.0, 8.0, 2.0, 8.0, 0.015, 0.03, 5.0],
+		[1600, 30.0, 6.0, 15.0, 10.0, 15.0, 0.015, 0.03, 5.0],
 	],
 	[
 		[500, 5.0, 4.0, 4.0, -2.0, 4.0, 0.03, 0.045, 5.0],
-		[500, 12.0, 5.0, 8.0, 2.0, 8.0, 0.07, 0.1, 5.0],
-		[500, 30.0, 6.0, 15.0, 10.0, 15.0, 0.15, 0.18, 5.0],
+		[1000, 12.0, 5.0, 8.0, 2.0, 8.0, 0.03, 0.045, 5.0],
+		[2000, 30.0, 6.0, 15.0, 10.0, 15.0, 0.03, 0.045, 5.0],
 	],
 	[
 		[1000, 5.0, 4.0, 4.0, -2.0, 4.0, 0.037, 0.05, 5.0],
-		[1000, 12.0, 5.0, 9.0, 2.0, 8.0, 0.09, 0.15, 5.0],
-		[1000, 30.0, 6.0, 15.0, 10.0, 15.0, 0.18, 0.28, 5.0],
+		[2000, 12.0, 5.0, 9.0, 2.0, 8.0, 0.037, 0.05, 5.0],
+		[4000, 30.0, 6.0, 15.0, 10.0, 15.0, 0.037, 0.05, 5.0],
 	],
 ]
 
@@ -108,7 +116,8 @@ const FLAKE_AREAS: Array = [
 ## whole square; at a few thousand quads that is still nothing. The patches
 ## top out at 6.5 m rather than the 8 that matches the rings' specks, because
 ## the biggest specks read as blobs, and the counts rise to cover the same
-## ground. Which tile
+## ground. The specks themselves are far smaller than the originals' — see
+## [constant CURTAIN_SPECKS]. Which tile
 ## follows the curtains' own: grade 1 was three rings of tile 1, grade 2 of
 ## tile 2, grade 3 mostly tile 2 with its nearest ring in 3.
 const FAR_AREAS: Array = [
@@ -142,13 +151,28 @@ const CUT_DISTANCE := 5.0
 ## Side of a redrawn curtain tile, as ETR's `snow1/2/3.png`. The far snow's
 ## patches are cut from these.
 const CURTAIN_TILE := 512
-## Specks per tile and their radii, measured off the originals by connected
-## component: 251 / 882 / 2184 blobs, median area 4–5 px², tailing to 380.
-## The cubed uniform reproduces that skew, and the counts then land the coverage
-## at 1.6 / 5.6 / 13.9 % against the originals' 1.5 / 4.6 / 14.7 %.
-const CURTAIN_SPECKS: Array[int] = [0, 251, 882, 2184]
+## Specks per tile and their radii. The originals measure 251 / 882 / 2184
+## blobs by connected component, median area 4–5 px² but tailing to 380, and
+## covering 1.5 / 4.6 / 14.7 % of the tile. DEVIATION: the coverage is kept and
+## the tail is not. A texel of a far patch is 4–5 cm, so the originals' biggest
+## specks are half-metre flakes 30–70 m out — big and slow on screen, the same
+## blob the outer flake box made (see [constant FLAKE_AREAS]). Here every speck
+## is one or two texels, about a pixel at that distance, and there are more of
+## them, at about the same coverage.
+const CURTAIN_SPECKS: Array[int] = [0, 1000, 3000, 10500]
 const SPECK_MIN_RADIUS := 0.8
-const SPECK_RADIUS_RANGE := 4.5
+const SPECK_RADIUS_RANGE := 0.8
+
+## The near flakes' atlas: [constant FLAKE_CELLS]² shapes, each in a square of
+## [constant FLAKE_CELL] texels — enough for a flake a metre from the lens.
+const FLAKE_CELLS := 4
+const FLAKE_CELL := 64
+## How far out of its cell's centre a shape may reach, as a share of the cell.
+## Short of the half, so a spun cell never reads its neighbour and the mips of
+## one shape do not bleed into the next.
+const FLAKE_REACH := 0.44
+## How fast a flake turns as it falls, in rad/s before its own factor.
+const FLAKE_TUMBLE := 1.2
 
 ## Fixed, because a race that looks different every time it is loaded cannot be
 ## captured and compared. ETR seeded from the global `rand()`.
@@ -181,14 +205,14 @@ var _clock: float = 0.0
 ## in [method _build_area].
 var _placed: bool = false
 
-## The four-puff atlas every flake is drawn from, and the curtain tile the far
+## The clump atlas every flake is drawn from, and the curtain tile the far
 ## snow is cut from — one per density actually asked for, because building one
 ## is tens of thousands of pixels.
 ##
 ## Members rather than script statics, for the reason [SprayEmitter] gives for
 ## its own atlas: a static would outlive every race and be the one thing still
 ## referenced when the game exits.
-var _puff: ImageTexture
+var _flakes: ImageTexture
 var _tiles: Dictionary[int, ImageTexture] = {}
 
 # ==================================================================
@@ -254,6 +278,8 @@ func _build_area(row: Array, rng: RandomNumberGenerator, far: bool) -> FlakeArea
 		area.material.set_shader_parameter("edge_fade", FAR_EDGE_FADE)
 	else:
 		area.material.set_shader_parameter("flake_texture", _flake_texture())
+		area.material.set_shader_parameter("uv_scale", 1.0 / float(FLAKE_CELLS))
+		area.material.set_shader_parameter("tumble", FLAKE_TUMBLE)
 	area.material.set_shader_parameter("box_range", area.extent)
 	area.material.set_shader_parameter("fall_speed", area.speed)
 	quad.material = area.material
@@ -270,12 +296,14 @@ func _build_area(row: Array, rng: RandomNumberGenerator, far: bool) -> FlakeArea
 		mm.set_instance_transform(i, Transform3D(
 			Basis.IDENTITY.scaled(Vector3.ONE * size),
 			Vector3(flake.x, flake.y, flake.z)))
-		# ETR draws `type = rand() % 4` — one quadrant of the puff atlas per
-		# flake, chosen at birth and kept. The index modulo four is what that
-		# converges to over four hundred flakes whose *positions* are random,
-		# and it keeps the whole of the generator in one function.
-		var q: int = i % 4
-		var origin := Vector2(float(q % 2) * 0.5, float(q / 2) * 0.5)
+		# ETR draws `type = rand() % 4` — one quadrant of its atlas per flake,
+		# chosen at birth and kept. Here one of sixteen cells, by the index
+		# modulo sixteen: what that converges to over hundreds of flakes whose
+		# *positions* are random, and it keeps the generator in one function.
+		var cells: int = FLAKE_CELLS * FLAKE_CELLS
+		var q: int = i % cells
+		var origin := Vector2(float(q % FLAKE_CELLS), float(q / FLAKE_CELLS)) \
+			/ float(FLAKE_CELLS)
 		if far:
 			# A patch anywhere in the tile that does not run off its edge, so
 			# the sampler never has to repeat.
@@ -406,12 +434,69 @@ func _update_flakes(view_pos: Vector3, wind_vec: Vector3, moved: Vector3,
 #                            the redraw
 # ==================================================================
 
-## ETR binds `SNOW_PART` for the flakes and for the spray alike, so this is the
-## spray's redrawn atlas and not a second one.
+## DEVIATION: ETR binds `SNOW_PART` for the flakes and the spray alike — four
+## round puffs. A round puff is fine as a spray particle, which is gone in a
+## second; a flake drifting a metre from the lens is looked at, and a perfect
+## disc there reads as a dot rather than as snow. So the flakes get their own
+## atlas of irregular clumps ([method make_flake_image]), and the shader turns
+## and tumbles each one as it falls.
 func _flake_texture() -> ImageTexture:
-	if _puff == null:
-		_puff = ImageTexture.create_from_image(SprayEmitter.make_puff_image())
-	return _puff
+	if _flakes == null:
+		_flakes = ImageTexture.create_from_image(make_flake_image())
+	return _flakes
+
+## The near flakes' atlas: [constant FLAKE_CELLS]² cells, each one clump of
+## snow. A flake big enough to see is an aggregate — crystals that collided and
+## stuck on the way down — so each cell is grown the same way: a seed lobe, and
+## then six to twelve smaller ones, each fused onto the rim of one already
+## there. Soft-edged and white, with the alpha doing the shaping as in
+## [method make_curtain_image]. Everything stays within [constant FLAKE_REACH]
+## of the cell's centre, which is what lets the shader spin a cell in place.
+## Deterministic.
+static func make_flake_image() -> Image:
+	var side: int = FLAKE_CELLS * FLAKE_CELL
+	var img := Image.create_empty(side, side, false, Image.FORMAT_RGBA8)
+	img.fill(Color(1.0, 1.0, 1.0, 0.0))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = SEED + 100
+	var cell := float(FLAKE_CELL)
+	for q: int in FLAKE_CELLS * FLAKE_CELLS:
+		var centre := (Vector2(float(q % FLAKE_CELLS), float(q / FLAKE_CELLS)) \
+			+ Vector2(0.5, 0.5)) * cell
+		# Lobes as (x, y, radius) about the cell's centre.
+		var lobes: Array[Vector3] = [Vector3(0.0, 0.0, rng.randf_range(0.17, 0.22) * cell)]
+		var wanted: int = rng.randi_range(6, 12)
+		var tries: int = 0
+		while lobes.size() < wanted and tries < 200:
+			tries += 1
+			var parent: Vector3 = lobes[rng.randi() % lobes.size()]
+			var radius: float = rng.randf_range(0.08, 0.15) * cell
+			var at := Vector2(parent.x, parent.y) + Vector2.from_angle(rng.randf() * TAU) \
+				* (parent.z + radius) * rng.randf_range(0.35, 0.7)
+			if at.length() + radius > FLAKE_REACH * cell:
+				continue
+			lobes.push_back(Vector3(at.x, at.y, radius))
+		for lobe: Vector3 in lobes:
+			_draw_lobe(img, centre + Vector2(lobe.x, lobe.y), lobe.z,
+				rng.randf_range(0.8, 1.0))
+	img.generate_mipmaps()
+	return img
+
+## One soft lobe of a clump: opaque over most of its disc and falling off at
+## the rim, the brighter of two overlapping lobes winning.
+static func _draw_lobe(img: Image, c: Vector2, radius: float, peak: float) -> void:
+	var r: int = int(ceil(radius))
+	for dy: int in range(-r, r + 1):
+		for dx: int in range(-r, r + 1):
+			var x: int = int(floor(c.x)) + dx
+			var y: int = int(floor(c.y)) + dy
+			var d2: float = (Vector2(float(x) + 0.5, float(y) + 0.5) - c).length_squared() \
+				/ (radius * radius)
+			if d2 >= 1.0:
+				continue
+			var a: float = peak * minf(1.0, 1.3 * (1.0 - d2))
+			if a > img.get_pixel(x, y).a:
+				img.set_pixel(x, y, Color(1.0, 1.0, 1.0, a))
 
 func _curtain_texture(density: int) -> ImageTexture:
 	if not _tiles.has(density):
@@ -425,7 +510,8 @@ func _curtain_texture(density: int) -> ImageTexture:
 ## The originals are a field of bluish-white blobs — 251, 882 and 2184 of them,
 ## covering 1.5 %, 4.6 % and 14.7 % of the tile, mostly 2 px across with a few
 ## up to 22 — and they are modulated by `[partcol]` when they are drawn. These
-## are white, with the alpha doing all of the shaping and the tint doing all of
+## cover the same share in specks that are all small ([constant
+## CURTAIN_SPECKS]), and are white, with the alpha doing all of the shaping and the tint doing all of
 ## the colour, which is the same division [method SprayEmitter.make_puff_image]
 ## makes and avoids tinting twice. Deterministic: same seed, same tile, every
 ## run on every machine.
@@ -438,10 +524,7 @@ static func make_curtain_image(density: int) -> Image:
 	for i: int in count:
 		var cx: float = rng.randf() * float(CURTAIN_TILE)
 		var cy: float = rng.randf() * float(CURTAIN_TILE)
-		# Cubed, so most specks are the 2 px ones and a few are the 20 px ones —
-		# the skew the originals' component sizes have.
-		var u: float = rng.randf()
-		var radius: float = SPECK_MIN_RADIUS + SPECK_RADIUS_RANGE * u * u * u
+		var radius: float = SPECK_MIN_RADIUS + SPECK_RADIUS_RANGE * rng.randf()
 		_draw_speck(img, cx, cy, radius)
 	# The far snow is seen at 25–72 m and the tile is 512²; without mips
 	# that is the crawling speckle the terrain textures got theirs for.

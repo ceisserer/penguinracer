@@ -38,6 +38,7 @@ static func run(t: TestCase) -> void:
 	_flake_field(t)
 	_far_snow(t)
 	_tiles(t)
+	_clumps(t)
 	var fall := _snowfall(t)
 	if fall == null:
 		return
@@ -67,17 +68,19 @@ static func _table(t: TestCase) -> void:
 	for grade: int in range(1, SnowFall.MAX_GRADE + 1):
 		var areas: Array = SnowFall.FLAKE_AREAS[grade]
 		t.ok(areas.size() == 3, "grade %d has ETR's three flake areas" % grade)
-		var last_size: float = 0.0
 		var last_width: float = 0.0
 		for i: int in areas.size():
 			var row: Array = areas[i]
 			t.ok(float(row[6]) < float(row[7]),
 				"grade %d area %d has a size range, not a point" % [grade, i])
-			t.ok(float(row[7]) > last_size,
-				"grade %d area %d holds bigger flakes than the one inside it" % [grade, i])
+			# DEVIATION from ETR's growing sizes: a far flake the size of a
+			# near one on screen is also slower on screen, and reads as a blob.
+			t.ok(float(row[6]) == float(areas[0][6]) and float(row[7]) == float(areas[0][7]),
+				"grade %d area %d holds flakes the size of the near box's" % [grade, i])
+			t.ok(i == 0 or int(row[0]) > int(areas[i - 1][0]),
+				"grade %d area %d holds more flakes than the one inside it" % [grade, i])
 			t.ok(float(row[1]) > last_width,
 				"grade %d area %d is wider than the one inside it" % [grade, i])
-			last_size = float(row[7])
 			last_width = float(row[1])
 		# `zback` is subtracted from the player's z and the course runs down −z,
 		# so the two outer boxes sitting at +2 and +10 is what puts them in
@@ -189,6 +192,47 @@ static func _tiles(t: TestCase) -> void:
 	t.ok(SnowFall.make_curtain_image(2).get_data()
 		== SnowFall.make_curtain_image(2).get_data(),
 		"a tile is deterministic — no RNG that is not seeded")
+
+## The near flakes' own atlas: one irregular clump per cell, each kept clear of
+## the cell's rim so the shader can spin it in place without reading the next.
+static func _clumps(t: TestCase) -> void:
+	t.begin("snowfall/the flake clumps")
+	var img: Image = SnowFall.make_flake_image()
+	var cell: int = SnowFall.FLAKE_CELL
+	t.ok(img.get_width() == SnowFall.FLAKE_CELLS * cell
+		and img.get_height() == SnowFall.FLAKE_CELLS * cell,
+		"one %d² cell per shape" % cell)
+	var contained: bool = true
+	var white: bool = true
+	var filled: int = 0
+	var irregular: int = 0
+	for q: int in SnowFall.FLAKE_CELLS * SnowFall.FLAKE_CELLS:
+		var ox: int = (q % SnowFall.FLAKE_CELLS) * cell
+		var oy: int = (q / SnowFall.FLAKE_CELLS) * cell
+		var covered: int = 0
+		var reach: float = 0.0
+		for y: int in cell:
+			for x: int in cell:
+				var c: Color = img.get_pixel(ox + x, oy + y)
+				if c.a <= 0.0625:
+					continue
+				covered += 1
+				white = white and c.r > 0.99 and c.g > 0.99 and c.b > 0.99
+				reach = maxf(reach, Vector2(float(x) + 0.5 - cell * 0.5,
+					float(y) + 0.5 - cell * 0.5).length())
+		contained = contained and reach <= SnowFall.FLAKE_REACH * cell + 1.0
+		if covered > cell * cell / 10:
+			filled += 1
+		# A disc as far out as the clump reaches would cover πr²; a clump
+		# covers visibly less of it.
+		if float(covered) < 0.8 * PI * reach * reach:
+			irregular += 1
+	var cells: int = SnowFall.FLAKE_CELLS * SnowFall.FLAKE_CELLS
+	t.ok(contained, "every clump stays within FLAKE_REACH of its cell's centre")
+	t.ok(filled == cells, "every cell holds a clump big enough to see (%d/%d)" % [filled, cells])
+	t.ok(irregular == cells, "and none of them is a disc (%d/%d)" % [irregular, cells])
+	t.ok(white, "white — the tint carries `[partcol]`, the alpha the shape")
+	t.ok(SnowFall.make_flake_image().get_data() == img.get_data(), "deterministic")
 
 ## Asking for a grade builds it; asking for none builds nothing.
 static func _grades(t: TestCase, fall: SnowFall) -> void:
