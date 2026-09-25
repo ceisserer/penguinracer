@@ -32,6 +32,7 @@ static func run(t: TestCase) -> void:
 	_the_procedural_sky(t)
 	_the_valley_floor(t)
 	_the_ridges_sink_as_you_climb(t)
+	_the_ridge_map(t)
 	_the_backdrop_dips_with_the_slope(t)
 	_torches(t)
 	_nearest_lights(t)
@@ -50,7 +51,7 @@ static func _every_global_is_declared(t: TestCase) -> void:
 	var include: String = _read(INCLUDE)
 	t.ok(not include.is_empty(), "atmosphere.gdshaderinc is on disk")
 	var project: String = _read("res://project.godot")
-	var re := RegEx.create_from_string("global uniform \\w+ (\\w+);")
+	var re := RegEx.create_from_string("global uniform \\w+ (\\w+)\\s*(?::[^;]*)?;")
 	var names: PackedStringArray = PackedStringArray()
 	for m: RegExMatch in re.search_all(include):
 		names.push_back(m.get_string(1))
@@ -212,6 +213,23 @@ static func _the_ridges_sink_as_you_climb(t: TestCase) -> void:
 	atmo.advance(0.0, 5000.0)
 	t.ok(low == 0.0 and high > 0.0, "higher up, the ridges sit lower")
 	t.eq_f(atmo._ridges.w, Atmosphere.MAX_RIDGE_DROP, 1e-6, "but only so far")
+
+## The fog reads the ridges from a map [RidgeMap] bakes, and the bake shader
+## and the lookup both size it from the include's constants. A map of another
+## size would still draw — shifted round the horizon or up the sky, with every
+## far slope fading into a skyline that is not the one behind it.
+static func _the_ridge_map(t: TestCase) -> void:
+	t.begin("atmosphere/ridge map")
+	var include: String = _read(INCLUDE)
+	t.ok(include.contains("const float ATMO_MAP_WIDTH = %d.0;" % RidgeMap.WIDTH),
+		"the include's map width is RidgeMap's (%d)" % RidgeMap.WIDTH)
+	t.ok(include.contains("const float ATMO_MAP_ROWS = %d.0;" % RidgeMap.ROWS),
+		"and so are its rows (%d)" % RidgeMap.ROWS)
+	var bake: String = _read(RidgeMap.SHADER)
+	t.ok(bake.find("#define ATMO_RIDGE_MAP_BAKE") >= 0
+		and bake.find("#define ATMO_RIDGE_MAP_BAKE") < bake.find("#include \"%s\"" % INCLUDE),
+		"the bake shader is not handed the map it draws")
+	t.ok(include.contains("atmo_background(bd)"), "the fog fades into the baked ridges")
 
 static func _torches(t: TestCase) -> void:
 	t.begin("atmosphere/torches")

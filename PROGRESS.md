@@ -2217,3 +2217,37 @@ Frame rate, 1280x720, the container's integrated Radeon, vsync off, `paddle`, me
 `--print-fps` readings over 1500 frames, before → after: Bunny Hill 91 → 91 (Mobile), 159 → 157
 (Compatibility); `bronze_set` 103 → 98, 136 → 131. Within run-to-run noise to about 5 %. Not yet
 looked at in a browser.
+
+### The fog stopped drawing the mountains (2026-09-25) · **done**
+
+The `visual_improvements` branch had halved the frame rate on Bunny Hill (224 → 112 FPS, Mobile,
+1024x576 logical, vsync off, `paddle`, sunny). Bisected commit by commit, the largest single cost
+was the atmosphere (+1.9 ms), and within it the fog: every lit shader's `atmo_fog_at` evaluated the
+three ridge layers — ten octaves of noise each — behind every fragment past ~30 % fog, so that a
+far slope fades into the skyline behind it. Deleting that lookup outright saved ~1 ms.
+
+The ridges do not change during a race except for how far they have sunk (`atmo_ridges.w`). So
+they are now worked out *before* the drop, and `RidgeMap` bakes them once per sky into
+`atmo_ridge_map` — a 4096 × 1024 RGBA8 `SubViewport`, colour and coverage above (square-root
+encoded, range 2), the haze's share below — which the fog reads in two texels. The haze colour
+depends on the drop, so it stays out of the bake and is added at lookup. The sky still evaluates
+the ridges itself, so its crests stay sharp at any resolution.
+
+One visible change, on purpose: the rock-and-snow pattern on the ridges used to be computed from
+the elevation *after* the drop, so as a racer descended and the ranges sank, the pattern slid over
+them. It now sinks with them. Against HEAD that moves 0.2–1.4 % of the frame (the ridges only);
+against the new maths evaluated analytically, the baked fog is within 17 levels at worst and a
+mean of ≤ 0.002 on Bunny Hill, Bumpy Ride, `bronze_set` and the four steepest courses, sunny,
+cloudy and night, both renderers.
+
+The first cut kept the analytic ridges as a fallback (no map yet, or a direction below the map)
+and saved only 0.25–0.45 ms: a branch never taken still costs the registers of its widest path.
+Without it — no map means bare sky, below the map reads its bottom row — paired runs, before → after:
+
+| | Mobile | Compatibility |
+|---|---|---|
+| Bunny Hill | 112 → 128 FPS (−1.1 ms) | 204 → 221 (−0.4 ms) |
+| `bronze_set` | 123 → 140 (−1.0 ms) | 174 → 193 (−0.6 ms) |
+
+Front-to-back compositing with an early out was tried first, alone: exact, but −0.1 ms. It stays,
+in the layer loop both paths share. Not yet looked at in a browser; the map is 16 MB of VRAM there.

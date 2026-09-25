@@ -179,6 +179,8 @@ var _preset: EnvironmentPreset
 var _course_preset: EnvironmentPreset
 ## The sky, the haze and the valley mist — see [Atmosphere].
 var atmosphere := Atmosphere.new()
+## The ridges baked for the fog, once per sky — see [RidgeMap].
+var ridge_map: RidgeMap
 ## Torches down the edges and in place of the flags, lit under a night sky. A child of
 ## [member course_root], so it goes when the course does.
 var course_lights: CourseLights
@@ -348,6 +350,8 @@ func _ready() -> void:
 	snowfall = SnowFall.new()
 	snowfall.name = "SnowFall"
 	add_child(snowfall)
+	ridge_map = RidgeMap.new()
+	add_child(ridge_map)
 	if not requested_course_path.is_empty():
 		course_scene_path = requested_course_path
 	# A `--course=` on the way in outranks it: a capture run names the course it
@@ -1389,6 +1393,10 @@ func _apply_environment(preset: EnvironmentPreset) -> void:
 	atmosphere.apply(env, preset,
 		course_root.course_data if course_root != null else null,
 		course_root.surface if course_root != null else null, Config.procedural_sky)
+	if Config.procedural_sky:
+		ridge_map.bake()
+	else:
+		ridge_map.clear()
 	we.environment = env
 	# The mirror renders through a camera of its own, and a camera that is not
 	# given an environment does not inherit this one — see

@@ -157,8 +157,10 @@ float atmo_ridge_base(float layer) {
 }
 
 // The ridge line of layer [param layer] (0 farthest) above horizontal
-// direction [param h], as the tangent of its elevation. Noise sampled round a
-// circle, so it closes on itself at 360 degrees without a seam.
+// direction [param h], as the tangent of its elevation before the drop
+// (`atmo_ridges.w`): everything about a ridge is worked out in that frame, so
+// the ranges sink as one rigid picture. Noise sampled round a circle, so it
+// closes on itself at 360 degrees without a seam.
 float atmo_ridge_top(vec2 h, float layer) {
 	float radius = 2.6 + layer * 1.7;
 	vec2 p = h * radius + vec2(atmo_ridges.x * 13.7 + layer * 41.3, layer * 17.9);
@@ -178,11 +180,12 @@ float atmo_ridge_top(vec2 h, float layer) {
 	// shows over the one in front of it. Kept low: this is measured from the
 	// dipped horizon, and the sky above them is what makes a clear day read
 	// as one.
-	return atmo_ridge_base(layer) + (0.15 - layer * 0.025) * n - atmo_ridges.w;
+	return atmo_ridge_base(layer) + (0.15 - layer * 0.025) * n;
 }
 
 // A layer's own colour where it is solid: a rock face with snow lying on
 // whatever part of it is not too steep to hold any, lit from the disc's side.
+// [param t] and [param top] are before the drop, like [code]atmo_ridge_top[/code].
 //
 // The face is a second noise field over (round the horizon, up), and its
 // gradient tilts the normal. Shading off the crest line alone — the one piece
@@ -218,7 +221,7 @@ vec3 atmo_ridge_shade(vec2 h, float t, float top, float layer) {
 	float snow = smoothstep(0.42, 0.62, holds);
 	vec3 rock = vec3(0.16, 0.17, 0.2);
 	// Forest on the lower flanks, dark and ragged at the tree line.
-	float foot = atmo_ridge_base(layer) - atmo_ridges.w;
+	float foot = atmo_ridge_base(layer);
 	float tree_line = foot + 0.035 + (n - 0.5) * 0.03;
 	float forest = smoothstep(tree_line + 0.01, tree_line - 0.01, t) * (1.0 - snow * 0.6);
 	rock = mix(rock, vec3(0.07, 0.10, 0.09), forest);
@@ -228,22 +231,20 @@ vec3 atmo_ridge_shade(vec2 h, float t, float top, float layer) {
 	return albedo * (sky_light + atmo_sun_color * atmo_ridges.y * ndl);
 }
 
-// The ridges at direction [param d], back to front, each hazed by its distance
-// and misted at its foot: premultiplied colour and coverage, to lay over
-// whatever sky is behind them. [param aa] is the edge's width in
-// tangent-of-elevation, a pixel's worth.
-vec4 atmo_ridge_stack(vec3 d, float aa) {
-	if (atmo_fog.w < 0.5) {
-		return vec4(0.0);
-	}
-	float hl = max(length(d.xz), 1e-4);
-	vec2 h = d.xz / hl;
-	float t = d.y / hl;
-	// The haze a ridge takes is the sky along the horizon beneath it, not the
-	// sky at its own pixel — a crest against the zenith is not zenith-blue.
-	vec3 haze_sky = atmo_sky(normalize(vec3(h.x, max(t, 0.0) * 0.3, h.y)));
+// The ridges round horizontal direction [param h] at tangent-of-elevation
+// [param t] before the drop, each hazed by its distance and misted at its
+// foot, as premultiplied colour and coverage — *without* the haze's colour,
+// whose share comes back in [param haze]: the full colour is
+// `rgb + haze * atmo_ridge_haze_sky(...)`. The haze is the one term that
+// depends on where the ridges stand after the drop, so leaving it out is what
+// lets `atmo_ridge_map` be baked once for the whole race.
+//
+// Composited front to back, which is the same "over" as back to front, so it
+// can stop at the first range that covers the pixel outright.
+vec4 atmo_ridge_layers(vec2 h, float t, float aa, out float haze) {
 	vec4 stack = vec4(0.0);
-	for (int i = 0; i < ATMO_RIDGE_LAYERS; i++) {
+	haze = 0.0;
+	for (int i = ATMO_RIDGE_LAYERS - 1; i >= 0; i--) {
 		float layer = float(i);
 		float top = atmo_ridge_top(h, layer);
 		float cover = clamp((top - t) / max(aa, 1e-5) + 0.5, 0.0, 1.0);
@@ -251,21 +252,115 @@ vec4 atmo_ridge_stack(vec3 d, float aa) {
 			continue;
 		}
 		vec3 col = atmo_ridge_shade(h, t, top, layer);
-		float haze = clamp((0.62 - layer * 0.24) * atmo_ridges.z, 0.0, 1.0);
-		col = mix(col, haze_sky, haze);
+		float hz = clamp((0.62 - layer * 0.24) * atmo_ridges.z, 0.0, 1.0);
 		// Mist pools in the valley at the foot of each range.
-		float foot = atmo_ridge_base(layer) - atmo_ridges.w;
-		float mist = smoothstep(foot + 0.025, foot - 0.015, t);
-		col = mix(col, atmo_mist_color, mist * 0.92 * atmo_valley_mist);
-		stack = vec4(col * cover, cover) + stack * (1.0 - cover);
+		float foot = atmo_ridge_base(layer);
+		float mist = smoothstep(foot + 0.025, foot - 0.015, t) * 0.92 * atmo_valley_mist;
+		// mix(mix(col, haze_sky, hz), mist_color, mist), with haze_sky left out.
+		float share = cover * (1.0 - stack.a);
+		stack += vec4(((1.0 - mist) * (1.0 - hz) * col + mist * atmo_mist_color) * share, share);
+		haze += (1.0 - mist) * hz * share;
+		if (stack.a >= 1.0) {
+			break;
+		}
 	}
 	return stack;
 }
 
-// What is behind a surface at direction [param d]: the ridges over the clear
-// sky.
-vec3 atmo_background(vec3 d, float aa) {
-	vec4 ridges = atmo_ridge_stack(d, aa);
+// The haze a ridge takes: the sky along the horizon beneath it, not the sky at
+// its own pixel — a crest against the zenith is not zenith-blue. [param t] is
+// after the drop.
+vec3 atmo_ridge_haze_sky(vec2 h, float t) {
+	return atmo_sky(normalize(vec3(h.x, max(t, 0.0) * 0.3, h.y)));
+}
+
+// The ridges at direction [param d]: premultiplied colour and coverage, to lay
+// over whatever sky is behind them. [param aa] is the edge's width in
+// tangent-of-elevation, a pixel's worth. Evaluated in full — the sky's own
+// pixels, where the crests have to be sharp at any resolution.
+vec4 atmo_ridge_stack(vec3 d, float aa) {
+	if (atmo_fog.w < 0.5) {
+		return vec4(0.0);
+	}
+	float hl = max(length(d.xz), 1e-4);
+	vec2 h = d.xz / hl;
+	float t = d.y / hl;
+	float haze;
+	vec4 stack = atmo_ridge_layers(h, t + atmo_ridges.w, aa, haze);
+	if (stack.a <= 0.0) {
+		return vec4(0.0);
+	}
+	return vec4(stack.rgb + haze * atmo_ridge_haze_sky(h, t), stack.a);
+}
+
+// `atmo_ridge_map`: [code]atmo_ridge_layers[/code] baked once per race by
+// [RidgeMap], so that the fog — which asks for the ridges behind every far
+// fragment of every lit surface — reads two texels instead of evaluating three
+// layers of noise. The evaluation cost about a millisecond a frame on the
+// desktop's iGPU. Columns go once round the horizon (the same azimuth as
+// `atmo_ridge_shade`); rows run over tangent-of-elevation before the drop from
+// ATMO_MAP_T_MIN to ATMO_MAP_T_MAX, which clears the tallest crest the noise
+// can make (0.1425). Steeper down than T_MIN reads the bottom row: a surface
+// fogged past 80 m that far under the dipped horizon did not show in captures
+// of the five steepest courses. The upper half holds colour and coverage, the
+// lower half the haze's share in red. RGBA8, so the colour is stored as
+// sqrt(rgb / ATMO_MAP_RANGE): a square root spends the eight bits where the
+// dark rock needs them. Keep the sizes in step with [RidgeMap].
+const float ATMO_MAP_WIDTH = 4096.0;
+const float ATMO_MAP_ROWS = 512.0;
+const float ATMO_MAP_T_MIN = -0.6;
+const float ATMO_MAP_T_MAX = 0.16;
+const float ATMO_MAP_RANGE = 2.0;
+// The edge width the fog has always asked the ridges for.
+const float ATMO_FOG_RIDGE_AA = 0.004;
+
+// The map's own bake shader includes this file too, and must not be handed the
+// texture it is drawing.
+#ifndef ATMO_RIDGE_MAP_BAKE
+// 1 once [RidgeMap] has baked the map for this race. Anywhere else — the
+// editor, a scene without a race — far surfaces fade into the plain sky.
+//
+// There is deliberately no fallback to evaluating the ridges here. A branch
+// that is never taken still costs: the shader is allocated registers for its
+// widest path, and with the noise compiled in every lit shader ran about as
+// slowly as with no map at all (0.6-0.9 ms a frame on the desktop's iGPU).
+global uniform float atmo_ridge_baked;
+global uniform sampler2D atmo_ridge_map : filter_linear, repeat_enable;
+
+// [code]atmo_ridge_stack[/code] at the fog's edge width, from the map.
+vec4 atmo_ridge_stack_far(vec3 d) {
+	if (atmo_fog.w < 0.5) {
+		return vec4(0.0);
+	}
+	float hl = max(length(d.xz), 1e-4);
+	vec2 h = d.xz / hl;
+	float t = d.y / hl;
+	if (atmo_ridge_baked < 0.5) {
+		return vec4(0.0);
+	}
+	float t0 = t + atmo_ridges.w;
+	float row = clamp((t0 - ATMO_MAP_T_MIN) / (ATMO_MAP_T_MAX - ATMO_MAP_T_MIN), 0.0, 1.0)
+		* (ATMO_MAP_ROWS - 1.0) + 0.5;
+	float u = atan(h.y, h.x) / TAU + 0.5;
+	vec4 texel = texture(atmo_ridge_map, vec2(u, row / (2.0 * ATMO_MAP_ROWS)));
+	if (texel.a <= 0.0) {
+		return vec4(0.0);
+	}
+	float haze = texture(atmo_ridge_map, vec2(u, (row + ATMO_MAP_ROWS) / (2.0 * ATMO_MAP_ROWS))).r;
+	vec3 rgb = texel.rgb * texel.rgb * ATMO_MAP_RANGE;
+	return vec4(rgb + haze * atmo_ridge_haze_sky(h, t), texel.a);
+}
+#else
+// The bake draws no fog; this only keeps `atmo_fog_at` compiling.
+vec4 atmo_ridge_stack_far(vec3 d) {
+	return vec4(0.0);
+}
+#endif
+
+// What is behind a far surface at direction [param d]: the ridges over the
+// clear sky.
+vec3 atmo_background(vec3 d) {
+	vec4 ridges = atmo_ridge_stack_far(d);
 	return atmo_sky(d) * (1.0 - ridges.a) + ridges.rgb;
 }
 
@@ -313,7 +408,7 @@ vec4 atmo_fog_at(vec3 world, vec3 camera) {
 		vec3 flat_d = normalize(vec3(bd.x, max(bd.y, 0.0), bd.z));
 		vec3 haze = atmo_sky(flat_d);
 		if (depth > 0.3 && atmo_fog.w > 0.5) {
-			haze = mix(haze, atmo_background(bd, 0.004), smoothstep(0.3, 1.0, depth));
+			haze = mix(haze, atmo_background(bd), smoothstep(0.3, 1.0, depth));
 		}
 		far_colour = mix(atmo_fog_color, haze, atmo_fog.z);
 	}

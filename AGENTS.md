@@ -450,6 +450,17 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
 - **A fully fogged surface becomes a shape cut out of whatever is behind it** unless the fog colour
   *is* what is behind it. That is why the distant ridges are a function of direction in
   `atmosphere.gdshaderinc` and not meshes: the fog function can ask the same question the sky does.
+- **The fog reads the ridges from a map; the sky evaluates them.** `RidgeMap` bakes
+  `atmo_ridge_layers` once per sky into `atmo_ridge_map` (4096 × 2·512, RGBA8), because evaluated
+  behind every far fragment of every lit surface they cost ~1 ms a frame. It holds for a whole race
+  only because everything in it is worked out *before* the drop (`atmo_ridges.w`, the one input that
+  moves), and the haze colour — the one term that depends on the drop — is left out and added at
+  lookup. Anything new in the ridges must keep to that, or be re-baked (`RidgeMap.bake`) when it
+  changes. With no map (`atmo_ridge_baked` 0: the editor, `--sky=etr`) far slopes fade to bare sky.
+- **A shader branch that is never taken still costs.** The GPU allocates registers for the
+  widest path, so the ridge noise kept as a "fallback" behind `if (!baked)` left every lit shader
+  0.6–0.9 ms slower on the iGPU than with it deleted — as slow as having no map at all. Measure
+  an optimisation with its fallbacks compiled in, and prefer none in hot shaders.
 - **A `global uniform` the project does not declare is a compile error**, and the shader then draws
   nothing — every lit surface includes `atmosphere.gdshaderinc`, so one missing `[shader_globals]`
   entry empties the course. Global uniforms cannot be arrays (hence `atmo_torch_0..7`).

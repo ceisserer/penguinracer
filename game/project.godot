@@ -202,3 +202,11 @@ atmo_torch_light={
 "type": "vec4",
 "value": Vector4(0, 0, 0, 0)
 }
+atmo_ridge_baked={
+"type": "float",
+"value": 0.0
+}
+atmo_ridge_map={
+"type": "sampler2D",
+"value": ""
+}
