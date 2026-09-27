@@ -7,7 +7,8 @@
 ## rows (render scale, anti-aliasing, the sky and its detail, how far out the
 ## trees keep their detail, shadows and which trees cast them, the shadow map,
 ## ice reflections), the HUD's frame-rate readout, the two fog distances, and
-## on a phone how it is raced ([TouchScheme]).
+## on a phone how it is raced ([TouchScheme]) and which renderer it runs
+## ([RenderBackend]).
 ## Nothing else lands here; a value migrated out of `etr-0.8.4/data` belongs on
 ## a resource, not in a settings panel.
 ##
@@ -71,12 +72,18 @@ signal closed()
 @onready var _show_fps: CheckBox = %ShowFpsCheck
 @onready var _touch_row: Control = %TouchRow
 @onready var _touch: OptionButton = %TouchOption
+@onready var _renderer_row: Control = %RendererRow
+@onready var _renderer: OptionButton = %RendererOption
+@onready var _renderer_note: Label = %RendererNote
 @onready var _fog_start: HSlider = %FogStartSlider
 @onready var _fog_start_value: Label = %FogStartValue
 @onready var _fog_scale: HSlider = %FogScaleSlider
 @onready var _fog_scale_value: Label = %FogScaleValue
 @onready var _ok_button: Button = %OkButton
 @onready var _cancel_button: Button = %CancelButton
+
+## What each row of the renderer drop-down asks [RenderBackend] for.
+const _RENDERERS: Array[String] = [RenderBackend.MOBILE, RenderBackend.COMPATIBILITY]
 
 ## True while [method _show_values] is filling the rows, so the rows' own
 ## change signals do not each re-derive the preset half-way through.
@@ -116,6 +123,10 @@ func _ready() -> void:
 	# run with `--touch`. Written back either way, like the shadow rows.
 	_touch_row.visible = TouchScheme.platform_is_mobile() \
 		or not LaunchArgs.current().touch.is_empty()
+	# Only where the engine reads the choice back at launch — Android. Unlike
+	# the rows above, it is not written back while hidden: it is not in
+	# `penguinracer.cfg`, and a desktop has no file to write.
+	_renderer_row.visible = RenderBackend.can_choose()
 
 	# The drop-downs' rows are the index each key stores, in order — the
 	# preset list too, one row per [enum QualityPreset.Kind]. "Custom" closes
@@ -130,6 +141,9 @@ func _ready() -> void:
 	_fill_options(_tree_shadows, ["Off", "Nearest trees", "All trees"])
 	_fill_options(_shadow_detail, ["Low", "Medium", "High", "Best"])
 	_fill_options(_touch, Array(TouchScheme.LABELS, TYPE_STRING, "", null))
+	# Rows in the order of `_RENDERERS`.
+	_fill_options(_renderer, ["Mobile (Vulkan)", "Compatibility (OpenGL)"])
+	_renderer.item_selected.connect(_on_renderer_selected)
 
 	_quality.item_selected.connect(_on_quality_selected)
 	_antialiasing.item_selected.connect(_on_quality_row_changed)
@@ -159,6 +173,9 @@ func open() -> void:
 	_show_values(QualityPreset.of(Config))
 	_show_fps.button_pressed = Config.show_fps
 	_touch.select(Config.touch_scheme)
+	if _renderer_row.visible:
+		_renderer.select(_RENDERERS.find(RenderBackend.chosen()))
+		_on_renderer_selected(_renderer.selected)
 	_fog_start.value = Config.fog_start_distance
 	_fog_scale.value = Config.fog_distance_scale
 	# `value_changed` does not fire when the value assigned is the one already
@@ -261,6 +278,14 @@ func _on_render_scale_changed(value: float) -> void:
 	_render_scale_value.text = "%d %%   (%d x %d)" % [roundi(value * 100.0),
 		roundi(base.x * value), roundi(base.y * value)]
 
+## The renderer is picked before any script runs, so a change waits for the
+## next launch; say so whenever the row asks for something other than what is
+## running.
+func _on_renderer_selected(index: int) -> void:
+	var running: String = RenderBackend.COMPATIBILITY if RenderBackend.is_compatibility() \
+		else RenderBackend.MOBILE
+	_renderer_note.visible = _RENDERERS[index] != running
+
 func _on_fog_start_changed(value: float) -> void:
 	_fog_start_value.text = "%d m" % roundi(value)
 
@@ -282,6 +307,11 @@ func _accept() -> void:
 	Config.touch_scheme = _touch.selected as TouchScheme.Kind
 	Config.fog_start_distance = _fog_start.value
 	Config.fog_distance_scale = _fog_scale.value
+	if _renderer_row.visible:
+		var err: Error = RenderBackend.choose(_RENDERERS[_renderer.selected])
+		if err != OK:
+			push_warning("could not save the renderer choice to %s: %s"
+				% [RenderBackend.CHOICE_PATH, error_string(err)])
 	# `forced`: the player has just named a window size, which outranks the
 	# `--resolution` this run may have been launched with. Everywhere else the
 	# command line wins — see [method GameConfig.apply_display].

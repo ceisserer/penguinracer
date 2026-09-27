@@ -40,6 +40,7 @@ static func run(t: TestCase) -> void:
 	_the_mirror_takes_its_share(t)
 	_the_renderer_rule(t)
 	_the_project_ships_two_renderers(t)
+	_android_picks_its_renderer(t)
 
 static func _read(path: String) -> String:
 	var f: FileAccess = FileAccess.open(path, FileAccess.READ)
@@ -139,3 +140,35 @@ static func _the_project_ships_two_renderers(t: TestCase) -> void:
 		"the desktop default is the Mobile renderer, which lights in linear")
 	t.ok(text.contains("renderer/rendering_method.web=\"gl_compatibility\""),
 		"the web build is Compatibility, because WebGL2 has nothing else")
+
+static func _android_picks_its_renderer(t: TestCase) -> void:
+	t.begin("lighting/android picks its renderer")
+	# The engine reads the choice before any script runs, and only through this
+	# setting, so a menu row without it would be a dead knob.
+	var text: String = _read("res://project.godot")
+	t.ok(text.contains('config/project_settings_override.android="%s"'
+		% RenderBackend.CHOICE_PATH),
+		"on Android the engine reads the player's renderer choice at launch")
+	t.ok(not text.contains("config/project_settings_override="),
+		"and nowhere else, so a desktop or a browser keeps its own renderer")
+	t.ok(not RenderBackend.can_choose(), "so a desktop run does not offer the choice")
+
+	# Through the real file, which a desktop never reads; put back whatever a
+	# previous run left there.
+	var kept: PackedByteArray = FileAccess.get_file_as_bytes(RenderBackend.CHOICE_PATH)
+	var had: bool = FileAccess.file_exists(RenderBackend.CHOICE_PATH)
+	t.ok(RenderBackend.choose(RenderBackend.COMPATIBILITY) == OK, "Compatibility can be chosen")
+	t.ok(RenderBackend.chosen() == RenderBackend.COMPATIBILITY, "and is what the next launch asks for")
+	# The file is a `project.godot` fragment: the section and key have to be
+	# the ones the engine looks up, not merely ones `chosen` can read back.
+	var file := ConfigFile.new()
+	file.load(RenderBackend.CHOICE_PATH)
+	t.ok(file.get_value("rendering", "renderer/rendering_method", "") == "gl_compatibility",
+		"written under the project setting the engine reads")
+	t.ok(RenderBackend.choose(RenderBackend.MOBILE) == OK, "Mobile can be chosen")
+	t.ok(not FileAccess.file_exists(RenderBackend.CHOICE_PATH),
+		"which is the project default, so it leaves no file behind")
+	t.ok(RenderBackend.chosen() == RenderBackend.MOBILE, "and no file reads as Mobile")
+	if had:
+		var f: FileAccess = FileAccess.open(RenderBackend.CHOICE_PATH, FileAccess.WRITE)
+		f.store_buffer(kept)

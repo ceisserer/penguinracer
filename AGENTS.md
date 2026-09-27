@@ -4,7 +4,8 @@ Godot 4.7 rebuild of **Extreme Tux Racer 0.8.4**: downhill penguin racing with t
 physics model and real snow deformation. Ships to **web (WebGL2 / Compatibility)** and **desktop
 native (Vulkan / Mobile renderer)** from one project; both targets matter equally — see
 architecture rule 2 and [RenderBackend]. **Android** is a third export and runs Mobile like the
-desktop (Compatibility where a device has no Vulkan); phones (native or in a browser) race with tilt or on-screen buttons ([TouchScheme]).
+desktop (Compatibility where a device has no Vulkan, or where the player picks it in the settings
+screen — `RenderBackend.choose`, read back at the next launch); phones (native or in a browser) race with tilt or on-screen buttons ([TouchScheme]).
 
 **This is a rebuild, not a port.** Only the physics model is translated faithfully (constants are
 the game). Everything else is redesigned; original content is imported into the new shape.
@@ -215,7 +216,7 @@ Detail is in `PROGRESS.md`; this is the summary.
 | 4 — character | **done for all five** — skinned mesh from `shape.lst`, keyframe clips as `AnimationLibrary` + `KeyframePath` root motion, start animation (`CIntro`), finish clips on the results screen (`RaceOutcome.clip`), racing pose layer (`CharacterRig.adjust_joints`, ETR's `AdjustJoints`) driven off `RacerState` alone so ghosts and peers animate. `GameConfig.character` picks one. |
 | 5 — game shell | partial — main menu → Practice / Race the computer / Network multiplayer / Race against ghost / character / Configuration; results screen with named runs; ETR palette theme; course + character catalogs; 13 languages; audio (`AudioDirector`, ETR's one-voice-per-cue mixer). Missing: cups, medals, profiles (data imported), volume/language controls, ETR's menu art (licence audit). |
 | 6 — polish/ship | not started. |
-| phones | **done, not raced on hardware** — `Android` preset + `tools/build_android.sh` (Mobile renderer, whole game in the APK, Medium preset on first run); tilt / buttons / off on Android and in a phone's browser (`TouchScheme`, `TouchControls`, `TiltSteering`, `MotionSensor`); back button is Esc. Verified by the suite, desktop renders with `--touch`, and Chromium emulating an Android phone with synthetic `devicemotion`. |
+| phones | **done, not raced on hardware** — `Android` preset + `tools/build_android.sh` (Mobile renderer by default, Compatibility selectable in the settings screen from the next launch, whole game in the APK, Medium preset on first run); tilt / buttons / off on Android and in a phone's browser (`TouchScheme`, `TouchControls`, `TiltSteering`, `MotionSensor`); back button is Esc. Verified by the suite, desktop renders with `--touch`, and Chromium emulating an Android phone with synthetic `devicemotion`. |
 | sky + atmosphere | **done** (beyond ETR) — procedural sky (sun disc, drifting clouds; stars, moon, aurora at night), three layers of distant ridges, aerial perspective and valley mist in every lit shader's `FOG`, night torches inside the clamp (baked into the terrain). `[display] sky = etr` / `--sky=etr` is the old frame to the level. See the deviations. |
 | weather | **snow (0–3), sky (sunny/cloudy/night) and wind (none/light/strong) done** — `SnowFall` (world-anchored streaking flakes + far snow, deterministic), `LightCondition` and `WindField.init_crosswind`, all on the course screen, remembered in `[game] snowfall`/`conditions`/`wind`, carried on a lobby room. The sky moves sun, ambient, fog, skybox, tints, ice, and shadows (`EnvironmentPreset.casts_shadows`). The wind blows from a side rolled per start and moves the trees, the snow, the HUD's rose and a racer in flight. `evening` and ETR's wind grades (`--wind=`) are not offered. |
 | computer opponents | **done** (beyond ETR) — `RaceSetup` 1–9 opponents, each a `SimulatedRacer` + `AIInputSource` scoring nine candidate lines. Skill moves habits, never physics: 30 s on a 22° slope gives easy 231 m, medium 333 m, hard 422 m, a player holding straight 413 m. Deterministic from a seed. Solid via `RacerField`. |
@@ -665,6 +666,13 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   `enable_accelerometer` in `project.godot`, `Input.get_gravity()` reads zero on a phone too.
 - **Android's back button quits the app by default** (`application/config/quit_on_go_back`), from
   mid-race. It is off, and `GameConfig._notification` turns the go-back request into `menu`.
+- **The renderer is fixed before any script runs**, so Android's renderer choice is a
+  `project.godot` fragment at `user://renderer.cfg`, pulled in by
+  `config/project_settings_override.android`, not a `penguinracer.cfg` key. The `.android` tag is
+  what keeps the desktop and the browser on their own renderer; read the setting with
+  `get_setting_with_override`, since plain `get_setting` does not see the tag. Godot derives the
+  driver (OpenGL ES) from the method. A phone with no Vulkan still falls back to Compatibility
+  whatever the file says, and the settings row then keeps reading "applies after a restart".
 - **A touch also arrives as an emulated mouse click** (`emulate_mouse_from_touch`). The intro's
   skip relies on it; anything that also handles the mouse must ignore
   `InputEvent.DEVICE_ID_EMULATION` or a tap lands twice (a pause pressed twice is no pause).
