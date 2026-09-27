@@ -3,7 +3,8 @@
 Godot 4.7 rebuild of **Extreme Tux Racer 0.8.4**: downhill penguin racing with the original's
 physics model and real snow deformation. Ships to **web (WebGL2 / Compatibility)** and **desktop
 native (Vulkan / Mobile renderer)** from one project; both targets matter equally — see
-architecture rule 2 and [RenderBackend].
+architecture rule 2 and [RenderBackend]. **Android** is a third export and runs Mobile like the
+desktop (Compatibility where a device has no Vulkan); phones (native or in a browser) race with tilt or on-screen buttons ([TouchScheme]).
 
 **This is a rebuild, not a port.** Only the physics model is translated faithfully (constants are
 the game). Everything else is redesigned; original content is imported into the new shape.
@@ -42,13 +43,16 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           CourseLights (night torches, flags → torches)
   scripts/camera/         chase camera
   scripts/shell/          main/course/settings menus, HUD, LobbyMenu (connect → browse → room,
-                          own CourseMenu instance), LoadingScreen (shared by menu and race)
+                          own CourseMenu instance), LoadingScreen (shared by menu and race),
+                          TouchControls (the phone's on-screen buttons + tilt level)
   scripts/race/           RaceScene (tick loop + course), RacerRoster (who is on the hill, who
                           is winning), IntroSequence, the racer layer (Racer, SimulatedRacer,
                           PlaybackRacer, RacerState — the 18-float snapshot that is also the
                           ghost and wire format — RacerStateStream, InputSource kinds incl.
                           AIInputSource + AISkill), RaceSetup (practice or a field of 1..9),
-                          RaceRecording, RaceRecorder, SavedRunStore, RaceOutcome
+                          RaceRecording, RaceRecorder, SavedRunStore, RaceOutcome,
+                          TiltSteering (gravity → steer/paddle/brake), MotionSensor
+                          (gravity in screen coordinates, native or via `devicemotion`)
   scripts/net/            RaceNetwork autoload (`Net`: socket, lobby protocol, snapshots),
                           LobbyServer (rooms; the only thing on the wire that decides anything),
                           WebFileServer (web export over HTTP with COOP/COEP), ServerMain
@@ -57,7 +61,8 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
   scripts/config/         GameConfig autoload (settings file), QualityPreset (the five
                           quality presets and the knobs they set), RenderBackend (which renderer,
                           and shadows), LaunchArgs (command line + URL query), DisplayModes,
-                          PackStream (streamed web packs, risk S6; no-op elsewhere)
+                          PackStream (streamed web packs, risk S6; no-op elsewhere),
+                          TouchScheme (tilt | buttons | off, and "is this a phone")
   scripts/debug/          DebugCapture autoload (headless screenshots / scripted input), key_log
   shaders/                terrain, etr_skybox, procedural_sky, object_billboard (items), object_cross (shrubs),
                           conifer + conifer_impostor (both tree species; + conifer.gdshaderinc:
@@ -90,7 +95,8 @@ tools/                    import_all.sh; serve.sh (dedicated server + web export
                           png.py, regionstats.py, linstats.py (slow pure-Python capture stats —
                           tests/tone_report.gd does the same in a second); webtest/ (COOP/COEP
                           server + puppeteer runner); gen_course_export_presets.py +
-                          build_web_streamed.sh (streamed web export, S6)
+                          build_web_streamed.sh (streamed web export, S6);
+                          build_android.sh (the `Android` preset → build/android/*.apk)
 ```
 
 Generated trees (`game/courses/`, `game/resources/`, `game/assets/`) are committed. A re-import
@@ -114,6 +120,7 @@ godot --path game -- --remote-keyboard                             # ... over a 
 godot --path game -- --no-audio                                    # ... silent, for captures
 godot --path game -- --no-intro                                    # ... skipping the start animation
 godot --path game -- --fps                                         # ... with a frame-rate readout (this run only)
+godot --path game -- --touch=buttons                               # ... with a phone's on-screen controls (tilt|buttons|off)
 godot --path game -- --crosswind=strong                             # ... in a crosswind (none|light|strong)
 godot --path game -- --wind=2                                      # ... in ETR's wind grade 1..3 instead
 godot --path game -- --snow=3                                      # ... snowing (0..3)
@@ -138,6 +145,7 @@ godot --headless --path game res://scenes/server.tscn -- --port=27015 \
 
 ./tools/import_all.sh [--course=bunny_hill] [--force]              # 4-pass importer
 ./tools/bake_tree_impostors.sh [conifer|bare]                      # after any tree mesh change
+./tools/build_android.sh [--release] [--install]                   # Android APK (setup: .devcontainer/setup-android.sh)
 
 # headless verification
 godot --path game -- --capture=/tmp/shot.png --capture-frames=200 \
@@ -154,6 +162,7 @@ godot --path game -- --capture=/tmp/shot.png --capture-frames=655 \
 node tools/webtest/server.js build/web 8060 &
 node tools/webtest/run_web_test.js \
     "http://127.0.0.1:8060/index.html?course=bunny_hill&nointro=1" /tmp/web.png RACE_READY
+MOBILE=1 MOBILE_TILT=9,3,2.5 node tools/webtest/run_web_test.js ...  # ... as an Android phone, tilted
 
 # what the browser renders, without a browser
 godot --path game --rendering-method gl_compatibility --rendering-driver opengl3
@@ -171,15 +180,17 @@ the shipped frame and `GameConfig`'s defaults** — `TestConfig` holds them toge
 file moves no reference capture; keep it that way when adding a knob. Elsewhere: `[multiplayer] player_name`/`server` on the **Network
 multiplayer** screen, `port` file-only, `opponents`/`opponent_skill`/`snowfall`/`conditions`/`wind` on
 the course screen. Resolution offers the display's own modes (`DisplayModes`); resolution and
-fullscreen are hidden on the web, where the page sizes the canvas. The shadows row is hidden
+fullscreen are hidden on the web and on a phone, where the page or the system sizes the canvas;
+`[controls] touch` (tilt/buttons/off) is shown only on a phone. The shadows row is hidden
 wherever `RenderBackend.supports_light_shadows()` is false but the value is still written back,
 so a desktop preference survives a browser session. A ghost is not a setting: it is whichever
 saved run the player picks from **Race against ghost**, or none.
 
 **Export presets**: `Web` (streamed base — engine, shell, all 44 previews), one generated
-`Course_<dir>` per course, `MusicPack`, `WebSpike`, `Server` (Linux dedicated server). The
-generated presets belong to `tools/gen_course_export_presets.py` — re-run it when a course is
-added, removed or renamed. The test server must set COOP/COEP and `.wasm`/`.pck` MIME types or
+`Course_<dir>` per course, `MusicPack`, `WebSpike`, `Server` (Linux dedicated server), `Android`
+(whole game in one APK, arm64, prebuilt template). The generated presets belong to
+`tools/gen_course_export_presets.py`, which finds them by name — re-run it when a course is
+added, removed or renamed, **and after saving presets in the editor**, which drops its markers. The test server must set COOP/COEP and `.wasm`/`.pck` MIME types or
 the export fails obscurely. Prerequisites: Godot 4.7.2 on `PATH` as `godot`, web export
 templates, and **Vulkan** for the desktop (Mobile renderer).
 
@@ -204,6 +215,7 @@ Detail is in `PROGRESS.md`; this is the summary.
 | 4 — character | **done for all five** — skinned mesh from `shape.lst`, keyframe clips as `AnimationLibrary` + `KeyframePath` root motion, start animation (`CIntro`), finish clips on the results screen (`RaceOutcome.clip`), racing pose layer (`CharacterRig.adjust_joints`, ETR's `AdjustJoints`) driven off `RacerState` alone so ghosts and peers animate. `GameConfig.character` picks one. |
 | 5 — game shell | partial — main menu → Practice / Race the computer / Network multiplayer / Race against ghost / character / Configuration; results screen with named runs; ETR palette theme; course + character catalogs; 13 languages; audio (`AudioDirector`, ETR's one-voice-per-cue mixer). Missing: cups, medals, profiles (data imported), volume/language controls, ETR's menu art (licence audit). |
 | 6 — polish/ship | not started. |
+| phones | **done, not raced on hardware** — `Android` preset + `tools/build_android.sh` (Mobile renderer, whole game in the APK, Medium preset on first run); tilt / buttons / off on Android and in a phone's browser (`TouchScheme`, `TouchControls`, `TiltSteering`, `MotionSensor`); back button is Esc. Verified by the suite, desktop renders with `--touch`, and Chromium emulating an Android phone with synthetic `devicemotion`. |
 | sky + atmosphere | **done** (beyond ETR) — procedural sky (sun disc, drifting clouds; stars, moon, aurora at night), three layers of distant ridges, aerial perspective and valley mist in every lit shader's `FOG`, night torches inside the clamp (baked into the terrain). `[display] sky = etr` / `--sky=etr` is the old frame to the level. See the deviations. |
 | weather | **snow (0–3), sky (sunny/cloudy/night) and wind (none/light/strong) done** — `SnowFall` (world-anchored streaking flakes + far snow, deterministic), `LightCondition` and `WindField.init_crosswind`, all on the course screen, remembered in `[game] snowfall`/`conditions`/`wind`, carried on a lobby room. The sky moves sun, ambient, fog, skybox, tints, ice, and shadows (`EnvironmentPreset.casts_shadows`). The wind blows from a side rolled per start and moves the trees, the snow, the HUD's rose and a racer in flight. `evening` and ETR's wind grades (`--wind=`) are not offered. |
 | computer opponents | **done** (beyond ETR) — `RaceSetup` 1–9 opponents, each a `SimulatedRacer` + `AIInputSource` scoring nine candidate lines. Skill moves habits, never physics: 30 s on a 22° slope gives easy 231 m, medium 333 m, hard 422 m, a player holding straight 413 m. Deterministic from a seed. Solid via `RacerField`. |
@@ -558,6 +570,14 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
 - **A run that wants a rendered course has to name one** (`--course=` / `--auto-input=`, or
   `index.html?course=<dir>` on the web). A bare `--capture=` screenshots the menu, deliberately.
 
+- **Godot 4's web platform does not feed the accelerometer** — `Input.get_gravity()` is zero in a
+  browser. `MotionSensor` injects its own `devicemotion` listener; the reading is in the device's
+  natural frame (turn it by `screen.orientation.angle`) and signed as the reaction force, except on
+  iOS. iOS motion permission, fullscreen and orientation lock must be asked from a *page* touch
+  handler: a Godot input event is dispatched off the gesture.
+- **A phone's browser is `web_android` / `web_ios`, not `mobile`.** `mobile` is only a native
+  Android/iOS build; ask `TouchScheme.platform_is_mobile()`.
+
 ### Godot engine and GDScript
 
 - **`set_shader_parameter` with a packed array aliases the caller's array.** Pass `.duplicate()`.
@@ -641,6 +661,13 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   renormalised rarely (0.74 ms → 0.0002 ms a tick). **A chunk vertex sits exactly on a heightmap
   texel** — index `surface.heights`/`normals` directly (6.8 → 1.4 ms), which also keeps the live
   trench out of the mesh.
+- **Sensors are opt-in in Godot 4**: without `input_devices/sensors/enable_gravity` /
+  `enable_accelerometer` in `project.godot`, `Input.get_gravity()` reads zero on a phone too.
+- **Android's back button quits the app by default** (`application/config/quit_on_go_back`), from
+  mid-race. It is off, and `GameConfig._notification` turns the go-back request into `menu`.
+- **A touch also arrives as an emulated mouse click** (`emulate_mouse_from_touch`). The intro's
+  skip relies on it; anything that also handles the mouse must ignore
+  `InputEvent.DEVICE_ID_EMULATION` or a tap lands twice (a pause pressed twice is no pause).
 - **`is_action_just_pressed()` stays true for a released key**, so a pulsed remote keyboard drives
   edge-triggered controls only. `KeyHoldFilter` detects it — only after a second pulse on the same
   action within `PULSE_WINDOW`, since one pulse is just a quick tap — and `--remote-keyboard`
@@ -868,6 +895,11 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   *Opponents* / *Skill* / *Easy, Medium, Hard*) are literals — a `tr()` key would resolve to nothing
   in all 13 languages. Finishing places reuse `POSITION` and `1ST`..`10TH`, which is why the field
   stops at nine.
+- **A phone races by tilt or by buttons** (`TouchScheme`, `TouchControls`, `TiltSteering`); ETR
+  is keyboard-only. The buttons press the ordinary actions; tilt is merged per tick in
+  `LocalInputSource`. The physics sees a stick and flags, exactly as from a gamepad. A phone
+  leaving the app pauses the race like `P` (`RaceScene._notification`), not in a network race.
+  The start hint reads `TAP TO START` under the overlay.
 
 ## Commits
 

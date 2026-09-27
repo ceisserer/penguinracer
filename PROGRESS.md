@@ -2328,3 +2328,65 @@ hundred pixels of 230 000 on any frame, and it cost 3.9 ms on Bunny Hill. The ro
 
 About one run in six on this machine writes its capture and then never exits — HEAD before this
 change too (1 of 6 on `bronze_set`), so the benchmark wraps each run in a `timeout`. Not chased.
+
+### Phones: an Android build, and touch controls there and in a phone's browser (2026-09-27) · **done, not yet raced on hardware**
+
+**Android.** A hand-maintained `Android` export preset (prebuilt template, no Gradle build,
+arm64-v8a, `org.penguinracer.game`, immersive, landscape either way up, INTERNET for the lobby)
+and `tools/build_android.sh [--release] [--install]`. The whole game is in the APK (137 MB) —
+streaming is a browser concern. A phone runs the **Mobile** renderer, like the desktop: `project.godot`'s
+`rendering_method.mobile = gl_compatibility` override is gone (a device without Vulkan still falls
+back to Compatibility by itself, and `RenderBackend` then drops the shadows as on the web). A
+phone's first run (Android or a phone's browser) writes the **Medium** preset instead of High; the desktop default and every capture are unchanged. The window
+is not the settings file's to size on a phone (`GameConfig.owns_window`), and Android's back
+button is Esc (`quit_on_go_back` off; `GameConfig._notification`) — it used to quit mid-race.
+
+**Three schemes**, `[controls] touch` / a Configuration row shown only on a phone:
+- **tilt** (default) — `TiltSteering`: roll steers (analogue, 2.5° deadzone, full lock at 22°,
+  floored at 0.21 because `RacePhysics` ignores a stick under 0.2); tipping the top edge away
+  paddles, back brakes, ±11° on / 7° off around a neutral taken over the first 0.35 s of each run
+  (`LocalInputSource.reset` → `recenter`). Roll is measured against the horizontal, so it does
+  not care how far back the phone is held. Jump and the trick modifier are buttons; a tilted
+  phone also sets the digital left/right flags so a roll in the air still works.
+- **buttons** — steer, paddle, brake, jump, trick, all on screen.
+- **off**.
+Pause and menu (Esc) buttons in every scheme but off; no pause in a network race; while paused
+by `P` only the pause button stays, to resume with. If tilt was chosen and no reading ever
+arrives (motion access refused, a desktop), the steering buttons come back.
+
+**How it is wired.** `TouchControls` presses the existing actions (`Input.action_press`), so
+`LocalInputSource`/`KeyHoldFilter` read a thumb exactly as they read a key, on the tick. Tilt is
+not an action; `LocalInputSource.poll` reads `MotionSensor` once per tick and merges it (a key
+held outranks it). `RacePhysics` is untouched. `MotionSensor` is where the platforms stop
+differing: `Input.get_gravity()` natively (sensors are opt-in in 4.x:
+`input_devices/sensors/enable_*`), and on the web a `devicemotion` listener injected through
+`JavaScriptBridge`, because Godot 4's web platform does not feed the accelerometer. The browser's
+reading is in the device's natural frame and signed as the reaction force, so
+`MotionSensor.web_to_screen` turns it by `screen.orientation.angle` and flips it (not on iOS,
+which reports gravity itself). The same injected script asks iOS for motion permission and
+requests fullscreen + a landscape lock from its own `touchend` handler — a Godot input event is
+dispatched off the gesture and would be refused. A phone's browser is `web_android`/`web_ios`
+(`TouchScheme.platform_is_mobile`); `--touch[=tilt|buttons|off]` / `?touch` forces the overlay on
+a desktop. The web preset now turns on Godot's virtual keyboard, for the lobby's name field.
+
+**Layout** clears every HUD piece on 16:9, 19.5:9, 21:9 and 4:3 canvases (`TestTouch`, which also
+covers the scheme matrix, the tilt geometry, the browser remap against Android's native
+rotations, and the merge). The start hint reads `TAP TO START` under the overlay.
+
+**Verified**: the suite; a render with `--touch=buttons` and `--touch=tilt` on the desktop; the
+streamed web build in Chromium emulating an Android phone (`MOBILE=1` in
+`tools/webtest/run_web_test.js`) — `web_android` picked tilt, and synthetic `devicemotion` events
+(`MOBILE_TILT=x,y,z`) dropped the steering buttons and carved the penguin right. The APK exports,
+signs and has the expected manifest. **Not verified**: a real phone — the tilt thresholds are
+reasoned, not played, and Android's sign/rotation conventions are from the engine source, not a
+device; iOS Safari's inverted sign is from its documented behaviour, also untested.
+
+**Also fixed on the way**: `export_presets.cfg` held three copies of the 45 generated presets. The
+Godot editor rewrites the file without its comments, so `gen_course_export_presets.py` lost its
+markers and appended a fresh block each time. It now recognises its presets by name
+(`Course_*`, `MusicPack`) wherever they are, and renumbers the hand-maintained ones (`Web`,
+`WebSpike`, `Server`, `Android`) from 0.
+
+**Still failing, not from this**: `lighting/what project.godot ships` wants
+`rendering_method.web="gl_compatibility"`, which 78f80ca dropped (the editor omits a value equal to
+its default, which this one is — the web still runs Compatibility).

@@ -212,7 +212,15 @@ var paused: bool = false
 ## mutually exclusive so a stray key cannot leave the game paused with nothing
 ## on screen saying so.
 var _key_paused: bool = false
+## Whether the freeze is `P`'s — [TouchControls] keeps its pause button up then,
+## so a phone has a way back into the race.
+var key_paused: bool:
+	get:
+		return _key_paused
 var _paused_label: Label
+## The phone's on-screen controls; null wherever [method
+## GameConfig.active_touch_scheme] says none. See [TouchControls].
+var touch_controls: TouchControls = null
 ## Covers the whole of building a course: the network round trip a web build's
 ## [PackStream] does when the course was not in the base bundle, and the four
 ## blocking steps after it. The same panel [MainMenu] put up before the scene
@@ -415,8 +423,17 @@ func _ready() -> void:
 	# where it has been read. The start animation is per character too — Trixi's
 	# `start.lst` is not Tux's — so the rig has to exist before the intro is set
 	# up on the course load below.
+	var touch: TouchScheme.Kind = Config.active_touch_scheme()
 	roster.build_local(_local_character_dir(), character_scene_path,
-		Config.player_name, _auto_input, _compensate_keys)
+		Config.player_name, _auto_input, _compensate_keys,
+		touch == TouchScheme.Kind.TILT)
+	if touch != TouchScheme.Kind.OFF:
+		touch_controls = TouchControls.new()
+		touch_controls.name = "TouchControls"
+		touch_controls.race = self
+		touch_controls.scheme = touch
+		add_child(touch_controls)
+		print("TOUCH_CONTROLS %s" % TouchScheme.name_of(touch))
 	roster.build_field(setup, _local_character_dir())
 	_intro_enabled = play_intro and _auto_input.is_empty()
 	menu = $CourseMenu
@@ -1254,6 +1271,20 @@ func open_menu() -> void:
 	_stop_slide_sound()
 	Audio.play_menu_music()
 	menu.open(current_course_dir, running, setup)
+
+## A phone leaving the game — a call, the home button, the screen going off —
+## freezes the race the way `P` does, where a desktop losing focus does not: a
+## window behind another is still being watched, an app in the background is
+## not, and it comes back to a racer who has been in the trees for a minute.
+## Only with the touch overlay up, which is also what gives the player the
+## button to resume with. Never in a network race (see [method
+## _unhandled_input]).
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_APPLICATION_FOCUS_OUT and what != NOTIFICATION_APPLICATION_PAUSED:
+		return
+	if touch_controls == null or not running or paused or _is_network_race():
+		return
+	_toggle_key_pause()
 
 ## `P`, toggled. Unlike the course menu this has nowhere to go but back to the
 ## same race — no course list, no Back button — so it is a plain freeze with

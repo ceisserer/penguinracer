@@ -6,7 +6,8 @@
 ## every key a player can act on today: window size, fullscreen, the quality
 ## rows (render scale, anti-aliasing, the sky and its detail, how far out the
 ## trees keep their detail, shadows and which trees cast them, the shadow map,
-## ice reflections), the HUD's frame-rate readout, and the two fog distances.
+## ice reflections), the HUD's frame-rate readout, the two fog distances, and
+## on a phone how it is raced ([TouchScheme]).
 ## Nothing else lands here; a value migrated out of `etr-0.8.4/data` belongs on
 ## a resource, not in a settings panel.
 ##
@@ -68,6 +69,8 @@ signal closed()
 @onready var _shadow_detail: OptionButton = %ShadowDetailOption
 @onready var _show_fps_label: Label = %ShowFpsLabel
 @onready var _show_fps: CheckBox = %ShowFpsCheck
+@onready var _touch_row: Control = %TouchRow
+@onready var _touch: OptionButton = %TouchOption
 @onready var _fog_start: HSlider = %FogStartSlider
 @onready var _fog_start_value: Label = %FogStartValue
 @onready var _fog_scale: HSlider = %FogScaleSlider
@@ -109,6 +112,10 @@ func _ready() -> void:
 	_shadows_row.visible = RenderBackend.supports_light_shadows()
 	_tree_shadows_row.visible = _shadows_row.visible
 	_shadow_detail_row.visible = _shadows_row.visible
+	# Only where there is an overlay for it to choose: a phone, or a desktop
+	# run with `--touch`. Written back either way, like the shadow rows.
+	_touch_row.visible = TouchScheme.platform_is_mobile() \
+		or not LaunchArgs.current().touch.is_empty()
 
 	# The drop-downs' rows are the index each key stores, in order — the
 	# preset list too, one row per [enum QualityPreset.Kind]. "Custom" closes
@@ -122,6 +129,7 @@ func _ready() -> void:
 	_fill_options(_sky_detail, ["Low", "Medium", "High"])
 	_fill_options(_tree_shadows, ["Off", "Nearest trees", "All trees"])
 	_fill_options(_shadow_detail, ["Low", "Medium", "High", "Best"])
+	_fill_options(_touch, Array(TouchScheme.LABELS, TYPE_STRING, "", null))
 
 	_quality.item_selected.connect(_on_quality_selected)
 	_antialiasing.item_selected.connect(_on_quality_row_changed)
@@ -150,6 +158,7 @@ func open() -> void:
 	_fullscreen.button_pressed = Config.fullscreen
 	_show_values(QualityPreset.of(Config))
 	_show_fps.button_pressed = Config.show_fps
+	_touch.select(Config.touch_scheme)
 	_fog_start.value = Config.fog_start_distance
 	_fog_scale.value = Config.fog_distance_scale
 	# `value_changed` does not fire when the value assigned is the one already
@@ -270,6 +279,7 @@ func _accept() -> void:
 	for key: String in QualityPreset.KEYS:
 		Config.set(key, values[key])
 	Config.show_fps = _show_fps.button_pressed
+	Config.touch_scheme = _touch.selected as TouchScheme.Kind
 	Config.fog_start_distance = _fog_start.value
 	Config.fog_distance_scale = _fog_scale.value
 	# `forced`: the player has just named a window size, which outranks the

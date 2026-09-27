@@ -35,6 +35,7 @@ func _run() -> void:
 	TestConfig.run(t)
 	TestHUD.run(t)
 	TestInput.run(t)
+	TestTouch.run(t)
 	TestMultiplayer.run(t)
 	TestLobby.run(t)
 	TestSpray.run(t)

@@ -4,9 +4,11 @@
 One `.pck` per game/courses/<dir> plus one for assets/music/, built via
 `godot --export-pack "<preset name>" <out.pck>` (tools/build_web_streamed.sh
 drives this). export_presets.cfg is otherwise hand-maintained (`Web`,
-`WebSpike`) — this script only owns the block between the marker comments
+`WebSpike`, `Server`, `Android`) — this script owns every preset named
+`Course_*` or `MusicPack`, written as one block between the marker comments
 below, and rewrites it from the current game/courses/ listing. Re-runnable;
-run it whenever a course is added, removed or renamed.
+run it whenever a course is added, removed or renamed, and after saving
+export presets in the editor (which drops the markers).
 
     python3 tools/gen_course_export_presets.py
 """
@@ -109,24 +111,46 @@ def generate_block(start_index: int) -> str:
     return "\n".join(parts)
 
 
+PRESET_HEADER = re.compile(r"^\[preset\.(\d+)(\.options)?\]$", re.MULTILINE)
+
+
+def is_generated(block: str) -> bool:
+    name = re.search(r'^name="([^"]*)"$', block, re.MULTILINE)
+    return name is not None and (name.group(1).startswith("Course_")
+                                 or name.group(1) == "MusicPack")
+
+
+def split_presets(text: str) -> tuple[str, list[str]]:
+    """The text before the first preset, and each preset (`[preset.N]` plus its
+    `[preset.N.options]`) as one block, marker comments stripped."""
+    text = text.replace(BEGIN + "\n", "").replace(END + "\n", "")
+    text = text.replace(BEGIN, "").replace(END, "")
+    starts = [m.start() for m in PRESET_HEADER.finditer(text) if m.group(2) is None]
+    if not starts:
+        return text, []
+    head = text[:starts[0]]
+    blocks = [text[a:b].strip("\n") + "\n" for a, b in zip(starts, starts[1:] + [len(text)])]
+    return head, blocks
+
+
+def renumber(block: str, index: int) -> str:
+    return PRESET_HEADER.sub(lambda m: f"[preset.{index}{m.group(2) or ''}]", block)
+
+
 def main() -> None:
-    text = PRESETS_PATH.read_text()
-    if BEGIN not in text:
-        # First run: append the marker pair after the hand-maintained
-        # presets (Web=0, WebSpike=1) — WebOneCourse (preset.2), superseded
-        # by the generated Course_bunny_hill, is expected to already be gone.
-        text = text.rstrip("\n") + f"\n\n{BEGIN}\n{END}\n"
-
-    before, rest = text.split(BEGIN, 1)
-    _, after = rest.split(END, 1)
-
-    # Presets are numbered sequentially; count how many hand-maintained
-    # [preset.N] blocks precede the marker to know where generated ones start.
-    start_index = len(re.findall(r"^\[preset\.\d+\]$", before, re.MULTILINE))
-    block = generate_block(start_index)
-
-    PRESETS_PATH.write_text(f"{before}{BEGIN}\n{block}\n{END}{after}")
-    print(f"wrote {len(course_dirs())} course presets + MusicPack starting at preset.{start_index}")
+    # The Godot editor rewrites this file on every save and drops comments —
+    # the two markers included — so the generated block cannot be found by its
+    # markers alone. Every preset this script owns is recognised by its name
+    # instead, wherever it now sits, and removed before the block is written
+    # again; otherwise each editor save followed by a run appends another copy
+    # of all of them. Hand-maintained presets keep their order, renumbered from 0.
+    head, blocks = split_presets(PRESETS_PATH.read_text())
+    kept = [renumber(b, i) for i, b in enumerate(b for b in blocks if not is_generated(b))]
+    block = generate_block(len(kept))
+    body = "\n".join(kept)
+    PRESETS_PATH.write_text(f"{head.rstrip()}\n\n{body}\n{BEGIN}\n{block}\n{END}\n")
+    print(f"kept {len(kept)} hand-maintained presets; wrote {len(course_dirs())} "
+          f"course presets + MusicPack starting at preset.{len(kept)}")
 
 
 if __name__ == "__main__":

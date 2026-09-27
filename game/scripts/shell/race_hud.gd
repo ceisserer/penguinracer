@@ -564,8 +564,11 @@ func _draw_status(size: Vector2) -> void:
 	# a line of text. It sits low and centred rather than in the corner now that
 	# the corner has a clock in it.
 	if race.intro_running:
-		_draw_centered(tr("PRESS_ANY_KEY_TO_START"), hint_top(size), size,
-			HINT_FONT_SIZE, Color.WHITE)
+		# DEVIATION: a phone has no key to press. A literal, like the other
+		# strings for things ETR lacks — a `tr()` key would resolve to nothing.
+		var hint: String = "TAP TO START" if race.touch_controls != null \
+			else tr("PRESS_ANY_KEY_TO_START")
+		_draw_centered(hint, hint_top(size), size, HINT_FONT_SIZE, Color.WHITE)
 		return
 	# DEVIATION: a network race has two things to say the original never needed
 	# — the countdown that replaces its start animation, and, once this player

@@ -185,6 +185,14 @@ var conditions: LightCondition.Kind = LightCondition.Kind.SUNNY
 ## None by default, for the same reason as the other two.
 var wind: WindField.Strength = WindField.Strength.NONE
 
+# --- controls ---
+
+## How a phone or tablet races: tilt the device, on-screen buttons, or neither.
+## See [TouchScheme]. Read only where [method TouchScheme.platform_is_mobile] is
+## true or `--touch` forces the overlay — a desktop draws none whatever this
+## says, which is also why the default can be the phone's.
+var touch_scheme: TouchScheme.Kind = TouchScheme.Kind.TILT
+
 # --- multiplayer ---
 
 ## What other racers see this player called. ETR has `players.lst` and an avatar
@@ -221,8 +229,34 @@ var _window_preset: bool = false
 
 func _ready() -> void:
 	load_or_create()
+	# On a phone's browser, the page-side half of the touch controls goes in
+	# now rather than at the first race: it asks for motion access and
+	# fullscreen from the first tap, and the first tap is on a menu.
+	if active_touch_scheme() != TouchScheme.Kind.OFF:
+		MotionSensor.install()
 	_window_preset = _window_already_chosen()
 	apply_display()
+
+## Android's back button (and a back gesture) is Esc: out of a race to the
+## course list, out of a panel back to the main menu. The platform's default
+## was to quit the game from wherever it was pressed, mid-race included; the
+## main menu's Quit is the way out now (`application/config/quit_on_go_back`
+## is off in `project.godot`).
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_WM_GO_BACK_REQUEST:
+		return
+	for pressed: bool in [true, false]:
+		var event := InputEventAction.new()
+		event.action = &"menu"
+		event.pressed = pressed
+		Input.parse_input_event(event)
+
+## The touch scheme this run races with: the file's on a phone, none on a
+## desktop, unless `--touch`/`?touch` says otherwise. See [method
+## TouchScheme.resolve].
+func active_touch_scheme() -> TouchScheme.Kind:
+	return TouchScheme.resolve(touch_scheme, TouchScheme.platform_is_mobile(),
+		LaunchArgs.current().touch)
 
 ## Whether something other than this file has already decided the window's size
 ## or mode. Only meaningful before the first [method apply_display] — after one,
@@ -238,7 +272,7 @@ func _ready() -> void:
 ## [method DisplayServer.window_get_size] a real pixel count on a Retina panel
 ## as well as on a scaled Wayland one.
 func _window_already_chosen() -> bool:
-	if DisplayServer.get_name() == "headless" or OS.has_feature("web"):
+	if DisplayServer.get_name() == "headless" or not owns_window():
 		return false
 	var root: Window = get_tree().root
 	if root.mode == Window.MODE_FULLSCREEN or root.mode == Window.MODE_EXCLUSIVE_FULLSCREEN:
@@ -265,6 +299,11 @@ static func window_sizes_match(a: Vector2, b: Vector2) -> bool:
 
 func load_or_create() -> void:
 	if not FileAccess.file_exists(PATH):
+		# A phone's first run starts a step down from the desktop's frame. The
+		# desktop default stays HIGH — every reference capture assumes it — and
+		# a phone that can do more is one settings screen away.
+		if TouchScheme.platform_is_mobile():
+			QualityPreset.apply(QualityPreset.Kind.MEDIUM, self)
 		if save():
 			print("wrote default settings to %s" % ProjectSettings.globalize_path(PATH))
 		return
@@ -325,6 +364,8 @@ func read(cfg: ConfigFile) -> void:
 		multiplayer_port)), 1024, 65535)
 	multiplayer_server = str(cfg.get_value("multiplayer", "server",
 		multiplayer_server)).strip_edges()
+	touch_scheme = TouchScheme.parse(str(cfg.get_value("controls", "touch",
+		TouchScheme.name_of(touch_scheme))), touch_scheme)
 
 ## `"1280x720"` → `Vector2i(1280, 720)`; `"auto"` → [constant Vector2i.ZERO],
 ## meaning the window is left as the platform sized it. Anything unparseable
@@ -475,6 +516,14 @@ conditions = "%s"
 ; Also `--crosswind=strong` on the command line, which outranks this for one run.
 wind = "%s"
 
+[controls]
+
+; How a phone or tablet races: "tilt" (turn the device like a wheel to steer,
+; tip the top edge away to paddle and back to brake; jump and tricks are
+; buttons), "buttons" (everything on screen) or "off". A desktop shows no
+; on-screen controls whatever this says; `--touch` forces them on for one run.
+touch = "%s"
+
 [multiplayer]
 
 ; What other racers see you called.
@@ -501,7 +550,7 @@ port = %d
 		fog_start_distance, fog_distance_scale, character,
 		opponents, AISkill.name_of(opponent_skill), snowfall,
 		LightCondition.name_of(conditions), WindField.strength_name(wind),
-		player_name, multiplayer_server, multiplayer_port]
+		TouchScheme.name_of(touch_scheme), player_name, multiplayer_server, multiplayer_port]
 
 ## `"auto"` when the window is the platform's to size, `"1280x720"` otherwise.
 ## The round trip through [method parse_resolution] has to survive: a saved
@@ -537,6 +586,12 @@ func apply_fog(env: Environment, preset: EnvironmentPreset) -> void:
 	env.fog_depth_begin = range_m.x
 	env.fog_depth_end = range_m.y
 
+## Whether the window's size and mode are this file's to set. Not in a browser,
+## where the page sizes the canvas, and not on a phone, where the system does —
+## a "windowed" Android app is one with the status bar drawn over it.
+static func owns_window() -> bool:
+	return not OS.has_feature("web") and not OS.has_feature("mobile")
+
 ## Size the window and the 3D viewport. Called at startup and again whenever
 ## [SettingsMenu] accepts a change, so it has to be able to put a value back as
 ## well as set it — `scaling_3d_scale` is assigned unconditionally for that
@@ -557,7 +612,7 @@ func apply_display(forced: bool = false) -> void:
 	root.scaling_3d_scale = render_scale
 	root.msaa_3d = QualityPreset.msaa_for(antialiasing)
 
-	if DisplayServer.get_name() == "headless" or OS.has_feature("web"):
+	if DisplayServer.get_name() == "headless" or not owns_window():
 		return
 	if forced:
 		_window_preset = false

@@ -40,7 +40,19 @@ const timeoutMs = parseInt(process.argv[5] || '300000', 10);
     ],
   });
   const page = await browser.newPage();
-  await page.setViewport({ width: 1280, height: 720 });
+  // MOBILE=1: an Android phone held landscape — its user agent (which is what
+  // Godot's `web_android` feature tag is read from), touch, and a 2x screen.
+  // MOBILE_TILT="x,y,z" then feeds that `accelerationIncludingGravity` as
+  // devicemotion events once the marker is seen, for the tilt controls.
+  const mobile = !!process.env.MOBILE;
+  if (mobile) {
+    await page.setUserAgent('Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 ' +
+      '(KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36');
+  }
+  await page.setViewport(mobile
+    ? { width: 915, height: 412, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
+        isLandscape: true }
+    : { width: 1280, height: 720 });
 
   const logs = [];
   let done = null;
@@ -56,6 +68,15 @@ const timeoutMs = parseInt(process.argv[5] || '300000', 10);
   const started = Date.now();
   while (!done && Date.now() - started < timeoutMs) {
     await new Promise(r => setTimeout(r, 1000));
+  }
+
+  if (done && process.env.MOBILE_TILT) {
+    const [x, y, z] = process.env.MOBILE_TILT.split(',').map(Number);
+    for (let i = 0; i < 40; i++) {
+      await page.evaluate((g) => window.dispatchEvent(new DeviceMotionEvent('devicemotion',
+        { accelerationIncludingGravity: g, interval: 16 })), { x, y, z });
+      await new Promise(r => setTimeout(r, 50));
+    }
   }
 
   const info = await page.evaluate(() => {

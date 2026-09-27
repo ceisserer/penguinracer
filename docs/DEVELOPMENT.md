@@ -110,6 +110,8 @@ godot --path game -- --snow=3                        # ... snowing hard (0..3)
 godot --path game -- --light=night                   # ... after dark (sunny, cloudy or night)
 godot --path game -- --server=<address>              # ... straight to the multiplayer lobby
 godot --path game -- --lobby                         # ... on the server the settings file names
+godot --path game -- --touch                         # ... with a phone's on-screen controls
+godot --path game -- --touch=buttons                 # ... naming the scheme (tilt, buttons, off)
 ```
 
 Every race opens with the original's start sequence: your character is standing off to one side of
@@ -131,6 +133,22 @@ Controls: arrow keys steer/paddle/brake, space charges a jump, `Ctrl` plus a dir
 air into a trick, `R` restarts, `P` freezes the race in place with a `PAUSED` banner and unfreezes
 it again, `Esc` drops straight back to the course list — a race left this way is abandoned rather
 than resumed, and Back from the list returns to the main menu. A gamepad's left stick steers.
+
+On a phone — the Android build, or the web build in a phone's browser — the race draws its own
+controls, chosen on the Configuration screen (`[controls] touch`):
+
+* **Tilt the device** (the default): turn it like a steering wheel to steer, tip the top edge away
+  from you to paddle and back towards you to brake. How you hold it at the start of each run is
+  "neither" — tip from there. Jump (hold to charge, let go to jump) and the trick modifier are
+  buttons on the right; a small level along the bottom shows what the tilt is doing.
+* **On-screen buttons**: steering arrows bottom left, paddle, brake, jump and trick bottom right.
+* **Off**, for a tablet with a keyboard or a gamepad.
+
+Every scheme has a menu button (Esc) and a pause button (`P`) top right; Android's back button is
+Esc too. In a browser the first tap asks for motion access where the browser wants that (iOS) and
+goes fullscreen in landscape; motion data needs the page on HTTPS (or localhost). If tilt is chosen
+but no reading ever arrives, the steering buttons appear instead. On a desktop, `--touch` draws the
+overlay and the mouse stands in for a finger.
 
 Playing over a remote desktop, set its keyboard to a raw/map mode rather than a character
 translating one — a translating mode sends held keys as zero-length pulses, and steering, paddling
@@ -319,6 +337,7 @@ press Ok. The file lives at:
 Linux     ~/.local/share/godot/app_userdata/PenguinRacer/penguinracer.cfg
 Windows   %APPDATA%\Godot\app_userdata\PenguinRacer\penguinracer.cfg
 Web       IndexedDB, per origin
+Android   the app's private storage (gone with an uninstall)
 ```
 
 ```ini
@@ -350,6 +369,9 @@ opponent_skill = "medium" ; easy, medium or hard
 snowfall = 0              ; how hard it is snowing [0...3]: none, a little, more, a lot
 conditions = "sunny"      ; what the sky is doing: sunny, cloudy or night
 wind = "none"             ; the crosswind: none, light or strong
+
+[controls]
+touch = "tilt"            ; on a phone: tilt, buttons or off (a desktop draws none)
 
 [multiplayer]
 player_name = "Racer"     ; what other racers see you called
@@ -483,6 +505,21 @@ It bakes under Compatibility on purpose (see the trap list) and prints a probe o
 normal atlas near the pole, which should unpack to roughly +Y. The bare tree's twig/bark texture
 is not baked: `BareTreeMesh.texture()` draws it at load (~70 ms).
 
+## Android
+
+```bash
+bash .devcontainer/setup-android.sh        # once: Godot templates, JDK 17, SDK, debug keystore
+tools/build_android.sh                     # debug APK → build/android/penguinracer.apk
+tools/build_android.sh --install           # ... and adb install -r it
+tools/build_android.sh --release           # needs GODOT_ANDROID_KEYSTORE_RELEASE_PATH/_USER/_PASSWORD
+```
+
+The `Android` preset uses the prebuilt template (no Gradle build), arm64-v8a only, and puts the
+whole game in the APK (~137 MB) — per-course streaming is for browsers. A phone runs the
+**Mobile** renderer (Vulkan), as the desktop does, shadows included; a device without Vulkan falls
+back to Compatibility by itself (`rendering_device/fallback_to_opengl3`) and loses them there, as
+the web does. A phone's first run starts at the **Medium** quality preset.
+
 ## Web
 
 The web export is streamed: `Web` builds a slim base (engine + shell + all 44 course preview
@@ -520,9 +557,19 @@ harness wait on `RACE_READY`. `?autostart` does the same for the default course,
 skips the start animation, and `?character=<dir>` races as one of the other four.
 
 Export presets: `Web` (the streamed base), one generated `Course_<dir>` per course plus
-`MusicPack` (owned by `tools/gen_course_export_presets.py` — re-run it whenever a course is
-added, removed or renamed; `tools/build_web_streamed.sh` does this automatically), and
-`WebSpike` (the S1 render-target spike).
+`MusicPack` (owned by `tools/gen_course_export_presets.py`, which finds them by name — re-run it
+whenever a course is added, removed or renamed, and after saving presets in the editor, which
+drops its marker comments; `tools/build_web_streamed.sh` does this automatically), `WebSpike` (the
+S1 render-target spike), `Server` and `Android`.
+
+`MOBILE=1` makes `run_web_test.js` an Android phone held landscape (user agent, touch, 2x screen),
+and `MOBILE_TILT=x,y,z` then feeds that `accelerationIncludingGravity` as `devicemotion` events
+once the marker is seen:
+
+```bash
+MOBILE=1 MOBILE_TILT=9,3,2.5 node tools/webtest/run_web_test.js \
+    "http://127.0.0.1:8060/index.html?course=bunny_hill&nointro=1" /tmp/phone.png RACE_READY
+```
 
 ```bash
 godot --headless --path game --export-release "WebSpike" build/spike/index.html

@@ -46,6 +46,11 @@ var opponents: int = NO_OPPONENTS
 var difficulty: String = ""
 
 var remote_keyboard: bool = false
+## `--touch` / `?touch`: draw the phone's on-screen controls on a desktop, for
+## this run. Bare, it is "on" (the settings file's scheme); `--touch=buttons`,
+## `=tilt` or `=off` names one. Empty means "only on a phone". See
+## [method TouchScheme.resolve].
+var touch: String = ""
 var no_audio: bool = false
 var no_intro: bool = false
 ## `--fps` — the HUD's frame-rate readout, which is `param.display_fps` in the
@@ -164,6 +169,10 @@ func parse(argv: PackedStringArray, query: Dictionary) -> void:
 			difficulty = arg.trim_prefix("--difficulty=")
 		elif arg == "--remote-keyboard":
 			remote_keyboard = true
+		elif arg == "--touch":
+			touch = "on"
+		elif arg.begins_with("--touch="):
+			touch = arg.trim_prefix("--touch=")
 		elif arg == "--no-audio":
 			no_audio = true
 		elif arg == "--no-intro":
@@ -214,6 +223,8 @@ func parse(argv: PackedStringArray, query: Dictionary) -> void:
 		opponents = str(query["opponents"]).to_int()
 	difficulty = _str(query, "difficulty", difficulty)
 	remote_keyboard = remote_keyboard or query.has("remotekeyboard")
+	if touch.is_empty() and query.has("touch"):
+		touch = str(query["touch"]) if not str(query["touch"]).is_empty() else "on"
 	no_audio = no_audio or query.has("noaudio")
 	no_intro = no_intro or query.has("nointro")
 	show_fps = show_fps or query.has("fps")

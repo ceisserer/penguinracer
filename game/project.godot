@@ -17,6 +17,7 @@ run/main_scene="res://scenes/main_menu.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 run/main_scene.spike="res://spikes/s1_pingpong/s1_spike.tscn"
 run/main_scene.dedicated_server="res://scenes/server.tscn"
+config/quit_on_go_back=false
 
 [audio]
 
@@ -39,6 +40,7 @@ window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+window/handheld/orientation=4
 
 [importer_defaults]
 
@@ -96,6 +98,11 @@ reset_race={
 ]
 }
 
+[input_devices]
+
+sensors/enable_accelerometer=true
+sensors/enable_gravity=true
+
 [internationalization]
 
 locale/translations=PackedStringArray("res://i18n/penguinracer.en.translation", "res://i18n/penguinracer.cs_CZ.translation", "res://i18n/penguinracer.de_DE.translation", "res://i18n/penguinracer.fi_FI.translation", "res://i18n/penguinracer.es_ES.translation", "res://i18n/penguinracer.fr_FR.translation", "res://i18n/penguinracer.pl_PL.translation", "res://i18n/penguinracer.pt_PT.translation", "res://i18n/penguinracer.se_SE.translation", "res://i18n/penguinracer.eo.translation", "res://i18n/penguinracer.du_NL.translation", "res://i18n/penguinracer.ro_RO.translation", "res://i18n/penguinracer.it_IT.translation")
@@ -103,7 +110,6 @@ locale/translations=PackedStringArray("res://i18n/penguinracer.en.translation", 
 [rendering]
 
 renderer/rendering_method="mobile"
-renderer/rendering_method.mobile="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
 textures/default_filters/anisotropic_filtering_level=1
 anti_aliasing/quality/msaa_3d=1
