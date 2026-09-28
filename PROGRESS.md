@@ -2350,8 +2350,13 @@ button is Esc (`quit_on_go_back` off; `GameConfig._notification`) — it used to
   phone also sets the digital left/right flags so a roll in the air still works.
 - **buttons** — steer, paddle, brake, jump, trick, all on screen.
 - **off**.
-Pause and menu (Esc) buttons in every scheme but off; no pause in a network race; while paused
-by `P` only the pause button stays, to resume with. If tilt was chosen and no reading ever
+Restart (`r`), menu (Esc) and pause buttons, small and in one row along the top, in every scheme
+but off; no pause or restart in a network race; while paused by `P` only the pause button stays,
+to resume with. Restart is held like a key rather than tapped, because `RaceScene` polls `r` with
+`is_action_just_pressed`, which a press and release in one frame never satisfies. The rest sit
+under two thumbs of a phone held in both hands: left above jump (and the trick modifier, a star)
+on the left edge, right at the same height on the right edge with paddle above and brake below.
+The trick modifier used to be a circular arrow, which read as a restart that did nothing. If tilt was chosen and no reading ever
 arrives (motion access refused, a desktop), the steering buttons come back.
 
 **How it is wired.** `TouchControls` presses the existing actions (`Input.action_press`), so

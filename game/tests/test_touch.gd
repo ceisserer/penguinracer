@@ -195,8 +195,10 @@ static func _shown(t: TestCase, controls: GDScript) -> void:
 		"a tilt that never answered brings the buttons back")
 	var buttons: Array = controls.shown(TouchScheme.Kind.BUTTONS, true, false, false)
 	t.ok(buttons.size() == id.size(), "buttons draws all of them")
-	t.ok(not (id.PAUSE in controls.shown(TouchScheme.Kind.BUTTONS, true, true, false)),
-		"a network race has no pause")
+	var networked: Array = controls.shown(TouchScheme.Kind.BUTTONS, true, true, false)
+	t.ok(not (id.PAUSE in networked), "a network race has no pause")
+	t.ok(not (id.RESTART in networked), "…and no restart")
+	t.ok(id.RESTART in tilted, "tilt keeps restart")
 	t.ok(controls.shown(TouchScheme.Kind.BUTTONS, true, false, true) == [id.PAUSE],
 		"paused, only the way back")
 	t.ok(controls.shown(TouchScheme.Kind.OFF, true, false, false).is_empty(), "off is off")
@@ -222,6 +224,20 @@ static func _layout(t: TestCase, controls: GDScript, hud: GDScript) -> void:
 				canvas.y - controls.LEVEL_FROM_BOTTOM - 36),
 				Vector2(controls.LEVEL_HALF_WIDTH * 2 + 20, 72)),
 		]
+		var left: Vector3 = places[controls.Id.LEFT]
+		var right: Vector3 = places[controls.Id.RIGHT]
+		t.eq_f(left.y, right.y, 0.0, "left and right at one height at %s" % canvas)
+		t.ok(left.x < canvas.x * 0.25 and right.x > canvas.x * 0.75,
+			"left and right under the two thumbs at %s" % canvas)
+		var jump: Vector3 = places[controls.Id.JUMP]
+		t.ok(jump.x < canvas.x * 0.25 and jump.y > left.y, "jump below left at %s" % canvas)
+		var paddle: Vector3 = places[controls.Id.PADDLE]
+		var brake: Vector3 = places[controls.Id.BRAKE]
+		t.ok(paddle.x == right.x and paddle.y < right.y and brake.x == right.x
+			and brake.y > right.y, "paddle above right, brake below, at %s" % canvas)
+		var row: float = places[controls.Id.PAUSE].y
+		t.ok(places[controls.Id.MENU].y == row and places[controls.Id.RESTART].y == row,
+			"restart in the row with pause and menu at %s" % canvas)
 		var keys: Array = places.keys()
 		for i: int in keys.size():
 			var a: Vector3 = places[keys[i]]

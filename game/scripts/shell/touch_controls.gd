@@ -6,11 +6,13 @@
 ## through the same action map — and a recording made with one replays the same
 ## as with the other. The two tap controls, pause and menu, send the action as
 ## an event ([method Input.parse_input_event]), because [RaceScene] hears `P`
-## and Esc as events rather than polling them.
+## and Esc as events rather than polling them. Restart is a hold, not a tap:
+## [RaceScene] polls `r` with [method Input.is_action_just_pressed], which a
+## press and release parsed in the same frame never satisfies.
 ##
 ## [b]Which buttons[/b] is [enum TouchScheme.Kind]'s question. With tilt, the
 ## device steers, paddles and brakes ([TiltSteering]) and only jump, the trick
-## modifier, pause and menu are drawn — plus a small level at the bottom showing
+## modifier, restart, pause and menu are drawn — plus a small level at the bottom showing
 ## what the tilt is doing, since a tilt has no feel of its own to go by. With
 ## buttons, all of them. And if tilt was asked for but no reading has ever
 ## arrived — a browser that was refused motion access, a desktop with
@@ -22,11 +24,15 @@
 ## now: sliding a thumb from left to right steers the other way without lifting
 ## it, and two thumbs hold two buttons.
 ##
-## [b]Placed around the HUD, not over it.[/b] Steering sits above the wind rose,
-## jump and brake left of the gauge, paddle and the trick modifier above them,
-## pause and menu under the herring count — all measured back from the edge they
-## belong to, like [RaceHUD]'s own anchors, so a 4:3 tablet and a 21:9 phone both
-## keep them in the corners. [method layout] is static for [TestTouch], which
+## [b]Two thumbs, and placed around the HUD, not over it.[/b] A phone held in
+## both hands races with a thumb on each side: left and jump down the left
+## edge (left above the wind rose, jump beneath it), right at the same height on
+## the right edge with paddle above it and brake below, clear of the gauge and
+## the position bar; the trick modifier beside jump. Restart, menu and pause are
+## small and in one row along the top, left of the herring count, since none is
+## pressed while racing. All are measured back from the edge they belong to,
+## like [RaceHUD]'s own anchors, so a 4:3 tablet and a 21:9 phone both keep
+## them at the thumbs. [method layout] is static for [TestTouch], which
 ## checks none of them covers a piece of the HUD on any of those canvases.
 ##
 ## Built by [RaceScene] in code, like [IceReflection]: nothing to place in an
@@ -37,17 +43,20 @@
 class_name TouchControls
 extends CanvasLayer
 
-enum Id { LEFT, RIGHT, PADDLE, BRAKE, JUMP, TRICK, PAUSE, MENU }
+enum Id { LEFT, RIGHT, PADDLE, BRAKE, JUMP, TRICK, RESTART, PAUSE, MENU }
 
 ## The action each button presses. Pause and menu are taps, not holds.
 const ACTIONS: Dictionary[Id, StringName] = {
 	Id.LEFT: &"steer_left", Id.RIGHT: &"steer_right", Id.PADDLE: &"paddle",
 	Id.BRAKE: &"brake", Id.JUMP: &"jump", Id.TRICK: &"trick_modifier",
-	Id.PAUSE: &"pause", Id.MENU: &"menu",
+	Id.RESTART: &"reset_race", Id.PAUSE: &"pause", Id.MENU: &"menu",
 }
 const TAPS: Array[Id] = [Id.PAUSE, Id.MENU]
 ## The buttons tilt replaces.
 const TILTED: Array[Id] = [Id.LEFT, Id.RIGHT, Id.PADDLE, Id.BRAKE]
+## The buttons a network race has no use for: its clock is shared, so there is
+## nothing to pause or put back to zero (see [RaceScene]'s `P` and `r`).
+const LOCAL_ONLY: Array[Id] = [Id.RESTART, Id.PAUSE]
 
 ## A finger this far outside a button's circle still holds it: a thumb is not
 ## a mouse pointer, and it drifts while racing.
@@ -91,19 +100,20 @@ static func layout(canvas: Vector2) -> Dictionary[Id, Vector3]:
 	var w: float = canvas.x
 	var h: float = canvas.y
 	return {
-		Id.LEFT: Vector3(105.0, h - 215.0, 78.0),
-		Id.RIGHT: Vector3(285.0, h - 215.0, 78.0),
-		Id.JUMP: Vector3(w - 250.0, h - 120.0, 80.0),
-		Id.BRAKE: Vector3(w - 425.0, h - 95.0, 62.0),
-		Id.PADDLE: Vector3(w - 175.0, h - 300.0, 62.0),
-		Id.TRICK: Vector3(w - 360.0, h - 275.0, 50.0),
-		Id.MENU: Vector3(w - 122.0, 95.0, 32.0),
-		Id.PAUSE: Vector3(w - 45.0, 95.0, 32.0),
+		Id.LEFT: Vector3(125.0, h - 375.0, 75.0),
+		Id.JUMP: Vector3(125.0, h - 195.0, 72.0),
+		Id.TRICK: Vector3(285.0, h - 175.0, 48.0),
+		Id.RIGHT: Vector3(w - 125.0, h - 375.0, 75.0),
+		Id.PADDLE: Vector3(w - 125.0, h - 550.0, 60.0),
+		Id.BRAKE: Vector3(w - 125.0, h - 205.0, 60.0),
+		Id.RESTART: Vector3(w - 305.0, 40.0, 28.0),
+		Id.MENU: Vector3(w - 235.0, 40.0, 28.0),
+		Id.PAUSE: Vector3(w - 165.0, 40.0, 28.0),
 	}
 
 ## Which buttons are drawn under [param kind]. [param tilt_live] is whether the
-## sensor has ever answered; [param networked] drops pause, which a shared race
-## does not have; [param key_paused] leaves only pause, to come back with.
+## sensor has ever answered; [param networked] drops pause and restart, which a
+## shared race does not have; [param key_paused] leaves only pause, to come back with.
 static func shown(kind: TouchScheme.Kind, tilt_live: bool, networked: bool,
 		key_paused: bool) -> Array[Id]:
 	var out: Array[Id] = []
@@ -115,7 +125,7 @@ static func shown(kind: TouchScheme.Kind, tilt_live: bool, networked: bool,
 	for id: Id in Id.values():
 		if id in TILTED and kind == TouchScheme.Kind.TILT and tilt_live:
 			continue
-		if id == Id.PAUSE and networked:
+		if id in LOCAL_ONLY and networked:
 			continue
 		out.append(id)
 	return out
@@ -265,7 +275,13 @@ func _draw_icon(id: Id, c: Vector2, s: float) -> void:
 			_triangle(c + Vector2(0, -s), c + Vector2(-s * 0.8, 0), c + Vector2(s * 0.8, 0))
 			_face.draw_rect(Rect2(c + Vector2(-s * 0.8, s * 0.45), Vector2(s * 1.6, s * 0.4)), ICON)
 		Id.TRICK:
-			_face.draw_arc(c, s * 0.8, deg_to_rad(-60.0), deg_to_rad(210.0), 24, ICON, 5.0, true)
+			var star := PackedVector2Array()
+			for k: int in 10:
+				var r: float = s if k % 2 == 0 else s * 0.42
+				star.append(c + Vector2.from_angle(deg_to_rad(-90.0 + 36.0 * k)) * r)
+			_face.draw_colored_polygon(star, ICON)
+		Id.RESTART:
+			_face.draw_arc(c, s * 0.8, deg_to_rad(-60.0), deg_to_rad(210.0), 24, ICON, s * 0.3, true)
 			var tip: Vector2 = c + Vector2.from_angle(deg_to_rad(-60.0)) * s * 0.8
 			_triangle(tip + Vector2(s * 0.45, s * 0.1), tip + Vector2(-s * 0.25, -s * 0.35),
 				tip + Vector2(-s * 0.05, s * 0.5))
