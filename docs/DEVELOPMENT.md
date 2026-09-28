@@ -358,6 +358,7 @@ sky_detail = "high"       ; low, medium or high: the procedural sky's clouds and
 tree_detail = 1.00        ; tree hand-overs at this times 50 / 90 / 130 m [0.5...1.5]
 tree_shadows = "all"      ; off, near (the nearest, full-detail level) or all
 shadow_detail = "high"    ; low, medium, high or best: the sun's shadow map
+shadow_filter = "medium"  ; hard, very_low, low, medium or high: the shadow's edge
 
 [fog]
 start_distance = 40.0     ; metres of clear air before fog starts to build

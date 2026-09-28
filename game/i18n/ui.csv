@@ -40,6 +40,8 @@ TREE_DETAIL_LABEL,Tree detail distance:,Baumdetail-Distanz:
 SHADOWS_LABEL,Shadows:,Schatten:
 TREE_SHADOWS_LABEL,Tree shadows:,Baumschatten:
 SHADOW_DETAIL_LABEL,Shadow detail:,Schattendetails:
+SHADOW_FILTER_LABEL,Shadow edges:,Schattenkanten:
+SHADOW_FILTER_HARD,Hard,Hart
 ICE_REFLECTIONS_LABEL,Ice reflections:,Spiegelungen auf Eis:
 SHOW_FPS_LABEL,Show frame rate:,Bildrate anzeigen:
 TOUCH_CONTROLS_LABEL,Touch controls:,Touch-Steuerung:
@@ -51,6 +53,7 @@ FOG_START_LABEL,Clear air before fog:,Klare Sicht vor Nebel:
 FOG_RANGE_LABEL,Fog range:,Nebelweite:
 SETTINGS_NOTE,"Sky, trees, fog and shadows are read when a course loads, so a change to any of them shows on the next race. 0 m and 1.0 x is the original's fog exactly.","Himmel, Bäume, Nebel und Schatten werden beim Laden einer Strecke gelesen – eine Änderung daran zeigt sich also erst im nächsten Rennen. 0 m und 1.0 x ist genau der Nebel des Originals."
 OPTION_OFF,Off,Aus
+OPTION_VERY_LOW,Very low,Sehr niedrig
 OPTION_LOW,Low,Niedrig
 OPTION_MEDIUM,Medium,Mittel
 OPTION_HIGH,High,Hoch

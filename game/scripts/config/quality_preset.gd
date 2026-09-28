@@ -39,6 +39,11 @@ const TREE_SHADOW_NAMES: PackedStringArray = ["off", "near", "all"]
 const TREE_SHADOWS_ALL := 2
 ## The sun's shadow map: atlas size and cascade count.
 const SHADOW_DETAIL_NAMES: PackedStringArray = ["low", "medium", "high", "best"]
+## How the sun's shadow edge is filtered: Godot's [enum RenderingServer.ShadowQuality]
+## up to Soft High, index for index. Ultra is left out — 64 taps a pixel for an
+## edge Soft High already draws smooth.
+const SHADOW_FILTER_NAMES: PackedStringArray = ["hard", "very_low", "low", "medium", "high"]
+const SHADOW_FILTER_MEDIUM := 3
 
 ## Range of `[quality] tree_detail`, a multiple of [constant Forest.LOD_ENDS].
 const TREE_DETAIL_MIN := 0.5
@@ -47,7 +52,7 @@ const TREE_DETAIL_MAX := 1.5
 ## Every [GameConfig] property a preset sets, in the order the screen shows them.
 const KEYS: PackedStringArray = ["render_scale", "antialiasing", "procedural_sky",
 	"sky_detail", "tree_detail", "shadows", "tree_shadows", "shadow_detail",
-	"ice_reflections"]
+	"shadow_filter", "ice_reflections"]
 
 ## One row per [enum Kind]. HIGH must stay [GameConfig]'s defaults.
 ##
@@ -62,31 +67,37 @@ const KEYS: PackedStringArray = ["render_scale", "antialiasing", "procedural_sky
 ## hand-overs are back near the old 22 / 45 / 75 m. BEST spends the headroom on
 ## edges and later hand-overs, short of the fog's end, past which a finer tree
 ## is invisible.
+##
+## The shadow filter is not in those numbers: it was added for phones, where
+## its taps are paid per pixel on a GPU that has few to spare. Soft Medium is
+## what `project.godot` shipped (see the trap list on its dither), so MEDIUM and
+## up keep it; FAST takes Soft Low and its grain for the taps it saves, and
+## FASTEST, which draws no shadow, names the cheapest.
 const VALUES: Array[Dictionary] = [
 	{ # FASTEST
 		"render_scale": 0.7, "antialiasing": 0, "procedural_sky": false,
 		"sky_detail": 0, "tree_detail": 0.5, "shadows": false, "tree_shadows": 0,
-		"shadow_detail": 0, "ice_reflections": false,
+		"shadow_detail": 0, "shadow_filter": 0, "ice_reflections": false,
 	},
 	{ # FAST
 		"render_scale": 0.85, "antialiasing": 0, "procedural_sky": true,
 		"sky_detail": 0, "tree_detail": 0.6, "shadows": true, "tree_shadows": 0,
-		"shadow_detail": 0, "ice_reflections": false,
+		"shadow_detail": 0, "shadow_filter": 2, "ice_reflections": false,
 	},
 	{ # MEDIUM
 		"render_scale": 1.0, "antialiasing": 1, "procedural_sky": true,
 		"sky_detail": 0, "tree_detail": 0.8, "shadows": true, "tree_shadows": 1,
-		"shadow_detail": 1, "ice_reflections": true,
+		"shadow_detail": 1, "shadow_filter": 3, "ice_reflections": true,
 	},
 	{ # HIGH — the shipped frame
 		"render_scale": 1.0, "antialiasing": 1, "procedural_sky": true,
 		"sky_detail": 2, "tree_detail": 1.0, "shadows": true, "tree_shadows": 2,
-		"shadow_detail": 2, "ice_reflections": true,
+		"shadow_detail": 2, "shadow_filter": 3, "ice_reflections": true,
 	},
 	{ # BEST
 		"render_scale": 1.0, "antialiasing": 2, "procedural_sky": true,
 		"sky_detail": 2, "tree_detail": 1.2, "shadows": true, "tree_shadows": 2,
-		"shadow_detail": 2, "ice_reflections": true,
+		"shadow_detail": 2, "shadow_filter": 3, "ice_reflections": true,
 	},
 ]
 
@@ -173,3 +184,9 @@ static func shadow_map_for(shadow_detail: int) -> Vector2i:
 		1: return Vector2i(2048, 4)
 		3: return Vector2i(8192, 4)
 	return Vector2i(4096, 4)
+
+## [enum RenderingServer.ShadowQuality] for a `shadow_filter` index — the same
+## number, named, so a caller cannot hand the renderer a value past Soft High.
+static func shadow_filter_for(shadow_filter: int) -> RenderingServer.ShadowQuality:
+	return clampi(shadow_filter, 0, SHADOW_FILTER_NAMES.size() - 1) \
+		as RenderingServer.ShadowQuality

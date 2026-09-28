@@ -273,6 +273,9 @@ static func _quality_presets(t: TestCase) -> void:
 		"and its anti-aliasing is what project.godot has always asked for")
 	t.ok(QualityPreset.shadow_map_for(c.shadow_detail) == Vector2i(4096, 4),
 		"and its shadow map is Godot's 4096 atlas in race.tscn's four splits")
+	t.ok(QualityPreset.shadow_filter_for(c.shadow_filter) == int(ProjectSettings.get_setting(
+		"rendering/lights_and_shadows/directional_shadow/soft_shadow_filter_quality")),
+		"and its shadow filter is the one project.godot sets at startup")
 	t.eq_f(c.tree_detail, 1.0, 1e-6, "and the trees hand over at Forest.LOD_ENDS")
 	t.ok(QualityPreset.NAMES.size() == QualityPreset.VALUES.size()
 		and QualityPreset.VALUES.size() == QualityPreset.Kind.size(),
@@ -313,13 +316,19 @@ static func _quality_presets(t: TestCase) -> void:
 	c.sky_detail = 0
 	c.tree_shadows = 1
 	c.shadow_detail = 3
+	c.shadow_filter = 1
 	var text: String = c.file_text()
 	t.ok(text.contains('antialiasing = "4x"') and text.contains('sky_detail = "low"')
-		and text.contains('tree_shadows = "near"') and text.contains('shadow_detail = "best"'),
+		and text.contains('tree_shadows = "near"') and text.contains('shadow_detail = "best"')
+		and text.contains('shadow_filter = "very_low"'),
 		"the quality keys are written by name")
+	var filter_back: GameConfig = _read(text)
+	t.ok(filter_back.shadow_filter == 1, "and the shadow filter reads back")
+	filter_back.free()
 	var typo: GameConfig = _read('[quality]\nantialiasing = "16x"\nsky_detail = "ultra"\n'
-		+ 'tree_detail = 9.0\n')
-	t.ok(typo.antialiasing == 1 and typo.sky_detail == QualityPreset.SKY_DETAIL_HIGH,
+		+ 'tree_detail = 9.0\nshadow_filter = "ultra"\n')
+	t.ok(typo.antialiasing == 1 and typo.sky_detail == QualityPreset.SKY_DETAIL_HIGH
+		and typo.shadow_filter == QualityPreset.SHADOW_FILTER_MEDIUM,
 		"a name the file does not know keeps the default")
 	t.eq_f(typo.tree_detail, QualityPreset.TREE_DETAIL_MAX, 1e-6,
 		"and a tree detail past the end is clamped to it")

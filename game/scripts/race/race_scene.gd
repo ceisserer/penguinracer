@@ -1592,8 +1592,12 @@ func _shadows_wanted(preset: EnvironmentPreset) -> bool:
 
 ## The sun's shadow map at the player's `[quality] shadow_detail`: the atlas is
 ## the renderer's, shared by every directional light, and the cascade count is
-## the sun's own. See [method QualityPreset.shadow_map_for].
+## the sun's own. See [method QualityPreset.shadow_map_for]. The edge filter at
+## `shadow_filter` is the renderer's too, and replaces the one `project.godot`
+## set at startup.
 func _apply_shadow_detail() -> void:
+	RenderingServer.directional_soft_shadow_filter_set_quality(
+		QualityPreset.shadow_filter_for(Config.shadow_filter))
 	var map: Vector2i = QualityPreset.shadow_map_for(Config.shadow_detail)
 	var is_16_bits: bool = ProjectSettings.get_setting_with_override(
 		"rendering/lights_and_shadows/directional_shadow/16_bits")

@@ -5,8 +5,8 @@
 ## the second half because there was no screen. This is the screen, and it moves
 ## every key a player can act on today: the language, window size, fullscreen, the quality
 ## rows (render scale, anti-aliasing, the sky and its detail, how far out the
-## trees keep their detail, shadows and which trees cast them, the shadow map,
-## ice reflections), the HUD's frame-rate readout, the two fog distances, and
+## trees keep their detail, shadows and which trees cast them, the shadow map
+## and its edge filter, ice reflections), the HUD's frame-rate readout, the two fog distances, and
 ## on a phone how it is raced ([TouchScheme]) and which renderer it runs
 ## ([RenderBackend]).
 ## Nothing else lands here; a value migrated out of `etr-0.8.4/data` belongs on
@@ -64,6 +64,8 @@ signal closed()
 @onready var _tree_shadows: OptionButton = %TreeShadowsOption
 @onready var _shadow_detail_row: Control = %ShadowDetailRow
 @onready var _shadow_detail: OptionButton = %ShadowDetailOption
+@onready var _shadow_filter_row: Control = %ShadowFilterRow
+@onready var _shadow_filter: OptionButton = %ShadowFilterOption
 @onready var _show_fps: CheckBox = %ShowFpsCheck
 @onready var _touch_row: Control = %TouchRow
 @onready var _touch: OptionButton = %TouchOption
@@ -104,6 +106,7 @@ func _ready() -> void:
 	_shadows_row.visible = RenderBackend.supports_light_shadows()
 	_tree_shadows_row.visible = _shadows_row.visible
 	_shadow_detail_row.visible = _shadows_row.visible
+	_shadow_filter_row.visible = _shadows_row.visible
 	# Only where there is an overlay for it to choose: a phone, or a desktop
 	# run with `--touch`. Written back either way, like the shadow rows.
 	_touch_row.visible = TouchScheme.platform_is_mobile() \
@@ -125,6 +128,8 @@ func _ready() -> void:
 	_fill_options(_sky_detail, ["OPTION_LOW", "OPTION_MEDIUM", "OPTION_HIGH"])
 	_fill_options(_tree_shadows, ["OPTION_OFF", "TREE_SHADOWS_NEAREST", "TREE_SHADOWS_ALL"])
 	_fill_options(_shadow_detail, ["OPTION_LOW", "OPTION_MEDIUM", "OPTION_HIGH", "OPTION_BEST"])
+	_fill_options(_shadow_filter, ["SHADOW_FILTER_HARD", "OPTION_VERY_LOW", "OPTION_LOW",
+		"OPTION_MEDIUM", "OPTION_HIGH"])
 	_fill_options(_touch, Array(TouchScheme.LABELS, TYPE_STRING, "", null))
 	# Rows in the order of `_RENDERERS`.
 	_fill_options(_renderer, ["RENDERER_MOBILE", "RENDERER_COMPATIBILITY"])
@@ -143,6 +148,7 @@ func _ready() -> void:
 	_sky_detail.item_selected.connect(_on_quality_row_changed)
 	_tree_shadows.item_selected.connect(_on_quality_row_changed)
 	_shadow_detail.item_selected.connect(_on_quality_row_changed)
+	_shadow_filter.item_selected.connect(_on_quality_row_changed)
 	_tree_detail.value_changed.connect(_on_tree_detail_changed)
 	_render_scale.value_changed.connect(_on_quality_row_changed)
 	_shadows.toggled.connect(_on_quality_row_changed)
@@ -208,6 +214,7 @@ func _show_values(values: Dictionary) -> void:
 	_shadows.button_pressed = values["shadows"]
 	_tree_shadows.select(values["tree_shadows"])
 	_shadow_detail.select(values["shadow_detail"])
+	_shadow_filter.select(values["shadow_filter"])
 	_ice_reflection.button_pressed = values["ice_reflections"]
 	_filling = false
 	_on_quality_row_changed()
@@ -223,6 +230,7 @@ func _row_values() -> Dictionary:
 		"shadows": _shadows.button_pressed,
 		"tree_shadows": _tree_shadows.selected,
 		"shadow_detail": _shadow_detail.selected,
+		"shadow_filter": _shadow_filter.selected,
 		"ice_reflections": _ice_reflection.button_pressed,
 	}
 
@@ -244,6 +252,7 @@ func _on_quality_row_changed(_value: Variant = null) -> void:
 	_sky_detail.disabled = _sky.selected != 0
 	_tree_shadows.disabled = not _shadows.button_pressed
 	_shadow_detail.disabled = not _shadows.button_pressed
+	_shadow_filter.disabled = not _shadows.button_pressed
 
 func _on_tree_detail_changed(value: float) -> void:
 	# The number in the file is a factor; the numbers that mean something are

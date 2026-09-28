@@ -179,7 +179,7 @@ SHOT_METHOD=gl_compatibility SHOT_RESOLUTION=1024x576 tools/shot.sh /tmp/web-loo
 written with comments on first run; delete it for defaults. The **Configuration** screen edits
 the display rows (window size, frame-rate readout, fog distance), the quality rows
 (render scale, anti-aliasing, sky and sky detail, tree detail distance, shadows, tree shadows,
-shadow detail, ice reflections) and writes the same commented file back. The **quality preset**
+shadow detail, shadow edges, ice reflections) and writes the same commented file back. The **quality preset**
 drop-down (Fastest … Best quality) sets the quality rows together and is *derived*, never stored:
 `QualityPreset.matching` names whichever preset the values are, else "Custom". **High quality is
 the shipped frame and `GameConfig`'s defaults** — `TestConfig` holds them together, so an untouched
@@ -424,6 +424,9 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   Shrinking the kernel alone trades the dither for texel stairs, and Hard has stairs and no dither.
   What cleared it: smaller near texels (first cascade at 4 % of the range,
   `RaceScene._apply_shadow_detail`), `shadow_blur` 0.75, and Soft Medium (quality 3) — more taps.
+  `[quality] shadow_filter` (the *Shadow edges* row) overrides that at race start via
+  `RenderingServer.directional_soft_shadow_filter_set_quality`; Medium is still the default, and
+  the project setting is only what applies before a race.
 - **`shadow_normal_bias` is in shadow-map texels, not metres** (Godot multiplies it by the
   cascade's texel size), and `shadow_bias` is multiplied by `shadow_blur`. Too little normal bias
   shows as stripes, one set per terrain triangle, on slopes the sun grazes — which the snow's wrap

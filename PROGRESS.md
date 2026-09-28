@@ -2456,3 +2456,23 @@ Captures on Bunny Hill under Mobile at frames 110 (dark), 239 (sheet flash), 117
 the trees), Compatibility at 1170, and `--sky=etr` at 239. **Not done**: thunder — ETR ships no
 sound for it, and the licence audit makes a new one a separate job. A paused race holds whatever
 flash it was paused in.
+
+### The shadow's edge filter is a setting (2026-09-28) · **done, not measured on a phone**
+
+The sun's soft-shadow filter was fixed at Soft Medium in `project.godot` (for both platforms, to
+clear the dither Mobile has no TAA to average away), and on an Adreno 650 at 100 % render scale
+its taps are part of a frame that does not hold a playable rate. It is now
+`[quality] shadow_filter` — hard / very_low / low / medium / high, Godot's `ShadowQuality` index
+for index, Ultra left out — and the **Shadow edges** row under Shadow detail, hidden and disabled
+with the other shadow rows. `RaceScene._apply_shadow_detail` sets it with
+`RenderingServer.directional_soft_shadow_filter_set_quality` whenever it sets the atlas.
+
+Presets: Medium, High and Best keep Soft Medium, so the shipped frame and the phone's first-run
+Medium do not move; Fast takes Soft Low; Fastest (no shadows) names Hard. A settings file saved at
+Fast before this reads the missing key as Medium, and so shows "Custom" until Fast is picked again.
+
+**Verified**: the suite (the default matches `project.godot`, the key round-trips by name, an
+unknown name keeps Medium) — 6097 passed, 1 failed, the pre-existing `lighting/what project.godot
+ships`. Captures on Bunny Hill at `--quality=fast`, Soft Low against Hard: the tree and penguin
+shadow edges go from soft to stepped, so the runtime call takes. **Not done**: what each level
+saves on the phone — the frame times above are the iGPU's and do not include this knob.

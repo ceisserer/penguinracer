@@ -112,6 +112,12 @@ var tree_shadows: int = QualityPreset.TREE_SHADOWS_ALL
 ## which [method QualityPreset.shadow_map_for] turns into an atlas size and a
 ## cascade count.
 var shadow_detail: int = 2
+## How the edge of the sun's shadow is filtered: an index into
+## [constant QualityPreset.SHADOW_FILTER_NAMES], which is Godot's
+## [enum RenderingServer.ShadowQuality]. Soft Medium is what `project.godot`
+## sets for both platforms; fewer taps are cheaper on a phone's GPU and show
+## the stairs or the dither the trap list describes.
+var shadow_filter: int = QualityPreset.SHADOW_FILTER_MEDIUM
 
 # --- fog ---
 
@@ -357,6 +363,8 @@ func read(cfg: ConfigFile) -> void:
 		"")), QualityPreset.TREE_SHADOW_NAMES, tree_shadows)
 	shadow_detail = QualityPreset.parse(str(cfg.get_value("quality", "shadow_detail",
 		"")), QualityPreset.SHADOW_DETAIL_NAMES, shadow_detail)
+	shadow_filter = QualityPreset.parse(str(cfg.get_value("quality", "shadow_filter",
+		"")), QualityPreset.SHADOW_FILTER_NAMES, shadow_filter)
 	fog_start_distance = maxf(float(cfg.get_value("fog", "start_distance",
 		fog_start_distance)), 0.0)
 	fog_distance_scale = clampf(float(cfg.get_value("fog", "distance_scale",
@@ -488,6 +496,10 @@ tree_shadows = "%s"
 ; The sun's shadow map: low, medium, high or best. Lower is blurrier and cheaper.
 shadow_detail = "%s"
 
+; How the shadow's edge is smoothed: hard, very_low, low, medium or high.
+; Lower is cheaper, with a stepped or grainy edge.
+shadow_filter = "%s"
+
 [fog]
 
 ; Metres of clear air before fog starts to build.
@@ -571,6 +583,7 @@ port = %d
 		QualityPreset.SKY_DETAIL_NAMES[sky_detail], tree_detail,
 		QualityPreset.TREE_SHADOW_NAMES[tree_shadows],
 		QualityPreset.SHADOW_DETAIL_NAMES[shadow_detail],
+		QualityPreset.SHADOW_FILTER_NAMES[shadow_filter],
 		fog_start_distance, fog_distance_scale, language, character,
 		opponents, AISkill.name_of(opponent_skill), snowfall,
 		LightCondition.name_of(conditions), WindField.strength_name(wind),
