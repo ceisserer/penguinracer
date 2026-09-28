@@ -23,3 +23,6 @@ extends Resource
 ## Drawn as a 3D leafless tree ([BareTreeMesh]) by [Forest], likewise. Set by
 ## the importer for ETR's bare-tree picture, `tree_barren2.png`.
 @export var bare: bool = false
+## Drawn as a 3D bush ([ShrubMesh]) by [Forest], likewise. Set by the importer
+## for ETR's shrub picture, `shrub.png`.
+@export var shrub: bool = false

@@ -3,9 +3,10 @@
 ## wind and snowed on in the shader.
 ##
 ## Replaces [CourseRoot]'s single crossed-quad batch for every prefab marked
-## [member ObjectPrefab.conifer] or [member ObjectPrefab.bare]. Which of the
-## two it draws is its [enum Species]: [ConiferMesh] or [BareTreeMesh], and the
-## same shaders serve both. Collision is untouched: the [ObjectGrid] is
+## [member ObjectPrefab.conifer], [member ObjectPrefab.bare] or
+## [member ObjectPrefab.shrub]. Which of the three it draws is its
+## [enum Species]: [ConiferMesh], [BareTreeMesh] or [ShrubMesh], and the same
+## shaders serve all three. Collision is untouched: the [ObjectGrid] is
 ## still built from the same markers, so a tree is exactly as solid as before.
 ##
 ## [b]How a tree picks its level.[/b] Per tree, in the vertex shader, by its
@@ -53,7 +54,7 @@ const CELL_SIZE := 40.0
 const MESH_SHADER := "res://shaders/conifer.gdshader"
 const IMPOSTOR_SHADER := "res://shaders/conifer_impostor.gdshader"
 
-enum Species { CONIFER, BARE }
+enum Species { CONIFER, BARE, SHRUB }
 
 ## A bare tree's finest limbs are thinner than a pixel from a few metres out.
 ## `conifer.gdshader` fattens a tube to at least this radius per metre of
@@ -103,9 +104,12 @@ static func has_impostor(species: Species = Species.CONIFER) -> bool:
 static func atlases(species: Species) -> PackedStringArray:
 	if species == Species.BARE:
 		return PackedStringArray([BareTreeMesh.ALBEDO_ATLAS, BareTreeMesh.NORMAL_ATLAS])
+	if species == Species.SHRUB:
+		return PackedStringArray([ShrubMesh.ALBEDO_ATLAS, ShrubMesh.NORMAL_ATLAS])
 	return PackedStringArray([ConiferMesh.ALBEDO_ATLAS, ConiferMesh.NORMAL_ATLAS])
 
-## The mesh level the impostor is baked from. The conifer's is its finest; the
+## The mesh level the impostor is baked from. The conifer's and the shrub's —
+## solid silhouettes both — are their finest; the
 ## bare tree's is the level the impostor takes over from, since a bare crown
 ## seen side-on is only as airy as the twig cards it carries — LOD 0 has four
 ## times LOD 2's, and baked from it the impostor was a dark blob replacing an
@@ -117,6 +121,8 @@ static func impostor_source_level(species: Species) -> int:
 static func level_mesh(species: Species, level: int) -> ArrayMesh:
 	if species == Species.BARE:
 		return BareTreeMesh.mesh(level)
+	if species == Species.SHRUB:
+		return ShrubMesh.mesh(level)
 	return ConiferMesh.mesh(level)
 
 ## How many levels are drawn: the meshes, plus the impostor if it is baked.
@@ -152,7 +158,8 @@ static func cells_of(transforms: Array[Transform3D]) -> Dictionary[Vector2i, Pac
 	return out
 
 ## Build every batch. [param texture] is the prefab's own picture —
-## `snowy_tree1.png`, unchanged — for a conifer; a bare tree draws its own
+## `snowy_tree1.png` or `shrub.png`, unchanged — for a conifer or a shrub; a
+## bare tree draws its own
 ## ([method BareTreeMesh.texture]) and ignores it. [param transforms] are the
 ## per-tree world transforms [CourseRoot] would have given the cross.
 func build(texture: Texture2D, transforms: Array[Transform3D],

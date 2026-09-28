@@ -496,18 +496,33 @@ python3 tools/linstats.py shot.png 0.25 200 550 500 700     # pre-tonemap linear
 
 The far conifers are cards showing one of 64 pre-rendered views of `ConiferMesh` LOD 0, stored in
 `game/assets/trees/conifer_{albedo,normal}.png` (1024², committed); the far bare trees likewise
-show `BareTreeMesh` LOD 2 (the level they take over from), in `bare_{albedo,normal}.png`. Any
-change to a tree's shape needs a re-bake of that species, or the far forest shows the old tree:
+show `BareTreeMesh` LOD 2 (the level they take over from), in `bare_{albedo,normal}.png`, and the
+far shrubs `ShrubMesh` LOD 0, in `shrub_{albedo,normal}.png`. Any change to a tree's shape needs a
+re-bake of that species, or the far forest shows the old tree:
 
 ```bash
-tools/bake_tree_impostors.sh           # both; real GPU when present, llvmpipe otherwise
+tools/bake_tree_impostors.sh           # all three; real GPU when present, llvmpipe otherwise
 tools/bake_tree_impostors.sh conifer   # ~2 s
 tools/bake_tree_impostors.sh bare      # ~6 s: drawn at 2x and averaged down
+tools/bake_tree_impostors.sh shrub     # ~2 s
 ```
 
 It bakes under Compatibility on purpose (see the trap list) and prints a probe of the conifer's
 normal atlas near the pole, which should unpack to roughly +Y. The bare tree's twig/bark texture
 is not baked: `BareTreeMesh.texture()` draws it at load (~70 ms).
+
+To look at one species without a course — a few trees on flat snow under Bunny Hill's sunny preset,
+drawn by the real `Forest` and shaders, fog off:
+
+```bash
+tools/tree_portrait.sh /tmp/shrub.png shrub --dist=3 --eye=1.4     # conifer | bare | shrub
+tools/tree_portrait.sh /tmp/l2.png bare --dist=12 --level=2         # force a level (3 = impostor)
+tools/tree_portrait.sh /tmp/far.png bare --dist=110 --fov=7.5       # a far level at its own distance
+```
+
+`--level` squeezes the bands so that level holds the distance, which skips the distance-driven
+limb widening; a narrow `--fov` at the real distance shows the level as a race draws it. Real GPU
+only (Mobile by default, `SHOT_METHOD` as for `shot.sh`), 1280x720 back, ~3 s a frame.
 
 ## Android
 

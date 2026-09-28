@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Bake the tree impostor atlases (game/assets/trees/) from LOD 0 of ConiferMesh
-# and BareTreeMesh.
+# Bake the tree impostor atlases (game/assets/trees/) from ConiferMesh,
+# BareTreeMesh and ShrubMesh.
 #
-#     tools/bake_tree_impostors.sh [conifer|bare]     # both when omitted
+#     tools/bake_tree_impostors.sh [conifer|bare|shrub]     # all when omitted
 #
 # Re-run for a species whenever its mesh changes shape, and commit its two PNGs. Needs a
 # real renderer, so it takes the same route to the GPU as tools/shot.sh (Wayland

@@ -24,8 +24,8 @@ var _item_instances: Dictionary[int, Array] = {}
 ## lookup rather than a string format and a `get_node_or_null` down the scene
 ## tree — which a restart on a fish-heavy course paid once per collected item.
 var _batches: Dictionary[String, MultiMeshInstance3D] = {}
-## The conifer and bare-tree types, drawn by a [Forest] each instead of a
-## batch above.
+## The conifer, bare-tree and shrub types, drawn by a [Forest] each instead
+## of a batch above.
 var _forests: Array[Forest] = []
 ## The transform each of those slots was built with, so a restart can put a
 ## collected herring back. Kept here rather than re-read off the MultiMesh
@@ -88,7 +88,8 @@ func build_runtime() -> void:
 				_item_instances[idx] = [type_name, transforms.size() - 1]
 				_item_transforms[idx] = transforms[transforms.size() - 1]
 		object_transforms[type_name] = transforms
-		if prefab != null and (prefab.conifer or prefab.bare) and not transforms.is_empty() \
+		if prefab != null and (prefab.conifer or prefab.bare or prefab.shrub) \
+				and not transforms.is_empty() \
 				and not Engine.is_editor_hint():
 			_add_forest(type_name, prefab, transforms)
 		elif prefab != null and prefab.mesh != null and not transforms.is_empty():
@@ -142,8 +143,8 @@ func _add_batch(type_name: String, prefab: ObjectPrefab, transforms: Array[Trans
 	add_child(mmi)
 	_batches[type_name] = mmi
 
-## A conifer or bare-tree type as a [Forest]: the same transforms the crossed
-## quads would have had, drawn as a 3D tree.
+## A conifer, bare-tree or shrub type as a [Forest]: the same transforms the
+## crossed quads would have had, drawn in 3D.
 func _add_forest(type_name: String, prefab: ObjectPrefab, transforms: Array[Transform3D]) -> void:
 	var mat: ShaderMaterial = prefab.material as ShaderMaterial
 	var texture: Texture2D = mat.get_shader_parameter("albedo_texture") if mat != null else null
@@ -151,8 +152,12 @@ func _add_forest(type_name: String, prefab: ObjectPrefab, transforms: Array[Tran
 	forest.name = "Forest_%s" % type_name
 	forest.lod_scale = tree_lod_scale
 	add_child(forest)
-	forest.build(texture, transforms,
-		Forest.Species.CONIFER if prefab.conifer else Forest.Species.BARE)
+	var species: Forest.Species = Forest.Species.SHRUB
+	if prefab.conifer:
+		species = Forest.Species.CONIFER
+	elif prefab.bare:
+		species = Forest.Species.BARE
+	forest.build(texture, transforms, species)
 	forest.set_shadow_casting(_shadow_setting(), _tree_shadow_levels)
 	_forests.push_back(forest)
 

@@ -1,12 +1,12 @@
-## Bakes the tree impostors' two atlases each, from LOD 0 of [ConiferMesh] and
-## [BareTreeMesh]. Not a test.
+## Bakes the tree impostors' two atlases each, from [ConiferMesh], [BareTreeMesh]
+## and [ShrubMesh] (at [method Forest.impostor_source_level]). Not a test.
 ##
-##     tools/bake_tree_impostors.sh [conifer|bare]
+##     tools/bake_tree_impostors.sh [conifer|bare|shrub]
 ##
 ## Needs a real renderer — `--headless` draws nothing — which is what the
 ## wrapper arranges. Re-run for a species whenever its mesh changes shape; the
 ## atlases are committed, so the game and the web build never bake anything.
-## Both species share [ConiferMesh]'s grid, tile, bounding sphere and view
+## All three species share [ConiferMesh]'s grid, tile, bounding sphere and view
 ## basis, which is what lets them share `conifer_impostor.gdshader`.
 ##
 ## All 64 views are drawn in one frame: an orthographic camera looks down −Z at
@@ -19,6 +19,7 @@ extends SceneTree
 
 const BAKE_SHADER := "res://shaders/conifer_bake.gdshader"
 const TREE_TEXTURE := "res://assets/objects/snowy_tree1.png"
+const SHRUB_TEXTURE := "res://assets/objects/shrub.png"
 
 func _initialize() -> void:
 	_run.call_deferred()
@@ -33,11 +34,13 @@ func _run() -> void:
 		ok = await _bake(Forest.Species.CONIFER) and ok
 	if which == "all" or which == "bare":
 		ok = await _bake(Forest.Species.BARE) and ok
+	if which == "all" or which == "shrub":
+		ok = await _bake(Forest.Species.SHRUB) and ok
 	quit(0 if ok else 1)
 
 ## The bare tree is drawn at twice the atlas size and averaged down, since its
 ## limbs are a pixel or two wide in a tile and aliased they break into dashes.
-## The conifer is a solid silhouette and is drawn at size, as it always was.
+## The conifer and the shrub are solid silhouettes and are drawn at size.
 const BARE_SUPERSAMPLE := 2
 
 func _bake(species: Forest.Species) -> bool:
@@ -76,8 +79,9 @@ func _bake(species: Forest.Species) -> bool:
 
 	var mat := ShaderMaterial.new()
 	mat.shader = load(BAKE_SHADER)
+	var picture: String = SHRUB_TEXTURE if species == Forest.Species.SHRUB else TREE_TEXTURE
 	mat.set_shader_parameter("albedo_texture",
-		BareTreeMesh.texture() if bare else load(TREE_TEXTURE))
+		BareTreeMesh.texture() if bare else load(picture))
 	if bare:
 		# A tree of the bare type's typical 4 m, where the impostor takes over.
 		mat.set_shader_parameter("min_radius",
@@ -112,7 +116,7 @@ func _bake(species: Forest.Species) -> bool:
 		var err: Error = img.save_png(out)
 		print("baked %s (%dx%d): %s" % [path, img.get_width(), img.get_height(), error_string(err)])
 		ok = ok and err == OK
-		if mode == 1 and not bare:
+		if mode == 1 and species == Forest.Species.CONIFER:
 			# The tile nearest the pole looks mostly down on whorl tops, so its
 			# middle should pack to roughly +Y: (~0.5, >0.8, ~0.5). A green
 			# channel near 1 with red and blue near 0.2 means the target started

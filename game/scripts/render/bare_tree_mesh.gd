@@ -7,15 +7,19 @@
 ## because a fir is a solid cone; a bare tree is mostly air, and the picture on
 ## eight fins reads as a tangle. So this one is grown:
 ##
-## - **wood** — the trunk and three orders of branches as tapered tubes, from a
+## - **wood** — the trunk and two orders of branches as tapered tubes, from a
 ##   fixed-seed recursive skeleton kept inside the crown the picture draws. Real
 ##   geometry, so it is sharp at any distance, and its normals are round, so the
 ##   sun and the snow land on the tops of the limbs the way they do in the
 ##   picture (about a third of its opaque texels are snow).
-## - **twigs** — cards at the ends and middles of the finest branches, each
-##   showing one of four twig sprays drawn by [method make_texture]. The fine
-##   haze a winter crown is made of is far below a pixel as geometry; as a
-##   mipmapped cutout it thins out gracefully instead of crawling.
+## - **twigs** — the skeleton's third, finest order is not a tube: each of
+##   those branches *is* a card, laid along it from where it leaves its limb to
+##   a little past its tip, showing one of four twig sprays drawn by
+##   [method make_texture] — a crooked twig with its side shoots. The fine haze
+##   a winter crown is made of is far below a pixel as geometry; as a mipmapped
+##   cutout it thins out gracefully instead of crawling. (The finest order was
+##   tubes once, with a spray on a stalk stood upright at every tip and middle:
+##   twice the triangles, and a crown of little brooms.)
 ##
 ## The texture is drawn here, not taken from ETR, so nothing new has to pass the
 ## licence audit; its colours are measured off `tree_barren2.png` (opaque texels:
@@ -52,12 +56,15 @@ const TEXTURE_SIZE := 512
 const BARK_U := 0.75
 
 ## Per level: which branch orders are tubes, the sides and segments of each
-## order's tube, and how many twig cards stand at each twig placement.
+## order's tube, and how many crossed cards draw each twig. The finest order,
+## [constant TWIG_ORDER], is never a tube; it is the twigs.
 const _SHAPE: Array[Dictionary] = [
-	{"max_order": 3, "sides": [7, 5, 4, 3], "segments": [6, 4, 3, 2], "cards": 2, "mid_cards": true},
-	{"max_order": 3, "sides": [5, 4, 3, 3], "segments": [3, 3, 2, 1], "cards": 1, "mid_cards": true},
-	{"max_order": 2, "sides": [4, 3, 3, 3], "segments": [2, 2, 1, 1], "cards": 1, "mid_cards": false},
+	{"max_order": 2, "sides": [7, 5, 4], "segments": [6, 4, 3], "cards": 2},
+	{"max_order": 2, "sides": [5, 4, 3], "segments": [3, 3, 2], "cards": 1},
+	{"max_order": 2, "sides": [4, 3, 3], "segments": [2, 1, 1], "cards": 1},
 ]
+## The skeleton's finest order, drawn as twig cards rather than tubes.
+const TWIG_ORDER := 3
 
 const _SEED := 20260924
 
@@ -135,9 +142,11 @@ static func _grow() -> Array[Dictionary]:
 ## Grow a branch of [param order] from [param start], then its children.
 static func _grow_from(rng: RandomNumberGenerator, out: Array[Dictionary], start: Vector3,
 		dir: Vector3, length: float, radius: float, order: int, arc0: float) -> void:
-	var b: Dictionary = _branch(rng, start, dir, length, radius, radius * 0.3, order, arc0, 0.12)
+	# Finer branches wander more: a twig is crooked, a limb much less so.
+	var b: Dictionary = _branch(rng, start, dir, length, radius, radius * 0.3, order, arc0,
+		[0.0, 0.1, 0.16, 0.22][order])
 	out.push_back(b)
-	if order >= 3:
+	if order >= TWIG_ORDER:
 		return
 	var pts: PackedVector3Array = b["points"]
 	var radii: PackedFloat32Array = b["radii"]
@@ -157,8 +166,10 @@ static func _grow_from(rng: RandomNumberGenerator, out: Array[Dictionary], start
 		var side: Vector3 = _perpendicular(along).rotated(along, roll)
 		var spread: float = rng.randf_range(0.5, 0.85)
 		var d: Vector3 = (along * cos(spread) + side * sin(spread)).normalized()
-		# A little upward pull, as a winter crown's shoots have.
-		d = (d + Vector3.UP * 0.25).normalized()
+		# A little upward pull, as a winter crown's shoots have — less the
+		# finer they are, or every twig points at the sky and the crown's top
+		# reads as a brush.
+		d = (d + Vector3.UP * (0.25 if order == 1 else 0.08)).normalized()
 		var r: float = lerpf(radii[i0], radii[i0 + 1], k) * 0.7
 		var len: float = length * (rng.randf_range(0.6, 0.7) if order == 1 else rng.randf_range(0.5, 0.6))
 		_grow_from(rng, out, at, d, len, r, order + 1, lerpf(arcs[i0], arcs[i0 + 1], k))
@@ -217,20 +228,12 @@ static func _build(shape: Dictionary) -> ArrayMesh:
 		var order: int = b["order"]
 		if order <= max_order:
 			_add_tube(st, b, (shape["sides"] as Array)[order], (shape["segments"] as Array)[order])
-		# Twigs on the finest order only, whichever level is drawing: the cards
-		# are where the eye reads the crown's outline, and moving them between
-		# levels would be what pops.
-		if order == 3:
-			var pts: PackedVector3Array = b["points"]
-			var at_tip: Vector3 = pts[-1]
-			var dir_tip: Vector3 = (pts[-1] - pts[maxi(pts.size() - 3, 0)]).normalized()
-			_add_twigs(st, at_tip, dir_tip, 0.2, shape["cards"], card_n)
+		# Every level draws every twig, in the same place: the cards are where
+		# the eye reads the crown's outline, and moving them between levels
+		# would be what pops. Only how many cross each one changes.
+		if order == TWIG_ORDER:
+			_add_twig(st, b["points"], shape["cards"], card_n)
 			card_n += 1
-			if shape["mid_cards"] and pts.size() > 3:
-				var m: int = pts.size() / 2
-				var dir_mid: Vector3 = (pts[m] - pts[m - 1]).normalized()
-				_add_twigs(st, pts[m], dir_mid, 0.15, shape["cards"], card_n)
-				card_n += 1
 	st.index()
 	st.generate_tangents()
 	return st.commit()
@@ -284,37 +287,50 @@ static func _add_tube(st: SurfaceTool, b: Dictionary, sides: int, segments: int)
 			for q: Array in [p00, p10, p11, p00, p11, p01]:
 				_vert(st, q[0], q[1], q[2], q[3])
 
-## Twig cards at [param at], growing along [param dir]: [param cards] of them,
-## crossed about that line. Each shows one of the four sprays.
-static func _add_twigs(st: SurfaceTool, at: Vector3, dir: Vector3, size: float, cards: int,
-		n: int) -> void:
-	# Sprays point up and out more than the twig they sit on, as shoots do.
-	var up: Vector3 = (dir + Vector3.UP * 0.6).normalized()
-	var roll: float = float(n) * 2.39996
+## A twig: [param cards] cards crossed along the finest-order branch through
+## [param pts], from its root to a little past its tip, each showing one of the
+## four sprays with the spray's root on the branch's. The first card faces out
+## of the crown, so a tree seen from outside — as a racer sees every tree —
+## shows its twigs broadside rather than edge-on.
+static func _add_twig(st: SurfaceTool, pts: PackedVector3Array, cards: int, n: int) -> void:
+	var at: Vector3 = pts[0]
+	var axis: Vector3 = pts[-1] - pts[0]
+	var up: Vector3 = axis.normalized()
 	var variant: int = n % 4
 	var u0: float = float(variant % 2) * BARK_U * 0.5
 	var v0: float = float(variant / 2) * 0.5
 	# The crown's outward normal, so the whole crown lights as one soft volume
-	# like the conifer's fins — flattened toward level, or the top of the crown
+	# like the conifer's fins — but held near level, or the top of the crown
 	# faces up, takes the shader's snow on every twig and reads as white
-	# foliage. The sprays carry their own snow.
-	var outward: Vector3 = ((at - CROWN_CENTER) / CROWN_RADII).normalized()
-	var normal: Vector3 = Vector3(outward.x, outward.y * 0.35, outward.z).normalized()
+	# foliage. The sprays carry their own snow. Built from the level part, since
+	# over the crown's very top the outward direction has none to scale.
+	var outward: Vector3 = ((pts[-1] - CROWN_CENTER) / CROWN_RADII).normalized()
+	var level := Vector3(outward.x, 0.0, outward.z)
+	if level.length() < 1e-3:
+		level = Vector3(axis.x, 0.0, axis.z) if Vector2(axis.x, axis.z).length() > 1e-3 \
+			else Vector3.BACK
+	level = level.normalized()
+	var normal: Vector3 = (level + Vector3.UP * outward.y * 0.25).normalized()
+	var facing: Vector3 = level - up * level.dot(up)
+	if facing.length() < 1e-3:
+		facing = _perpendicular(up)
+	var face_right: Vector3 = up.cross(facing.normalized()).normalized()
 	for c: int in cards:
-		var right: Vector3 = _perpendicular(up).rotated(up, roll + PI * float(c) / float(cards))
-		var h: float = size
+		var right: Vector3 = face_right.rotated(up, PI * float(c) / float(cards))
+		# The spray is drawn a little longer than the twig it stands for.
+		var h: float = axis.length() * 1.35
 		var corners: Array[Vector3] = []
 		# Shrink a card that would poke out of the unit box.
 		for tries: int in 8:
 			var w: float = h * 0.75
-			var base: Vector3 = at - up * h * 0.08
+			var base: Vector3 = at - up * h * 0.02
 			var p0: Vector3 = base - right * w * 0.5
 			var p1: Vector3 = base + right * w * 0.5
 			corners = [p0, p1, p1 + up * h, p0 + up * h]
 			if corners.all(func(q: Vector3) -> bool:
 					return Vector2(q.x, q.z).length() <= 0.5 and q.y >= 0.0 and q.y <= 1.0):
 				break
-			h *= 0.8
+			h *= 0.85
 		var p0: Vector3 = corners[0]
 		var p1: Vector3 = corners[1]
 		var p2: Vector3 = corners[2]
@@ -353,51 +369,66 @@ static func make_texture() -> Image:
 	img.convert(Image.FORMAT_RGBA8)
 	return img
 
-## A spray: one twig from the bottom middle of [param cell], forking three or
-## four times, each fork thinner and shorter, with snow caught on the upper
-## side of the thicker ones.
+## A spray: one crooked twig from the bottom middle of [param cell] nearly to
+## its top, thinning as it goes, with side shoots off it alternately left and
+## right — shorter toward the tip — and the odd shoot off those. Snow in dabs
+## on the upper side where a twig runs near level. It stands for a whole
+## finest-order branch, so it branches at once: no bare stalk under it.
 static func _draw_spray(img: Image, rng: RandomNumberGenerator, cell: Rect2i) -> void:
 	var root := Vector2(cell.position.x + cell.size.x * 0.5, cell.end.y - 2.0)
-	var stack: Array = [[root, Vector2(0, -1).rotated(rng.randf_range(-0.15, 0.15)),
-		cell.size.y * 0.38, 3.6, 0]]
 	var clip := Rect2(Vector2(cell.position) + Vector2(3, 3), Vector2(cell.size) - Vector2(6, 6))
-	while not stack.is_empty():
-		var t: Array = stack.pop_back()
-		var p: Vector2 = t[0]
-		var d: Vector2 = t[1]
-		var length: float = t[2]
-		var width: float = t[3]
-		var depth: int = t[4]
-		var steps: int = 5
-		var start: Vector2 = p
-		for i: int in steps:
-			d = d.rotated(rng.randf_range(-0.22, 0.22)).lerp(Vector2(0, -1), 0.06).normalized()
-			var q: Vector2 = p + d * length / float(steps)
-			# A twig that would leave its cell ends there; clamping it would
-			# draw it along the cell's edge.
-			if not clip.has_point(q):
+	var length: float = cell.size.y * 0.9
+	var main: PackedVector2Array = _draw_twig(img, rng, clip, root,
+		Vector2(0, -1).rotated(rng.randf_range(-0.12, 0.12)), length, 3.0, 1.2, 7, 0.16, true)
+	var shoots: int = rng.randi_range(8, 10)
+	var sign: float = -1.0 if rng.randf() < 0.5 else 1.0
+	for i: int in shoots:
+		var t: float = lerpf(0.12, 0.88, (float(i) + rng.randf_range(0.2, 0.8)) / float(shoots))
+		var f: float = t * float(main.size() - 1)
+		var i0: int = mini(floori(f), main.size() - 2)
+		var at: Vector2 = main[i0].lerp(main[i0 + 1], f - float(i0))
+		var along: Vector2 = (main[i0 + 1] - main[i0]).normalized()
+		var d: Vector2 = along.rotated(sign * rng.randf_range(0.45, 0.8))
+		sign = -sign
+		var shoot_len: float = length * rng.randf_range(0.3, 0.45) * (1.0 - 0.5 * t)
+		var shoot: PackedVector2Array = _draw_twig(img, rng, clip, at, d, shoot_len,
+			lerpf(2.2, 1.4, t), 1.0, 5, 0.22, t < 0.6)
+		# And a shoot or two off that, to either side.
+		var turn: float = 1.0 if rng.randf() < 0.5 else -1.0
+		for j: int in rng.randi_range(1, 2):
+			if shoot.size() < 3:
 				break
-			var w0: float = lerpf(width, width * 0.65, float(i) / steps)
-			var w1: float = lerpf(width, width * 0.65, float(i + 1) / steps)
-			var tone: Color = _WOOD.lerp(_TRUNK, 0.3 + rng.randf() * 0.6)
-			_stroke(img, p, q, w0, w1, tone)
-			# Snow on top of the thicker twigs, in dabs rather than a line.
-			if width > 1.3 and absf(d.x) > 0.15 and rng.randf() < 0.85:
-				var up := Vector2(0, -1) * (w0 * 0.5 + 0.6)
-				_stroke(img, p.lerp(q, 0.2) + up, p.lerp(q, 0.8) + up, w0 * 0.9, w1 * 0.8, _SNOW)
-			p = q
-		if depth >= 4:
-			continue
-		var forks: int = 2 if depth < 3 else rng.randi_range(1, 2)
-		for f: int in forks:
-			var k: float = rng.randf_range(0.45, 1.0)
-			var at: Vector2 = start.lerp(p, k)
-			var sign: float = -1.0 if (f + depth) % 2 == 0 else 1.0
-			var nd: Vector2 = d.rotated(sign * rng.randf_range(0.35, 0.75))
-			stack.push_back([at, nd, length * rng.randf_range(0.55, 0.7),
-				maxf(width * 0.65, 1.1), depth + 1])
-		# And the leader carries on, a little thinner.
-		stack.push_back([p, d, length * 0.55, maxf(width * 0.72, 1.1), depth + 1])
+			var k: int = mini(1 + j * 2, shoot.size() - 2)
+			var sd: Vector2 = (shoot[k] - shoot[k - 1]).normalized().rotated(
+				turn * rng.randf_range(0.4, 0.7))
+			turn = -turn
+			_draw_twig(img, rng, clip, shoot[k], sd, shoot_len * rng.randf_range(0.4, 0.55),
+				1.2, 1.0, 3, 0.25, false)
+
+## One tapered, crooked twig of [param steps] strokes from [param from] along
+## [param dir], [param w0] to [param w1] px wide; returns the points it passed
+## through. It ends where it would leave [param clip] — clamping it would draw
+## it along the cell's edge.
+static func _draw_twig(img: Image, rng: RandomNumberGenerator, clip: Rect2, from: Vector2,
+		dir: Vector2, length: float, w0: float, w1: float, steps: int, crook: float,
+		snowy: bool) -> PackedVector2Array:
+	var pts := PackedVector2Array([from])
+	var p: Vector2 = from
+	var d: Vector2 = dir
+	for i: int in steps:
+		d = d.rotated(rng.randf_range(-crook, crook)).lerp(Vector2(0, -1), 0.05).normalized()
+		var q: Vector2 = p + d * length / float(steps)
+		if not clip.has_point(q):
+			break
+		var wa: float = lerpf(w0, w1, float(i) / steps)
+		var wb: float = lerpf(w0, w1, float(i + 1) / steps)
+		_stroke(img, p, q, wa, wb, _WOOD.lerp(_TRUNK, 0.3 + rng.randf() * 0.6))
+		if snowy and absf(d.x) > 0.3 and rng.randf() < 0.6:
+			var lift := Vector2(0, -1) * (wa * 0.5 + 0.5)
+			_stroke(img, p.lerp(q, 0.25) + lift, p.lerp(q, 0.75) + lift, wa * 0.9, wb * 0.8, _SNOW)
+		p = q
+		pts.push_back(p)
+	return pts
 
 ## An anti-aliased tapered line from [param a] to [param b], alpha by coverage.
 static func _stroke(img: Image, a: Vector2, b: Vector2, wa: float, wb: float, color: Color) -> void:

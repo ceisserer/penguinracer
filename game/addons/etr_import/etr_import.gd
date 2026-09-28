@@ -1470,6 +1470,8 @@ static func _csv(s: String) -> String:
 const CONIFER_TEXTURE := "snowy_tree1.png"
 ## ETR's bare-tree picture; a prefab that draws it becomes a [BareTreeMesh].
 const BARE_TREE_TEXTURE := "tree_barren2.png"
+## ETR's shrub picture; a prefab that draws it becomes a [ShrubMesh].
+const SHRUB_TEXTURE := "shrub.png"
 
 func build_object_prefabs(object_types: Array[Dictionary]) -> Dictionary[String, ObjectPrefab]:
 	ensure_dir(OUT_OBJECTS)
@@ -1489,12 +1491,14 @@ func build_object_prefabs(object_types: Array[Dictionary]) -> Dictionary[String,
 				if entry["collidable"]:
 					prefab.mesh = _cross_quad_mesh()
 					mat.shader = load("res://shaders/object_cross.gdshader")
-					# The conifer picture: [Forest] draws it as a 3D tree built
-					# from this same texture. The bare-tree picture: [Forest]
-					# grows a [BareTreeMesh] in its place. Either way the cross
-					# stays as the fallback and what the editor shows.
+					# The conifer and shrub pictures: [Forest] draws them as a
+					# 3D tree or bush built from this same texture. The
+					# bare-tree picture: [Forest] grows a [BareTreeMesh] in its
+					# place. Either way the cross stays as the fallback and
+					# what the editor shows.
 					prefab.conifer = entry["texture"] == CONIFER_TEXTURE
 					prefab.bare = entry["texture"] == BARE_TREE_TEXTURE
+					prefab.shrub = entry["texture"] == SHRUB_TEXTURE
 				else:
 					var quad := QuadMesh.new()
 					# Unit quad: the per-instance transform carries diameter and

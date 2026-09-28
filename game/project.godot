@@ -14,10 +14,10 @@ config/name="PenguinRacer"
 config/description="Downhill penguin racer with real snow deformation. Rebuild of Extreme Tux Racer 0.8.4."
 config/version="0.1.0"
 run/main_scene="res://scenes/main_menu.tscn"
+config/quit_on_go_back=false
 config/features=PackedStringArray("4.7", "GL Compatibility")
 run/main_scene.spike="res://spikes/s1_pingpong/s1_spike.tscn"
 run/main_scene.dedicated_server="res://scenes/server.tscn"
-config/quit_on_go_back=false
 config/project_settings_override.android="user://renderer.cfg"
 
 [audio]
@@ -111,9 +111,9 @@ locale/translations=PackedStringArray("res://i18n/ui.en.translation", "res://i18
 [rendering]
 
 renderer/rendering_method="mobile"
+textures/vram_compression/import_etc2_astc=true
 lights_and_shadows/directional_shadow/soft_shadow_filter_quality=3
 lights_and_shadows/directional_shadow/soft_shadow_filter_quality.mobile=3
-textures/vram_compression/import_etc2_astc=true
 textures/default_filters/anisotropic_filtering_level=1
 anti_aliasing/quality/msaa_3d=1
 

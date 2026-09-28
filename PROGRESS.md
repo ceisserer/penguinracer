@@ -2495,3 +2495,43 @@ old scales; its Fastest and Fast columns are not current.
 the pre-existing `lighting/what project.godot ships`. The screen opened in the game: the four
 rows, a hand-set 0.65 shown as its own "65 %" row and read back unchanged, Fastest and Fast
 selecting 50 % and 75 %, and 50 % picked by hand reading "Custom".
+
+### Shrubs became bushes; the bare tree lost its brooms (2026-09-28) · **done, not looked at in a browser**
+
+**The shrub** (`shrub.png`: 2138 on `bronze_set`, 2010 on `pygoscelis_adeliae`, lining the track on
+Bunny Hill) was the last collidable object still drawn as ETR's two crossed quads. It now goes
+through `Forest` like the two trees, as `ShrubMesh`: the conifer's treatment with a bush's shape —
+radial fins carrying the picture's halves for the silhouette, and sprigs bursting from the root
+over the whole dome, each carrying the strip of the picture along its own ray out to the rim. The
+outline is measured off the picture's alpha (`ShrubMesh.PROFILE`). Triangles per level 392 / 116 /
+56, then its own octahedral impostor (`shrub_{albedo,normal}.png`, from LOD 0). `ObjectPrefab.shrub`
+marks the prefab, set by the importer (`SHRUB_TEXTURE`) and by hand in `shrub.tres` and every
+course's embedded copy.
+
+What did not work first: sprigs cut as level strips (the conifer's whorls) drew every card as a
+trapezoid across the solid heart of the picture; the lowest sprigs, near level, were only ever seen
+as streaks by a chase camera; and even along the ray, a sprig's straight root and sides showed up
+close as shards. Sprigs now start at 20°, and fade to their root and sides through `COLOR.a`, which
+`conifer.gdshader` and the bake multiply into the picture's alpha (1 on every other vertex), so the
+scissor cuts along the picture's gaps. Close up (a shrub passed at 2 m) it is still a 256² picture
+magnified — as the conifer is — but a volume, not a card.
+
+**The bare tree** drew its finest order as 84 tubes, each with a spray card stood upright on a stalk
+at its tip and another at its middle: seen from the track, a crown of little brooms. The finest
+order is now *only* a card, laid along the branch from where it leaves its limb, facing out of the
+crown; the sprays are redrawn as a crooked twig with alternating side shoots (no stalk); twigs
+wander more and pull upward less; a card's normal is held near level, which also took the white
+off the crown's top. Triangles 2070 / 1072 / 340 → **1276 / 684 / 394** (LOD 2 keeps the second
+order, or the twigs float). Impostor re-baked.
+
+`tools/tree_portrait.sh` (`tests/tree_portrait.gd`) draws one species on flat snow at a chosen
+distance, level or field of view, fog off — how all of the above was looked at.
+
+**Verified**: the suite — 6145 passed, 1 failed, the pre-existing `lighting/what project.godot
+ships`; new: twigs are cards at every level and never tubes, shrub levels cheapen, stay in the unit
+box and sample only the picture, sprigs end on the outline, every course marks its shrub. Captures
+on Bunny Hill (Mobile and Compatibility), `bronze_set`, `keep_country_tidy`; each level of both
+species at its own distance. Frame rate, 1024x576 logical, iGPU, vsync off, `paddle`, median
+`--print-fps` over 1500 frames, before → after: Bunny Hill 120 → 123 (Mobile), 228 → 233
+(Compatibility); `bronze_set` 135 → 140, 199 → 202 — no cost, within noise. **Not done**: a
+browser, a phone.

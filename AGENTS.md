@@ -38,8 +38,9 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
   scripts/render/         terrain chunks, GPU snow field, spray, SnowFall (falling flakes +
                           far snow, all world-anchored), IceReflection (planar mirror for the ice),
                           ConiferMesh (3 LOD meshes + hemi-octahedral maths), BareTreeMesh
-                          (grown leafless tree, 3 LODs + its drawn twig/bark texture), Forest
-                          (either species: cells × levels, per-tree dithered LOD, wind + snow),
+                          (grown leafless tree, 3 LODs + its drawn twig/bark texture),
+                          ShrubMesh (bush from `shrub.png`, 3 LODs), Forest (any of the
+                          three: cells × levels, per-tree dithered LOD, wind + snow),
                           Atmosphere (the procedural sky's globals: haze, mist, ridges),
                           CourseLights (night torches, flags → torches)
   scripts/camera/         chase camera
@@ -68,7 +69,7 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           TouchScheme (tilt | buttons | off, and "is this a phone")
   scripts/debug/          DebugCapture autoload (headless screenshots / scripted input), key_log
   shaders/                terrain, etr_skybox, procedural_sky, object_billboard (items), object_cross (shrubs),
-                          conifer + conifer_impostor (both tree species; + conifer.gdshaderinc:
+                          conifer + conifer_impostor (all three species; + conifer.gdshaderinc:
                           LOD fade, sway, snow, twig alpha), conifer_bake, snow_trail, snow_flakes,
                           s1_displace, torch_flame, etr_illumination.gdshaderinc (ETR's
                           sum-then-clamp, included by everything lit), atmosphere.gdshaderinc
@@ -81,15 +82,15 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
   i18n/                   GENERATED penguinracer.csv (ETR's strings × 13) + HAND-WRITTEN ui.csv
                           (everything ETR has no string for, en + de) — see Language
   assets/sounds|music/    GENERATED: 10 effects, 10 pieces, copied verbatim
-  assets/trees/           BAKED: conifer + bare-tree impostor atlases (tools/bake_tree_impostors.sh)
+  assets/trees/           BAKED: conifer, bare-tree + shrub impostor atlases (tools/bake_tree_impostors.sh)
   scenes/                 main_menu.tscn (main scene), course/character/settings/ghost/lobby/
                           results menus, race.tscn, loading_screen.tscn, key_log.tscn,
                           server.tscn (the same project headless, no course)
   user://runs/            NOT in the repo: runs kept from the results screen (SavedRunStore),
                           raced as a translucent ghost from the main menu
   themes/                 etr_menu.tres — ETR's `common.cpp` palette + checkbox icons
-  tests/                  headless suite + ODE benchmark + tone_report.gd and
-                          bake_tree_impostors.gd (not tests)
+  tests/                  headless suite + ODE benchmark + tone_report.gd,
+                          bake_tree_impostors.gd and tree_portrait.gd (not tests)
   spikes/s1_pingpong/     ping-pong render-target spike (S1)
   spikes/s7_reflection/   planar reflection spike (S7)
 etr-0.8.4/                original source + data — READ-ONLY, never write here
@@ -97,6 +98,7 @@ tools/                    import_all.sh; serve.sh (dedicated server + web export
                           build_server.sh (Linux server export + build/web → build/server/);
                           shot.sh (deterministic screenshot, real GPU when present);
                           bake_tree_impostors.sh (re-bake after changing a tree's mesh);
+                          tree_portrait.sh (one species up close, any level, no course);
                           png.py, regionstats.py, linstats.py (slow pure-Python capture stats —
                           tests/tone_report.gd does the same in a second); webtest/ (COOP/COEP
                           server + puppeteer runner); gen_course_export_presets.py +
@@ -150,7 +152,8 @@ godot --headless --path game res://scenes/server.tscn -- --port=27015 \
 ./tools/build_server.sh [--build-web]                              # ... packaged into build/server/
 
 ./tools/import_all.sh [--course=bunny_hill] [--force]              # 4-pass importer
-./tools/bake_tree_impostors.sh [conifer|bare]                      # after any tree mesh change
+./tools/bake_tree_impostors.sh [conifer|bare|shrub]                # after any tree mesh change
+./tools/tree_portrait.sh /tmp/t.png bare --dist=8 [--level=2]      # one species up close, no course
 ./tools/build_android.sh [--release] [--install]                   # Android APK (setup: .devcontainer/setup-android.sh)
 
 # headless verification
@@ -216,7 +219,7 @@ Detail is in `PROGRESS.md`; this is the summary.
 |---|---|
 | 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 4724 assertions, 0 failures, 13 s headless. |
 | 1 — importer + first course | **done** — 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. |
-| 2 — rendering | partial — Mobile on the desktop, Compatibility on the web (trap list: *sRGB-blended shadow pass*). ETR's illumination clamp in every lit shader except the character's; desktop-only PSSM shadow. Splat PBR, chunked terrain, instanced objects (conifers and bare trees are 3D meshes at 3 LODs + an octahedral impostor, dithered hand-overs, wind sway, shader snow — [Forest]; shrubs are ETR's two crossed planes with a hashed yaw; items are billboards), ETR's HUD redrawn as primitives ([RaceHUD]), migrated skyboxes. Tone matched on Bunny Hill at both ends in all three channels; no LightmapGI. Snow/ice micro-relief, glint, Fresnel sky, ice reflecting the racers (`IceReflection`), textured carve spray. Heightmap AO baked at import + trench-wall AO; shaded/occluded/carved snow tinted blue (fake SSS). |
+| 2 — rendering | partial — Mobile on the desktop, Compatibility on the web (trap list: *sRGB-blended shadow pass*). ETR's illumination clamp in every lit shader except the character's; desktop-only PSSM shadow. Splat PBR, chunked terrain, instanced objects (conifers, bare trees and shrubs are 3D meshes at 3 LODs + an octahedral impostor, dithered hand-overs, wind sway, shader snow — [Forest]; anything else collidable is ETR's two crossed planes with a hashed yaw; items are billboards), ETR's HUD redrawn as primitives ([RaceHUD]), migrated skyboxes. Tone matched on Bunny Hill at both ends in all three channels; no LightmapGI. Snow/ice micro-relief, glint, Fresnel sky, ice reflecting the racers (`IceReflection`), textured carve spray. Heightmap AO baked at import + trench-wall AO; shaded/occluded/carved snow tinted blue (fake SSS). |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror; a carve leaves a shaded trench with a ploughed lip. |
 | 4 — character | **done for all five** — skinned mesh from `shape.lst`, keyframe clips as `AnimationLibrary` + `KeyframePath` root motion, start animation (`CIntro`), finish clips on the results screen (`RaceOutcome.clip`), racing pose layer (`CharacterRig.adjust_joints`, ETR's `AdjustJoints`) driven off `RacerState` alone so ghosts and peers animate. `GameConfig.character` picks one. |
 | 5 — game shell | partial — main menu → Practice / Race the computer / Network multiplayer / Race against ghost / character / Configuration; results screen with named runs; ETR palette theme; course + character catalogs; English + German, detected or chosen on the settings screen; audio (`AudioDirector`, ETR's one-voice-per-cue mixer). Missing: cups, medals, profiles (data imported), volume controls, ETR's menu art (licence audit). |
@@ -459,13 +462,16 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   `Forest`, which draws `ConiferMesh` instead. The flag lives in `resources/objects/tree{,1}.tres`
   *and* in every `course.tscn`'s embedded copy, and the importer sets it (`CONIFER_TEXTURE`).
   The bare tree is the same with `ObjectPrefab.bare`, `tree_barren{,2}.tres` and
-  `BARE_TREE_TEXTURE`; `TestForest` reads every course's copy.
+  `BARE_TREE_TEXTURE`, the shrub with `ObjectPrefab.shrub`, `shrub.tres` and `SHRUB_TEXTURE`;
+  `TestForest` reads every course's copy.
 - **The conifer impostor is baked under Compatibility, which converts nothing**: an unshaded
   material's `source_color` texture is not decoded and ALBEDO is not encoded (a constant 0.214
   reads back 0.212). `conifer_bake.gdshader` writes both atlases raw on that basis; baked under
   Mobile they would be an sRGB curve off. The normal atlas is an object-space normal, so it must
   never be sampled `hint_normal` or imported as a normal map (`compress/normal_map=2` in its
-  `.import`) — the importer would rebuild blue as if it were tangent-space.
+  `.import`) — the importer would rebuild blue as if it were tangent-space. **A first bake writes
+  Godot's default sidecar** (`normal_map=0`, `compress_to=1`): copy a committed species' `.import`
+  settings onto a new species' atlases and re-import.
 - **`SurfaceTool.commit()` without `index()` writes no index array** — the mesh draws, but
   `surface_get_arrays()[ARRAY_INDEX]` is null. `ConiferMesh` indexes before committing.
 - **Vertex colour is 8 bits a channel.** A value under 1/510 comes back 0: the bare tree's
@@ -474,6 +480,16 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   and the scissor deletes it. `alpha_mip_boost` (`conifer_alpha`, mip level from UV derivatives —
   WebGL2 has no `textureQueryLod`) raises it per level. Not on the impostor or in its bake: edge-on
   cards there have huge derivatives and the boost fills the crown in solid.
+- **A card cut from the middle of a dense picture shows its straight edges.** The conifer's
+  cards end in the picture's rim; a bush's sprigs cross the solid heart of `shrub.png`, and drew
+  as shards. `ShrubMesh` fades each sprig to its root and sides in `COLOR.a`, which
+  `conifer.gdshader` (and the bake) multiply into the picture's alpha, so the scissor cuts along
+  the picture's own gaps. Every other vertex carries 1. Sprigs a chase camera looks along (under
+  ~20°) are left to the fins: flat, they are only ever seen as streaks.
+- **A twig card stood upright on a stalk reads as a broom.** The bare tree's finest order was
+  tubes with a spray card at every tip and middle, all leaning up: a crown of little trees. The
+  finest order is now *only* the card, laid along its branch, root on the limb, facing out of the
+  crown. Fewer triangles and a haze instead of bristles.
 - **An impostor has to show the level it replaces**, not the finest one. The bare tree baked from
   LOD 0 (four times LOD 2's twig cards) was a dark blob replacing an airy tree at 75 m; it bakes
   from LOD 2 (`Forest.impostor_source_level`), with its limbs widened to what LOD 2 draws there.
@@ -803,15 +819,20 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   `Forest` hands them over at 50 / 90 / 130 m with a 4 m Bayer-dithered cross-fade per tree, then
   to a hemi-octahedral impostor (64 baked views, three blended, lit from a baked normal atlas).
   Upward faces are whitened in the shader by `[game] snowfall`; the tree sways with the watched
-  racer's `WindField` and the snowfall. Same markers, same scale, same collision cylinder. The
-  shrub keeps the cross. Clearing `conifer` on a prefab (both copies — see the trap list) draws
-  ETR's cross again.
+  racer's `WindField` and the snowfall. Same markers, same scale, same collision cylinder.
+  Clearing `conifer` on a prefab (both copies — see the trap list) draws ETR's cross again.
+- **Shrubs are 3D bushes**, the conifer's treatment with a bush's shape. `ShrubMesh` builds three
+  levels from `shrub.png`, unchanged: radial fins for the silhouette, and sprigs — cards bursting
+  from the root over the whole dome, 20–85° up, each carrying the strip of picture along its own
+  ray to the rim and fading toward its root and sides (trap list). No trunk. Same `Forest`, bands,
+  shaders and impostor scheme (baked from LOD 0). Clearing `shrub` on a prefab draws ETR's cross.
 - **Bare trees are grown, not drawn from their picture.** ETR's is a 239² cutout on two quads —
   blocky close up, flat from the side — and on fins it would read as a tangle, since a bare tree
-  is mostly air. `BareTreeMesh` grows a fixed-seed skeleton inside the picture's crown (trunk and
-  three orders of tapered tubes) with twig cards at the finest limbs, drawn with a texture it
-  paints itself (four twig sprays + a bark strip, colours measured off `tree_barren2.png`, so
-  nothing new for the licence audit). Same `Forest`, bands, shaders and impostor scheme as the
+  is mostly air. `BareTreeMesh` grows a fixed-seed skeleton inside the picture's crown: the trunk
+  and two orders of tapered tubes, and a third, finest order drawn only as twig cards laid along
+  each branch (1276 / 684 / 394 triangles), with a texture it paints itself (four crooked twigs
+  with side shoots + a bark strip, colours measured off `tree_barren2.png`, so nothing new for
+  the licence audit). Same `Forest`, bands, shaders and impostor scheme as the
   conifer; the shader widens a limb to ≥ ~0.4 px (`min_radius_per_metre`, vertices coding a radius
   in `COLOR.b`) so far limbs stay lines, and holds more snow on round limbs
   (`snow_facing_offset`). Clearing `bare` on a prefab draws ETR's cross again.

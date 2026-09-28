@@ -189,6 +189,7 @@ id = &"shrub"
 mesh = SubResource("ArrayMesh_18ja8")
 material = SubResource("ShaderMaterial_x1vcr")
 collidable = true
+shrub = true
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_k1gr5"]
 render_priority = 0

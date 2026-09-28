@@ -64,7 +64,9 @@ void fragment() {
 		discard;
 	}
 	vec4 tex = texture(albedo_texture, UV);
-	tex.a = conifer_alpha(tex.a, UV, vec2(textureSize(albedo_texture, 0)));
+	// `COLOR.a` is 1 on every vertex but a shrub sprig's, which fades toward
+	// its root and sides (`ShrubMesh`).
+	tex.a = conifer_alpha(tex.a, UV, vec2(textureSize(albedo_texture, 0))) * COLOR.a;
 	vec3 n = normalize(shade_normal);
 	if (flips > 0.5 && dot(n, VIEW) < 0.0) {
 		n = -n;

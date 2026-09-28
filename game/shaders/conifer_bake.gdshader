@@ -45,6 +45,7 @@ void fragment() {
 		n = -n;
 	}
 	ALBEDO = bake_mode == 0 ? tex.rgb : n * 0.5 + 0.5;
-	ALPHA = tex.a;
+	// The shrub's sprig fade, as `conifer.gdshader` applies it.
+	ALPHA = tex.a * COLOR.a;
 	ALPHA_SCISSOR_THRESHOLD = 0.5;
 }

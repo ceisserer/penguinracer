@@ -1,4 +1,4 @@
-## The 3D conifer and bare tree: their mesh levels, the impostor's view
+## The 3D conifer, bare tree and shrub: their mesh levels, the impostor's view
 ## mapping, and how [Forest] cuts a course's trees into bands and cells.
 ##
 ## Nothing here renders — the suite is headless — so each check is on what feeds
@@ -21,6 +21,10 @@ static func run(t: TestCase) -> void:
 	_only_limbs_are_widened(t)
 	_the_bare_texture(t)
 	_bare_trees_are_marked(t)
+	_twigs_are_cards(t)
+	_shrub_levels_get_cheaper(t)
+	_the_shrub_fills_the_unit_box(t)
+	_shrubs_are_marked(t)
 
 static func _levels_get_cheaper(t: TestCase) -> void:
 	t.begin("forest/levels of detail")
@@ -323,6 +327,105 @@ static func _bare_trees_are_marked(t: TestCase) -> void:
 	t.ok(Forest.has_impostor(Forest.Species.BARE), "the bare tree's atlases are in the project")
 	var size: int = ConiferMesh.ATLAS_GRID * ConiferMesh.ATLAS_TILE
 	for path: String in Forest.atlases(Forest.Species.BARE):
+		var tex: Texture2D = load(path)
+		t.ok(tex != null and tex.get_width() == size and tex.get_height() == size,
+			"%s is %d² — the grid the shader assumes" % [path.get_file(), size])
+
+## The finest order is drawn as cards only — a tube for it as well was what
+## made the crown a thicket of brooms — and every level draws every twig, so a
+## hand-over never moves one.
+static func _twigs_are_cards(t: TestCase) -> void:
+	t.begin("forest/bare tree twigs")
+	var twigs: int = 0
+	for b: Dictionary in BareTreeMesh.skeleton():
+		if b["order"] == BareTreeMesh.TWIG_ORDER:
+			twigs += 1
+	t.ok(twigs > 0, "the skeleton has twigs (%d)" % twigs)
+	for level: int in BareTreeMesh.LODS:
+		var arrays: Array = BareTreeMesh.mesh(level).surface_get_arrays(0)
+		var uvs: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
+		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+		var card_tris: int = 0
+		for i: int in range(0, indices.size(), 3):
+			if uvs[indices[i]].x < BareTreeMesh.BARK_U:
+				card_tris += 1
+		var cards: int = BareTreeMesh._SHAPE[level]["cards"]
+		t.ok(card_tris == twigs * cards * 2,
+			"LOD %d draws each twig as %d card(s) (%d triangles)" % [level, cards, card_tris])
+		t.ok(int(BareTreeMesh._SHAPE[level]["max_order"]) < BareTreeMesh.TWIG_ORDER,
+			"and never as a tube")
+
+static func _shrub_levels_get_cheaper(t: TestCase) -> void:
+	t.begin("forest/shrub levels")
+	var last: int = 1 << 30
+	for level: int in ShrubMesh.LODS:
+		var tris: int = ShrubMesh.triangle_count(level)
+		t.ok(tris > 0, "LOD %d has geometry (%d triangles)" % [level, tris])
+		t.ok(tris * 3 / 2 <= last, "LOD %d costs at most two thirds of the one before (%d)" % [level, tris])
+		last = tris
+	t.ok(ShrubMesh.LODS == ConiferMesh.LODS,
+		"as many levels as the conifer, so the two share Forest's bands")
+	# The sprigs run out to the outline the picture draws, from any elevation.
+	for deg: float in [10.0, 45.0, 85.0]:
+		var e: float = deg_to_rad(deg)
+		var r: float = ShrubMesh.reach(e)
+		var tip := Vector2(cos(e), sin(e)) * r + Vector2(0.0, ShrubMesh.ROOT.y)
+		t.ok(r > 0.2 and absf(tip.x - ShrubMesh.profile_radius(tip.y)) < 0.03,
+			"a sprig at %d° ends on the outline (reach %.2f)" % [deg, r])
+
+static func _the_shrub_fills_the_unit_box(t: TestCase) -> void:
+	t.begin("forest/shrub unit box")
+	for level: int in ShrubMesh.LODS:
+		var arrays: Array = ShrubMesh.mesh(level).surface_get_arrays(0)
+		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var worst_r: float = 0.0
+		var lo: float = 1.0
+		var hi: float = 0.0
+		for v: Vector3 in verts:
+			worst_r = maxf(worst_r, Vector2(v.x, v.z).length())
+			lo = minf(lo, v.y)
+			hi = maxf(hi, v.y)
+		t.ok(worst_r <= 0.5 + 1e-4, "LOD %d stays inside the collision radius (%.3f)" % [level, worst_r])
+		t.ok(lo >= -1e-4 and hi <= 1.0 + 1e-4, "LOD %d stands 0..1 (%.3f..%.3f)" % [level, lo, hi])
+		var colors: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
+		t.ok(colors.size() == verts.size(), "LOD %d carries its shader flags" % level)
+		var coded: int = 0
+		for c: Color in colors:
+			if c.b > 0.0:
+				coded += 1
+		t.ok(coded == 0, "LOD %d codes no tube radius, so nothing is widened (%d)" % [level, coded])
+		# Every UV inside the picture: `repeat_disable` would smear its edge.
+		var outside: int = 0
+		for uv: Vector2 in arrays[Mesh.ARRAY_TEX_UV] as PackedVector2Array:
+			if uv.x < -1e-4 or uv.x > 1.0001 or uv.y < -1e-4 or uv.y > 1.0001:
+				outside += 1
+		t.ok(outside == 0, "LOD %d samples only the picture (%d outside)" % [level, outside])
+
+static func _shrubs_are_marked(t: TestCase) -> void:
+	t.begin("forest/which prefabs are shrubs")
+	var p: ObjectPrefab = load("res://resources/objects/shrub.tres")
+	t.ok(p != null and p.shrub and not p.conifer and not p.bare, "shrub is a shrub")
+	for id: String in ["tree", "tree1", "tree_barren", "tree_barren2", "herring"]:
+		var q: ObjectPrefab = load("res://resources/objects/%s.tres" % id)
+		t.ok(q != null and not q.shrub, "%s is not" % id)
+	# Every course's embedded copy, read as text as for the bare tree.
+	var catalog: CourseCatalog = CourseCatalog.load_default()
+	var unmarked: PackedStringArray = []
+	var seen: int = 0
+	for entry: CourseListing in catalog.entries:
+		var text: String = FileAccess.get_file_as_string(entry.scene_path)
+		var at: int = text.find('id = &"shrub"\n')
+		if at < 0:
+			continue
+		seen += 1
+		var block: String = text.substr(at, text.find("\n\n", at) - at)
+		if not block.contains("\nshrub = true"):
+			unmarked.push_back(entry.dir)
+	t.ok(seen > 40, "the courses embed the shrub prefab (%d)" % seen)
+	t.ok(unmarked.is_empty(), "every course draws its shrubs as shrubs %s" % unmarked)
+	t.ok(Forest.has_impostor(Forest.Species.SHRUB), "the shrub's atlases are in the project")
+	var size: int = ConiferMesh.ATLAS_GRID * ConiferMesh.ATLAS_TILE
+	for path: String in Forest.atlases(Forest.Species.SHRUB):
 		var tex: Texture2D = load(path)
 		t.ok(tex != null and tex.get_width() == size and tex.get_height() == size,
 			"%s is %d² — the grid the shader assumes" % [path.get_file(), size])
