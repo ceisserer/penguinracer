@@ -1,0 +1,127 @@
+keys,en,de
+MAIN_SUBTITLE,A Godot rebuild of Extreme Tux Racer,Ein Godot-Nachbau von Extreme Tux Racer
+RACE_THE_COMPUTER,Race the computer,Gegen den Computer fahren
+NETWORK_MULTIPLAYER,Network multiplayer,Netzwerkspiel
+RACE_AGAINST_GHOST,Race against ghost,Gegen den Geist fahren
+OPPONENTS_LABEL,Opponents:,Gegner:
+SKILL_LABEL,Skill:,Stärke:
+SNOWFALL_LABEL,Snowfall:,Schneefall:
+CONDITIONS_LABEL,Conditions:,Wetter:
+WIND_LABEL,Wind:,Wind:
+RACE_NAME_LABEL,Race name:,Name des Rennens:
+PASSWORD_LABEL,Password:,Passwort:
+PASSWORD_NONE,none,keins
+CREATE_A_RACE,Create a race,Rennen eröffnen
+CHOOSE_THE_COURSE,Choose the course,Strecke wählen
+ACTION_CREATE,Create,Eröffnen
+ACTION_CHOOSE,Choose,Wählen
+CREATING_THE_RACE,Creating the race…,Rennen wird eröffnet …
+SNOWFALL_NONE,None,Keiner
+SNOWFALL_A_LITTLE,A little,Wenig
+SNOWFALL_MORE,More,Mehr
+SNOWFALL_A_LOT,A lot,Viel
+SKILL_EASY,Easy,Leicht
+SKILL_MEDIUM,Medium,Mittel
+SKILL_HARD,Hard,Schwer
+SKY_SUNNY,Sunny,Sonnig
+SKY_CLOUDY,Cloudy,Bewölkt
+SKY_NIGHT,Night,Nacht
+CROSSWIND_NONE,None,Keiner
+CROSSWIND_LIGHT,Light,Leicht
+CROSSWIND_STRONG,Strong,Stark
+LANGUAGE_AUTO,Automatic (%s),Automatisch (%s)
+QUALITY_PRESET_LABEL,Quality preset:,Qualitätsstufe:
+RENDER_SCALE_LABEL,3D render scale:,3D-Auflösung:
+ANTIALIASING_LABEL,Anti-aliasing:,Kantenglättung:
+SKY_LABEL,Sky:,Himmel:
+SKY_DETAIL_LABEL,Sky detail:,Himmelsdetails:
+TREE_DETAIL_LABEL,Tree detail distance:,Baumdetail-Distanz:
+SHADOWS_LABEL,Shadows:,Schatten:
+TREE_SHADOWS_LABEL,Tree shadows:,Baumschatten:
+SHADOW_DETAIL_LABEL,Shadow detail:,Schattendetails:
+ICE_REFLECTIONS_LABEL,Ice reflections:,Spiegelungen auf Eis:
+SHOW_FPS_LABEL,Show frame rate:,Bildrate anzeigen:
+TOUCH_CONTROLS_LABEL,Touch controls:,Touch-Steuerung:
+RENDERER_LABEL,Renderer:,Renderer:
+RENDERER_RESTART_NOTE,Applies after a restart,Gilt nach einem Neustart
+RENDERER_MOBILE,Mobile (Vulkan),Mobile (Vulkan)
+RENDERER_COMPATIBILITY,Compatibility (OpenGL),Kompatibilität (OpenGL)
+FOG_START_LABEL,Clear air before fog:,Klare Sicht vor Nebel:
+FOG_RANGE_LABEL,Fog range:,Nebelweite:
+SETTINGS_NOTE,"Sky, trees, fog and shadows are read when a course loads, so a change to any of them shows on the next race. 0 m and 1.0 x is the original's fog exactly.","Himmel, Bäume, Nebel und Schatten werden beim Laden einer Strecke gelesen – eine Änderung daran zeigt sich also erst im nächsten Rennen. 0 m und 1.0 x ist genau der Nebel des Originals."
+OPTION_OFF,Off,Aus
+OPTION_LOW,Low,Niedrig
+OPTION_MEDIUM,Medium,Mittel
+OPTION_HIGH,High,Hoch
+OPTION_BEST,Best,Maximal
+SKY_PROCEDURAL,Procedural,Prozedural
+SKY_ORIGINAL,Original (photographed),Original (fotografiert)
+TREE_SHADOWS_NEAREST,Nearest trees,Nächste Bäume
+TREE_SHADOWS_ALL,All trees,Alle Bäume
+TOUCH_TILT,Tilt the device,Gerät neigen
+TOUCH_BUTTONS,On-screen buttons,Tasten auf dem Bildschirm
+QUALITY_FASTEST,Fastest,Am schnellsten
+QUALITY_FAST,Fast,Schnell
+QUALITY_MEDIUM,Medium,Mittel
+QUALITY_HIGH,High quality,Hohe Qualität
+QUALITY_BEST,Best quality,Beste Qualität
+QUALITY_CUSTOM,Custom,Benutzerdefiniert
+DELETE,Delete,Löschen
+NO_SAVED_RUNS,No saved runs yet — finish a race and save one to fill this list.,"Noch keine gespeicherten Fahrten – beende ein Rennen und speichere es, dann steht es hier."
+DELETE_RUN_CONFIRM,Delete this saved run? This cannot be undone.,Diese gespeicherte Fahrt löschen? Das lässt sich nicht rückgängig machen.
+HERRING_COUNT,%d herring,%d Heringe
+NAME_THIS_RUN,Name this run,Name für diese Fahrt
+SAVE,Save,Speichern
+SAVED,Saved.,Gespeichert.
+YOU_ARE_LABEL,You are:,Du bist:
+SERVER_LABEL,Server:,Server:
+CONNECT,Connect,Verbinden
+CONNECT_HINT,"A host name, a host:port, or a ws:// URL.\nRun a server with:  %s","Ein Hostname, host:port oder eine ws://-URL.\nEinen Server startest du mit:  %s"
+JOIN,Join,Beitreten
+REFRESH,Refresh,Aktualisieren
+DISCONNECT,Disconnect,Trennen
+NO_RACES_WAITING,No races waiting. Create one and the others will see it.,"Keine wartenden Rennen. Eröffne eins, dann sehen es die anderen."
+CHANGE_COURSE,Change course,Strecke ändern
+START_THE_RACE,Start the race,Rennen starten
+LEAVE_THIS_RACE,Leave this race,Rennen verlassen
+PLAYERS_RACE,%s's race,Rennen von %s
+CONNECTING,Connecting…,Verbinde …
+CONNECTING_TO,Connecting to %s…,Verbinde mit %s …
+ROOM_LOCKED,(locked),(gesperrt)
+ROOM_PASSWORD,(password),(Passwort)
+ROOM_RACERS,%d/%d racers,%d/%d Fahrer
+ROOM_HOST,host: %s,Gastgeber: %s
+ROOM_SNOW,snow: %s,Schnee: %s
+ROOM_WIND,wind: %s,Wind: %s
+ROOM_HINT_ADMIN,Press Start when everybody is here.,"Starte das Rennen, sobald alle da sind."
+ROOM_HINT_WAITING,Waiting for %s to start the race.,"Warte, bis %s das Rennen startet."
+MEMBER_ADMIN,(admin),(Admin)
+MEMBER_YOU,(you),(du)
+NET_NO_SERVER_ADDRESS,no server address,keine Serveradresse
+NET_COULD_NOT_REACH,could not reach %s,%s ist nicht erreichbar
+NET_UNAVAILABLE,multiplayer is not available in this build,Mehrspieler gibt es in dieser Version nicht
+NET_CONNECT_FAILED,could not connect to the server,keine Verbindung zum Server
+NET_SERVER_CLOSED,the server closed the connection,der Server hat die Verbindung beendet
+NET_NO_SUCH_ROOM,That race is no longer there.,Dieses Rennen gibt es nicht mehr.
+NET_WRONG_PASSWORD,Wrong password.,Falsches Passwort.
+NET_ROOM_FULL,That race is full.,Dieses Rennen ist voll.
+NET_ALREADY_STARTED,That race has already started.,Dieses Rennen hat schon begonnen.
+NET_NOT_ADMIN,Only the player who created the race can do that.,"Das kann nur, wer das Rennen eröffnet hat."
+NET_NOT_IN_A_ROOM,You are not in a race.,Du bist in keinem Rennen.
+NET_ROOM_NAME_TAKEN,There is already a race with that name.,Es gibt schon ein Rennen mit diesem Namen.
+NET_TOO_MANY_ROOMS,The server is full.,Der Server ist voll.
+NET_BAD_ROOM_NAME,Give the race a name.,Gib dem Rennen einen Namen.
+NET_NO_COURSE,Choose a course.,Wähle eine Strecke.
+NET_UNKNOWN_PEER,The server does not know who you are — reconnect.,Der Server kennt dich nicht – verbinde dich neu.
+NET_NAME_TAKEN,Somebody on this server is already racing under that name.,Auf diesem Server fährt schon jemand unter diesem Namen.
+PAUSED,PAUSED,PAUSE
+TAP_TO_START,TAP TO START,ZUM STARTEN TIPPEN
+GO,GO!,LOS!
+GHOST,ghost,Geist
+COULD_NOT_LOAD,Could not load %s (%s),%s konnte nicht geladen werden (%s)
+DID_NOT_FINISH,did not finish,nicht im Ziel
+NET_WAITING_FOR_LOAD,Waiting for the other racers to load the course…,"Warte, bis die anderen Fahrer die Strecke geladen haben …"
+NET_WAITING_FOR_RESULTS,Waiting for the results…,Warte auf die Ergebnisse …
+NET_FINISHED_WAITING,Finished — the race ends when the last racer is in (%d to go),"Im Ziel – das Rennen endet, wenn der letzte Fahrer ankommt (noch %d)"
+GHOST_BEATEN,Beat the ghost by %.2f s,Geist um %.2f s geschlagen
+GHOST_BEHIND,%.2f s behind the ghost,%.2f s hinter dem Geist

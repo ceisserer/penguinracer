@@ -47,11 +47,11 @@ const KINDS: Array[Kind] = [Kind.SUNNY, Kind.CLOUDY, Kind.NIGHT]
 ## As `penguinracer.cfg` and `--light=` spell them — the original's own
 ## directory names under `env/<location>/`.
 const NAMES: PackedStringArray = ["sunny", "cloudy", "night"]
-## What the course screen shows. Not `tr()` keys: ETR says this with a
-## four-state icon and has no words for it in any of the thirteen translations,
-## so a key would resolve to nothing everywhere. Same standing as the snowfall
+## What the course screen shows — translation keys from `i18n/ui.csv`. ETR's
+## own `LIGHT_SUNNY` reads "Light: Sunny", a label and a value in one, which is
+## not what a drop-down beside a label wants. Same standing as the snowfall
 ## grades beside them.
-const LABELS: PackedStringArray = ["Sunny", "Cloudy", "Night"]
+const LABELS: PackedStringArray = ["SKY_SUNNY", "SKY_CLOUDY", "SKY_NIGHT"]
 
 ## Every light a location can have authored under it, including the one that is
 ## not offered. Used to read the location back off a preset id.

@@ -104,6 +104,7 @@ godot --path game res://scenes/key_log.tscn          # keyboard delivery probe
 godot --path game -- --no-audio                      # play with the sound off
 godot --path game -- --no-intro                      # ... and without the start animation
 godot --path game -- --fps                           # ... showing the HUD's frame-rate readout
+godot --path game -- --lang=de                       # ... in German (en, de or auto; also ?lang=de on the web)
 godot --path game -- --crosswind=strong              # ... in a crosswind (none, light or strong)
 godot --path game -- --wind=2                        # ... in ETR's own wind grade (1..3) instead
 godot --path game -- --snow=3                        # ... snowing hard (0..3)

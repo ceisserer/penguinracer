@@ -90,16 +90,16 @@ const VALUES: Array[Dictionary] = [
 	},
 ]
 
-## What the screen calls each [enum Kind]. Unkeyed English, like the other rows
-## ETR has no string for.
+## What the screen calls each [enum Kind]: a translation key from `i18n/ui.csv`,
+## which the drop-down translates as it draws it.
 static func label(kind: int) -> String:
 	match kind:
-		Kind.FASTEST: return "Fastest"
-		Kind.FAST: return "Fast"
-		Kind.MEDIUM: return "Medium"
-		Kind.HIGH: return "High quality"
-		Kind.BEST: return "Best quality"
-	return "Custom"
+		Kind.FASTEST: return "QUALITY_FASTEST"
+		Kind.FAST: return "QUALITY_FAST"
+		Kind.MEDIUM: return "QUALITY_MEDIUM"
+		Kind.HIGH: return "QUALITY_HIGH"
+		Kind.BEST: return "QUALITY_BEST"
+	return "QUALITY_CUSTOM"
 
 ## Preset [param kind]'s values, keyed by [constant KEYS].
 static func values_of(kind: int) -> Dictionary:

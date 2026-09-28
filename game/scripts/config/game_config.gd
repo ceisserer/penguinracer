@@ -135,6 +135,12 @@ var fog_distance_scale: float = 2.0
 
 # --- game ---
 
+## The interface language: [constant Language.AUTO] to follow the platform, or
+## one of [constant Language.CODES]. ETR keeps a `language` key in its
+## `options.txt` for the same reason; this one is chosen on the settings screen.
+## `--lang=`/`?lang=` outranks it for one run — see [method active_language].
+var language: String = Language.AUTO
+
 ## Directory name of the character raced as — a row of
 ## [member CharacterCatalog.entries], which is a row of `char/characters.lst`.
 ##
@@ -229,6 +235,7 @@ var _window_preset: bool = false
 
 func _ready() -> void:
 	load_or_create()
+	apply_language()
 	# On a phone's browser, the page-side half of the touch controls goes in
 	# now rather than at the first race: it asks for motion access and
 	# fullscreen from the first tap, and the first tap is on a menu.
@@ -236,6 +243,17 @@ func _ready() -> void:
 		MotionSensor.install()
 	_window_preset = _window_already_chosen()
 	apply_display()
+
+## The language this run speaks, as a setting [Language] resolves: the command
+## line's or the URL's for this run, otherwise the file's.
+func active_language() -> String:
+	return Language.parse(LaunchArgs.current().language, language)
+
+## Point the [TranslationServer] at [method active_language]. At startup, before
+## the first screen asks `tr()` for anything, and again when the settings screen
+## changes it.
+func apply_language() -> void:
+	Language.apply(active_language())
 
 ## Android's back button (and a back gesture) is Esc: out of a race to the
 ## course list, out of a panel back to the main menu. The platform's default
@@ -343,6 +361,7 @@ func read(cfg: ConfigFile) -> void:
 		fog_start_distance)), 0.0)
 	fog_distance_scale = clampf(float(cfg.get_value("fog", "distance_scale",
 		fog_distance_scale)), 0.1, 10.0)
+	language = Language.parse(str(cfg.get_value("game", "language", language)), language)
 	character = str(cfg.get_value("game", "character", character)).strip_edges()
 	if character.is_empty():
 		character = CharacterCatalog.DEFAULT_DIR
@@ -482,6 +501,11 @@ distance_scale = %.2f
 
 [game]
 
+; The language of the menus: "auto" follows the system (or the browser), "en"
+; is English, "de" is German. The Configuration screen sets this.
+; Also `--lang=de` on the command line, which outranks this for one run.
+language = "%s"
+
 ; Who you race as: one of the directories under char/ in the original data —
 ; tux, trixi, boris, samuel or beastie. The Character screen sets this.
 ; A name that is not installed falls back to tux.
@@ -547,7 +571,7 @@ port = %d
 		QualityPreset.SKY_DETAIL_NAMES[sky_detail], tree_detail,
 		QualityPreset.TREE_SHADOW_NAMES[tree_shadows],
 		QualityPreset.SHADOW_DETAIL_NAMES[shadow_detail],
-		fog_start_distance, fog_distance_scale, character,
+		fog_start_distance, fog_distance_scale, language, character,
 		opponents, AISkill.name_of(opponent_skill), snowfall,
 		LightCondition.name_of(conditions), WindField.strength_name(wind),
 		TouchScheme.name_of(touch_scheme), player_name, multiplayer_server, multiplayer_port]

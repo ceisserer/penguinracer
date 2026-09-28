@@ -52,6 +52,9 @@ var remote_keyboard: bool = false
 ## [method TouchScheme.resolve].
 var touch: String = ""
 var no_audio: bool = false
+## `--lang=de` / `?lang=en`: the interface language for this run, unparsed —
+## see [method GameConfig.active_language]. Empty means the settings file's.
+var language: String = ""
 var no_intro: bool = false
 ## `--fps` — the HUD's frame-rate readout, which is `param.display_fps` in the
 ## original's config file. A flag rather than a setting because it is a debug
@@ -173,6 +176,8 @@ func parse(argv: PackedStringArray, query: Dictionary) -> void:
 			touch = "on"
 		elif arg.begins_with("--touch="):
 			touch = arg.trim_prefix("--touch=")
+		elif arg.begins_with("--lang="):
+			language = arg.trim_prefix("--lang=")
 		elif arg == "--no-audio":
 			no_audio = true
 		elif arg == "--no-intro":
@@ -225,6 +230,7 @@ func parse(argv: PackedStringArray, query: Dictionary) -> void:
 	remote_keyboard = remote_keyboard or query.has("remotekeyboard")
 	if touch.is_empty() and query.has("touch"):
 		touch = str(query["touch"]) if not str(query["touch"]).is_empty() else "on"
+	language = _str(query, "lang", language)
 	no_audio = no_audio or query.has("noaudio")
 	no_intro = no_intro or query.has("nointro")
 	show_fps = show_fps or query.has("fps")

@@ -705,8 +705,8 @@ art and go into the licence audit with the rest of the imported assets.
 
 Not done, and none of it started: cups and events (the resources are imported and unused),
 medals from the migrated thresholds, and save profiles — the player half of `CRegist` waits on the
-last of those. Sound and music volumes and the language are ETR's `options.txt` keys that this
-file and this screen still do not carry.
+last of those. Sound and music volumes are ETR's `options.txt` keys that this file and this
+screen still do not carry; the language arrived on 2026-09-28 (see below).
 
 ### Multiplayer foundation · **done — seams built, ghosts working, and the network on top of them**
 
@@ -2068,8 +2068,8 @@ against those); nothing has been checked in a real browser, only under desktop C
   how it looks, and that is a design call rather than a fidelity one.
 - **The game shell stops at free course selection** (Phase 5): no cup progression, medals or save
   profiles. The migrated event thresholds are sitting there ready; the translations are wired up.
-  The settings screen moves the six keys a player can act on and not the three ETR's own
-  configuration screen also has — sound volume, music volume and language. The two multiplayer
+  The settings screen moves the keys a player can act on, including the language, but not the
+  two ETR's own configuration screen also has — sound volume and music volume. The two multiplayer
   keys a player edits (`player_name` and `server`) are on the **Network multiplayer** screen
   instead, where they are what is being asked for; `port` is file-only. The screens carry the original's
   palette but none of its menu art — corner ornaments, title logo, drifting `ui_snow` — which is
@@ -2390,3 +2390,30 @@ markers and appended a fresh block each time. It now recognises its presets by n
 **Still failing, not from this**: `lighting/what project.godot ships` wants
 `rendering_method.web="gl_compatibility"`, which 78f80ca dropped (the editor omits a value equal to
 its default, which this one is — the web still runs Compatibility).
+
+### English and German, detected or chosen (2026-09-28) · **done**
+
+The interface is in English or German, and in nothing else. ETR's 13 imported tables cover its
+111 strings and none of the ~125 this rebuild added (lobby, ghosts, opponents, the settings
+screen), which were English literals — so a German system got a menu half in German, and a French
+one half in French. Now every string a player reads goes through the table: ETR's key where one
+fits, otherwise a row of the hand-written `game/i18n/ui.csv` (`keys,en,de`), registered ahead of
+the imported tables in `project.godot`. Scenes hold keys and let auto-translate draw them;
+scripts `tr()`; the label constants (`AISkill`, `LightCondition`, `WindField`, `TouchScheme`,
+`QualityPreset`, the snow grades) are keys; `LobbyServer.explain` translates on the client, so
+each player reads a refusal in their own language.
+
+`Language` (`scripts/config/language.gd`) pins the locale to `en` or `de`. `[game] language =
+"auto"` (the default) takes `OS.get_locale()` — `LANG` on a desktop, the system language on
+Android, `navigator.language` in a browser — and gives German to a German locale, English to
+anything else. The settings screen's new first row offers *Automatic (…)* (naming what it comes
+to), *English* and *Deutsch*; Ok applies it and rebuilds the main menu, because text put up with
+`tr()` does not follow a locale change on its own. `--lang=de` / `?lang=de` override for one run.
+
+**Verified**: the suite (`config/language`, `config/string table` — both columns present,
+placeholders matching, and the engine resolving a key of each kind in each locale); every menu
+panel rendered with `--lang=de` and `--lang=en`; a desktop run under `LANG=de_DE.UTF-8` coming up
+German with no setting; switching on the settings screen writing `language = "de"` and the
+rebuilt menu in German. **Not verified**: a browser or a phone picking the locale up — both are
+the engine's `OS.get_locale()`, not code of ours. The course descriptions stay English, as ETR
+ships them.

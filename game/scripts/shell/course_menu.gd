@@ -72,11 +72,11 @@ enum Mode { PRACTICE, RACE, NET_CREATE, NET_ROOM }
 const SCREEN_COLOR := Color(0.4, 0.6, 0.8, 1.0)
 const OVER_RACE_COLOR := Color(0.2, 0.3, 0.6, 0.72)
 
-## What the four grades of [member RaceSetup.snowfall] are called. Not migrated
-## strings and not `tr()` keys: ETR says this with a four-state icon and has no
-## words for it in any of the thirteen translations, so a key would resolve to
-## nothing everywhere. Same standing as *Opponents* and *Skill* above.
-const SNOW_LABELS: Array[String] = ["None", "A little", "More", "A lot"]
+## What the four grades of [member RaceSetup.snowfall] are called: translation
+## keys from `i18n/ui.csv`. ETR's own `SNOW_A_LITTLE` reads "Snow: A little", a
+## label and a value in one, which is not what a drop-down beside a label wants.
+const SNOW_LABELS: Array[String] = ["SNOWFALL_NONE", "SNOWFALL_A_LITTLE",
+	"SNOWFALL_MORE", "SNOWFALL_A_LOT"]
 
 var _catalog: CourseCatalog
 ## The catalog rows that are actually present in this build. The `WebOneCourse`
@@ -96,15 +96,10 @@ var _entries: Array[CourseListing] = []
 @onready var _back_button: Button = %BackButton
 @onready var _hint: Label = %Hint
 @onready var _field_row: Control = %FieldRow
-@onready var _opponents_label: Label = %OpponentsLabel
 @onready var _opponents: OptionButton = %OpponentsOption
-@onready var _skill_label: Label = %SkillLabel
 @onready var _skill: OptionButton = %SkillOption
-@onready var _snow_label: Label = %SnowLabel
 @onready var _snow: OptionButton = %SnowOption
-@onready var _conditions_label: Label = %ConditionsLabel
 @onready var _conditions: OptionButton = %ConditionsOption
-@onready var _wind_label: Label = %WindLabel
 @onready var _wind: OptionButton = %WindOption
 @onready var _room_row: Control = %RoomRow
 @onready var _race_name: LineEdit = %RaceNameEdit
@@ -125,14 +120,8 @@ var _setup := RaceSetup.new()
 func _ready() -> void:
 	_catalog = CourseCatalog.load_default()
 	_back_button.text = tr("BACK")
-	# Neither of these is a migrated string: ETR has no computer opponents, so
-	# there is nothing to migrate and a `tr()` key would resolve to nothing in
-	# all thirteen languages. Same call as `ghost` and *Race your best time*.
-	_opponents_label.text = "Opponents:"
-	_skill_label.text = "Skill:"
-	_snow_label.text = "Snowfall:"
-	_conditions_label.text = "Conditions:"
-	_wind_label.text = "Wind:"
+	# The row labels are translation keys in the scene, and the drop-downs'
+	# rows are keys too: the engine translates both as it draws them.
 	_fill_field_options()
 
 	# A phone cannot scroll an ItemList at all without this.
@@ -248,11 +237,11 @@ func _apply_mode(new_mode: Mode) -> void:
 	var action: String = tr("RACE")
 	match mode:
 		Mode.NET_CREATE:
-			_title.text = "Create a race"
-			action = "Create"
+			_title.text = tr("CREATE_A_RACE")
+			action = tr("ACTION_CREATE")
 		Mode.NET_ROOM:
-			_title.text = "Choose the course"
-			action = "Choose"
+			_title.text = tr("CHOOSE_THE_COURSE")
+			action = tr("ACTION_CHOOSE")
 		_:
 			_title.text = tr("SELECT_A_RACE")
 	_race_button.text = action
@@ -320,7 +309,7 @@ func _choose(entry: CourseListing) -> void:
 		if mode == Mode.NET_CREATE:
 			_waiting = true
 			_race_button.disabled = true
-			_set_result("Creating the race…")
+			_set_result(tr("CREATING_THE_RACE"))
 		room_course_chosen.emit(entry, _snow.get_selected_id(),
 			_conditions.get_selected_id(), _wind.get_selected_id(), _race_name.text,
 			_password.text)

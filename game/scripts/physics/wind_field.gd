@@ -25,7 +25,7 @@ const UPDATE_TIME := 0.04
 enum Strength { NONE, LIGHT, STRONG }
 const STRENGTHS: Array[Strength] = [Strength.NONE, Strength.LIGHT, Strength.STRONG]
 const _STRENGTH_NAMES: Array[String] = ["none", "light", "strong"]
-const _STRENGTH_LABELS: Array[String] = ["None", "Light", "Strong"]
+const _STRENGTH_LABELS: Array[String] = ["CROSSWIND_NONE", "CROSSWIND_LIGHT", "CROSSWIND_STRONG"]
 
 ## Metres per second squared of sideways push in flight per unit of wind
 ## [method speed]. A jump is around a second in the air, so a strong wind
@@ -162,8 +162,8 @@ func _set_crosswind_params(level: Strength) -> void:
 static func strength_name(level: Strength) -> String:
 	return _STRENGTH_NAMES[clampi(level, 0, _STRENGTH_NAMES.size() - 1)]
 
-## What the course screen and the lobby call a strength. Literals, not `tr()`
-## keys, for the reason [CourseMenu] gives for the snow's.
+## What the course screen and the lobby call a strength: a translation key,
+## for the reason [CourseMenu] gives for the snow's.
 static func strength_label(level: Strength) -> String:
 	return _STRENGTH_LABELS[clampi(level, 0, _STRENGTH_LABELS.size() - 1)]
 

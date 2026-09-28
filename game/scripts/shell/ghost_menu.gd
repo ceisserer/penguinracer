@@ -28,14 +28,15 @@ var _catalog: CourseCatalog
 
 func _ready() -> void:
 	_catalog = CourseCatalog.load_default()
-	# Not migrated strings — ETR has no saved runs to have a word for, the same
-	# call *Race the computer* and `ghost` already make.
-	_title.text = "Race against ghost"
-	_race_button.text = "Race!"
-	_delete_button.text = "Delete"
+	# Mostly not migrated strings — ETR has no saved runs to have a word for —
+	# so they are `i18n/ui.csv`'s, like *Race the computer* and `ghost`.
+	_title.text = tr("RACE_AGAINST_GHOST")
+	_race_button.text = tr("RACE")
+	_delete_button.text = tr("DELETE")
 	_back_button.text = tr("BACK")
-	_empty.text = "No saved runs yet — finish a race and save one to fill this list."
-	_delete_confirm.ok_button_text = "Delete"
+	_empty.text = tr("NO_SAVED_RUNS")
+	_delete_confirm.title = tr("DELETE")
+	_delete_confirm.ok_button_text = tr("DELETE")
 	_delete_confirm.cancel_button_text = tr("CANCEL")
 
 	TouchListScroll.attach(_list)
@@ -79,8 +80,8 @@ func _row_text(entry: SavedRunStore.Entry) -> String:
 	var course_title: String = listing.title() if listing != null else recording.course_dir
 	var minutes: int = int(recording.total_time) / 60
 	var seconds: float = fmod(recording.total_time, 60.0)
-	return "%s  —  %s  —  %d:%05.2f  —  %d herring" % [course_title,
-		recording.run_name, minutes, seconds, recording.herring]
+	return "%s  —  %s  —  %d:%05.2f  —  %s" % [course_title,
+		recording.run_name, minutes, seconds, tr("HERRING_COUNT") % recording.herring]
 
 func _update_buttons() -> void:
 	var selected: bool = not _list.get_selected_items().is_empty()
@@ -106,7 +107,7 @@ func _race_selected() -> void:
 func _delete_selected() -> void:
 	if _selected_entry() == null:
 		return
-	_delete_confirm.dialog_text = "Delete this saved run? This cannot be undone."
+	_delete_confirm.dialog_text = tr("DELETE_RUN_CONFIRM")
 	_delete_confirm.popup_centered()
 
 func _confirm_delete() -> void:

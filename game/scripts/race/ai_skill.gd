@@ -41,11 +41,9 @@ enum Level {
 
 ## Names as `penguinracer.cfg` and `--difficulty=` spell them.
 const NAMES: PackedStringArray = ["easy", "medium", "hard"]
-## What the menus show. Not `tr()` keys: the original has no computer
-## opponents, so there is nothing to migrate and a key would resolve to nothing
-## in all thirteen languages — the same call already made for `ghost` and for
-## the Configuration screen's *Race your best time*.
-const LABELS: PackedStringArray = ["Easy", "Medium", "Hard"]
+## What the menus show — translation keys. The original has no computer
+## opponents, so these are not migrated strings but `i18n/ui.csv`'s.
+const LABELS: PackedStringArray = ["SKILL_EASY", "SKILL_MEDIUM", "SKILL_HARD"]
 
 var level: Level = Level.MEDIUM
 

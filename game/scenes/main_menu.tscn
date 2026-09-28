@@ -57,7 +57,7 @@ horizontal_alignment = 1
 layout_mode = 2
 theme_type_variation = &"DimLabel"
 theme_override_font_sizes/font_size = 19
-text = "A Godot rebuild of Extreme Tux Racer"
+text = "MAIN_SUBTITLE"
 horizontal_alignment = 1
 
 [node name="TopSpacer" type="Control" parent="Frame/Body"]
@@ -75,49 +75,49 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(340, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 30
-text = "Practice"
+text = "PRACTICE"
 
 [node name="OpponentsButton" type="Button" parent="Frame/Body/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(340, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 30
-text = "Race the computer"
+text = "RACE_THE_COMPUTER"
 
 [node name="NetworkButton" type="Button" parent="Frame/Body/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(340, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 30
-text = "Network multiplayer"
+text = "NETWORK_MULTIPLAYER"
 
 [node name="GhostButton" type="Button" parent="Frame/Body/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(340, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 30
-text = "Race against ghost"
+text = "RACE_AGAINST_GHOST"
 
 [node name="CharacterButton" type="Button" parent="Frame/Body/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(340, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 30
-text = "Select a character:"
+text = "SELECT_A_CHARACTER"
 
 [node name="SettingsButton" type="Button" parent="Frame/Body/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(340, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 30
-text = "Configuration"
+text = "CONFIGURATION"
 
 [node name="QuitButton" type="Button" parent="Frame/Body/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(340, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 30
-text = "Quit"
+text = "QUIT"
 
 [node name="BottomSpacer" type="Control" parent="Frame/Body"]
 layout_mode = 2

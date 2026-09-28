@@ -64,6 +64,7 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           quality presets and the knobs they set), RenderBackend (which renderer,
                           and shadows), LaunchArgs (command line + URL query), DisplayModes,
                           PackStream (streamed web packs, risk S6; no-op elsewhere),
+                          Language (en | de, auto-detected from the platform locale),
                           TouchScheme (tilt | buttons | off, and "is this a phone")
   scripts/debug/          DebugCapture autoload (headless screenshots / scripted input), key_log
   shaders/                terrain, etr_skybox, procedural_sky, object_billboard (items), object_cross (shrubs),
@@ -77,6 +78,8 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           ambient_occlusion.res, splat_*.png
   resources/  i18n/       GENERATED: layers, prefabs, environments, events, course + character
                           catalogs, five rigs + previews, sound bank, music, 13 translations
+  i18n/                   GENERATED penguinracer.csv (ETR's strings × 13) + HAND-WRITTEN ui.csv
+                          (everything ETR has no string for, en + de) — see Language
   assets/sounds|music/    GENERATED: 10 effects, 10 pieces, copied verbatim
   assets/trees/           BAKED: conifer + bare-tree impostor atlases (tools/bake_tree_impostors.sh)
   scenes/                 main_menu.tscn (main scene), course/character/settings/ghost/lobby/
@@ -122,6 +125,7 @@ godot --path game -- --remote-keyboard                             # ... over a 
 godot --path game -- --no-audio                                    # ... silent, for captures
 godot --path game -- --no-intro                                    # ... skipping the start animation
 godot --path game -- --fps                                         # ... with a frame-rate readout (this run only)
+godot --path game -- --lang=de                                     # ... in German (en|de|auto)
 godot --path game -- --touch=buttons                               # ... with a phone's on-screen controls (tilt|buttons|off)
 godot --path game -- --crosswind=strong                             # ... in a crosswind (none|light|strong)
 godot --path game -- --wind=2                                      # ... in ETR's wind grade 1..3 instead
@@ -215,7 +219,7 @@ Detail is in `PROGRESS.md`; this is the summary.
 | 2 — rendering | partial — Mobile on the desktop, Compatibility on the web (trap list: *sRGB-blended shadow pass*). ETR's illumination clamp in every lit shader except the character's; desktop-only PSSM shadow. Splat PBR, chunked terrain, instanced objects (conifers and bare trees are 3D meshes at 3 LODs + an octahedral impostor, dithered hand-overs, wind sway, shader snow — [Forest]; shrubs are ETR's two crossed planes with a hashed yaw; items are billboards), ETR's HUD redrawn as primitives ([RaceHUD]), migrated skyboxes. Tone matched on Bunny Hill at both ends in all three channels; no LightmapGI. Snow/ice micro-relief, glint, Fresnel sky, ice reflecting the racers (`IceReflection`), textured carve spray. Heightmap AO baked at import + trench-wall AO; shaded/occluded/carved snow tinted blue (fake SSS). |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror; a carve leaves a shaded trench with a ploughed lip. |
 | 4 — character | **done for all five** — skinned mesh from `shape.lst`, keyframe clips as `AnimationLibrary` + `KeyframePath` root motion, start animation (`CIntro`), finish clips on the results screen (`RaceOutcome.clip`), racing pose layer (`CharacterRig.adjust_joints`, ETR's `AdjustJoints`) driven off `RacerState` alone so ghosts and peers animate. `GameConfig.character` picks one. |
-| 5 — game shell | partial — main menu → Practice / Race the computer / Network multiplayer / Race against ghost / character / Configuration; results screen with named runs; ETR palette theme; course + character catalogs; 13 languages; audio (`AudioDirector`, ETR's one-voice-per-cue mixer). Missing: cups, medals, profiles (data imported), volume/language controls, ETR's menu art (licence audit). |
+| 5 — game shell | partial — main menu → Practice / Race the computer / Network multiplayer / Race against ghost / character / Configuration; results screen with named runs; ETR palette theme; course + character catalogs; English + German, detected or chosen on the settings screen; audio (`AudioDirector`, ETR's one-voice-per-cue mixer). Missing: cups, medals, profiles (data imported), volume controls, ETR's menu art (licence audit). |
 | 6 — polish/ship | not started. |
 | phones | **done, not raced on hardware** — `Android` preset + `tools/build_android.sh` (Mobile renderer by default, Compatibility selectable in the settings screen from the next launch, whole game in the APK, Medium preset on first run); tilt / buttons / off on Android and in a phone's browser (`TouchScheme`, `TouchControls`, `TiltSteering`, `MotionSensor`); back button is Esc. Verified by the suite, desktop renders with `--touch`, and Chromium emulating an Android phone with synthetic `devicemotion`. |
 | sky + atmosphere | **done** (beyond ETR) — procedural sky (sun disc, drifting clouds; stars, moon, aurora at night), three layers of distant ridges, aerial perspective and valley mist in every lit shader's `FOG`, night torches inside the clamp (baked into the terrain). `[display] sky = etr` / `--sky=etr` is the old frame to the level. See the deviations. |
@@ -913,10 +917,21 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
 - **The terrain slide sound resolves through the dominant splat layer**, where ETR needs ≥ half the
   blend or plays nothing. **The slide has no speed term** — ETR's `SlideVolume` ships commented out.
 - **Numeric string IDs became semantic keys** (`PRESS_ANY_KEY_TO_START`); old IDs are in
-  `i18n/legacy_string_ids.cfg`. Strings for features ETR lacks (`ghost`, *Race the computer*,
-  *Opponents* / *Skill* / *Easy, Medium, Hard*) are literals — a `tr()` key would resolve to nothing
-  in all 13 languages. Finishing places reuse `POSITION` and `1ST`..`10TH`, which is why the field
-  stops at nine.
+  `i18n/legacy_string_ids.cfg`. Finishing places reuse `POSITION` and `1ST`..`10TH`, which is why
+  the field stops at nine.
+- **The interface speaks English and German, nothing else** (`Language`). ETR's 13 imported
+  tables cover only its 111 strings, so the locale is pinned to `en` or `de` — the platform's
+  (`OS.get_locale()`: `LANG`, Android's system language, `navigator.language`) when
+  `[game] language = "auto"`, German only for a German locale, English for everything else. The
+  settings screen, `--lang=`/`?lang=` override it. **Every string a player reads goes through the
+  table**: ETR's key where one fits, else a row in the hand-written `i18n/ui.csv` (`keys,en,de`,
+  never touched by the importer) — no English literals, and no key without both columns
+  (`TestConfig` checks, and that `%` placeholders match). In a `.tscn`, put the **key** in `text`
+  and let auto-translate draw it; in a script, `tr()` it; an `OptionButton` row can be a bare key.
+  Text built with `tr()` does not follow a locale change, so the settings screen rebuilds the main
+  menu scene when the language changes. Adding a row: edit the CSV, then
+  `godot --headless --path game --import` to regenerate `ui.*.translation`. Course names and
+  descriptions stay as ETR ships them — untranslated there too.
 - **A phone races by tilt or by buttons** (`TouchScheme`, `TouchControls`, `TiltSteering`); ETR
   is keyboard-only. The buttons press the ordinary actions; tilt is merged per tick in
   `LocalInputSource`. The physics sees a stick and flags, exactly as from a gamepad. A phone

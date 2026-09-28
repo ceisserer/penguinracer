@@ -3,7 +3,7 @@
 ## ETR's `options.txt` has two halves — the keys its configuration screen can
 ## also set, and the keys only the file carries — and [GameConfig] started as
 ## the second half because there was no screen. This is the screen, and it moves
-## every key a player can act on today: window size, fullscreen, the quality
+## every key a player can act on today: the language, window size, fullscreen, the quality
 ## rows (render scale, anti-aliasing, the sky and its detail, how far out the
 ## trees keep their detail, shadows and which trees cast them, the shadow map,
 ## ice reflections), the HUD's frame-rate readout, the two fog distances, and
@@ -43,9 +43,7 @@ signal closed()
 ## What the drop-down offers under "Auto" ([constant Vector2i.ZERO], where the
 ## platform sizes the window): the modes of the display the window is on, from
 ## [DisplayModes], not a fixed list.
-@onready var _title: Label = %Title
-@onready var _resolution_label: Label = %ResolutionLabel
-@onready var _fullscreen_label: Label = %FullscreenLabel
+@onready var _language: OptionButton = %LanguageOption
 @onready var _path_label: Label = %Path
 @onready var _resolution_row: Control = %ResolutionRow
 @onready var _resolution: OptionButton = %ResolutionOption
@@ -53,10 +51,8 @@ signal closed()
 @onready var _fullscreen: CheckBox = %FullscreenCheck
 @onready var _render_scale: HSlider = %RenderScaleSlider
 @onready var _render_scale_value: Label = %RenderScaleValue
-@onready var _ice_reflection_label: Label = %IceReflectionLabel
 @onready var _ice_reflection: CheckBox = %IceReflectionCheck
 @onready var _shadows_row: Control = %ShadowsRow
-@onready var _shadows_label: Label = %ShadowsLabel
 @onready var _shadows: CheckBox = %ShadowsCheck
 @onready var _quality: OptionButton = %QualityOption
 @onready var _antialiasing: OptionButton = %AntialiasingOption
@@ -68,7 +64,6 @@ signal closed()
 @onready var _tree_shadows: OptionButton = %TreeShadowsOption
 @onready var _shadow_detail_row: Control = %ShadowDetailRow
 @onready var _shadow_detail: OptionButton = %ShadowDetailOption
-@onready var _show_fps_label: Label = %ShowFpsLabel
 @onready var _show_fps: CheckBox = %ShowFpsCheck
 @onready var _touch_row: Control = %TouchRow
 @onready var _touch: OptionButton = %TouchOption
@@ -90,18 +85,8 @@ const _RENDERERS: Array[String] = [RenderBackend.MOBILE, RenderBackend.COMPATIBI
 var _filling: bool = false
 
 func _ready() -> void:
-	_title.text = tr("CONFIGURATION")
-	_resolution_label.text = tr("RESOLUTION")
-	_fullscreen_label.text = tr("FULLSCREEN")
-	# Neither migrated nor keyed, like `ghost` and *Race the computer*: ETR
-	# reflects nothing, so there is no string to migrate and a `tr()` key would
-	# resolve to nothing in all 13 languages.
-	_ice_reflection_label.text = "Ice reflections:"
-	_shadows_label.text = "Shadows:"
-	# ETR has `param.display_fps` but no screen for it, so no string either.
-	_show_fps_label.text = "Show frame rate:"
-	_ok_button.text = tr("OK")
-	_cancel_button.text = tr("CANCEL")
+	# The labels are translation keys in the scene, which the engine translates
+	# as it draws them; only the text built here goes through `tr()`.
 	_path_label.text = ProjectSettings.globalize_path(GameConfig.PATH)
 
 	# The page sizes the canvas in a browser build, and `apply_display` knows it
@@ -135,14 +120,21 @@ func _ready() -> void:
 		_quality.add_item(QualityPreset.label(kind))
 	_quality.add_item(QualityPreset.label(QualityPreset.CUSTOM))
 	_quality.set_item_disabled(_custom_index(), true)
-	_fill_options(_antialiasing, ["Off", "2x", "4x"])
-	_fill_options(_sky, ["Procedural", "Original (photographed)"])
-	_fill_options(_sky_detail, ["Low", "Medium", "High"])
-	_fill_options(_tree_shadows, ["Off", "Nearest trees", "All trees"])
-	_fill_options(_shadow_detail, ["Low", "Medium", "High", "Best"])
+	_fill_options(_antialiasing, ["OPTION_OFF", "2x", "4x"])
+	_fill_options(_sky, ["SKY_PROCEDURAL", "SKY_ORIGINAL"])
+	_fill_options(_sky_detail, ["OPTION_LOW", "OPTION_MEDIUM", "OPTION_HIGH"])
+	_fill_options(_tree_shadows, ["OPTION_OFF", "TREE_SHADOWS_NEAREST", "TREE_SHADOWS_ALL"])
+	_fill_options(_shadow_detail, ["OPTION_LOW", "OPTION_MEDIUM", "OPTION_HIGH", "OPTION_BEST"])
 	_fill_options(_touch, Array(TouchScheme.LABELS, TYPE_STRING, "", null))
 	# Rows in the order of `_RENDERERS`.
-	_fill_options(_renderer, ["Mobile (Vulkan)", "Compatibility (OpenGL)"])
+	_fill_options(_renderer, ["RENDERER_MOBILE", "RENDERER_COMPATIBILITY"])
+	# "auto" first, then each language in its own name. The automatic row says
+	# what it currently comes to, so a player on a German phone who sees
+	# "Automatisch (Deutsch)" knows why the menus are German.
+	_language.add_item(tr("LANGUAGE_AUTO") % Language.native_name(
+		Language.detect(OS.get_locale())))
+	for code: String in Language.CODES:
+		_language.add_item(Language.native_name(code))
 	_renderer.item_selected.connect(_on_renderer_selected)
 
 	_quality.item_selected.connect(_on_quality_selected)
@@ -167,6 +159,7 @@ func _ready() -> void:
 ## open rather than once in [method _ready] is what makes Cancel free: the
 ## discarded edit is only ever in the widgets.
 func open() -> void:
+	_language.select(_language_row(Config.language))
 	if _resolution_row.visible:
 		_fill_resolutions(Config.resolution)
 	_fullscreen.button_pressed = Config.fullscreen
@@ -189,6 +182,14 @@ func open() -> void:
 		_resolution.grab_focus()
 	else:
 		_render_scale.grab_focus()
+
+## The drop-down's row for a `[game] language` value: 0 is "auto", then
+## [constant Language.CODES] in order.
+func _language_row(setting: String) -> int:
+	return Language.CODES.find(setting) + 1
+
+func _language_setting(row: int) -> String:
+	return Language.AUTO if row <= 0 else Language.CODES[row - 1]
 
 func _fill_options(button: OptionButton, labels: Array[String]) -> void:
 	button.clear()
@@ -293,6 +294,9 @@ func _on_fog_scale_changed(value: float) -> void:
 	_fog_scale_value.text = "%.1f x" % value
 
 func _accept() -> void:
+	var language: String = _language_setting(_language.selected)
+	var language_changed: bool = language != Config.language
+	Config.language = language
 	if _resolution_row.visible:
 		Config.resolution = _resolution.get_selected_metadata()
 		Config.fullscreen = _fullscreen.button_pressed
@@ -317,6 +321,13 @@ func _accept() -> void:
 	# command line wins — see [method GameConfig.apply_display].
 	Config.apply_display(true)
 	Config.save()
+	if language_changed:
+		# Every screen of the shell set some of its text with `tr()` when it was
+		# built, and that text does not follow the locale by itself. Building
+		# them again is the one way that cannot miss a label; this screen only
+		# ever hangs off [MainMenu], so that is the scene to rebuild.
+		Config.apply_language()
+		get_tree().reload_current_scene.call_deferred()
 	_close()
 
 func _cancel() -> void:

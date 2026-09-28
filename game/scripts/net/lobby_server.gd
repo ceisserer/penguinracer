@@ -530,21 +530,26 @@ static func sanitize_name(text: String, fallback: String, limit: int) -> String:
 static func _error(code: String) -> Dictionary:
 	return {"ok": false, "error": code}
 
-## One line of English per error code the calls above can come back with. Here
-## rather than on the menu because the server is what produces them and this is
-## the file that enumerates them; [LobbyMenu] only shows what it is handed.
+## One line per error code the calls above can come back with, in the
+## player's language. Here rather than on the menu because the server is what
+## produces them and this is the file that enumerates them; [LobbyMenu] only
+## shows what it is handed. Only ever called on the client — the wire carries
+## the code, so each player reads the refusal in their own language.
 static func explain(code: String) -> String:
-	match code:
-		"no_such_room": return "That race is no longer there."
-		"wrong_password": return "Wrong password."
-		"room_full": return "That race is full."
-		"already_started": return "That race has already started."
-		"not_admin": return "Only the player who created the race can do that."
-		"not_in_a_room": return "You are not in a race."
-		"room_name_taken": return "There is already a race with that name."
-		"too_many_rooms": return "The server is full."
-		"bad_room_name": return "Give the race a name."
-		"no_course": return "Choose a course."
-		"unknown_peer": return "The server does not know who you are — reconnect."
-		"name_taken": return "Somebody on this server is already racing under that name."
-	return code
+	const KEYS: Dictionary = {
+		"no_such_room": "NET_NO_SUCH_ROOM",
+		"wrong_password": "NET_WRONG_PASSWORD",
+		"room_full": "NET_ROOM_FULL",
+		"already_started": "NET_ALREADY_STARTED",
+		"not_admin": "NET_NOT_ADMIN",
+		"not_in_a_room": "NET_NOT_IN_A_ROOM",
+		"room_name_taken": "NET_ROOM_NAME_TAKEN",
+		"too_many_rooms": "NET_TOO_MANY_ROOMS",
+		"bad_room_name": "NET_BAD_ROOM_NAME",
+		"no_course": "NET_NO_COURSE",
+		"unknown_peer": "NET_UNKNOWN_PEER",
+		"name_taken": "NET_NAME_TAKEN",
+	}
+	if not KEYS.has(code):
+		return code
+	return TranslationServer.translate(KEYS[code])

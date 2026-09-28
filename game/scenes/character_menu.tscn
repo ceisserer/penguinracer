@@ -36,7 +36,7 @@ theme_override_constants/separation = 18
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 30
-text = "Select a character:"
+text = "SELECT_A_CHARACTER"
 horizontal_alignment = 1
 
 [node name="Spinner" type="HBoxContainer" parent="Frame/Panel/Body"]
@@ -100,11 +100,11 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(240, 42)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "Enter"
+text = "ENTER"
 
 [node name="BackButton" type="Button" parent="Frame/Panel/Body/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(240, 42)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "Back"
+text = "BACK"

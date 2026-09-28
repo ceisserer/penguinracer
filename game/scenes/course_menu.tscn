@@ -37,7 +37,7 @@ theme_override_constants/separation = 10
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 34
-text = "Select a race"
+text = "SELECT_A_RACE"
 horizontal_alignment = 1
 
 [node name="Result" type="Label" parent="Frame/Body"]
@@ -108,7 +108,7 @@ theme_override_constants/separation = 12
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Opponents:"
+text = "OPPONENTS_LABEL"
 
 [node name="OpponentsOption" type="OptionButton" parent="Frame/Body/Columns/InfoPanel/Info/FieldRow"]
 unique_name_in_owner = true
@@ -125,7 +125,7 @@ size_flags_horizontal = 3
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Skill:"
+text = "SKILL_LABEL"
 
 [node name="SkillOption" type="OptionButton" parent="Frame/Body/Columns/InfoPanel/Info/FieldRow"]
 unique_name_in_owner = true
@@ -143,7 +143,7 @@ theme_override_constants/separation = 12
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Race name:"
+text = "RACE_NAME_LABEL"
 
 [node name="RaceNameEdit" type="LineEdit" parent="Frame/Body/Columns/InfoPanel/Info/RoomRow"]
 unique_name_in_owner = true
@@ -157,14 +157,14 @@ max_length = 32
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Password:"
+text = "PASSWORD_LABEL"
 
 [node name="PasswordEdit" type="LineEdit" parent="Frame/Body/Columns/InfoPanel/Info/RoomRow"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(160, 38)
 layout_mode = 2
 theme_override_font_sizes/font_size = 17
-placeholder_text = "none"
+placeholder_text = "PASSWORD_NONE"
 secret = true
 
 [node name="WeatherRow" type="HBoxContainer" parent="Frame/Body/Columns/InfoPanel/Info"]
@@ -176,7 +176,7 @@ theme_override_constants/separation = 12
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Snowfall:"
+text = "SNOWFALL_LABEL"
 
 [node name="SnowOption" type="OptionButton" parent="Frame/Body/Columns/InfoPanel/Info/WeatherRow"]
 unique_name_in_owner = true
@@ -193,7 +193,7 @@ size_flags_horizontal = 3
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Conditions:"
+text = "CONDITIONS_LABEL"
 
 [node name="ConditionsOption" type="OptionButton" parent="Frame/Body/Columns/InfoPanel/Info/WeatherRow"]
 unique_name_in_owner = true
@@ -210,7 +210,7 @@ theme_override_constants/separation = 12
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Wind:"
+text = "WIND_LABEL"
 
 [node name="WindOption" type="OptionButton" parent="Frame/Body/Columns/InfoPanel/Info/WindRow"]
 unique_name_in_owner = true
@@ -228,14 +228,14 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "Back"
+text = "BACK"
 
 [node name="RaceButton" type="Button" parent="Frame/Body/Columns/InfoPanel/Info/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "Race!"
+text = "RACE"
 
 [node name="Hint" type="Label" parent="Frame/Body"]
 unique_name_in_owner = true

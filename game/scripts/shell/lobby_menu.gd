@@ -33,10 +33,9 @@
 ## server stores that and compares that. See the method for what this does and
 ## does not claim to protect.
 ##
-## Nothing here is a migrated string. ETR has no multiplayer, so there is
-## nothing to migrate and a `tr()` key would resolve to nothing in all thirteen
-## languages — the same call [GhostMenu] and *Race the computer* already make.
-## The two keys that do exist, `BACK` and `CANCEL`, are used.
+## Almost nothing here is a migrated string: ETR has no multiplayer, so the
+## words are `i18n/ui.csv`'s, English and German like the rest of the interface
+## ([Language]). The two migrated keys that do fit, `BACK` and `CANCEL`, are used.
 class_name LobbyMenu
 extends CanvasLayer
 
@@ -100,21 +99,21 @@ var _rooms: Array[Dictionary] = []
 
 func _ready() -> void:
 	_catalog = CourseCatalog.load_default()
-	_title.text = "Network multiplayer"
-	%NameLabel.text = "You are:"
-	%AddressLabel.text = "Server:"
-	_connect_button.text = "Connect"
-	_connect_hint.text = "A host name, a host:port, or a ws:// URL.\n" \
-		+ "Run a server with:  godot --headless --path game res://scenes/server.tscn"
-	_join_button.text = "Join"
-	_create_button.text = "Create a race"
-	_refresh_button.text = "Refresh"
-	_disconnect_button.text = "Disconnect"
-	%PasswordLabel.text = "Password:"
-	_empty.text = "No races waiting. Create one and the others will see it."
-	_change_course_button.text = "Change course"
-	_start_button.text = "Start the race"
-	_leave_button.text = "Leave this race"
+	_title.text = tr("NETWORK_MULTIPLAYER")
+	%NameLabel.text = tr("YOU_ARE_LABEL")
+	%AddressLabel.text = tr("SERVER_LABEL")
+	_connect_button.text = tr("CONNECT")
+	_connect_hint.text = tr("CONNECT_HINT") \
+		% "godot --headless --path game res://scenes/server.tscn"
+	_join_button.text = tr("JOIN")
+	_create_button.text = tr("CREATE_A_RACE")
+	_refresh_button.text = tr("REFRESH")
+	_disconnect_button.text = tr("DISCONNECT")
+	%PasswordLabel.text = tr("PASSWORD_LABEL")
+	_empty.text = tr("NO_RACES_WAITING")
+	_change_course_button.text = tr("CHANGE_COURSE")
+	_start_button.text = tr("START_THE_RACE")
+	_leave_button.text = tr("LEAVE_THIS_RACE")
 	for button: Button in _back_buttons:
 		button.text = tr("BACK")
 		button.pressed.connect(close)
@@ -156,7 +155,7 @@ func open() -> void:
 	_name_edit.text = Config.player_name
 	_address_edit.text = Config.multiplayer_server if not Config.multiplayer_server.is_empty() \
 		else RaceNetwork.default_address(Config.multiplayer_port)
-	_race_name = "%s's race" % Config.player_name
+	_race_name = tr("PLAYERS_RACE") % Config.player_name
 	_status.text = ""
 	_refresh_timer.start()
 	if Net.in_room():
@@ -166,7 +165,7 @@ func open() -> void:
 		_show(Page.BROWSE)
 	elif Net.connecting():
 		_show(Page.CONNECT)
-		_status.text = "Connecting…"
+		_status.text = tr("CONNECTING")
 	else:
 		_show(Page.CONNECT)
 
@@ -223,7 +222,7 @@ func _do_connect() -> void:
 		Config.multiplayer_server = address
 		Config.save()
 	Net.configure(player, Config.character)
-	_status.text = "Connecting to %s…" % address
+	_status.text = tr("CONNECTING_TO") % address
 	_connect_button.disabled = true
 	Net.connect_to_server(address, Config.multiplayer_port)
 
@@ -297,12 +296,12 @@ func _room_row(entry: Dictionary) -> String:
 	var course: String = listing.title() if listing != null else str(entry.get("course", ""))
 	# Words rather than a padlock glyph: the menu theme is the engine's default
 	# font, which has no emoji, and a tofu box in a list of races is worse than
-	# four characters of English.
-	return "%s%s  —  %s  —  %d/%d racers  —  host: %s" % [
-		"(locked)  " if bool(entry.get("locked", false)) else "",
+	# a word.
+	return "%s%s  —  %s  —  %s  —  %s" % [
+		tr("ROOM_LOCKED") + "  " if bool(entry.get("locked", false)) else "",
 		str(entry.get("name", "?")), course,
-		int(entry.get("players", 0)), int(entry.get("max_players", 0)),
-		str(entry.get("admin", "?"))]
+		tr("ROOM_RACERS") % [int(entry.get("players", 0)), int(entry.get("max_players", 0))],
+		tr("ROOM_HOST") % str(entry.get("admin", "?"))]
 
 func _selected_room() -> Dictionary:
 	var selected: PackedInt32Array = _list.get_selected_items()
@@ -339,7 +338,7 @@ func _do_join() -> void:
 func _open_create() -> void:
 	_status.text = ""
 	if _race_name.strip_edges().is_empty():
-		_race_name = "%s's race" % Config.player_name
+		_race_name = tr("PLAYERS_RACE") % Config.player_name
 	_open_picker(CourseMenu.Mode.NET_CREATE,
 		RaceScene.requested_course_path.get_base_dir().get_file(), Config.snowfall,
 		Config.conditions, Config.wind)
@@ -422,15 +421,16 @@ func _fill_room() -> void:
 		return
 	var admin: bool = Net.is_admin()
 	_room_title.text = "%s%s" % [str(room.get("name", "")),
-		"   (password)" if bool(room.get("locked", false)) else ""]
+		"   " + tr("ROOM_PASSWORD") if bool(room.get("locked", false)) else ""]
 	var listing: CourseListing = _catalog.find(str(room.get("course", "")))
 	var course: String = listing.title() if listing != null else str(room.get("course", ""))
 	var grade: int = clampi(int(room.get("snowfall", 0)), 0, CourseMenu.SNOW_LABELS.size() - 1)
 	var sky: LightCondition.Kind = LightCondition.of(int(room.get("conditions", 0)))
 	var wind: WindField.Strength = WindField.strength_of(int(room.get("wind", 0)))
-	_room_course.text = "%s   —   %s   —   snow: %s   —   wind: %s" % [course,
-		LightCondition.label_of(sky), CourseMenu.SNOW_LABELS[grade],
-		WindField.strength_label(wind)]
+	_room_course.text = "%s   —   %s   —   %s   —   %s" % [course,
+		tr(LightCondition.label_of(sky)),
+		tr("ROOM_SNOW") % tr(CourseMenu.SNOW_LABELS[grade]),
+		tr("ROOM_WIND") % tr(WindField.strength_label(wind))]
 	# The admin gets a way to change the course and everyone else only reads
 	# it, which is the whole of what being the admin means on this page.
 	_change_course_button.visible = admin
@@ -440,15 +440,15 @@ func _fill_room() -> void:
 			_member_list.add_item(_member_row(entry))
 	_start_button.visible = admin
 	_start_button.disabled = not admin
-	_room_hint.text = "Press Start when everybody is here." if admin \
-		else "Waiting for %s to start the race." % Net.name_of(int(room.get("admin", 0)))
+	_room_hint.text = tr("ROOM_HINT_ADMIN") if admin \
+		else tr("ROOM_HINT_WAITING") % Net.name_of(int(room.get("admin", 0)))
 
 func _member_row(entry: Dictionary) -> String:
 	var suffix: String = ""
 	if bool(entry.get("admin", false)):
-		suffix = "   (admin)"
+		suffix = "   " + tr("MEMBER_ADMIN")
 	if int(entry.get("peer", 0)) == Net.local_id():
-		suffix += "   (you)"
+		suffix += "   " + tr("MEMBER_YOU")
 	return "%s  —  %s%s" % [str(entry.get("name", "?")),
 		str(entry.get("character", "")), suffix]
 

@@ -16,6 +16,8 @@ static func run(t: TestCase) -> void:
 	_quality_presets(t)
 	_fog_range(t)
 	_launch_args(t)
+	_language(t)
+	_string_table(t)
 
 ## The slack in [method GameConfig.window_sizes_match], which is how
 ## [method GameConfig.apply_display] tells a window the command line sized from
@@ -218,6 +220,7 @@ static func _round_trip(t: TestCase) -> void:
 	c.snowfall = 2
 	c.conditions = LightCondition.Kind.NIGHT
 	c.show_fps = true
+	c.language = "de"
 
 	var back: GameConfig = _read(c.file_text())
 	t.ok(back.resolution == Vector2i(1920, 1080), "a chosen resolution comes back")
@@ -227,6 +230,7 @@ static func _round_trip(t: TestCase) -> void:
 	t.eq_f(back.fog_distance_scale, 1.3, 1e-6, "and how far it reaches")
 	t.ok(back.character == "boris", "and who the next race is run as")
 	t.ok(back.show_fps, "and whether the HUD shows the frame rate")
+	t.ok(back.language == "de", "and the language the menus were set to")
 	# Zero is the default and a real answer, so a key that fails to round-trip
 	# looks exactly like a player who asked for clear weather.
 	t.ok(back.snowfall == 2, "and how hard it was snowing last time")
@@ -478,3 +482,73 @@ static func _launch_args(t: TestCase) -> void:
 		and serving.web_port == 8099, "the dedicated server reads its own three flags")
 	t.ok(not serving.wants_lobby() and not serving.wants_direct_race(),
 		"and none of them are a request to play anything")
+
+## How the interface language is decided: the setting when it names one of the
+## two, the platform's locale when it says "auto", and English for a platform
+## speaking anything this build does not.
+static func _language(t: TestCase) -> void:
+	t.begin("config/language")
+	var c := GameConfig.new()
+	t.ok(c.language == Language.AUTO, "a fresh install follows the platform")
+	c.free()
+	t.ok(Language.resolve("auto", "de_DE") == "de", "a German desktop gets German")
+	t.ok(Language.resolve("auto", "de-AT") == "de",
+		"and so does an Austrian browser, which spells it with a dash")
+	t.ok(Language.resolve("auto", "en_US") == "en", "an American one gets English")
+	t.ok(Language.resolve("auto", "fr_FR") == "en",
+		"and a French one English too — ETR's French covers a third of the menus")
+	t.ok(Language.resolve("auto", "") == "en", "as does a platform that says nothing")
+	t.ok(Language.resolve("en", "de_DE") == "en",
+		"a chosen language outranks the platform's")
+	t.ok(Language.resolve("de", "en_GB") == "de", "either way round")
+	t.ok(Language.parse("DE") == "de", "the file's value is read without regard to case")
+	t.ok(Language.parse("fr") == Language.AUTO,
+		"and one this build does not speak falls back rather than sticking")
+	t.ok(_read("[game]\nlanguage = \"klingon\"\n").language == Language.AUTO,
+		"so a typo in the file leaves the menus on the platform's language")
+	t.ok(_read("[game]\nlanguage = \"de\"\n").language == "de", "and a real one is kept")
+
+	var cli := LaunchArgs.new()
+	cli.parse(PackedStringArray(["--lang=de"]), {})
+	t.ok(cli.language == "de", "--lang= is read")
+	var web := LaunchArgs.new()
+	web.parse(PackedStringArray(), {"lang": "en"})
+	t.ok(web.language == "en", "and so is ?lang= on the web build's URL")
+
+## Every string the interface writes on its own exists in both languages, and
+## the engine really finds them under the locale [Language] sets — which is the
+## part that breaks silently: a key missing from a locale prints the key.
+static func _string_table(t: TestCase) -> void:
+	t.begin("config/string table")
+	var rows: Array[PackedStringArray] = []
+	var f := FileAccess.open("res://i18n/ui.csv", FileAccess.READ)
+	var header: PackedStringArray = f.get_csv_line()
+	t.ok(header == PackedStringArray(["keys", "en", "de"]),
+		"ui.csv has exactly the two languages the interface speaks")
+	while not f.eof_reached():
+		var row: PackedStringArray = f.get_csv_line()
+		if row.size() > 1:
+			rows.push_back(row)
+	var blank: PackedStringArray = []
+	for row: PackedStringArray in rows:
+		if row.size() != 3 or row[1].strip_edges().is_empty() \
+				or row[2].strip_edges().is_empty():
+			blank.push_back(row[0])
+	t.ok(blank.is_empty(), "no row is missing a translation %s" % [blank])
+
+	var before: String = TranslationServer.get_locale()
+	TranslationServer.set_locale("de")
+	t.ok(TranslationServer.translate("RACE_THE_COMPUTER") == "Gegen den Computer fahren",
+		"a string of the shell's own comes out in German")
+	t.ok(TranslationServer.translate("BACK") == "Zurück",
+		"and so does one of ETR's, from the de_DE table the importer wrote")
+	TranslationServer.set_locale("en")
+	t.ok(TranslationServer.translate("RACE_THE_COMPUTER") == "Race the computer",
+		"and in English under the English locale")
+	var formats_match: bool = true
+	for row: PackedStringArray in rows:
+		if row.size() == 3 and row[1].count("%") != row[2].count("%"):
+			formats_match = false
+			t.ok(false, "%s has the same placeholders in both languages" % row[0])
+	t.ok(formats_match, "every format string takes the same arguments in both languages")
+	TranslationServer.set_locale(before)

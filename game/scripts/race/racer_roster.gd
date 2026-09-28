@@ -34,11 +34,9 @@ const OPPONENT_SPRAY_POOL := 180
 const GHOST_TINT := Color(0.55, 0.78, 1.0, 0.40)
 ## What a ghost is called on the HUD.
 ##
-## A literal rather than a `tr()` key. The original has no ghosts and so has no
-## word for one, and the string table here is exactly ETR's 111 imported strings
-## — a key that resolves to nothing would print `GHOST` in every language. When
-## the shell grows strings of its own this is the first one.
-const GHOST_LABEL := "ghost"
+## A translation key: the original has no ghosts and so has no word for one,
+## and this is one of the strings the shell keeps in `i18n/ui.csv`.
+const GHOST_LABEL := "GHOST"
 
 ## Everyone on the hill, in the order they were added. The local player is
 ## always the first entry.
@@ -210,7 +208,7 @@ func load_ghost_recording(recording: RaceRecording) -> PlaybackRacer:
 	var racer := PlaybackRacer.new()
 	racer.name = "Ghost"
 	racer.kind = Racer.Kind.GHOST
-	racer.display_name = GHOST_LABEL
+	racer.display_name = tr(GHOST_LABEL)
 	if not racer.play_recording(recording):
 		racer.queue_free()
 		return null

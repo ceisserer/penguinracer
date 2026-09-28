@@ -455,7 +455,7 @@ func _make_paused_label() -> Label:
 	var layer := CanvasLayer.new()
 	add_child(layer)
 	var label := Label.new()
-	label.text = "PAUSED"
+	label.text = tr("PAUSED")
 	label.add_theme_font_size_override("font_size", 48)
 	label.add_theme_color_override("font_color", Color.WHITE)
 	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
@@ -539,7 +539,7 @@ func load_course(path: String) -> void:
 	var err: Error = await PackStream.ensure(path, "courses/%s.pck" % dir,
 		_on_pack_progress if streaming else Callable())
 	if err != OK:
-		_loading.fail("Could not load %s (%s)" % [dir, error_string(err)])
+		_loading.fail(tr("COULD_NOT_LOAD") % [dir, error_string(err)])
 		return
 
 	_stop_slide_sound()
@@ -1168,13 +1168,13 @@ func _finishing_order(standings: Array) -> String:
 		place += 1
 		var who: String = str(row.get("name", "?"))
 		if int(row.get("peer", 0)) == Net.local_id():
-			who = "%s  (you)" % who
+			who = "%s  %s" % [who, tr("MEMBER_YOU")]
 		if not bool(row.get("finished", false)):
-			lines.push_back("—   %s   did not finish" % who)
+			lines.push_back("—   %s   %s" % [who, tr("DID_NOT_FINISH")])
 			continue
-		lines.push_back("%s   %s   %.2f s   %d herring" % [
+		lines.push_back("%s   %s   %.2f s   %s" % [
 			place_label(place), who, float(row.get("seconds", 0.0)),
-			int(row.get("herring", 0))])
+			tr("HERRING_COUNT") % int(row.get("herring", 0))])
 	return "\n".join(lines)
 
 ## The session went away under a race that needed it. There is nothing to race
@@ -1197,20 +1197,20 @@ func countdown_text() -> String:
 		return ""
 	if _net_countdown > 0.0:
 		return str(ceili(_net_countdown))
-	return "GO!" if _net_countdown > -GO_FLASH else ""
+	return tr("GO") if _net_countdown > -GO_FLASH else ""
 
 ## The line under it: what this machine is waiting for, if anything.
 func network_status() -> String:
 	if not _is_network_race():
 		return ""
 	if _net_waiting and _net_countdown == -INF:
-		return "Waiting for the other racers to load the course…"
+		return tr("NET_WAITING_FOR_LOAD")
 	if not _net_spectating:
 		return ""
 	var left: int = _racers_still_racing()
 	if left <= 0:
-		return "Waiting for the results…"
-	return "Finished — the race ends when the last racer is in (%d to go)" % left
+		return tr("NET_WAITING_FOR_RESULTS")
+	return tr("NET_FINISHED_WAITING") % left
 
 ## How many people in the room are still on the hill, out of the room state the
 ## server keeps pushing. Counted there rather than off [member roster] because
@@ -1770,15 +1770,14 @@ func _stop_finish_clip() -> void:
 		roster.local.rig.stop_clip()
 
 ## What the results screen says about the ghost, or empty for a race that had
-## none. A literal rather than a `tr()` key — "ghost" is not in the imported
-## string table either.
+## none. `i18n/ui.csv`'s words — "ghost" is not in the imported string table.
 func _ghost_note() -> String:
 	if _active_ghost_recording == null:
 		return ""
 	var delta: float = roster.local.race_time - _active_ghost_recording.total_time
 	if delta < 0.0:
-		return "Beat the ghost by %.2f s" % -delta
-	return "%.2f s behind the ghost" % delta
+		return tr("GHOST_BEATEN") % -delta
+	return tr("GHOST_BEHIND") % delta
 
 ## Bring the results screen up in place of the course menu, carrying the
 ## finished run so its Save button has something to write. [param clip] is

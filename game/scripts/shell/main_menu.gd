@@ -16,7 +16,7 @@
 ##
 ## Two are beyond the original. *Race the computer* — ETR has no
 ## opponents on the hill at all, so there is no string to migrate and the label
-## is written here (see [AISkill] for the same call about the difficulty names).
+## is one of `i18n/ui.csv`'s (see [AISkill] for the difficulty names).
 ## It opens the same [CourseMenu] Practice does, carrying a [RaceSetup] that
 ## turns the panel's opponent and skill spinners on. Both entries are one screen
 ## for that reason: the difference between them is two numbers, and a player who
@@ -101,10 +101,10 @@ func _ready() -> void:
 	_version.text = "v%s" % ProjectSettings.get_setting("application/config/version", "")
 	_practice_button.text = tr("PRACTICE")
 	# None of the three is a migrated string; the original has no opponents, no
-	# ghosts and nobody to race over a network.
-	_opponents_button.text = "Race the computer"
-	_network_button.text = "Network multiplayer"
-	_ghost_button.text = "Race against ghost"
+	# ghosts and nobody to race over a network. They are `i18n/ui.csv`'s.
+	_opponents_button.text = tr("RACE_THE_COMPUTER")
+	_network_button.text = tr("NETWORK_MULTIPLAYER")
+	_ghost_button.text = tr("RACE_AGAINST_GHOST")
 	_settings_button.text = tr("CONFIGURATION")
 	_quit_button.text = tr("QUIT")
 	_refresh_character_button()

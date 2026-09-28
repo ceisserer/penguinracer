@@ -52,7 +52,7 @@ the original, and each one is marked `DEVIATION` in the source with its reason.
 | **Snow** | GPU trail deformation with a shaded trench and a ploughed lip, plus carve spray and four levels of falling snow |
 | **Weather** | The original's three race-screen controls: how hard it is snowing; the sky — sunny, cloudy or night, each with its own migrated light, fog and skybox; and a crosswind — none, light or strong, from the left or the right — that bends the trees, drives the snow and nudges a penguin in flight |
 | **Sky** | Drawn, not photographed: a sun disc, drifting clouds and distant mountain ranges; haze that takes the sky's colour and mist lying in the valley; at night stars, a moon, an aurora, and torches down the course and in place of the flags. The original's skybox and flat fog are one setting away |
-| **Shell** | Main menu, course and character screens, the multiplayer lobby, in-race HUD, results and settings, 13 languages |
+| **Shell** | Main menu, course and character screens, the multiplayer lobby, in-race HUD, results and settings, English and German (detected, or chosen in settings) |
 | **Server** | One headless process serves the web build over HTTP and the race sessions over WebSocket — `tools/serve.sh` |
 | **Tests** | 4951 headless assertions, 0 failures, 11 s — physics, surface, input, audio, terrain, camera, replay, opponents, the lobby server |
 

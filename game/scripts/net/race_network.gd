@@ -241,7 +241,7 @@ func connect_to_server(address: String, default_port: int = DEFAULT_PORT) -> Err
 	leave("")
 	var url: String = resolve_url(address, default_port)
 	if url.is_empty():
-		session_ended.emit("no server address")
+		session_ended.emit(tr("NET_NO_SERVER_ADDRESS"))
 		return ERR_INVALID_PARAMETER
 	var peer: MultiplayerPeer = _new_peer()
 	if peer == null:
@@ -249,7 +249,7 @@ func connect_to_server(address: String, default_port: int = DEFAULT_PORT) -> Err
 	var err: Error = int(peer.call("create_client", url)) as Error
 	if err != OK:
 		push_warning("could not reach %s (error %d)" % [url, err])
-		session_ended.emit("could not reach %s" % url)
+		session_ended.emit(tr("NET_COULD_NOT_REACH") % url)
 		return err
 	multiplayer.multiplayer_peer = peer
 	set_process(true)
@@ -283,7 +283,7 @@ func leave(reason: String = "left") -> void:
 func _new_peer() -> MultiplayerPeer:
 	if not ClassDB.can_instantiate("WebSocketMultiplayerPeer"):
 		push_warning("no WebSocket support in this build — multiplayer is unavailable")
-		session_ended.emit("multiplayer is not available in this build")
+		session_ended.emit(tr("NET_UNAVAILABLE"))
 		return null
 	return ClassDB.instantiate("WebSocketMultiplayerPeer") as MultiplayerPeer
 
@@ -349,10 +349,10 @@ func _on_connected() -> void:
 	session_started.emit()
 
 func _on_connection_failed() -> void:
-	leave("could not connect to the server")
+	leave(tr("NET_CONNECT_FAILED"))
 
 func _on_server_disconnected() -> void:
-	leave("the server closed the connection")
+	leave(tr("NET_SERVER_CLOSED"))
 
 func _process(delta: float) -> void:
 	if _lobby != null:

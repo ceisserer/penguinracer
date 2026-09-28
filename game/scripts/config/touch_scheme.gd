@@ -29,8 +29,8 @@ enum Kind { TILT, BUTTONS, OFF }
 
 ## The file's spelling of each [enum Kind], in order.
 const NAMES: PackedStringArray = ["tilt", "buttons", "off"]
-## What the settings screen shows for each, in order.
-const LABELS: PackedStringArray = ["Tilt the device", "On-screen buttons", "Off"]
+## What the settings screen shows for each, in order — translation keys.
+const LABELS: PackedStringArray = ["TOUCH_TILT", "TOUCH_BUTTONS", "OPTION_OFF"]
 
 static func parse(text: String, fallback: Kind = Kind.TILT) -> Kind:
 	var index: int = NAMES.find(text.strip_edges().to_lower())

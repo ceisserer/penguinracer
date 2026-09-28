@@ -36,7 +36,7 @@ theme_override_constants/separation = 14
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 30
-text = "Configuration"
+text = "CONFIGURATION"
 horizontal_alignment = 1
 
 [node name="Scroll" type="ScrollContainer" parent="Frame/Panel/Body"]
@@ -50,6 +50,27 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 8
 
+[node name="LanguageRow" type="HBoxContainer" parent="Frame/Panel/Body/Scroll/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="LanguageLabel" type="Label" parent="Frame/Panel/Body/Scroll/Rows/LanguageRow"]
+custom_minimum_size = Vector2(230, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "LANGUAGE"
+
+[node name="LanguageOption" type="OptionButton" parent="Frame/Panel/Body/Scroll/Rows/LanguageRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(260, 38)
+layout_mode = 2
+theme_override_font_sizes/font_size = 17
+
+[node name="LanguageSpacer" type="Control" parent="Frame/Panel/Body/Scroll/Rows/LanguageRow"]
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
 [node name="ResolutionRow" type="HBoxContainer" parent="Frame/Panel/Body/Scroll/Rows"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -60,7 +81,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(230, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Resolution:"
+text = "RESOLUTION"
 
 [node name="ResolutionOption" type="OptionButton" parent="Frame/Panel/Body/Scroll/Rows/ResolutionRow"]
 unique_name_in_owner = true
@@ -83,7 +104,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(230, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Fullscreen:"
+text = "FULLSCREEN"
 
 [node name="FullscreenCheck" type="CheckBox" parent="Frame/Panel/Body/Scroll/Rows/FullscreenRow"]
 unique_name_in_owner = true
@@ -100,7 +121,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(230, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Quality preset:"
+text = "QUALITY_PRESET_LABEL"
 
 [node name="QualityOption" type="OptionButton" parent="Frame/Panel/Body/Scroll/Rows/QualityRow"]
 unique_name_in_owner = true
@@ -121,7 +142,7 @@ theme_override_constants/separation = 14
 custom_minimum_size = Vector2(230, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "3D render scale:"
+text = "RENDER_SCALE_LABEL"
 
 [node name="RenderScaleSlider" type="HSlider" parent="Frame/Panel/Body/Scroll/Rows/RenderScaleRow"]
 unique_name_in_owner = true
@@ -149,7 +170,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(230, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Anti-aliasing:"
+text = "ANTIALIASING_LABEL"
 
 [node name="AntialiasingOption" type="OptionButton" parent="Frame/Panel/Body/Scroll/Rows/AntialiasingRow"]
 unique_name_in_owner = true
@@ -171,7 +192,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(230, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Sky:"
+text = "SKY_LABEL"
 
 [node name="SkyOption" type="OptionButton" parent="Frame/Panel/Body/Scroll/Rows/SkyRow"]
 unique_name_in_owner = true
@@ -193,7 +214,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(230, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Sky detail:"
+text = "SKY_DETAIL_LABEL"
 
 [node name="SkyDetailOption" type="OptionButton" parent="Frame/Panel/Body/Scroll/Rows/SkyDetailRow"]
 unique_name_in_owner = true
@@ -215,7 +236,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(230, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Tree detail distance:"
+text = "TREE_DETAIL_LABEL"
 
 [node name="TreeDetailSlider" type="HSlider" parent="Frame/Panel/Body/Scroll/Rows/TreeDetailRow"]
 unique_name_in_owner = true
@@ -244,7 +265,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(230, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Shadows:"
+text = "SHADOWS_LABEL"
 
 [node name="ShadowsCheck" type="CheckBox" parent="Frame/Panel/Body/Scroll/Rows/ShadowsRow"]
 unique_name_in_owner = true
@@ -262,7 +283,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(230, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Tree shadows:"
+text = "TREE_SHADOWS_LABEL"
 
 [node name="TreeShadowsOption" type="OptionButton" parent="Frame/Panel/Body/Scroll/Rows/TreeShadowsRow"]
 unique_name_in_owner = true
@@ -285,7 +306,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(230, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Shadow detail:"
+text = "SHADOW_DETAIL_LABEL"
 
 [node name="ShadowDetailOption" type="OptionButton" parent="Frame/Panel/Body/Scroll/Rows/ShadowDetailRow"]
 unique_name_in_owner = true
@@ -307,7 +328,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(230, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Ice reflections:"
+text = "ICE_REFLECTIONS_LABEL"
 
 [node name="IceReflectionCheck" type="CheckBox" parent="Frame/Panel/Body/Scroll/Rows/IceReflectionRow"]
 unique_name_in_owner = true
@@ -324,7 +345,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(230, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Show frame rate:"
+text = "SHOW_FPS_LABEL"
 
 [node name="ShowFpsCheck" type="CheckBox" parent="Frame/Panel/Body/Scroll/Rows/ShowFpsRow"]
 unique_name_in_owner = true
@@ -342,7 +363,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(230, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Touch controls:"
+text = "TOUCH_CONTROLS_LABEL"
 
 [node name="TouchOption" type="OptionButton" parent="Frame/Panel/Body/Scroll/Rows/TouchRow"]
 unique_name_in_owner = true
@@ -364,7 +385,7 @@ theme_override_constants/separation = 14
 custom_minimum_size = Vector2(230, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Renderer:"
+text = "RENDERER_LABEL"
 
 [node name="RendererOption" type="OptionButton" parent="Frame/Panel/Body/Scroll/Rows/RendererRow"]
 unique_name_in_owner = true
@@ -378,7 +399,7 @@ custom_minimum_size = Vector2(200, 0)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 15
-text = "Applies after a restart"
+text = "RENDERER_RESTART_NOTE"
 
 [node name="FogStartRow" type="HBoxContainer" parent="Frame/Panel/Body/Scroll/Rows"]
 layout_mode = 2
@@ -388,7 +409,7 @@ theme_override_constants/separation = 14
 custom_minimum_size = Vector2(230, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Clear air before fog:"
+text = "FOG_START_LABEL"
 
 [node name="FogStartSlider" type="HSlider" parent="Frame/Panel/Body/Scroll/Rows/FogStartRow"]
 unique_name_in_owner = true
@@ -414,7 +435,7 @@ theme_override_constants/separation = 14
 custom_minimum_size = Vector2(230, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Fog range:"
+text = "FOG_RANGE_LABEL"
 
 [node name="FogScaleSlider" type="HSlider" parent="Frame/Panel/Body/Scroll/Rows/FogScaleRow"]
 unique_name_in_owner = true
@@ -437,7 +458,7 @@ theme_override_font_sizes/font_size = 15
 layout_mode = 2
 theme_type_variation = &"DimLabel"
 theme_override_font_sizes/font_size = 15
-text = "Sky, trees, fog and shadows are read when a course loads, so a change to any of them shows on the next race. 0 m and 1.0 x is the original's fog exactly."
+text = "SETTINGS_NOTE"
 autowrap_mode = 3
 
 [node name="Path" type="Label" parent="Frame/Panel/Body"]
@@ -457,11 +478,11 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "Ok"
+text = "OK"
 
 [node name="CancelButton" type="Button" parent="Frame/Panel/Body/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "Cancel"
+text = "CANCEL"
