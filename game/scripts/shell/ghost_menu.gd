@@ -38,6 +38,7 @@ func _ready() -> void:
 	_delete_confirm.ok_button_text = "Delete"
 	_delete_confirm.cancel_button_text = tr("CANCEL")
 
+	TouchListScroll.attach(_list)
 	_list.item_selected.connect(_on_item_selected)
 	_list.item_activated.connect(func(_i: int) -> void: _race_selected())
 	_race_button.pressed.connect(_race_selected)

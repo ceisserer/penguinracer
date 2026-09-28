@@ -135,6 +135,8 @@ func _ready() -> void:
 	_wind_label.text = "Wind:"
 	_fill_field_options()
 
+	# A phone cannot scroll an ItemList at all without this.
+	TouchListScroll.attach(_list)
 	_list.item_selected.connect(_on_item_selected)
 	_list.item_activated.connect(_on_item_activated)
 	_race_button.pressed.connect(_race_selected)

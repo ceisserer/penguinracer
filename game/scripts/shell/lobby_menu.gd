@@ -121,6 +121,8 @@ func _ready() -> void:
 
 	_connect_button.pressed.connect(_do_connect)
 	_address_edit.text_submitted.connect(func(_t: String) -> void: _do_connect())
+	TouchListScroll.attach(_list)
+	TouchListScroll.attach(_member_list)
 	_list.item_selected.connect(func(_i: int) -> void: _refresh_browse_buttons())
 	_list.item_activated.connect(func(_i: int) -> void: _do_join())
 	_password_edit.text_submitted.connect(func(_t: String) -> void: _do_join())

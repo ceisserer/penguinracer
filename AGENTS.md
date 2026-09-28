@@ -45,7 +45,8 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
   scripts/camera/         chase camera
   scripts/shell/          main/course/settings menus, HUD, LobbyMenu (connect → browse → room,
                           own CourseMenu instance), LoadingScreen (shared by menu and race),
-                          TouchControls (the phone's on-screen buttons + tilt level)
+                          TouchControls (the phone's on-screen buttons + tilt level),
+                          TouchListScroll (drag/flick scrolling for every menu ItemList)
   scripts/race/           RaceScene (tick loop + course), RacerRoster (who is on the hill, who
                           is winning), IntroSequence, the racer layer (Racer, SimulatedRacer,
                           PlaybackRacer, RacerState — the 18-float snapshot that is also the
@@ -670,6 +671,10 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   trench out of the mesh.
 - **Sensors are opt-in in Godot 4**: without `input_devices/sensors/enable_gravity` /
   `enable_accelerometer` in `project.godot`, `Input.get_gravity()` reads zero on a phone too.
+- **An `ItemList` cannot be scrolled by a finger** (Godot 4.7): a touch selects the row on
+  touch-down and a drag drags the selection. `TouchListScroll.attach(list)` scrolls on drag, selects
+  on a tap's release, and swallows the emulated mouse events in the list's `gui_input` signal (which
+  runs before the control's own handler). Attach it to any new list; a `ScrollContainer` drags already.
 - **Android's back button quits the app by default** (`application/config/quit_on_go_back`), from
   mid-race. It is off, and `GameConfig._notification` turns the go-back request into `menu`.
 - **The renderer is fixed before any script runs**, so Android's renderer choice is a

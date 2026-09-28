@@ -6,7 +6,9 @@
 ## handed gravity vectors built from a known roll and pitch), the browser's
 ## remapping ([method MotionSensor.web_to_screen] against the rotations the
 ## native path makes), the merge into a [RaceInput], and the layout against
-## [RaceHUD]'s anchors on the canvases a phone and a tablet produce.
+## [RaceHUD]'s anchors on the canvases a phone and a tablet produce. The
+## shell's lists ([TouchListScroll]) are driven through the real viewport with
+## the touch events a phone sends and the mouse events Godot makes up from them.
 ##
 ## [TouchControls] and [RaceHUD] are loaded by path, not named — see [TestHUD].
 class_name TestTouch
@@ -27,6 +29,7 @@ static func run(t: TestCase) -> void:
 	var hud: GDScript = load(HUD_SCRIPT)
 	_shown(t, controls)
 	_layout(t, controls, hud)
+	_list_scroll(t)
 
 ## Gravity, toward the ground in the screen's frame, for a device tipped back
 ## [param pitch_deg] from upright and turned [param roll_deg] clockwise.
@@ -235,3 +238,93 @@ static func _layout(t: TestCase, controls: GDScript, hud: GDScript) -> void:
 					clampf(a.y, box.position.y, box.end.y))
 				t.ok(nearest.distance_to(Vector2(a.x, a.y)) > a.z,
 					"button %d clear of %s at %s" % [keys[i], box, canvas])
+
+## A finger on a long [ItemList]: a drag scrolls and selects nothing, a flick
+## runs on and stops at the end, a tap selects on release, a double tap on the
+## selected row activates it. Each touch also sends its emulated mouse twin,
+## which is what used to select on touch-down.
+static func _list_scroll(t: TestCase) -> void:
+	t.begin("touch/list_scroll")
+	var root: Window = (Engine.get_main_loop() as SceneTree).root
+	var list := ItemList.new()
+	list.size = Vector2(300, 200)
+	for i: int in 60:
+		list.add_item("row %d" % i)
+	root.add_child(list)
+	var scroller := TouchListScroll.attach(list)
+	list.force_update_list_size()
+	var bar: VScrollBar = list.get_v_scroll_bar()
+	var selected: Array[int] = []
+	var activated: Array[int] = []
+	list.item_selected.connect(func(i: int) -> void: selected.push_back(i))
+	list.item_activated.connect(func(i: int) -> void: activated.push_back(i))
+	t.ok(bar.max_value - bar.page > 500.0, "the list is long enough to scroll")
+
+	_finger(root, true, Vector2(100, 150))
+	for k: int in 10:
+		_slide(root, Vector2(100, 140 - 10 * k), Vector2(0, -10), Vector2(0, -600))
+	_finger(root, false, Vector2(100, 50))
+	# The first step is inside DRAG_THRESHOLD; the list follows from the second.
+	t.eq_f(bar.value, 90.0, 0.01, "a drag up scrolls the list down, from past the threshold")
+	t.ok(selected.is_empty() and list.get_selected_items().is_empty(),
+		"a drag selects nothing, on touch-down or after")
+
+	var flung_from: float = bar.value
+	scroller._process(0.1)
+	t.ok(bar.value > flung_from, "a flick keeps the list moving")
+	for i: int in 200:
+		scroller._process(0.1)
+	t.ok(not scroller.is_processing(), "the flick dies away")
+
+	bar.value = 0.0
+	scroller.scroll_by(-50.0)
+	t.eq_f(bar.value, 0.0, 0.0, "scrolling stops at the top")
+
+	var row: int = list.get_item_at_position(Vector2(100, 60), true)
+	_finger(root, true, Vector2(100, 60))
+	_slide(root, Vector2(100, 66), Vector2(0, 6), Vector2.ZERO)
+	t.ok(selected.is_empty(), "nothing is selected while the finger is down")
+	_finger(root, false, Vector2(100, 66))
+	t.eq_f(bar.value, 0.0, 0.0, "a wobble under the threshold does not scroll")
+	t.ok(selected == [row] and list.is_selected(row), "a tap selects the row on release")
+	_finger(root, true, Vector2(100, 60), true)
+	_finger(root, false, Vector2(100, 60))
+	t.ok(activated == [row], "a double tap on the selected row activates it")
+
+	var other: int = list.get_item_at_position(Vector2(100, 120), true)
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	click.position = Vector2(100, 120)
+	click.button_mask = MOUSE_BUTTON_MASK_LEFT
+	root.push_input(click, true)
+	t.ok(other != row and list.is_selected(other), "a real mouse still selects on press")
+	list.free()
+
+static func _finger(root: Window, pressed: bool, at: Vector2, double: bool = false) -> void:
+	var touch := InputEventScreenTouch.new()
+	touch.pressed = pressed
+	touch.position = at
+	touch.double_tap = double
+	root.push_input(touch, true)
+	var mouse := InputEventMouseButton.new()
+	mouse.device = InputEvent.DEVICE_ID_EMULATION
+	mouse.button_index = MOUSE_BUTTON_LEFT
+	mouse.pressed = pressed
+	mouse.double_click = double
+	mouse.position = at
+	mouse.button_mask = MOUSE_BUTTON_MASK_LEFT if pressed else 0
+	root.push_input(mouse, true)
+
+static func _slide(root: Window, at: Vector2, relative: Vector2, velocity: Vector2) -> void:
+	var drag := InputEventScreenDrag.new()
+	drag.position = at
+	drag.relative = relative
+	drag.velocity = velocity
+	root.push_input(drag, true)
+	var mouse := InputEventMouseMotion.new()
+	mouse.device = InputEvent.DEVICE_ID_EMULATION
+	mouse.position = at
+	mouse.relative = relative
+	mouse.button_mask = MOUSE_BUTTON_MASK_LEFT
+	root.push_input(mouse, true)
