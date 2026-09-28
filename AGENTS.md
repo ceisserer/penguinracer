@@ -406,6 +406,12 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
 - **A mesh without a colour array reads `COLOR` as white**, which is what lets a course imported
   before `ambient_occlusion.res` draw unoccluded. `TerrainRenderer` drops an occlusion image whose
   size is not the heightmap's without a word; `TestOcclusion` checks every course's.
+- **A varying costs a whole slot, and a phone has 28.** Godot's Mobile renderer charges one slot per
+  declaration (a `float` is a `vec4`) on top of 15 of its own; the limit is the GPU's
+  `maxFragmentInputComponents / 4` — 32 on the desktop's Radeon, 28 on an Adreno 650. Over it, the
+  shader fails *only on the phone* ("Too many varyings" in `adb logcat`) and the mesh draws in the
+  default material: the whole course went white. Pack small varyings into `vec4`s (`terrain.gdshader`
+  names the components with `#define`); `TestShaderBudget` holds every spatial shader to 28.
 - **A procedural relief strength is not a 0..1 knob.** The detail map stores gradient w.r.t. UV
   (peaks ~12). Uniforms are metres of relief; put the unit in the name.
 - **`normalize()` of a mipped white-noise tap is NaN**, and NaN survives a zero fade. Add the raw
@@ -670,7 +676,10 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   `project.godot` fragment at `user://renderer.cfg`, pulled in by
   `config/project_settings_override.android`, not a `penguinracer.cfg` key. The `.android` tag is
   what keeps the desktop and the browser on their own renderer; read the setting with
-  `get_setting_with_override`, since plain `get_setting` does not see the tag. Godot derives the
+  `get_setting_with_override`, since plain `get_setting` does not see the tag. The file must set
+  `rendering_method.mobile` as well as `rendering_method`: Godot has a built-in
+  `rendering_method.mobile="mobile"`, a phone has the `mobile` tag, and a tagged key beats a plain
+  one — the plain key alone is read and ignored, which only a phone shows. Godot derives the
   driver (OpenGL ES) from the method. A phone with no Vulkan still falls back to Compatibility
   whatever the file says, and the settings row then keeps reading "applies after a restart".
 - **A touch also arrives as an emulated mouse click** (`emulate_mouse_from_touch`). The intro's

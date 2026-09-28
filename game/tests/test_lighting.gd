@@ -165,6 +165,13 @@ static func _android_picks_its_renderer(t: TestCase) -> void:
 	file.load(RenderBackend.CHOICE_PATH)
 	t.ok(file.get_value("rendering", "renderer/rendering_method", "") == "gl_compatibility",
 		"written under the project setting the engine reads")
+	# Godot's own `rendering_method.mobile = "mobile"` outranks the plain key on
+	# a phone, which has the `mobile` tag; a file without the tagged key is read
+	# and ignored there, and a desktop run cannot show it.
+	t.ok(ProjectSettings.get_setting("rendering/renderer/rendering_method.mobile") == "mobile",
+		"the engine still ships a tagged Mobile default for phones")
+	t.ok(file.get_value("rendering", "renderer/rendering_method.mobile", "") == "gl_compatibility",
+		"so the choice overrides the tagged key too")
 	t.ok(RenderBackend.choose(RenderBackend.MOBILE) == OK, "Mobile can be chosen")
 	t.ok(not FileAccess.file_exists(RenderBackend.CHOICE_PATH),
 		"which is the project default, so it leaves no file behind")

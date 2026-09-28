@@ -67,6 +67,15 @@ const CHOICE_PATH := "user://renderer.cfg"
 const MOBILE := "mobile"
 const COMPATIBILITY := "gl_compatibility"
 
+## The keys [constant CHOICE_PATH] sets, relative to its `[rendering]` section.
+## The tagged one is the one that counts on a phone: Godot ships a built-in
+## `rendering_method.mobile = "mobile"`, Android carries the `mobile` feature
+## tag, and a tagged key outranks the plain one — so a file that set only the
+## plain key would be read and then ignored. The plain one stays for a platform
+## without the tag.
+const CHOICE_KEYS: Array[String] = ["renderer/rendering_method",
+	"renderer/rendering_method.mobile"]
+
 ## Whether this build reads [constant CHOICE_PATH] at startup: only then is
 ## choosing a renderer something the player can do. Android today.
 static func can_choose() -> bool:
@@ -81,7 +90,7 @@ static func chosen() -> String:
 	var file := ConfigFile.new()
 	if file.load(CHOICE_PATH) != OK:
 		return MOBILE
-	var method: String = file.get_value("rendering", "renderer/rendering_method", MOBILE)
+	var method: String = file.get_value("rendering", CHOICE_KEYS[1], MOBILE)
 	return COMPATIBILITY if method == COMPATIBILITY else MOBILE
 
 ## Ask for [param method] from the next launch on. Mobile is the project's own
@@ -93,7 +102,8 @@ static func choose(method: String) -> Error:
 			return OK
 		return DirAccess.remove_absolute(CHOICE_PATH)
 	var file := ConfigFile.new()
-	file.set_value("rendering", "renderer/rendering_method", COMPATIBILITY)
+	for key: String in CHOICE_KEYS:
+		file.set_value("rendering", key, COMPATIBILITY)
 	return file.save(CHOICE_PATH)
 
 ## A short name for the running renderer, for a log line or a capture's

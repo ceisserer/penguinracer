@@ -19,13 +19,21 @@ render_mode cull_back, depth_draw_opaque, diffuse_burley, specular_schlick_ggx,
 #include "res://shaders/etr_illumination.gdshaderinc"
 #include "res://shaders/atmosphere.gdshaderinc"
 
+// Every varying below is a component of one of six packed vec4s, declared
+// together after the Splat group and named here by #define, so the body reads
+// as it always did. Godot's Mobile renderer spends one whole varying slot per
+// declaration however small — a float costs a vec4 — on top of the 15 it
+// keeps for itself, and an Adreno 650 has 28. Fourteen loose declarations were
+// 29: the shader failed to compile on the phone, which then drew the default
+// material over the whole course. See `TestShaderBudget`.
+
 // Torchlight on this fragment, handed from `fragment()` to `light()`, which
 // sums it inside the clamp. Black by day.
-varying vec3 torch_glow;
+#define torch_glow v_torch_snow.rgb
 // Every torch on the course, baked per vertex by [CourseLights.bake_terrain]
 // and stored as a square root. Not `atmo_torch_glow`, whose eight nearest
 // torches left every farther flame burning over dark snow.
-varying float terrain_torch;
+#define terrain_torch v_splat_lip.z
 
 group_uniforms Splat;
 // Three things about these samplers matter and none is obvious.
@@ -375,36 +383,46 @@ uniform float character_reflection_shear : hint_range(0.0, 0.2) = 0.02;
 // the sky ramp exactly as it was.
 uniform float character_reflection_attachment : hint_range(0.0, 1.0) = 1.0;
 
-varying vec3 world_pos;
-varying vec2 splat_uv;
-varying float snow_mask;
-varying float ice_mask;
+// The packed varyings (see the top of the file). A varying belongs to the one
+// stage that writes it, so the packing is by stage: two written in vertex(),
+// four written in fragment() for light().
+varying vec4 v_world_sky;  // vertex: world_pos, terrain_sky
+varying vec4 v_splat_lip;  // vertex: splat_uv, terrain_torch, ridge_lip
+varying vec4 v_torch_snow; // fragment: torch_glow, snow_mask
+varying vec4 v_glint;      // fragment: glint_normal, sparkle
+varying vec4 v_ice;        // fragment: ice_sky, ice_fresnel
+varying vec4 v_ambient;    // fragment: ambient_occlusion, scatter_base, ice_mask
+
+#define world_pos v_world_sky.xyz
+#define splat_uv v_splat_lip.xy
+#define snow_mask v_torch_snow.a
+#define ice_mask v_ambient.z
 // Schlick weight for the ice terms, shared by the sky reflection in fragment
 // and the sun glare in light().
-varying float ice_fresnel;
+#define ice_fresnel v_ice.a
 // The lip of the trench, from the vertex stage that raises it — geometry-rate
 // on purpose, so the highlight and the displacement cannot disagree.
-varying float ridge_lip;
+#define ridge_lip v_splat_lip.w
 // Glint intensity and the view-space facet direction it fires along. Both are
 // computed in fragment and consumed by the custom light function, where
 // SPECULAR is write-only and there is no texture sampling worth doing.
-varying float sparkle;
-varying vec3 glint_normal;
+#define sparkle v_glint.w
+#define glint_normal v_glint.xyz
 // The trench's self-occlusion, applied to `etr_ambient` in light(). It used to
 // be Godot's `AO` with `AO_LIGHT_AFFECT` at 0, which is the same "ambient only"
 // intent — but `ambient_light_disabled` leaves the engine no ambient to apply it
 // to, so it has to travel to where the ambient now lives.
-varying float ambient_occlusion;
+#define ambient_occlusion v_ambient.x
 // The baked relief occlusion, 1 = open sky, from the chunk's vertex colour.
-varying float terrain_sky;
+#define terrain_sky v_world_sky.w
 // How blue the snow's ambient goes before the sun is considered: the occlusion
 // and carve terms of `snow_scatter_*`. light() adds the shade term.
-varying float scatter_base;
+#define scatter_base v_ambient.y
 // What the ice reflects, already Fresnel-weighted and masked: the sky ramp with
 // the mirrored racers composited into it. Added in light() rather than written
 // to EMISSION — see the ice reflection block in fragment() for why that is not
 // a stylistic choice.
-varying vec3 ice_sky;
+#define ice_sky v_ice.rgb
 
 vec2 trail_uv_of(vec2 world_xz) {
 	return (world_xz - trail_origin) / trail_extent;
