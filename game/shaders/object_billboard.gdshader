@@ -34,6 +34,12 @@ uniform float normal_roundness : hint_range(0.0, 1.0) = 0.75;
 // How far the normal leans toward world up. Foliage catches sky light from
 // above; without this a billboard reads as a wall.
 uniform float normal_up_bias : hint_range(0.0, 1.0) = 0.35;
+// ETR's `[usenorm] 1 [norm] x y z` (`object_types.lst`): the start and finish
+// banners do not turn to the camera. `course_render.cpp` stands the quad
+// across `norm` with its y dropped, and lights it with `norm` as given, flat —
+// so off, the quad keeps that plane and that normal for every view.
+uniform bool face_camera = true;
+uniform vec3 fixed_normal = vec3(0.0, 0.0, 1.0);
 
 // Billboard basis in view space, so the impostor normal can be built in the
 // fragment stage without recovering the orientation there.
@@ -48,6 +54,10 @@ void vertex() {
 	vec3 up = normalize(MODEL_MATRIX[1].xyz);
 	vec3 right = INV_VIEW_MATRIX[0].xyz;
 	vec3 out_dir = normalize(cross(right, up));
+	if (!face_camera) {
+		out_dir = normalize(vec3(fixed_normal.x, 0.0, fixed_normal.z));
+		right = cross(up, out_dir);
+	}
 
 	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(
 		vec4(right, 0.0),
@@ -89,6 +99,9 @@ void fragment() {
 	vec3 curved = axis_right * u + axis_out * sqrt(max(0.0, 1.0 - u * u));
 	vec3 n = mix(axis_out, curved, normal_roundness);
 	NORMAL = normalize(mix(n, axis_up, normal_up_bias));
+	if (!face_camera) {
+		NORMAL = normalize(mat3(VIEW_MATRIX) * fixed_normal);
+	}
 	// The sky's haze and the valley mist, not the engine's flat fog: see
 	// `atmosphere.gdshaderinc`.
 	torch_glow = atmo_torch_glow((INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz,

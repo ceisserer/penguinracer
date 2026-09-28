@@ -729,6 +729,12 @@ func import_objects(stage: String) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for i: int in recs.size():
 		var rec: Dictionary = recs[i]
+		# `[usenorm] 1 [norm] x y z`: a fixed facing instead of the viewpoint
+		# (start and finish). ETR's default norm is straight up, normalised.
+		var normal := Vector3.ZERO
+		if SPList.get_bool(rec, "usenorm", false):
+			var n: PackedFloat64Array = SPList.get_numbers(rec, "norm")
+			normal = Vector3(n[0], n[1], n[2]).normalized() if n.size() >= 3 else Vector3.UP
 		out.push_back({
 			"name": SPList.get_str(rec, "name", "object_%d" % i),
 			"texture": SPList.get_str(rec, "texture"),
@@ -736,6 +742,7 @@ func import_objects(stage: String) -> Array[Dictionary]:
 			"collectable": SPList.get_bool(rec, "snap", true),
 			"drawable": SPList.get_bool(rec, "draw", true),
 			"reset_point": SPList.get_bool(rec, "reset", false),
+			"fixed_normal": normal,
 		})
 	_log("object types: %d" % out.size())
 	return out
@@ -1458,7 +1465,8 @@ static func _csv(s: String) -> String:
 ## and one across Z, both from the ground to `[height]`, never turned toward the
 ## camera. It then walks `NocollArr` — the herring, the flags, the start and
 ## finish banners — and emits four vertices per object, turned to face
-## `ctrl->viewpos`. So a tree is a static cross of two planes at 90 degrees and
+## `ctrl->viewpos` — all but the two banners, whose `[usenorm]` pins them facing
+## `[norm]`. So a tree is a static cross of two planes at 90 degrees and
 ## an item is a billboard, and the two are not interchangeable: a billboarded
 ## tree swivels as the player rides past it and has the same silhouette from
 ## every side, which is the single most visible difference between a hillside
@@ -1513,6 +1521,12 @@ func build_object_prefabs(object_types: Array[Dictionary]) -> Dictionary[String,
 					# the same BILLBOARD_FIXED_Y turn with a view-independent
 					# normal.
 					mat.shader = load("res://shaders/object_billboard.gdshader")
+					# Except where the type names its own facing: ETR's start and
+					# finish banners stay square to the course and do not turn.
+					var fixed: Vector3 = entry.get("fixed_normal", Vector3.ZERO)
+					if fixed != Vector3.ZERO:
+						mat.set_shader_parameter("face_camera", false)
+						mat.set_shader_parameter("fixed_normal", fixed)
 				mat.set_shader_parameter("albedo_texture", load(tex_path))
 				mat.set_shader_parameter("alpha_scissor", 0.5)
 				prefab.material = mat

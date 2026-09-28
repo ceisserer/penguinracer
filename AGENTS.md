@@ -456,7 +456,9 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   alpha needs an `fwidth` sharpen before the scissor test.
 - **A tree in ETR is not a billboard**: two fixed crossed quads for collidable objects (split on
   `[coll]`), camera-facing quads only for items. `object_cross.gdshader` + `ETRImport._cross_quad_mesh`
-  vs `object_billboard.gdshader` + `QuadMesh`; `TestObjects` asserts it on vertex data.
+  vs `object_billboard.gdshader` + `QuadMesh`; `TestObjects` asserts it on vertex data. **And
+  not every item turns**: `[usenorm] 1 [norm] 0 0 1` pins the start and finish banners square to
+  the course (`face_camera = false` on their material, in `objects/` and every `course.tscn`).
 - **A conifer's cross is still on the prefab, and still ETR's** — `TestObjects` asserts it — but
   it is only the editor's picture and a fallback. `ObjectPrefab.conifer` hands the type to
   `Forest`, which draws `ConiferMesh` instead. The flag lives in `resources/objects/tree{,1}.tres`

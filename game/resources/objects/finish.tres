@@ -13,6 +13,8 @@ shader_parameter/alpha_scissor = 0.5
 shader_parameter/roughness_value = null
 shader_parameter/normal_roundness = null
 shader_parameter/normal_up_bias = null
+shader_parameter/face_camera = false
+shader_parameter/fixed_normal = Vector3(0, 0, 1)
 
 [sub_resource type="QuadMesh" id="QuadMesh_maoaf"]
 center_offset = Vector3(0, 0.5, 0)

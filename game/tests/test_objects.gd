@@ -5,9 +5,10 @@
 ## detail. `DrawTrees` walks `CollArr` and emits eight fixed vertices per
 ## object — a quad across X and a quad across Z, both from the ground to
 ## `[height]`, never turned toward anything. It then walks `NocollArr` and emits
-## four vertices per object, turned to face `ctrl->viewpos`. So every collidable
-## object is a static cross of two planes at 90 degrees, and every collectable
-## one is a camera-facing billboard.
+## four vertices per object, turned to face `ctrl->viewpos` unless the type has
+## `[usenorm]`. So every collidable object is a static cross of two planes at
+## 90 degrees, and every collectable one is a camera-facing billboard — except
+## the start and finish banners, which keep ETR's fixed facing.
 ##
 ## Getting that backwards is silent. A billboarded tree renders perfectly: it is
 ## the right texture at the right size in the right place, and it is only wrong
@@ -143,6 +144,22 @@ static func _items_are_billboards(t: TestCase,
 		t.ok(shader != null and shader.resource_path == BILLBOARD_SHADER,
 			"%s billboards" % id)
 		t.ok(not prefab.collidable, "%s is not collidable, which is what decides it" % id)
+		_assert_facing(t, prefab, id)
+
+## `[usenorm] 1 [norm] 0 0 1` in `object_types.lst`: ETR draws the start and
+## finish banners across that fixed normal and never turns them. The herring
+## and the flag have no `[usenorm]` and face the viewpoint.
+static func _assert_facing(t: TestCase, prefab: ObjectPrefab, label: String) -> void:
+	var mat := prefab.material as ShaderMaterial
+	if mat == null:
+		return
+	var fixed: bool = String(prefab.id) in ["start", "finish"]
+	var face: Variant = mat.get_shader_parameter("face_camera")
+	t.ok((face == false) == fixed,
+		"%s %s" % [label, "stays square to the course" if fixed else "turns to the camera"])
+	if fixed:
+		t.ok(mat.get_shader_parameter("fixed_normal") == Vector3(0.0, 0.0, 1.0),
+			"%s faces +z, up the hill" % label)
 
 ## The copy that actually renders. [CourseRoot] reads its own
 ## [member CourseRoot.object_prefabs], not the files above, so a course scene
@@ -164,6 +181,10 @@ static func _the_course_carries_the_same(t: TestCase) -> void:
 		_assert_cross(t, tree.mesh, "the embedded tree")
 	var herring: ObjectPrefab = root.object_prefabs.get("herring", null)
 	t.ok(herring != null and herring.mesh is QuadMesh, "and the embedded herring is a quad")
+	for id: String in ["herring", "flag", "start", "finish"]:
+		var prefab: ObjectPrefab = root.object_prefabs.get(id, null)
+		if prefab != null:
+			_assert_facing(t, prefab, "the embedded %s" % id)
 	root.free()
 
 ## The planes the crossed quads land in, over a whole forest.
