@@ -140,6 +140,18 @@ static func _the_project_ships_two_renderers(t: TestCase) -> void:
 		"the desktop default is the Mobile renderer, which lights in linear")
 	t.ok(text.contains("renderer/rendering_method.web=\"gl_compatibility\""),
 		"the web build is Compatibility, because WebGL2 has nothing else")
+	# Godot files a phone's shadow filter under the `mobile` tag as Hard — one
+	# depth tap, every texel a stair on the snow. Only a phone reads the tagged
+	# key, so only a phone showed it.
+	t.ok(ProjectSettings.property_get_revert(
+		"rendering/lights_and_shadows/directional_shadow/soft_shadow_filter_quality.mobile") == 0,
+		"the engine ships phones a hard-edged sun shadow")
+	# Soft Medium on both: Soft Low's per-pixel rotated taps wait for a TAA
+	# that Mobile does not have, and leave the penumbra dithered.
+	t.ok(text.contains("directional_shadow/soft_shadow_filter_quality=3"),
+		"the desktop filters the sun's shadow at Soft Medium")
+	t.ok(text.contains("directional_shadow/soft_shadow_filter_quality.mobile=3"),
+		"and so does a phone, which would otherwise read the tagged Hard default")
 
 static func _android_picks_its_renderer(t: TestCase) -> void:
 	t.begin("lighting/android picks its renderer")

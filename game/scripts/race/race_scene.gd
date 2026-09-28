@@ -182,9 +182,10 @@ var atmosphere := Atmosphere.new()
 ## The directional shadow atlas's size as last set — the project's own until
 ## [method _apply_shadow_detail] changes it. Static, because the atlas is the
 ## renderer's and outlives this scene: the next race has to know what the last
-## one left it at.
-static var _shadow_atlas_size: int = ProjectSettings.get_setting(
-	"rendering/lights_and_shadows/directional_shadow/size", 4096)
+## one left it at. With the override: Godot's `size.mobile` makes a phone's
+## 2048, and plain `get_setting` would answer 4096 there and skip the resize to it.
+static var _shadow_atlas_size: int = ProjectSettings.get_setting_with_override(
+	"rendering/lights_and_shadows/directional_shadow/size")
 ## The ridges baked for the fog, once per sky — see [RidgeMap].
 var ridge_map: RidgeMap
 ## Torches down the edges and in place of the flags, lit under a night sky. A child of
@@ -1587,27 +1588,54 @@ func _shadows_wanted(preset: EnvironmentPreset) -> bool:
 ## the sun's own. See [method QualityPreset.shadow_map_for].
 func _apply_shadow_detail() -> void:
 	var map: Vector2i = QualityPreset.shadow_map_for(Config.shadow_detail)
-	var is_16_bits: bool = ProjectSettings.get_setting(
-		"rendering/lights_and_shadows/directional_shadow/16_bits", true)
+	var is_16_bits: bool = ProjectSettings.get_setting_with_override(
+		"rendering/lights_and_shadows/directional_shadow/16_bits")
 	# Reallocated only when the size moves: this runs on every change of sky.
 	if map.x != _shadow_atlas_size:
 		RenderingServer.directional_shadow_atlas_set_size(map.x, is_16_bits)
 		_shadow_atlas_size = map.x
 	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS \
 		if map.y == 2 else DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+	# Where the cascades end, as fractions of the shadow range. Godot's 0.1 /
+	# 0.2 / 0.5 give the first cascade 19 m of a 190 m range, and the map it
+	# gets is fitted around that slice of a wide view — 50-75 m across, which
+	# at 1024 texels is a stair you can count behind the penguin on a phone.
+	# 0.04 halves it where the camera looks hardest. Two cascades keep 0.1:
+	# the second one would otherwise cover nearly the whole range alone.
+	if map.y == 2:
+		_sun.directional_shadow_split_1 = 0.1
+	else:
+		_sun.directional_shadow_split_1 = 0.04
+		_sun.directional_shadow_split_2 = 0.12
+		_sun.directional_shadow_split_3 = 0.35
 
 ## How far directional shadows have to reach for this environment.
 ##
 ## [b]On the two bias values in `race.tscn`, which have nowhere else to be
 ## written down.[/b] Godot's directional defaults are `shadow_bias` 0.1 and
-## `shadow_normal_bias` 2.0, and a normal bias is measured in *world metres*
-## along the surface normal: two of them, on a penguin 0.6 m across, erase his
-## shadow completely. That is what "the racer casts nothing" was — the shadow
+## `shadow_normal_bias` 2.0. With both, "the racer casts nothing": the shadow
 ## map had him in it the whole time (rendering `vec3(ATTENUATION)` out of the
 ## terrain shader shows it), and the receiver was sampling far enough off the
-## contact point to miss. 0.4 m and 0.03 put it back with no acne on the snow,
-## which is the surface that would show it first: the terrain is a near-white
-## Lambertian sheet at a grazing angle, i.e. the worst case for both.
+## contact point to miss. `shadow_bias` 0.03 put him back.
+##
+## The normal bias is *not* in metres: Godot multiplies it by the cascade's
+## texel size (`light_storage.cpp`), so it is counted in shadow-map texels and
+## shrinks with a bigger atlas or a shorter first split. At 0.4 it was too
+## little for the terrain: a slope the sun grazes shadows itself in stripes,
+## one set per triangle, and the snow's wrap lighting — which lets the sun past
+## the terminator, exactly where a surface is grazing — puts them on screen.
+## 2.0 clears them and keeps the penguin's shadow at every `shadow_detail`
+## (Bumpy Ride, frame 160, the bump with the stripes on its sun side). Note
+## also that Godot scales `shadow_bias` by `shadow_blur` below.
+##
+## `shadow_blur` 0.75 is the same kind of number. Godot's soft filter rotates
+## its taps per pixel and leaves TAA to average the noise away, and Mobile has
+## no TAA, so the penumbra reads as a dithered band — as wide as the kernel,
+## which is counted in shadow-map texels and so is widest on a phone's small
+## atlas. 1.0 dithers; 0.5 is narrower than a near texel and shows its stairs.
+## It was chosen together with the cascade splits in [method _apply_shadow_detail]
+## and `project.godot`'s Soft Medium filter, whose extra taps average out what
+## Soft Low's leave as grain.
 ##
 ##
 ## Godot stops drawing them past `directional_shadow_max_distance` and fades

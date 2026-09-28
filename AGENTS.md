@@ -408,6 +408,21 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
 - **Terrain `SPECULAR` at Godot's 0.5 default blows snow out** (F0 0.04; ETR's terrain has none).
 - **Directional shadows stop at `directional_shadow_max_distance`**; derived from the fog range in
   `RaceScene._shadow_range_for` — keep it tied to visibility.
+- **Godot gives a phone its own shadow defaults under the `mobile` tag**:
+  `directional_shadow/soft_shadow_filter_quality.mobile` is 0 — Hard, one depth tap, every texel a
+  stair on the snow — and `directional_shadow/size.mobile` is 2048. `project.godot` sets the filter
+  for both, tagged and plain; read the atlas size with `get_setting_with_override`. Check
+  `ProjectSettings` for a `.mobile` twin before trusting any rendering default on Android.
+- **Godot's soft shadow filter dithers, and only TAA undoes it** — Mobile has none. The dithered
+  band is as wide as the kernel, counted in shadow-map texels, so a small atlas shows it most.
+  Shrinking the kernel alone trades the dither for texel stairs, and Hard has stairs and no dither.
+  What cleared it: smaller near texels (first cascade at 4 % of the range,
+  `RaceScene._apply_shadow_detail`), `shadow_blur` 0.75, and Soft Medium (quality 3) — more taps.
+- **`shadow_normal_bias` is in shadow-map texels, not metres** (Godot multiplies it by the
+  cascade's texel size), and `shadow_bias` is multiplied by `shadow_blur`. Too little normal bias
+  shows as stripes, one set per terrain triangle, on slopes the sun grazes — which the snow's wrap
+  lighting puts on screen. Diagnose acne with `DIFFUSE_LIGHT = vec3(ATTENUATION)` in the terrain's
+  `light()` and a contrast stretch; it is on the desktop too, just easy to miss.
 - **A mesh without a colour array reads `COLOR` as white**, which is what lets a course imported
   before `ambient_occlusion.res` draw unoccluded. `TerrainRenderer` drops an occlusion image whose
   size is not the heightmap's without a word; `TestOcclusion` checks every course's.

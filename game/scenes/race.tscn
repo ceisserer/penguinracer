@@ -20,7 +20,8 @@ shadow_enabled = false
 directional_shadow_mode = 2
 directional_shadow_blend_splits = true
 shadow_bias = 0.03
-shadow_normal_bias = 0.4
+shadow_normal_bias = 2.0
+shadow_blur = 0.75
 directional_shadow_fade_start = 0.9
 directional_shadow_max_distance = 190.0
 

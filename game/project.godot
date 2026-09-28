@@ -111,6 +111,8 @@ locale/translations=PackedStringArray("res://i18n/ui.en.translation", "res://i18
 [rendering]
 
 renderer/rendering_method="mobile"
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality=3
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality.mobile=3
 textures/vram_compression/import_etc2_astc=true
 textures/default_filters/anisotropic_filtering_level=1
 anti_aliasing/quality/msaa_3d=1
