@@ -26,6 +26,7 @@ SKILL_HARD,Hard,Schwer
 SKY_SUNNY,Sunny,Sonnig
 SKY_CLOUDY,Cloudy,Bewölkt
 SKY_NIGHT,Night,Nacht
+SKY_THUNDERSTORM,Thunderstorm,Gewitter
 CROSSWIND_NONE,None,Keiner
 CROSSWIND_LIGHT,Light,Leicht
 CROSSWIND_STRONG,Strong,Stark

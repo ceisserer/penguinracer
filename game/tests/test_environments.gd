@@ -35,6 +35,7 @@ static func run(t: TestCase) -> void:
 	_the_fit_is_the_fixed_point(t)
 	_the_wrap_matches_the_shader(t)
 	_choosing_a_time_of_day(t)
+	_a_thunderstorm(t)
 
 static func _load_all(t: TestCase) -> Array[EnvironmentPreset]:
 	t.begin("environments/on disk")
@@ -330,3 +331,54 @@ static func _choosing_a_time_of_day(t: TestCase) -> void:
 		"a hand-edited file has spaces and capitals in it")
 	t.ok(LightCondition.index_of(LightCondition.Kind.NIGHT) == 2,
 		"night is the third row offered, not the third value")
+
+## [constant LightCondition.Kind.THUNDERSTORM]: a sky ETR has not got, derived
+## from the location's cloudy one rather than imported.
+static func _a_thunderstorm(t: TestCase) -> void:
+	t.begin("environments/a thunderstorm")
+	for location: String in ["etr", "tuxracer"]:
+		var sunny: EnvironmentPreset = load(ENV_DIR.path_join("%s_sunny.tres" % location))
+		var cloudy: EnvironmentPreset = load(ENV_DIR.path_join("%s_cloudy.tres" % location))
+		var night: EnvironmentPreset = load(ENV_DIR.path_join("%s_night.tres" % location))
+		var storm: EnvironmentPreset = LightCondition.preset_for(sunny,
+			LightCondition.Kind.THUNDERSTORM)
+		t.ok(storm != null and storm.id == StringName("%s_thunderstorm" % location),
+			"%s has a storm" % location)
+		if storm == null or cloudy == null or night == null:
+			continue
+		t.ok(LightCondition.preset_for(sunny, LightCondition.Kind.THUNDERSTORM) == storm,
+			"asked twice it is the same resource, so a race does not re-light for nothing")
+		t.ok(LightCondition.location_of(storm) == location, "its location reads back")
+		t.ok(Atmosphere.light_name(storm) == "thunderstorm", "and so does its light")
+		t.ok(not storm.casts_shadows, "nothing casts a shadow under it")
+		t.ok(cloudy.id == StringName("%s_cloudy" % location) and cloudy.sun_color != storm.sun_color,
+			"deriving it left the cloudy preset alone")
+		# Darker than cloudy and lighter than night, at both ends of the range,
+		# in display space.
+		var shaded: Array[float] = []
+		var lit: Array[float] = []
+		for p: EnvironmentPreset in [cloudy, storm, night]:
+			var a: Vector3 = p.ambient_illumination()
+			var amb := Color(a.x, a.y, a.z)
+			var sun := Color(p.sun_color.r * p.sun_gain.r, p.sun_color.g * p.sun_gain.g,
+				p.sun_color.b * p.sun_gain.b)
+			shaded.append(_display_luminance(amb))
+			lit.append(_display_luminance(amb + sun))
+		t.ok(shaded[1] < shaded[0] * 0.8 and shaded[1] > shaded[2] * 1.1,
+			"shaded snow sits between cloudy and night (%.2f < %.2f < %.2f)"
+				% [shaded[2], shaded[1], shaded[0]])
+		# Lit snow only has to be darker than cloudy's: night's lit snow is
+		# pinned at the ceiling in blue, which is most of its luminance.
+		t.ok(lit[1] < lit[0] * 0.85,
+			"and lit snow is darker than cloudy's (%.2f < %.2f)" % [lit[1], lit[0]])
+		var cloudy_amb: Vector3 = cloudy.ambient_illumination()
+		var storm_amb: Vector3 = storm.ambient_illumination()
+		var ratio: float = Color(storm_amb.x, 0, 0).linear_to_srgb().r \
+			/ Color(cloudy_amb.x, 0, 0).linear_to_srgb().r
+		t.eq_f(ratio, EnvironmentPreset.STORM_LIGHT.r, 0.01,
+			"the shaded end is dimmed in display space, where the gains are derived")
+		t.ok(storm.sky_energy < 1.0, "and ETR's photographed sky is dimmed with it")
+
+static func _display_luminance(linear: Color) -> float:
+	var c := Color(minf(linear.r, 1.0), minf(linear.g, 1.0), minf(linear.b, 1.0)).linear_to_srgb()
+	return c.r * 0.2126 + c.g * 0.7152 + c.b * 0.0722

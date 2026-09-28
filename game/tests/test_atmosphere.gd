@@ -31,6 +31,7 @@ static func run(t: TestCase) -> void:
 	_etr_sky_is_etr_fog(t)
 	_the_procedural_sky(t)
 	_sky_detail(t)
+	_lightning(t)
 	_the_valley_floor(t)
 	_the_ridges_sink_as_you_climb(t)
 	_the_ridge_map(t)
@@ -109,7 +110,7 @@ static func _every_light_has_a_look(t: TestCase) -> void:
 	for light: String in LightCondition.ALL_NAMES:
 		t.ok(Atmosphere.LOOKS.has(light), "there is a look for `%s`" % light)
 		var look: Dictionary = Atmosphere.LOOKS.get(light, {})
-		for key: String in ["cover", "disc", "glow", "night", "mist", "ridge_light", "ridge_haze", "blue", "zenith_lift"]:
+		for key: String in ["cover", "disc", "glow", "night", "mist", "ridge_light", "ridge_haze", "blue", "zenith_lift", "lightning"]:
 			t.ok(look.has(key), "`%s` says %s" % [light, key])
 	for id: String in ["etr_sunny", "tuxracer_cloudy", "etr_evening", "tuxracer_night"]:
 		var preset: EnvironmentPreset = _preset(id)
@@ -168,6 +169,70 @@ static func _sky_detail(t: TestCase) -> void:
 			"before the file's own default (level %d)" % detail)
 		t.ok(Atmosphere.sky_shader(detail) == Atmosphere.sky_shader(detail),
 			"and is compiled once, not per race (level %d)" % detail)
+
+## [Lightning]: only a storm has it, the sky carries the bolt only then, and
+## a strike is a flicker that dies away, the same one every time.
+static func _lightning(t: TestCase) -> void:
+	t.begin("atmosphere/lightning")
+	for light: String in Atmosphere.LOOKS:
+		t.ok((float(Atmosphere.LOOKS[light]["lightning"]) > 0.0) == (light == "thunderstorm"),
+			"`%s` %s lightning" % [light, "has" if light == "thunderstorm" else "has no"])
+	var base: Shader = load(Atmosphere.SKY_SHADER)
+	t.ok(base.code.contains("#ifdef ATMO_LIGHTNING"),
+		"the bolt is compiled only where a define asks for it")
+	t.ok(not Atmosphere.sky_variant_code(base.code, 1).contains("#define ATMO_LIGHTNING"),
+		"which no sky but the storm's has")
+	for detail: int in [0, 1, 2]:
+		var code: String = Atmosphere.sky_variant_code(base.code, detail, true)
+		t.ok(code.count("#define ATMO_LIGHTNING") == 1
+			and code.find("#define ATMO_SKY_DETAIL %d" % detail) < code.find("#ifndef ATMO_SKY_DETAIL"),
+			"a storm at detail %d has both defines" % detail)
+		t.ok(Atmosphere.sky_shader(detail, true) == Atmosphere.sky_shader(detail, true)
+			and Atmosphere.sky_shader(detail, true) != Atmosphere.sky_shader(detail),
+			"its own shader, compiled once (detail %d)" % detail)
+	var g: Dictionary = Atmosphere.globals_for(_preset("etr_sunny"), 40.0, 150.0, true,
+		0.0, 0.0, true)
+	t.ok(g.get("atmo_flash") == Vector4.ZERO, "applying a sky puts out any flash")
+
+	var strokes: Array[Vector2] = [Vector2(1.0, 0.8), Vector2(1.1, 0.6)]
+	t.ok(Lightning.envelope(strokes, 0.99) == 0.0, "dark before the strike")
+	t.ok(Lightning.envelope(strokes, 1.0 + Lightning.RISE) > 0.75, "bright at once")
+	t.ok(Lightning.envelope(strokes, 1.1 + Lightning.RISE)
+		> Lightning.envelope(strokes, 1.09), "flickering up again on the next stroke")
+	t.ok(Lightning.envelope(strokes, 2.0) < 0.01, "and gone within a second")
+
+	var storm: EnvironmentPreset = LightCondition.preset_for(_preset("etr_sunny"),
+		LightCondition.Kind.THUNDERSTORM)
+	var runs: Array[PackedFloat32Array] = []
+	for run: int in range(2):
+		var sun := DirectionalLight3D.new()
+		storm.apply_sun(sun)
+		var bolt := Lightning.new()
+		bolt.start(sun, storm, 1234)
+		var trace := PackedFloat32Array()
+		var peak: float = 0.0
+		for frame: int in range(60 * 30):
+			bolt.advance(1.0 / 60.0, Vector3(0, 0, -1))
+			trace.append(bolt.intensity)
+			peak = maxf(peak, sun.light_energy)
+		runs.append(trace)
+		if run == 0:
+			var flashes: int = 0
+			for i: int in range(1, trace.size()):
+				if trace[i] > 0.3 and trace[i - 1] <= 0.3:
+					flashes += 1
+			t.between(float(flashes), 3.0, 30.0, "half a minute of storm flashes a few times")
+			var calm_peak: float = EnvironmentPreset.as_light_color(storm.sun_color,
+				storm.sun_gain).srgb_to_linear().b
+			t.ok(peak > 2.5 * calm_peak,
+				"and lights the hill while it does (sun %.2f, %.2f between flashes)"
+					% [peak, calm_peak])
+		sun.free()
+	t.ok(runs[0] == runs[1], "the same seed is the same storm")
+	var calm := Lightning.new()
+	calm.start(null, _preset("etr_cloudy"), 1234)
+	calm.advance(10.0, Vector3(0, 0, -1))
+	t.ok(not calm.active and calm.intensity == 0.0, "a cloudy day has none")
 
 static func _the_procedural_sky(t: TestCase) -> void:
 	t.begin("atmosphere/sky = procedural")

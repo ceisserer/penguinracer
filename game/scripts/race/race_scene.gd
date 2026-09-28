@@ -179,6 +179,8 @@ var _preset: EnvironmentPreset
 var _course_preset: EnvironmentPreset
 ## The sky, the haze and the valley mist — see [Atmosphere].
 var atmosphere := Atmosphere.new()
+## The storm's flashes, when the sky is a storm — see [Lightning].
+var lightning := Lightning.new()
 ## The directional shadow atlas's size as last set — the project's own until
 ## [method _apply_shadow_detail] changes it. Static, because the atlas is the
 ## renderer's and outlives this scene: the next race has to know what the last
@@ -877,6 +879,7 @@ func _present(delta: float) -> void:
 	# whole function while paused, which is the same thing.
 	snowfall.update(view.position, _racer_wind(), delta)
 	atmosphere.advance(delta, camera.global_position.y, _downwind())
+	lightning.advance(delta, -camera.global_transform.basis.z)
 	if course_lights != null:
 		course_lights.update(camera.global_position, atmosphere.atmo_time)
 	course_root.set_weather(_racer_wind(), snowfall.grade)
@@ -1454,6 +1457,10 @@ func _apply_environment(preset: EnvironmentPreset) -> void:
 	if reflection != null:
 		reflection.set_environment(env)
 	preset.apply_sun(_sun)
+	# Seeded by the course, so a storm on the same hill strikes the same way
+	# every time — a capture under one is as reproducible as any other.
+	lightning.start(_sun, preset, hash(course_root.course_data.display_name)
+		if course_root != null and course_root.course_data != null else 0)
 	_sun.shadow_enabled = _shadows_wanted(preset)
 	_sun.directional_shadow_max_distance = _shadow_range_for(env)
 	_apply_shadow_detail()

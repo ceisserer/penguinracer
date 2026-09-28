@@ -153,6 +153,10 @@ const SNOW_WRAP := 0.2
 ## A mirror cannot out-brighten what it mirrors. See the ice block in
 ## `shaders/terrain.gdshader`.
 @export var sky_horizon_color: Color = Color(0.75, 0.82, 0.92)
+## What ETR's photographed skybox (`[display] sky = etr`) is multiplied by. 1.0
+## for every migrated preset; below it only for a sky derived from one, which
+## has the photographs of a brighter one — see [method storm_from].
+@export var sky_energy: float = 1.0
 ## Equirectangular sky, for authored replacements. Takes precedence over the
 ## migrated faces.
 @export var sky_panorama: Texture2D
@@ -353,6 +357,74 @@ static func _sun_gain_channel(target_lin: float, ambient_lin: float, diff: float
 static func _ratio(num: float, den: float) -> float:
 	return num / den if den > 0.0 else 1.0
 
+# ------------------------------------------------------------------
+#        the thunderstorm, which ETR has not got
+# ------------------------------------------------------------------
+
+## How much of the cloudy sky's light a thunderstorm keeps, per channel, in
+## display space — the space ETR's arithmetic and every derived gain live in.
+## Three quarters, and a little bluer. The illumination on a shaded slope,
+## before the texture, is (169, 167, 161) under cloudy and (57, 81, 136) under
+## night; this puts it at (125, 127, 132). Measured on a frame, the storm's
+## snow then matches night's luminance, but grey under a grey sky where night's
+## is saturated blue under a black one — so it reads plainly lighter. At
+## (0.62, 0.64, 0.70) it read darker than night, which is not the brief.
+const STORM_LIGHT := Color(0.74, 0.76, 0.82)
+## The same for the sky's colours and the fog: darker than the light on the
+## snow, as a storm's underside is.
+const STORM_SKY := Color(0.48, 0.50, 0.56)
+## And for the falling snow's tint, which is lit by the same light as the snow
+## on the ground but reads against the sky.
+const STORM_PARTICLES := Color(0.62, 0.64, 0.70)
+
+## DEVIATION: a light ETR has not got. The thunderstorm has no `light.lst`, so
+## it is [param cloudy] — the same location under overcast — with the light
+## taken down to [constant STORM_LIGHT] of it, renamed [param id].
+##
+## [b]Dimmed where the gains were derived, not by scaling the gains.[/b] The
+## migrated `[diff]` and `[amb]` are scaled as if `light.lst` had said the
+## darker numbers, and the gains are then derived for them the way the importer
+## derives the other six: [method derive_ambient_gain] for the shaded end, which
+## lands the shaded snow at exactly [constant STORM_LIGHT] of cloudy's in
+## display space; and for the lit end, the sun gain that lands a slope square
+## to the sun at the same fraction of cloudy's. Scaling a linear gain instead
+## would dim the shaded side far more than the lit one — the same sRGB trap
+## [method fit_correction] is about.
+##
+## Nothing casts a shadow: it is an overcast sky, and [Lightning] moves the sun.
+static func storm_from(cloudy: EnvironmentPreset, id: StringName) -> EnvironmentPreset:
+	var storm: EnvironmentPreset = cloudy.duplicate() as EnvironmentPreset
+	storm.id = id
+	storm.casts_shadows = false
+	storm.sun_color = _times(cloudy.sun_color, STORM_LIGHT)
+	storm.ambient_color = _times(cloudy.ambient_color, STORM_LIGHT)
+	storm.ambient_gain = derive_ambient_gain(storm.ambient_color)
+	# Cloudy's slope square to the sun, in display space and at ETR's ceiling,
+	# and the storm's.
+	var lit: Color = as_light_color(Color(1, 1, 1),
+		_plus(_times(cloudy.ambient_color, cloudy.ambient_gain),
+			_times(cloudy.sun_color, cloudy.sun_gain)))
+	lit = Color(minf(lit.r, 1.0), minf(lit.g, 1.0), minf(lit.b, 1.0), 1.0)
+	var target: Color = _times(lit, STORM_LIGHT).srgb_to_linear()
+	var shaded: Color = _times(storm.ambient_color, storm.ambient_gain)
+	storm.sun_gain = Color(
+		_ratio(maxf(target.r - shaded.r, 0.0), storm.sun_color.r),
+		_ratio(maxf(target.g - shaded.g, 0.0), storm.sun_color.g),
+		_ratio(maxf(target.b - shaded.b, 0.0), storm.sun_color.b), 1.0)
+	storm.fog_color = _times(cloudy.fog_color, STORM_SKY)
+	storm.sky_zenith_color = _times(cloudy.sky_zenith_color, STORM_SKY)
+	storm.sky_nadir_color = _times(cloudy.sky_nadir_color, STORM_SKY)
+	storm.sky_horizon_color = _times(cloudy.sky_horizon_color, STORM_SKY)
+	storm.sky_energy = cloudy.sky_energy * (STORM_SKY.r + STORM_SKY.g + STORM_SKY.b) / 3.0
+	storm.particle_color = _times(cloudy.particle_color, STORM_PARTICLES)
+	return storm
+
+static func _times(a: Color, b: Color) -> Color:
+	return Color(a.r * b.r, a.g * b.g, a.b * b.b, a.a)
+
+static func _plus(a: Color, b: Color) -> Color:
+	return Color(a.r + b.r, a.g + b.g, a.b + b.b, a.a)
+
 ## The same ambient [method to_environment] hands Godot, but as the linear
 ## number a shader works in rather than packed into a [Color] for the decode.
 ##
@@ -383,6 +455,7 @@ func _build_sky() -> Sky:
 		mat.set_shader_parameter("face_right", sky_right)
 		mat.set_shader_parameter("zenith_color", sky_zenith_color)
 		mat.set_shader_parameter("nadir_color", sky_nadir_color)
+		mat.set_shader_parameter("energy", sky_energy)
 		sky.sky_material = mat
 		return sky
 	# No migrated faces — a plain gradient rather than a flat clear colour, so a

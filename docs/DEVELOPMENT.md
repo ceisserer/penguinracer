@@ -108,7 +108,7 @@ godot --path game -- --lang=de                       # ... in German (en, de or 
 godot --path game -- --crosswind=strong              # ... in a crosswind (none, light or strong)
 godot --path game -- --wind=2                        # ... in ETR's own wind grade (1..3) instead
 godot --path game -- --snow=3                        # ... snowing hard (0..3)
-godot --path game -- --light=night                   # ... after dark (sunny, cloudy or night)
+godot --path game -- --light=night                   # ... after dark (sunny, cloudy, night or thunderstorm)
 godot --path game -- --server=<address>              # ... straight to the multiplayer lobby
 godot --path game -- --lobby                         # ... on the server the settings file names
 godot --path game -- --touch                         # ... with a phone's on-screen controls
@@ -368,7 +368,7 @@ character = "tux"         ; tux, trixi, boris, samuel or beastie
 opponents = 3             ; how many computer racers "Race the computer" starts with [1...9]
 opponent_skill = "medium" ; easy, medium or hard
 snowfall = 0              ; how hard it is snowing [0...3]: none, a little, more, a lot
-conditions = "sunny"      ; what the sky is doing: sunny, cloudy or night
+conditions = "sunny"      ; what the sky is doing: sunny, cloudy, night or thunderstorm
 wind = "none"             ; the crosswind: none, light or strong
 
 [controls]
@@ -439,7 +439,9 @@ still `--wind=` only.
 **The sky is chosen per race, not per course.** A course names a *place* (`[env] etr` or
 `[env] tuxracer`, a location with skyboxes and a `light.lst` authored under it for each time of
 day) and the light is the player's, the way `events.lst` picks it for a cup race in the original.
-Three of the four times of day are offered: sunny, cloudy and night. Under the last two nothing
+Three of the four times of day are offered: sunny, cloudy and night — and a thunderstorm, which
+the original has not got: the location's cloudy light dimmed, with lightning (`Lightning`)
+flashing in the clouds and on the hill. Under the last two nothing
 casts a shadow — that is `CCharShape::DrawShadow` returning immediately under `light_id` 1 and 3,
 not a simplification — and the snow, the falling flakes, the spray, the fog and what the ice
 reflects all change with the sky.

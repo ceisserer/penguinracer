@@ -71,19 +71,25 @@ const MIST_DENSITY := 0.009
 ##   half mountain, so drawn unaltered they are the grey of a mountainside;
 ##   0 is the data.
 ## - `zenith_lift`: how much brighter than its migrated average the zenith is.
+## - `lightning`: whether [Lightning] flashes in the clouds, 0 or 1.
 const LOOKS: Dictionary[String, Dictionary] = {
 	"sunny": {"cover": 0.3, "disc": 1.0, "glow": Color(0.95, 0.84, 0.66),
 		"night": 0.0, "mist": 0.35, "ridge_light": 1.5,
-		"ridge_haze": 0.55, "blue": 0.85, "zenith_lift": 1.8},
+		"ridge_haze": 0.55, "blue": 0.85, "zenith_lift": 1.8, "lightning": 0.0},
 	"cloudy": {"cover": 0.93, "disc": 0.15, "glow": Color(0.22, 0.22, 0.23),
 		"night": 0.0, "mist": 1.6, "ridge_light": 1.2,
-		"ridge_haze": 1.0, "blue": 0.0, "zenith_lift": 1.0},
+		"ridge_haze": 1.0, "blue": 0.0, "zenith_lift": 1.0, "lightning": 0.0},
 	"evening": {"cover": 0.4, "disc": 1.0, "glow": Color(1.0, 0.5, 0.24),
 		"night": 0.0, "mist": 0.8, "ridge_light": 1.5,
-		"ridge_haze": 0.85, "blue": 0.2, "zenith_lift": 1.0},
+		"ridge_haze": 0.85, "blue": 0.2, "zenith_lift": 1.0, "lightning": 0.0},
 	"night": {"cover": 0.2, "disc": 0.0, "glow": Color(0.16, 0.19, 0.27),
 		"night": 1.0, "mist": 0.3, "ridge_light": 3.5,
-		"ridge_haze": 0.7, "blue": 0.5, "zenith_lift": 1.0},
+		"ridge_haze": 0.7, "blue": 0.5, "zenith_lift": 1.0, "lightning": 0.0},
+	# Solid cloud, no disc, thick mist, ridges barely lit and soon hazed: the
+	# far ranges are dark shapes until a flash throws them against the sky.
+	"thunderstorm": {"cover": 1.0, "disc": 0.0, "glow": Color(0.05, 0.05, 0.06),
+		"night": 0.0, "mist": 1.8, "ridge_light": 0.8,
+		"ridge_haze": 1.1, "blue": 0.0, "zenith_lift": 0.85, "lightning": 1.0},
 }
 
 ## The hue a clear sky is turned toward, linear, at the zenith and along the
@@ -204,6 +210,10 @@ static func globals_for(preset: EnvironmentPreset, fog_begin: float, fog_end: fl
 		"atmo_night": night,
 		"atmo_mist_color": _vec(mist_colour),
 		"atmo_valley_mist": valley_mist(look) if procedural else 0.0,
+		# No flash left over from another sky: [Lightning] writes these only
+		# while it runs.
+		"atmo_flash": Vector4.ZERO,
+		"atmo_bolt": Vector4(0.0, -1.0, 0.0, 0.0),
 	}
 	if procedural:
 		var density: float = MIST_DENSITY * float(look["mist"]) if fog_on else 0.0
@@ -284,7 +294,7 @@ func advance(delta: float, camera_y: float, downwind: Vector2 = Vector2.ZERO) ->
 func _build_sky(look: Dictionary, zenith: Color, horizon: Color,
 		detail: int) -> Sky:
 	var mat := ShaderMaterial.new()
-	mat.shader = sky_shader(detail)
+	mat.shader = sky_shader(detail, float(look["lightning"]) > 0.0)
 	mat.set_shader_parameter("cloud_cover", float(look["cover"]))
 	mat.set_shader_parameter("sun_disc", float(look["disc"]))
 	var glow: Color = look["glow"]
@@ -304,26 +314,37 @@ const SKY_SHADER := "res://shaders/procedural_sky.gdshader"
 ## The line [method sky_shader] writes its define under.
 const SKY_SHADER_TYPE_LINE := "shader_type sky;"
 
-## The lower-detail variants, compiled once each and kept for the process.
+## The variants, compiled once each and kept for the process: the lower
+## details, and each detail with lightning. Keyed by detail, plus
+## [constant LIGHTNING_VARIANT] for a storm's.
 static var _sky_variants: Dictionary[int, Shader] = {}
+const LIGHTNING_VARIANT := 16
 
-## The sky shader for `[quality] sky_detail` [param detail]. The top level is
-## the file itself; the others are its code with `ATMO_SKY_DETAIL` defined, so
-## each compiles only its own path — see the note at the top of the shader.
-static func sky_shader(detail: int) -> Shader:
+## The sky shader for `[quality] sky_detail` [param detail], drawing lightning
+## bolts when [param lightning]. The top level without lightning is the file
+## itself; the others are its code with `ATMO_SKY_DETAIL` (and
+## `ATMO_LIGHTNING`) defined, so each compiles only its own path — see the note
+## at the top of the shader. A sky with no storm in it does not carry the
+## bolt's code at all.
+static func sky_shader(detail: int, lightning: bool = false) -> Shader:
 	var base: Shader = load(SKY_SHADER)
-	if detail >= QualityPreset.SKY_DETAIL_HIGH:
+	if detail >= QualityPreset.SKY_DETAIL_HIGH and not lightning:
 		return base
-	if not _sky_variants.has(detail):
+	var key: int = mini(detail, QualityPreset.SKY_DETAIL_HIGH) \
+		+ (LIGHTNING_VARIANT if lightning else 0)
+	if not _sky_variants.has(key):
 		var variant := Shader.new()
-		variant.code = sky_variant_code(base.code, detail)
-		_sky_variants[detail] = variant
-	return _sky_variants[detail]
+		variant.code = sky_variant_code(base.code, detail, lightning)
+		_sky_variants[key] = variant
+	return _sky_variants[key]
 
-## [param code] with `ATMO_SKY_DETAIL` set to [param detail]. Pure, for the tests.
-static func sky_variant_code(code: String, detail: int) -> String:
-	return code.replace(SKY_SHADER_TYPE_LINE,
-		"%s\n#define ATMO_SKY_DETAIL %d" % [SKY_SHADER_TYPE_LINE, detail])
+## [param code] with `ATMO_SKY_DETAIL` set to [param detail], and
+## `ATMO_LIGHTNING` defined when [param lightning]. Pure, for the tests.
+static func sky_variant_code(code: String, detail: int, lightning: bool = false) -> String:
+	var defines: String = "#define ATMO_SKY_DETAIL %d" % mini(detail, QualityPreset.SKY_DETAIL_HIGH)
+	if lightning:
+		defines += "\n#define ATMO_LIGHTNING"
+	return code.replace(SKY_SHADER_TYPE_LINE, "%s\n%s" % [SKY_SHADER_TYPE_LINE, defines])
 
 ## [param c] turned [param amount] of the way toward the hue of [param blue],
 ## at [param c]'s own luminance times [param lift].

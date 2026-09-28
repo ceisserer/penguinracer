@@ -51,6 +51,14 @@ global uniform vec4 atmo_ridges;
 global uniform float atmo_dip;
 // 0 by day, 1 by night.
 global uniform float atmo_night;
+// A lightning flash lighting the cloud deck from inside: the light it adds to
+// the sky, linear, and in w the flash's strength 0..1. Zero under every sky but
+// the storm's, and between its flashes. See [Lightning].
+global uniform vec4 atmo_flash;
+// Where the flash is: the horizontal direction of the strike (x, z), a seed
+// for the shape of its bolt, and how brightly the bolt itself shows — 0 when
+// the flash is sheet lightning, lit inside the cloud with no channel to see.
+global uniform vec4 atmo_bolt;
 // The eight torches nearest the camera, as position and brightness, and the
 // light they all share: colour times strength, and reach in metres. A reach
 // of 0 is no torches, which is every daytime frame. Eight separate globals
@@ -123,6 +131,22 @@ vec3 atmo_backdrop_dir(vec3 d) {
 	return normalize(vec3(d.x, d.y + atmo_dip * hl, d.z));
 }
 
+// How much a lightning flash brightens the sky in direction [param d]: the
+// whole deck a little, the part of it over the strike most. In the sky's
+// gradient, so the haze in front of a far slope flashes with the sky behind it
+// and a fogged slope never shows as a dark cut-out against a lit sky.
+vec3 atmo_flash_at(vec3 d) {
+	if (atmo_flash.w <= 0.0) {
+		return vec3(0.0);
+	}
+	vec2 h = normalize(d.xz + vec2(1e-5));
+	float toward = max(dot(h, atmo_bolt.xy), 0.0);
+	float over = 0.3 + 0.7 * toward * toward * toward;
+	// Brightest in the cloud, fading down to the horizon.
+	float height = 0.45 + 0.55 * smoothstep(-0.05, 0.25, d.y);
+	return atmo_flash.rgb * over * height;
+}
+
 // The clear sky in direction [param d]: the gradient the migrated skybox was
 // averaged into, a brighter band where the air is thickest, and the disc's
 // glow. No clouds, stars or ridges — this is also what the air between the
@@ -142,7 +166,7 @@ vec3 atmo_sky(vec3 d) {
 	float mu = max(dot(d, atmo_sun_dir), 0.0);
 	float halo = pow(mu, 48.0) * 0.45 + pow(mu, 6.0) * 0.18;
 	float horizon_glow = pow(mu, 2.0) * band * 0.35;
-	return c + atmo_sun_color * (halo + horizon_glow);
+	return c + atmo_sun_color * (halo + horizon_glow) + atmo_flash_at(d);
 }
 
 // ------------------------------------------------------------------

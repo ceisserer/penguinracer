@@ -175,6 +175,14 @@ atmo_night={
 "type": "float",
 "value": 0.0
 }
+atmo_flash={
+"type": "vec4",
+"value": Vector4(0, 0, 0, 0)
+}
+atmo_bolt={
+"type": "vec4",
+"value": Vector4(0, -1, 0, 0)
+}
 atmo_torch_0={
 "type": "vec4",
 "value": Vector4(0, 0, 0, 0)

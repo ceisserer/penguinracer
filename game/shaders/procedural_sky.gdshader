@@ -1,5 +1,6 @@
 // The procedural sky: gradient, sun disc, two drifting cloud layers, the
-// distant ridges, and at night stars, a moon and an aurora.
+// distant ridges, at night stars, a moon and an aurora, and in a storm the
+// lightning.
 //
 // DEVIATION: ETR draws three photographs on three flat quads
 // (`etr_skybox.gdshader`, still here behind `[display] sky = etr`). This draws
@@ -93,6 +94,9 @@ vec4 cloud_deck(vec3 d, float height, float scale, vec2 drift, float cover,
 	vec3 col = mix(cloud_shade, cloud_lit, lit);
 	// Silver lining: thin edges toward the disc glow.
 	col += atmo_sun_color * pow(mu, 12.0) * (1.0 - density) * 1.5;
+	// A flash lights the deck from inside: thick cloud glows, and the thin
+	// parts the light shines through glow more.
+	col += atmo_flash_at(d) * (1.6 - 0.8 * lit);
 	return vec4(col, density);
 }
 
@@ -174,6 +178,78 @@ vec3 aurora_light(vec3 d) {
 	return acc * 0.055 * horizon;
 }
 
+#ifdef ATMO_LIGHTNING
+// Defined by [Atmosphere] for a storm's sky only: every other sky leaves the
+// bolt out rather than carrying code it never runs.
+
+// The jagged path of a bolt at height [param s] down it (0 at the cloud base,
+// 1 at the ground), as an angle off the strike's direction, in radians.
+float bolt_path(float s, float seed) {
+	float x = 0.0;
+	float a = 0.035;
+	float f = 5.0;
+	for (int i = 0; i < 5; i++) {
+		// Value noise through the midpoint, so each octave kinks the line
+		// rather than bending it.
+		x += (atmo_noise(vec2(s * f, seed + float(i) * 7.1)) - 0.5) * a;
+		f *= 2.3;
+		a *= 0.55;
+	}
+	return x + (atmo_hash12(vec2(seed, 3.7)) - 0.5) * 0.06 * s;
+}
+
+// How much of a bolt's channel covers a pixel [param dx] radians off it, for a
+// pixel [param px] wide: a core at least a pixel across, dimmed to keep its
+// energy as it narrows, and a glow round it.
+float bolt_line(float dx, float px, float width) {
+	float w = max(width, px);
+	float core = (1.0 - smoothstep(w * 0.5, w * 0.5 + px, dx)) * (width / w);
+	return core + exp(-dx / 0.01) * 0.25;
+}
+
+// A lightning bolt from the cloud base down behind the ridges, in the
+// direction [code]atmo_bolt[/code] names, with one branch. Only when the
+// flash shows its channel ([code]atmo_bolt.w[/code] above 0).
+vec3 lightning_bolt(vec3 d) {
+	if (atmo_bolt.w <= 0.0 || d.y < -0.1) {
+		return vec3(0.0);
+	}
+	float hl = max(length(d.xz), 1e-4);
+	vec2 h = d.xz / hl;
+	vec2 b = atmo_bolt.xy;
+	float ang = atan(b.x * h.y - b.y * h.x, dot(b, h));
+	if (abs(ang) > 0.25) {
+		return vec3(0.0);
+	}
+	// Tangent of elevation: from the cloud base down to below the horizon,
+	// where the ridges draw over it.
+	const float TOP = 0.3;
+	const float BOTTOM = -0.04;
+	float t = d.y / hl;
+	float s = (TOP - t) / (TOP - BOTTOM);
+	if (s < 0.0 || s > 1.0) {
+		return vec3(0.0);
+	}
+	float seed = atmo_bolt.z;
+	float px = fwidth(ang) + 1e-5;
+	float main = bolt_line(abs(ang - bolt_path(s, seed)), px, 0.0022);
+	// One branch, leaving the main channel somewhere in its upper half and
+	// petering out on its way down.
+	float s0 = 0.15 + 0.35 * atmo_hash12(vec2(seed, 9.1));
+	float side = atmo_hash12(vec2(seed, 5.3)) < 0.5 ? -1.0 : 1.0;
+	float branch = 0.0;
+	if (s > s0 && s < s0 + 0.35) {
+		float along = s - s0;
+		float bx = bolt_path(s0, seed) + side * along * 0.18
+			+ (bolt_path(s * 1.7, seed + 13.0) - bolt_path(s0 * 1.7, seed + 13.0));
+		branch = bolt_line(abs(ang - bx), px, 0.0012) * (1.0 - along / 0.35);
+	}
+	// Out of the cloud at the top rather than cut off.
+	float emerge = smoothstep(0.0, 0.12, s);
+	return vec3(0.85, 0.88, 1.0) * (main + branch * 0.6) * emerge * atmo_bolt.w * 4.0;
+}
+#endif
+
 // Compatibility's sky pass writes what the shader returns without encoding it:
 // the migrated skybox never noticed, because its `source_color` faces are not
 // decoded there either and sRGB went in and came out. This sky is built in
@@ -216,6 +292,10 @@ void sky() {
 			c = mix(c, high.rgb, high.a * 0.6 * fade);
 			c = mix(c, low.rgb, low.a * fade);
 		}
+#ifdef ATMO_LIGHTNING
+		// Under the clouds and behind the ridges.
+		c += lightning_bolt(d);
+#endif
 		// The ridges go over everything, clouds and moon included, and sharp —
 		// or, at low detail, as the fog sees them: two texels of the baked map,
 		// a little soft at the crest, instead of three layers of noise.

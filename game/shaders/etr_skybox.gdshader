@@ -31,6 +31,10 @@ uniform vec3 nadir_color : source_color = vec3(0.55, 0.60, 0.70);
 // Fade length past a face edge, in face-heights. 0.5 is a quarter of the sky.
 uniform float fade_span : hint_range(0.05, 2.0) = 0.5;
 uniform float energy : hint_range(0.0, 4.0) = 1.0;
+// A lightning flash ([Lightning]), the same global the procedural sky reads:
+// the light it adds to the sky, linear. The photographs cannot show a bolt,
+// so under this sky a storm is all sheet lightning.
+global uniform vec4 atmo_flash;
 
 void sky() {
 	vec3 d = EYEDIR;
@@ -66,5 +70,5 @@ void sky() {
 	float span = max(fade_span, 1e-3);
 	c = mix(c, zenith_color, smoothstep(0.0, 1.0, -v / span));
 	c = mix(c, nadir_color, smoothstep(0.0, 1.0, (v - 1.0) / span));
-	COLOR = c * energy;
+	COLOR = c * energy + atmo_flash.rgb;
 }

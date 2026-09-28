@@ -2417,3 +2417,42 @@ German with no setting; switching on the settings screen writing `language = "de
 rebuilt menu in German. **Not verified**: a browser or a phone picking the locale up — both are
 the engine's `OS.get_locale()`, not code of ours. The course descriptions stay English, as ETR
 ships them.
+
+### A thunderstorm (2026-09-28) · **done**
+
+A fourth sky on the course screen, **Thunderstorm** (*Gewitter*), and the first that is not ETR's:
+rather dark — darker than cloudy, lighter than night — with lightning flashing in the cloud deck and
+lighting the hill for a moment. `--light=thunderstorm`, `[game] conditions = "thunderstorm"`,
+`SHOT_LIGHT=thunderstorm`; carried on a lobby room like the others (`LightCondition.Kind` 4).
+
+**The preset is derived, not imported.** No `light.lst` describes a storm, so
+`LightCondition.preset_for` builds `<location>_thunderstorm` from the location's cloudy preset
+(`EnvironmentPreset.storm_from`, cached so a race does not re-light for nothing). `[diff]` and
+`[amb]` are scaled by `STORM_LIGHT` (0.74, 0.76, 0.82) as if `light.lst` had said so and the gains
+re-derived the importer's way, so the shaded end lands at exactly that fraction of cloudy's in
+display space; sky colours, fog and ETR's photographed sky (`sky_energy`) by `STORM_SKY`. Nothing
+casts a shadow. Bunny Hill, frame 110, `carve`, snow half of the frame (G mean): cloudy 193, storm
+140, night 140 — but night's is saturated blue (B 216, 57 % clipped) under a sky of 48 where the
+storm's is 84, so the storm reads plainly lighter. The first try at 0.62 put the storm's snow
+*under* night's (119) and was raised.
+
+**The flash is the sun.** `Lightning` (`scripts/render/lightning.gd`) strikes every 3.5–11 s within
+about 57° of where the camera looks, each strike 1–4 return strokes (12 ms rise, 75 ms decay), 65 %
+of them with a visible bolt and the rest sheet lightning, all from a seed hashed off the course's
+name so a capture reproduces. It adds `LIGHT_FLASH` to the one `DirectionalLight3D` and turns it
+toward the strike by the flash's share of the light: a second light would run `light()` again and
+add the ambient twice inside ETR's clamp. So the terrain, trees, objects and racers flash together,
+inside the clamp, on both renderers. The sky reads two new globals, `atmo_flash` and `atmo_bolt`:
+`atmo_sky` adds the flash (brightest over the strike), so the haze in front of a far slope flashes
+with the sky behind it; the clouds glow from inside; and the storm's sky — only the storm's,
+`ATMO_LIGHTNING` in `Atmosphere.sky_shader` — draws a jagged bolt with one branch from the cloud
+base down behind the ridges. ETR's skybox (`--sky=etr`) gets the sheet flash, no bolt.
+
+**Verified**: the suite (`environments/a thunderstorm`: between cloudy and night, cached, cloudy
+left alone, dimmed in display space; `atmosphere/lightning`: only the storm's look has it, the bolt
+define only in its sky, the stroke envelope, a seed is a storm, 30 s flashes several times and
+lifts the sun). 6095 passed, 1 failed — the pre-existing `lighting/what project.godot ships`.
+Captures on Bunny Hill under Mobile at frames 110 (dark), 239 (sheet flash), 1170 (a bolt behind
+the trees), Compatibility at 1170, and `--sky=etr` at 239. **Not done**: thunder — ETR ships no
+sound for it, and the licence audit makes a new one a separate job. A paused race holds whatever
+flash it was paused in.

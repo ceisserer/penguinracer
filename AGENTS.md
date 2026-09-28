@@ -130,7 +130,7 @@ godot --path game -- --touch=buttons                               # ... with a 
 godot --path game -- --crosswind=strong                             # ... in a crosswind (none|light|strong)
 godot --path game -- --wind=2                                      # ... in ETR's wind grade 1..3 instead
 godot --path game -- --snow=3                                      # ... snowing (0..3)
-godot --path game -- --light=night                                 # ... under another sky (sunny|cloudy|night)
+godot --path game -- --light=night                                 # ... under another sky (sunny|cloudy|night|thunderstorm)
 godot --path game -- --sky=etr                                     # ... with ETR's skybox and flat fog (procedural|etr)
 godot --path game -- --quality=fast                                # ... at a quality preset (fastest|fast|medium|high|best)
 godot --path game -- --server=penguin.example                      # ... lobby on that server
@@ -223,7 +223,7 @@ Detail is in `PROGRESS.md`; this is the summary.
 | 6 — polish/ship | not started. |
 | phones | **done, not raced on hardware** — `Android` preset + `tools/build_android.sh` (Mobile renderer by default, Compatibility selectable in the settings screen from the next launch, whole game in the APK, Medium preset on first run); tilt / buttons / off on Android and in a phone's browser (`TouchScheme`, `TouchControls`, `TiltSteering`, `MotionSensor`); back button is Esc. Verified by the suite, desktop renders with `--touch`, and Chromium emulating an Android phone with synthetic `devicemotion`. |
 | sky + atmosphere | **done** (beyond ETR) — procedural sky (sun disc, drifting clouds; stars, moon, aurora at night), three layers of distant ridges, aerial perspective and valley mist in every lit shader's `FOG`, night torches inside the clamp (baked into the terrain). `[display] sky = etr` / `--sky=etr` is the old frame to the level. See the deviations. |
-| weather | **snow (0–3), sky (sunny/cloudy/night) and wind (none/light/strong) done** — `SnowFall` (world-anchored streaking flakes + far snow, deterministic), `LightCondition` and `WindField.init_crosswind`, all on the course screen, remembered in `[game] snowfall`/`conditions`/`wind`, carried on a lobby room. The sky moves sun, ambient, fog, skybox, tints, ice, and shadows (`EnvironmentPreset.casts_shadows`). The wind blows from a side rolled per start and moves the trees, the snow, the HUD's rose and a racer in flight. `evening` and ETR's wind grades (`--wind=`) are not offered. |
+| weather | **snow (0–3), sky (sunny/cloudy/night/thunderstorm) and wind (none/light/strong) done** — `SnowFall` (world-anchored streaking flakes + far snow, deterministic), `LightCondition` and `WindField.init_crosswind`, all on the course screen, remembered in `[game] snowfall`/`conditions`/`wind`, carried on a lobby room. The sky moves sun, ambient, fog, skybox, tints, ice, and shadows (`EnvironmentPreset.casts_shadows`). The wind blows from a side rolled per start and moves the trees, the snow, the HUD's rose and a racer in flight. The thunderstorm is ours, not ETR's (`Lightning`, see the deviations). `evening` and ETR's wind grades (`--wind=`) are not offered. |
 | computer opponents | **done** (beyond ETR) — `RaceSetup` 1–9 opponents, each a `SimulatedRacer` + `AIInputSource` scoring nine candidate lines. Skill moves habits, never physics: 30 s on a 22° slope gives easy 231 m, medium 333 m, hard 422 m, a player holding straight 413 m. Deterministic from a seed. Solid via `RacerField`. |
 | multiplayer foundation | **done** — fixed 60 Hz tick with interpolated presentation; `SimulatedRacer`/`PlaybackRacer`; `RacerState` is the only thing drawn and is the ghost and wire format. Ghosts end to end: record, keep from the results screen, race from `GhostMenu`. |
 | network multiplayer | **done** (beyond ETR, plan §8.4), works in a browser — one dedicated server serves the web build over HTTP and races over WebSocket. Rooms with optional passwords, admin picks course and starts. Server relays snapshots; each peer simulates itself. Names unique server-wide. Countdown instead of intro; race ends when the last racer finishes. See the deviations. |
@@ -757,6 +757,17 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   sum inside the illumination clamp — no `OmniLight3D`, which would run the one-light `light()`
   again and add the ambient twice. The bake has no flicker. Racers are not torch-lit.
   `[display] night_lights = false` is ETR's dark night, flags and all.
+- **There is a thunderstorm**, a light ETR has not got (`LightCondition.Kind.THUNDERSTORM`, value
+  4). No `light.lst` describes it, so it is not imported: `EnvironmentPreset.storm_from` derives
+  `<location>_thunderstorm` from the location's cloudy preset at runtime, scaling `[diff]`/`[amb]`
+  by `STORM_LIGHT` in display space and re-deriving the gains the importer's way (never scale a
+  linear gain — the sRGB trap). `Lightning` flashes it: strikes every 3.5–11 s ahead of the camera,
+  1–4 return strokes each, seeded by the course so captures reproduce. **The flash is the sun**,
+  brightened and turned toward the strike — a second light would add the ambient twice inside
+  ETR's clamp — so everything lit flashes together; the sky reads the same flash from `atmo_flash`
+  / `atmo_bolt`, and because `atmo_sky` carries it the far fog flashes with the sky. The bolt is
+  compiled only into the storm's sky (`ATMO_LIGHTNING`, `Atmosphere.sky_shader`). No thunder: ETR
+  has no sound for it.
 - **The sun casts a real shadow map on the desktop only**; ETR casts a character blob. Off by
   renderer (`RenderBackend`), sky (`EnvironmentPreset.casts_shadows`, ETR's `light_id` rule) and
   player (`GameConfig.shadows`, ETR's `perf_level`). The web has no shadows at all, deliberately;

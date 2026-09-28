@@ -76,7 +76,7 @@ var wind_seed: int = -1
 ## wind this is also a settings key and a control on the course screen; the flag
 ## is how a capture names the weather without going through either.
 var snow: int = NO_SNOW
-## `--light=sunny|cloudy|night` — ETR's `g_game.light_id`, unparsed, for the
+## `--light=sunny|cloudy|night|thunderstorm` — ETR's `g_game.light_id`, unparsed, for the
 ## same reason [member difficulty] is a string: naming a [LightCondition] here
 ## would make the transport know the caller's vocabulary. Empty means "whatever
 ## the settings file says".

@@ -5,7 +5,7 @@
 #
 # The weather is two environment variables rather than two more positionals, so
 # that every existing invocation still means the clear sunny day every reference
-# capture was taken on: SHOT_LIGHT=sunny|cloudy|night, SHOT_SNOW=0..3 and
+# capture was taken on: SHOT_LIGHT=sunny|cloudy|night|thunderstorm, SHOT_SNOW=0..3 and
 # SHOT_WIND=none|light|strong (the crosswind; its side is pinned in a capture).
 #
 # The game ships two renderers — Mobile on the desktop and Compatibility on the
@@ -69,7 +69,7 @@ ARGS+=(--resolution "${SHOT_RESOLUTION:-1280x720}" --fixed-fps 60 --
     --auto-input="$INPUT" --course="$COURSE" --no-audio)
 # The weather, which is not in the positional arguments because every reference
 # capture in the repository is a clear sunny day and has to stay one.
-# SHOT_LIGHT is sunny, cloudy or night; SHOT_SNOW is 0..3; SHOT_WIND is none,
+# SHOT_LIGHT is sunny, cloudy, night or thunderstorm; SHOT_SNOW is 0..3; SHOT_WIND is none,
 # light or strong.
 [[ -n "${SHOT_LIGHT:-}" ]] && ARGS+=(--light="$SHOT_LIGHT")
 [[ -n "${SHOT_SNOW:-}" ]] && ARGS+=(--snow="$SHOT_SNOW")

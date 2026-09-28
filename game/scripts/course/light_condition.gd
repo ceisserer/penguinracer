@@ -9,7 +9,12 @@
 ## class swaps in one of the others, which is why [member CourseData.environment_preset]
 ## is the course's *default* sky rather than its only one.
 ##
-## Three of the original's four are offered. `evening` is imported, fitted by
+## Three of the original's four are offered, and one it never had:
+## [constant Kind.THUNDERSTORM], which no `light.lst` describes and which is
+## therefore derived from the location's cloudy sky rather than imported — see
+## [method preset_for] and [Lightning].
+##
+## Of the original's four, `evening` is imported, fitted by
 ## the same rule as the other two and reachable by hand from the Inspector; it
 ## is not on the course screen because nothing asked for it, and adding it is
 ## one entry in [constant NAMES] and one in [constant LABELS].
@@ -38,24 +43,41 @@ enum Kind {
 	## 0.39/0.51/0.88, so lit snow saturates in blue while red is still at half
 	## scale. No shadows here either.
 	NIGHT = 3,
+	## DEVIATION: not ETR's. Overcast and dark — about half of cloudy's light,
+	## well above night's — with lightning flashing in the cloud deck and
+	## lighting the hill for a moment ([Lightning]). There is no `light.lst`
+	## for it, so the preset is the location's cloudy one, dimmed
+	## ([method EnvironmentPreset.storm_from]). The value continues ETR's
+	## numbering past night so the wire and the settings file stay one int.
+	THUNDERSTORM = 4,
 }
 
 ## The order the three are offered in, which is the order they are named in
-## `env/environment.lst` and in the settings file.
-const KINDS: Array[Kind] = [Kind.SUNNY, Kind.CLOUDY, Kind.NIGHT]
+## `env/environment.lst` and in the settings file, with the storm, which the
+## original has not got, last.
+const KINDS: Array[Kind] = [Kind.SUNNY, Kind.CLOUDY, Kind.NIGHT, Kind.THUNDERSTORM]
 
 ## As `penguinracer.cfg` and `--light=` spell them — the original's own
 ## directory names under `env/<location>/`.
-const NAMES: PackedStringArray = ["sunny", "cloudy", "night"]
+const NAMES: PackedStringArray = ["sunny", "cloudy", "night", "thunderstorm"]
 ## What the course screen shows — translation keys from `i18n/ui.csv`. ETR's
 ## own `LIGHT_SUNNY` reads "Light: Sunny", a label and a value in one, which is
 ## not what a drop-down beside a label wants. Same standing as the snowfall
 ## grades beside them.
-const LABELS: PackedStringArray = ["SKY_SUNNY", "SKY_CLOUDY", "SKY_NIGHT"]
+const LABELS: PackedStringArray = ["SKY_SUNNY", "SKY_CLOUDY", "SKY_NIGHT",
+	"SKY_THUNDERSTORM"]
 
 ## Every light a location can have authored under it, including the one that is
-## not offered. Used to read the location back off a preset id.
-const ALL_NAMES: PackedStringArray = ["sunny", "cloudy", "evening", "night"]
+## not offered, and the storm that is derived rather than authored. Used to read
+## the location back off a preset id.
+const ALL_NAMES: PackedStringArray = ["sunny", "cloudy", "evening", "night", "thunderstorm"]
+
+## What the storm is derived from — see [method preset_for].
+const STORM_SOURCE := "cloudy"
+
+## Derived storm presets, by id, so asking twice returns the same resource: a
+## race re-lights only when the preset it gets back is a different one.
+static var _storms: Dictionary[String, EnvironmentPreset] = {}
 
 const PRESET_DIR := "res://resources/environments"
 
@@ -75,6 +97,8 @@ static func of(value: int) -> Kind:
 			return Kind.CLOUDY
 		Kind.NIGHT:
 			return Kind.NIGHT
+		Kind.THUNDERSTORM:
+			return Kind.THUNDERSTORM
 	return Kind.SUNNY
 
 ## The position of [param kind] in [constant NAMES] / [constant LABELS] — where
@@ -108,6 +132,8 @@ static func preset_for(preset: EnvironmentPreset, kind: Kind) -> EnvironmentPres
 	var wanted: String = "%s_%s" % [location, name_of(kind)]
 	if wanted == String(preset.id):
 		return preset
+	if of(kind) == Kind.THUNDERSTORM:
+		return _storm_for(location, preset)
 	var path: String = PRESET_DIR.path_join("%s.tres" % wanted)
 	if not ResourceLoader.exists(path):
 		return preset
@@ -123,3 +149,19 @@ static func location_of(preset: EnvironmentPreset) -> String:
 		if id.ends_with(suffix):
 			return id.trim_suffix(suffix)
 	return ""
+
+## [param location]'s storm: its cloudy preset, dimmed. [param fallback] when
+## the location has no cloudy sky to derive one from.
+static func _storm_for(location: String, fallback: EnvironmentPreset) -> EnvironmentPreset:
+	var id: String = "%s_%s" % [location, name_of(Kind.THUNDERSTORM)]
+	if _storms.has(id):
+		return _storms[id]
+	var path: String = PRESET_DIR.path_join("%s_%s.tres" % [location, STORM_SOURCE])
+	if not ResourceLoader.exists(path):
+		return fallback
+	var cloudy: EnvironmentPreset = load(path) as EnvironmentPreset
+	if cloudy == null:
+		return fallback
+	var storm: EnvironmentPreset = EnvironmentPreset.storm_from(cloudy, StringName(id))
+	_storms[id] = storm
+	return storm
