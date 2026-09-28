@@ -2476,3 +2476,22 @@ unknown name keeps Medium) — 6097 passed, 1 failed, the pre-existing `lighting
 ships`. Captures on Bunny Hill at `--quality=fast`, Soft Low against Hard: the tree and penguin
 shadow edges go from soft to stepped, so the runtime call takes. **Not done**: what each level
 saves on the phone — the frame times above are the iGPU's and do not include this knob.
+
+### The render scale is a drop-down (2026-09-28) · **done, presets not re-measured**
+
+The **3D render scale** row was a slider over the file's whole 0.25–2.0 in 5 % steps; it is now a
+drop-down of 25 / 50 / 75 / 100 % (`QualityPreset.RENDER_SCALES`), with the pixels it renders
+beside it. The file still takes anything in 0.25–2.0: a value off the list (a hand-edited 0.65,
+or 1.5) gets a row of its own while the screen is open, so Ok writes back what was read — the
+promise the sliders keep by matching the file's clamp.
+
+Every preset has to be a row, so two moved: **Fastest 0.7 → 0.5** and **Fast 0.85 → 0.75**.
+Medium, High and Best stay at 1.0, so the shipped frame and the phone's first-run Medium do not
+move. A file saved at Fastest or Fast before this now reads "Custom" (with a 70 % or 85 % row)
+until the preset is picked again. The FPS table in *Quality presets* above was measured at the
+old scales; its Fastest and Fast columns are not current.
+
+**Verified**: the suite (every preset's scale is a row of the drop-down) — 6102 passed, 1 failed,
+the pre-existing `lighting/what project.godot ships`. The screen opened in the game: the four
+rows, a hand-set 0.65 shown as its own "65 %" row and read back unchanged, Fastest and Fast
+selecting 50 % and 75 %, and 50 % picked by hand reading "Custom".

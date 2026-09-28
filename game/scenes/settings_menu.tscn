@@ -144,14 +144,11 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "RENDER_SCALE_LABEL"
 
-[node name="RenderScaleSlider" type="HSlider" parent="Frame/Panel/Body/Scroll/Rows/RenderScaleRow"]
+[node name="RenderScaleOption" type="OptionButton" parent="Frame/Panel/Body/Scroll/Rows/RenderScaleRow"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(260, 38)
 layout_mode = 2
-min_value = 0.25
-max_value = 2.0
-step = 0.05
-value = 1.0
+theme_override_font_sizes/font_size = 17
 
 [node name="RenderScaleValue" type="Label" parent="Frame/Panel/Body/Scroll/Rows/RenderScaleRow"]
 unique_name_in_owner = true

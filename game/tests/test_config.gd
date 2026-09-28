@@ -300,6 +300,9 @@ static func _quality_presets(t: TestCase) -> void:
 			"%s's tree detail is inside what the file accepts" % name)
 		t.ok(c.render_scale >= 0.25 and c.render_scale <= 2.0,
 			"and so is its render scale")
+		t.ok(Array(QualityPreset.RENDER_SCALES).any(
+			func(s: float) -> bool: return is_equal_approx(s, c.render_scale)),
+			"and it is a row of the screen's render-scale drop-down")
 
 	# A preset is what the values are, not something stored: one row moved off
 	# a preset is Custom, and moved back it is the preset again.

@@ -45,6 +45,10 @@ const SHADOW_DETAIL_NAMES: PackedStringArray = ["low", "medium", "high", "best"]
 const SHADOW_FILTER_NAMES: PackedStringArray = ["hard", "very_low", "low", "medium", "high"]
 const SHADOW_FILTER_MEDIUM := 3
 
+## The render scales the Configuration screen offers, and so the only ones a
+## preset may use. The file still takes anything in 0.25..2.0.
+const RENDER_SCALES: PackedFloat32Array = [0.25, 0.5, 0.75, 1.0]
+
 ## Range of `[quality] tree_detail`, a multiple of [constant Forest.LOD_ENDS].
 const TREE_DETAIL_MIN := 0.5
 const TREE_DETAIL_MAX := 1.5
@@ -75,12 +79,12 @@ const KEYS: PackedStringArray = ["render_scale", "antialiasing", "procedural_sky
 ## FASTEST, which draws no shadow, names the cheapest.
 const VALUES: Array[Dictionary] = [
 	{ # FASTEST
-		"render_scale": 0.7, "antialiasing": 0, "procedural_sky": false,
+		"render_scale": 0.5, "antialiasing": 0, "procedural_sky": false,
 		"sky_detail": 0, "tree_detail": 0.5, "shadows": false, "tree_shadows": 0,
 		"shadow_detail": 0, "shadow_filter": 0, "ice_reflections": false,
 	},
 	{ # FAST
-		"render_scale": 0.85, "antialiasing": 0, "procedural_sky": true,
+		"render_scale": 0.75, "antialiasing": 0, "procedural_sky": true,
 		"sky_detail": 0, "tree_detail": 0.6, "shadows": true, "tree_shadows": 0,
 		"shadow_detail": 0, "shadow_filter": 2, "ice_reflections": false,
 	},

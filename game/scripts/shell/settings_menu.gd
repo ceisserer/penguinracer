@@ -38,7 +38,10 @@ signal closed()
 ## hand-edited value to, deliberately: a screen that cannot express what the
 ## file can would silently narrow someone's settings the first time they pressed
 ## Ok. The one exception is the fog start, which the file only floors at zero and
-## which stops here at 200 m — further than the far plane of any course.
+## which stops here at 200 m — further than the far plane of any course. The
+## render scale is a drop-down of [constant QualityPreset.RENDER_SCALES]
+## instead, and keeps the same promise by adding the file's own value as a row
+## when it is not one of them.
 ##
 ## What the drop-down offers under "Auto" ([constant Vector2i.ZERO], where the
 ## platform sizes the window): the modes of the display the window is on, from
@@ -49,7 +52,7 @@ signal closed()
 @onready var _resolution: OptionButton = %ResolutionOption
 @onready var _fullscreen_row: Control = %FullscreenRow
 @onready var _fullscreen: CheckBox = %FullscreenCheck
-@onready var _render_scale: HSlider = %RenderScaleSlider
+@onready var _render_scale: OptionButton = %RenderScaleOption
 @onready var _render_scale_value: Label = %RenderScaleValue
 @onready var _ice_reflection: CheckBox = %IceReflectionCheck
 @onready var _shadows_row: Control = %ShadowsRow
@@ -150,11 +153,11 @@ func _ready() -> void:
 	_shadow_detail.item_selected.connect(_on_quality_row_changed)
 	_shadow_filter.item_selected.connect(_on_quality_row_changed)
 	_tree_detail.value_changed.connect(_on_tree_detail_changed)
-	_render_scale.value_changed.connect(_on_quality_row_changed)
+	_render_scale.item_selected.connect(_on_quality_row_changed)
 	_shadows.toggled.connect(_on_quality_row_changed)
 	_ice_reflection.toggled.connect(_on_quality_row_changed)
 
-	_render_scale.value_changed.connect(_on_render_scale_changed)
+	_render_scale.item_selected.connect(_on_render_scale_changed)
 	_fog_start.value_changed.connect(_on_fog_start_changed)
 	_fog_scale.value_changed.connect(_on_fog_scale_changed)
 	_ok_button.pressed.connect(_accept)
@@ -169,6 +172,7 @@ func open() -> void:
 	if _resolution_row.visible:
 		_fill_resolutions(Config.resolution)
 	_fullscreen.button_pressed = Config.fullscreen
+	_fill_render_scales(Config.render_scale)
 	_show_values(QualityPreset.of(Config))
 	_show_fps.button_pressed = Config.show_fps
 	_touch.select(Config.touch_scheme)
@@ -179,7 +183,6 @@ func open() -> void:
 	_fog_scale.value = Config.fog_distance_scale
 	# `value_changed` does not fire when the value assigned is the one already
 	# there, so the labels are refreshed by hand rather than as a side effect.
-	_on_render_scale_changed(_render_scale.value)
 	_on_tree_detail_changed(_tree_detail.value)
 	_on_fog_start_changed(_fog_start.value)
 	_on_fog_scale_changed(_fog_scale.value)
@@ -206,7 +209,9 @@ func _fill_options(button: OptionButton, labels: Array[String]) -> void:
 ## then show which preset they are.
 func _show_values(values: Dictionary) -> void:
 	_filling = true
-	_render_scale.value = values["render_scale"]
+	_select_render_scale(values["render_scale"])
+	# `select` never fires `item_selected`, so its label is refreshed here.
+	_on_render_scale_changed()
 	_antialiasing.select(values["antialiasing"])
 	_sky.select(0 if values["procedural_sky"] else 1)
 	_sky_detail.select(values["sky_detail"])
@@ -222,7 +227,7 @@ func _show_values(values: Dictionary) -> void:
 ## What the quality rows say now, keyed like [method QualityPreset.of].
 func _row_values() -> Dictionary:
 	return {
-		"render_scale": _render_scale.value,
+		"render_scale": _render_scale_value_of(_render_scale.selected),
 		"antialiasing": _antialiasing.selected,
 		"procedural_sky": _sky.selected == 0,
 		"sky_detail": _sky_detail.selected,
@@ -280,13 +285,38 @@ func _size_label(size: Vector2i) -> String:
 		return tr("AUTO")
 	return "%d x %d" % [size.x, size.y]
 
-func _on_render_scale_changed(value: float) -> void:
-	# The number in the file is a fraction; the number a player recognises is a
-	# percentage and the pixels it actually renders.
+## [constant QualityPreset.RENDER_SCALES] as rows, plus [param current] in its
+## place if it is not one of them — a hand-edited 0.65 stays 0.65 through an Ok.
+func _fill_render_scales(current: float) -> void:
+	var scales: Array[float] = Array(QualityPreset.RENDER_SCALES, TYPE_FLOAT, "", null)
+	if not scales.any(func(s: float) -> bool: return is_equal_approx(s, current)):
+		scales.append(current)
+		scales.sort()
+	_render_scale.clear()
+	for i: int in scales.size():
+		# The number in the file is a fraction; the number a player recognises
+		# is a percentage.
+		_render_scale.add_item("%d %%" % roundi(scales[i] * 100.0), i)
+		_render_scale.set_item_metadata(i, scales[i])
+
+func _select_render_scale(value: float) -> void:
+	for i: int in _render_scale.item_count:
+		if is_equal_approx(_render_scale_value_of(i), value):
+			_render_scale.select(i)
+			return
+	_fill_render_scales(value)
+	_select_render_scale(value)
+
+func _render_scale_value_of(row: int) -> float:
+	return float(_render_scale.get_item_metadata(row))
+
+## The pixels the selected scale actually renders. Takes and ignores the row
+## `item_selected` carries.
+func _on_render_scale_changed(_row: int = -1) -> void:
+	var value: float = _render_scale_value_of(_render_scale.selected)
 	var base: Vector2i = Config.resolution if Config.resolution != Vector2i.ZERO \
 		else get_tree().root.size
-	_render_scale_value.text = "%d %%   (%d x %d)" % [roundi(value * 100.0),
-		roundi(base.x * value), roundi(base.y * value)]
+	_render_scale_value.text = "(%d x %d)" % [roundi(base.x * value), roundi(base.y * value)]
 
 ## The renderer is picked before any script runs, so a change waits for the
 ## next launch; say so whenever the row asks for something other than what is
