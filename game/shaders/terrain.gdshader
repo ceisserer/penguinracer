@@ -441,7 +441,7 @@ float trail_depth(vec2 world_xz) {
 }
 
 void vertex() {
-	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	vec3 world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	// The splat is a *vertex* grid, not a texel grid: the importer writes it at
 	// the heightmap's resolution with sample 0 on the near corner and sample
 	// n-1 on the far one, and `HeightmapSurface` reads it back that way for
@@ -450,7 +450,7 @@ void vertex() {
 	// and the physics disagree about where a material ends by up to a quarter
 	// of a metre. Land on texel centres instead.
 	vec2 splat_grid = vec2(textureSize(splat_0, 0)) - 1.0;
-	splat_uv = (vec2(world_pos.x / world_size.x, -world_pos.z / world_size.y)
+	splat_uv = (vec2(world.x / world_size.x, -world.z / world_size.y)
 		* splat_grid + 0.5) / (splat_grid + 1.0);
 
 	// Godot's default colour is white for a mesh without one, which is a chunk
@@ -461,13 +461,13 @@ void vertex() {
 	ridge_lip = 0.0;
 	if (trail_enabled) {
 		float texel = trail_extent / 1024.0;
-		float d = trail_depth(world_pos.xz);
+		float d = trail_depth(world.xz);
 		// Ridge term: the Laplacian of the depth field is positive at the
 		// trench lip, so snow rises exactly where it was pushed aside.
-		float dl = trail_depth(world_pos.xz - vec2(texel * 2.0, 0.0));
-		float dr = trail_depth(world_pos.xz + vec2(texel * 2.0, 0.0));
-		float db = trail_depth(world_pos.xz - vec2(0.0, texel * 2.0));
-		float dt = trail_depth(world_pos.xz + vec2(0.0, texel * 2.0));
+		float dl = trail_depth(world.xz - vec2(texel * 2.0, 0.0));
+		float dr = trail_depth(world.xz + vec2(texel * 2.0, 0.0));
+		float db = trail_depth(world.xz - vec2(0.0, texel * 2.0));
+		float dt = trail_depth(world.xz + vec2(0.0, texel * 2.0));
 		float laplacian = (dl + dr + db + dt) * 0.25 - d;
 		float rise = max(0.0, laplacian) * ridge_height / max(texel, 0.001);
 		VERTEX.y -= d;
@@ -476,6 +476,10 @@ void vertex() {
 		// "how much fresh snow is piled here" rather than a distance.
 		ridge_lip = clamp(rise / max(ridge_height, 1e-4), 0.0, 1.0);
 	}
+	// After the displacement, which moves only y, so the fragment stage reads
+	// the same x and z as the taps above and the true surface for the fog —
+	// exactly what `INV_VIEW_MATRIX * VERTEX` would give it back, for free.
+	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 
 // `p` is the world XZ position; each layer divides it by its own repeat length.
@@ -554,24 +558,39 @@ void fragment() {
 	// flat pale sheet and the only shading variation on the course comes from
 	// the heightmap. Two octaves of tiling gradient noise put the crust and the
 	// drift structure back, at two taps and no extra geometry.
+	//
+	// Each octave is skipped where its fade has reached zero, which is most of
+	// the course: the fine one is gone by 22 m and the coarse one by 90. The
+	// skip is exact, and its edge is where the term is already nothing, so the
+	// mip selection a divergent branch leaves undefined there multiplies zero.
+	// A height field h tilts the normal by (-dh/dx, 0, -dh/dz).
 	float fine_w = snow_mask + ice_mask * ice_relief_scale;
-	if (fine_w > 0.0) {
+	if (fine_w > 0.0 && view_dist < detail_fade_fine) {
 		float fade_fine = 1.0 - smoothstep(0.0, detail_fade_fine, view_dist);
+		n_world -= detail_slope(world_pos.xz, detail_scale_fine, 1.0)
+			* (detail_relief_fine * fade_fine * fine_w);
+	}
+	// Only snow takes the wind-stretched coarse octave, because ice has skate
+	// scars, not drifts.
+	if (snow_mask > 0.0 && view_dist < detail_fade_coarse) {
 		float fade_coarse = 1.0 - smoothstep(0.0, detail_fade_coarse, view_dist);
-		// Both take the fine octave; only snow takes the wind-stretched coarse
-		// one, because ice has skate scars, not drifts.
-		vec3 slope = detail_slope(world_pos.xz, detail_scale_fine, 1.0)
-				* (detail_relief_fine * fade_fine * fine_w)
-			+ detail_slope(world_pos.xz, detail_scale_coarse, wind_stretch)
-				* (detail_relief_coarse * fade_coarse * snow_mask);
-		// A height field h tilts the normal by (-dh/dx, 0, -dh/dz).
-		n_world -= slope;
+		n_world -= detail_slope(world_pos.xz, detail_scale_coarse, wind_stretch)
+			* (detail_relief_coarse * fade_coarse * snow_mask);
 	}
 
-	if (trail_enabled) {
+	// The trail map covers 64 m round the racer and every tap below reads zero
+	// outside it, so a fragment further out than the widest tap reaches has
+	// nothing to gain from nine of them. The ridge lip is the vertex stage's
+	// and is applied either way.
+	float trail_texel = trail_extent / 1024.0;
+	float trail_reach = max(trench_wall_reach, trail_texel);
+	vec2 tuv = trail_uv_of(world_pos.xz);
+	float trail_margin = trail_reach / trail_extent;
+	if (trail_enabled && all(greaterThanEqual(tuv, vec2(-trail_margin)))
+			&& all(lessThanEqual(tuv, vec2(1.0 + trail_margin)))) {
 		// Tilt the normal by the trench gradient so the trail lights correctly
 		// without re-tessellating the mesh.
-		float texel = trail_extent / 1024.0;
+		float texel = trail_texel;
 		float dx = trail_depth(world_pos.xz + vec2(texel, 0.0))
 			- trail_depth(world_pos.xz - vec2(texel, 0.0));
 		float dz = trail_depth(world_pos.xz + vec2(0.0, texel))
@@ -584,7 +603,6 @@ void fragment() {
 		// Guard the window the same way trail_depth() does: the sampler clamps
 		// to edge, so an unguarded read smears the border texel of the window
 		// across every chunk on the course.
-		vec2 tuv = trail_uv_of(world_pos.xz);
 		float inside = float(all(greaterThanEqual(tuv, vec2(0.0)))
 			&& all(lessThanEqual(tuv, vec2(1.0))));
 		vec4 trail = texture(trail_map, clamp(tuv, vec2(0.0), vec2(1.0)));
@@ -592,15 +610,13 @@ void fragment() {
 		float depth_n = clamp(trail.r * inside, 0.0, 1.0);
 		ALBEDO = mix(ALBEDO, ALBEDO * 0.92, packed * snow_mask);
 		ROUGHNESS = mix(ROUGHNESS, ROUGHNESS * 0.75, packed * snow_mask);
-		// Snow on the lip was turned over a moment ago; it has not had time to
-		// crust or to pack.
-		ALBEDO *= 1.0 + ridge_lip * ridge_brighten * snow_mask;
 		// The walls: what each of four horizons a short reach out rises to,
 		// as the sky a cosine-weighted floor loses behind it (sin² of the
 		// elevation, t² / (1 + t²)), averaged. The depth field is the negated
 		// surface, so a neighbour that is *shallower* is higher.
-		float reach = max(trench_wall_reach, texel);
-		float d0 = trail_depth(world_pos.xz);
+		float reach = trail_reach;
+		// `trail_depth` here, from the tap above rather than a tap of its own.
+		float d0 = trail.r * trail_depth_scale * inside;
 		vec4 rim = vec4(
 			trail_depth(world_pos.xz + vec2(reach, 0.0)),
 			trail_depth(world_pos.xz - vec2(reach, 0.0)),
@@ -615,8 +631,14 @@ void fragment() {
 		scatter_base += (1.0 - trench_sky) * snow_scatter_occlusion
 			+ depth_n * snow_scatter_carve;
 	}
+	if (trail_enabled) {
+		// Snow on the lip was turned over a moment ago; it has not had time to
+		// crust or to pack.
+		ALBEDO *= 1.0 + ridge_lip * ridge_brighten * snow_mask;
+	}
 
-	NORMAL = normalize(mat3(VIEW_MATRIX) * normalize(n_world));
+	// The view matrix is a rotation, so one normalize on the way out does.
+	NORMAL = normalize(mat3(VIEW_MATRIX) * n_world);
 
 	// --- crystal glint ------------------------------------------------------
 	// Snow is not a rough white dielectric; it is a heap of specular facets
@@ -626,22 +648,30 @@ void fragment() {
 	// and let the light function ask whether it happens to bisect eye and sun.
 	// The mip chain then averages the facets back toward the surface normal
 	// with distance, which is exactly what a field of sub-pixel crystals does.
-	vec3 facet = texture(sparkle_noise, world_pos.xz / max(sparkle_scale, 0.001)).rgb
-		* 2.0 - 1.0;
-	// Perturb the surface normal isotropically rather than around world up: a
-	// crystal on a 30 degree slope is not more likely to point at the sky, and
-	// biasing it that way makes every slope glint hardest at the same angle.
 	//
-	// `facet` is deliberately not normalized first. White noise mips toward
-	// middle grey, which decodes to the zero vector, and `normalize` of that is
-	// a NaN that survives being multiplied by a zero distance fade and poisons
-	// SPECULAR_LIGHT. Adding it raw degenerates the other way: as the facets
-	// average out with distance the glint normal slides back to the surface
-	// normal, which is what a field of sub-pixel crystals should do anyway.
-	glint_normal = normalize(NORMAL
-		+ mat3(VIEW_MATRIX) * facet * sparkle_spread);
+	// light() only reads the facet where `sparkle` is above zero, so off snow
+	// and past the fade it is not worth its tap.
 	float sparkle_fade = 1.0 - smoothstep(0.0, sparkle_fade_distance, view_dist);
 	sparkle = sparkle_strength * snow_mask * sparkle_fade;
+	glint_normal = NORMAL;
+	if (sparkle > 0.0) {
+		vec3 facet = texture(sparkle_noise, world_pos.xz / max(sparkle_scale, 0.001)).rgb
+			* 2.0 - 1.0;
+		// Perturb the surface normal isotropically rather than around world up:
+		// a crystal on a 30 degree slope is not more likely to point at the sky,
+		// and biasing it that way makes every slope glint hardest at the same
+		// angle.
+		//
+		// `facet` is deliberately not normalized first. White noise mips toward
+		// middle grey, which decodes to the zero vector, and `normalize` of that
+		// is a NaN that survives being multiplied by a zero distance fade and
+		// poisons SPECULAR_LIGHT. Adding it raw degenerates the other way: as the
+		// facets average out with distance the glint normal slides back to the
+		// surface normal, which is what a field of sub-pixel crystals should do
+		// anyway.
+		glint_normal = normalize(NORMAL
+			+ mat3(VIEW_MATRIX) * facet * sparkle_spread);
+	}
 
 	// --- ice reflection -----------------------------------------------------
 	// Fresnel against the perturbed normal, so the ripples above shear the
@@ -758,7 +788,7 @@ void fragment() {
 	// `atmosphere.gdshaderinc`.
 	// `atmo_torch_light` is zero whenever the torches are out.
 	torch_glow = atmo_torch_light.rgb * (terrain_torch * terrain_torch);
-	FOG = atmo_fog_at((INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz, CAMERA_POSITION_WORLD);
+	FOG = atmo_fog_at(world_pos, CAMERA_POSITION_WORLD);
 }
 
 void light() {

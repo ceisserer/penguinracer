@@ -315,6 +315,12 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   x 450–700, y 250–520 out of a Bunny Hill `carve` capture; everything else reproduces to the byte.
   Captures off the real GPU are not byte-reproducible run to run at all — measure the frame, not
   the md5.
+- **A run on the real GPU can hang at random, so give every one a timeout.** A Mobile capture
+  (`--light=night --snow=2`) sat for minutes on ~2 s of CPU and never wrote its PNG; the same
+  command then passed on its own and again inside a loop, with no shader or code change in between.
+  Nothing in `tools/shot.sh` or `godot` gives up by itself, so a hang stalls a whole batch. Wrap
+  each run in `timeout -s KILL 90 …` (a headless suite run wants ~300), check that the PNG or the
+  expected output line is there, and re-run a run that was killed before suspecting the change.
 - **Pull the exposure down before concluding anything about a scene that clips.** `tonemap_exposure`
   0.25 shows *which* channel ran out of headroom, but the two exposures do not differ by a clean 4x
   at the bright end — fit at the shipped exposure.

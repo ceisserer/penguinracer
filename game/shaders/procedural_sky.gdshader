@@ -85,6 +85,11 @@ vec4 cloud_deck(vec3 d, float height, float scale, vec2 drift, float cover,
 	float n = fbm(uv, CLOUD_OCTAVES);
 	float threshold = 1.0 - cover;
 	float density = smoothstep(threshold - softness, threshold + softness, n * 1.25 - 0.1);
+	// Clear air: the caller mixes by the coverage, so the colour is not seen,
+	// and the second look below is as costly as the first.
+	if (density <= 0.0) {
+		return vec4(0.0);
+	}
 	// Light arriving through the cloud from the disc's side: sample again a
 	// step toward it and darken by what is in the way.
 	vec2 toward = normalize(atmo_sun_dir.xz + vec2(1e-4)) * 0.18;
@@ -166,6 +171,13 @@ vec3 aurora_light(vec3 d) {
 		float k = float(i) / 9.0;
 		float height = 1.0 + k * 0.9;
 		vec2 p = d.xz / d.y * height;
+		// `wave` below stays within -0.6 .. 3.23, so `across` within
+		// p.y + 4.4 .. p.y + 8.23. A curtain 2.5 off is exp(-18.75) — nothing
+		// eight bits can show — so a layer whose whole range lies that far off
+		// is skipped before its four noises: most of the sky, for most layers.
+		if (p.y + 8.23 < -2.5 || p.y + 4.4 > 2.5) {
+			continue;
+		}
 		float wave = fbm(vec2(p.x * 0.25 + atmo_time * 0.015, 1.3), 3) * 3.0
 			+ sin(p.x * 0.35 + atmo_time * 0.05) * 0.6;
 		float across = p.y + 5.0 + wave;

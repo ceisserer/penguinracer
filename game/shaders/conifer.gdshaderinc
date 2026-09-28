@@ -82,6 +82,11 @@ float conifer_bayer(vec2 frag) {
 }
 
 bool conifer_dithered_out(vec2 frag, vec2 fade) {
+	// Nearly every tree is inside its band, where no threshold can cut it:
+	// the thresholds run 1/32 .. 31/32.
+	if (fade.x >= 1.0 && fade.y <= 0.0) {
+		return false;
+	}
 	float b = conifer_bayer(frag);
 	return b >= fade.x || b < fade.y;
 }
@@ -129,6 +134,11 @@ vec3 conifer_snow(vec3 albedo, vec3 n_world) {
 // `alpha_mip_boost` per mip level the sample fell on. The level is worked out
 // from the UV derivatives rather than `textureQueryLod`, which WebGL2 lacks.
 float conifer_alpha(float alpha, vec2 uv, vec2 size) {
+	// The conifer and the impostor: nothing to raise, and the derivatives and
+	// the log are not worth working out to multiply by one.
+	if (alpha_mip_boost <= 0.0) {
+		return alpha;
+	}
 	vec2 dx = dFdx(uv * size);
 	vec2 dy = dFdy(uv * size);
 	float lod = max(0.5 * log2(max(dot(dx, dx), dot(dy, dy))), 0.0);

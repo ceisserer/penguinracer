@@ -153,7 +153,7 @@ vec3 atmo_flash_at(vec3 d) {
 // camera and a distant slope is lit by.
 vec3 atmo_sky(vec3 d) {
 	float up = clamp(d.y, 0.0, 1.0);
-	vec3 c = mix(atmo_horizon, atmo_zenith, pow(up, 0.5));
+	vec3 c = mix(atmo_horizon, atmo_zenith, sqrt(up));
 	// Below the backdrop's horizon is the course's own terrain, down to about
 	// a fifth under it on the steep ones. A gap there between the ridges and
 	// the snow is far valley, so it stays the horizon's colour: fading to the
@@ -165,7 +165,7 @@ vec3 atmo_sky(vec3 d) {
 	// Forward scattering round the disc, strongest along the horizon under it.
 	float mu = max(dot(d, atmo_sun_dir), 0.0);
 	float halo = pow(mu, 48.0) * 0.45 + pow(mu, 6.0) * 0.18;
-	float horizon_glow = pow(mu, 2.0) * band * 0.35;
+	float horizon_glow = mu * mu * band * 0.35;
 	return c + atmo_sun_color * (halo + horizon_glow) + atmo_flash_at(d);
 }
 
@@ -205,6 +205,17 @@ float atmo_ridge_top(vec2 h, float layer) {
 	// dipped horizon, and the sky above them is what makes a clear day read
 	// as one.
 	return atmo_ridge_base(layer) + (0.15 - layer * 0.025) * n;
+}
+
+// The most the octaves above can sum to: every `v` at 1 and every clamp at 1,
+// 0.55 · (1 + 1/2 + … + 1/32).
+const float ATMO_RIDGE_NOISE_MAX = 1.0828125;
+
+// The highest [code]atmo_ridge_top[/code] can reach for [param layer], without
+// the noise: 0.1425 for the far range. Above it the layer covers nothing, and
+// that is most of the sky.
+float atmo_ridge_crest_max(float layer) {
+	return atmo_ridge_base(layer) + (0.15 - layer * 0.025) * ATMO_RIDGE_NOISE_MAX;
 }
 
 // A layer's own colour where it is solid: a rock face with snow lying on
@@ -270,6 +281,11 @@ vec4 atmo_ridge_layers(vec2 h, float t, float aa, out float haze) {
 	haze = 0.0;
 	for (int i = ATMO_RIDGE_LAYERS - 1; i >= 0; i--) {
 		float layer = float(i);
+		// Clear of the tallest crest this layer can have: no coverage, and no
+		// six octaves of noise to find that out.
+		if (t >= atmo_ridge_crest_max(layer) + 0.5 * max(aa, 1e-5)) {
+			continue;
+		}
 		float top = atmo_ridge_top(h, layer);
 		float cover = clamp((top - t) / max(aa, 1e-5) + 0.5, 0.0, 1.0);
 		if (cover <= 0.0) {
@@ -410,8 +426,8 @@ vec4 atmo_fog_at(vec3 world, vec3 camera) {
 	// closed form. Only past the clear distance, so the near field keeps the
 	// tone it was fitted at.
 	float mist = 0.0;
-	if (atmo_mist.z > 0.0) {
-		float run = max(dist - atmo_mist.w, 0.0);
+	if (atmo_mist.z > 0.0 && dist > atmo_mist.w) {
+		float run = dist - atmo_mist.w;
 		float h0 = max((camera.y - atmo_mist.x) / atmo_mist.y, -1.0);
 		float h1 = max((world.y - atmo_mist.x) / atmo_mist.y, -1.0);
 		float dh = h1 - h0;
