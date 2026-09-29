@@ -785,8 +785,8 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   all about a horizon **dipped by the course's slope** so a chase camera sees open sky. **The
   moon stands 9° up ahead of the racer** (`MOON_DIRECTION`), not where ETR's night light comes from,
   because a chase camera never sees that part of the sky; nothing casts a shadow at night. **The
-sun is drawn the same way** (`SUN_DIRECTION`, 35° right and 10.5° up, near the frame's top-right
-on any slope), where every sunny `light.lst` has it due right at 45°, never in shot. The light,
+sun is drawn the same way** (`SUN_DIRECTION`, 52° right and 10.5° up: just out of frame riding
+straight, in at the top right once the racer turns right), where every sunny `light.lst` has it due right at 45°, never in shot. The light,
 the fitted tone and the shadows stay put; the disc's halo, the clouds' silver linings and the
 ridges' light follow the disc (`atmo_sun_dir`). With the disc in shot the halo and the silver
 lining were narrowed (they had clipped a fifth of the frame round it to white), and the zenith is

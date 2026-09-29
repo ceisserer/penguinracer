@@ -248,8 +248,9 @@ static func _the_procedural_sky(t: TestCase) -> void:
 	# air; the mist must not reach inside that.
 	t.ok(mist.w >= fog.x, "the mist starts no nearer than the fog does")
 	var sun: Vector3 = g["atmo_sun_dir"]
-	t.ok(sun.z < -0.7 and sun.x > 0.4 and sun.y > 0.1 and sun.y < 0.3,
-		"by day the sun stands low ahead and to the right, where a chase camera can see it")
+	var round_deg: float = rad_to_deg(atan2(sun.x, -sun.z))
+	t.ok(round_deg > 51.0 and round_deg < 60.0 and sun.y > 0.1 and sun.y < 0.3,
+		"by day the sun stands low to the right, just out of a straight run's frame (%.0f deg)" % round_deg)
 	t.ok(sun.x * sunny.sun_direction.x > 0.0, "on the side the light comes from")
 	var night: Dictionary = Atmosphere.globals_for(_preset("etr_night"), 40.0, 150.0, true,
 		0.0, 0.0, true)

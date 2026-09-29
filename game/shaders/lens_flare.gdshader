@@ -68,7 +68,7 @@ void fragment() {
 		vec2 from_sun = (SCREEN_UV - sun_uv) * vec2(aspect, 1.0);
 		float r = length(from_sun);
 		// Glare: a bright core fading into a wide, faint veil.
-		col += tint * (exp(-r * r / 0.0036) * 0.30 + exp(-r / 0.16) * 0.07);
+		col += tint * (exp(-r * r / 0.0012) * 0.14 + exp(-r / 0.16) * 0.035);
 		// A thin horizontal streak through the disc, as a lens's coating smears it.
 		col += tint * exp(-abs(from_sun.y) / 0.0035) * exp(-abs(from_sun.x) / 0.22) * 0.05;
 		// The ghosts: soft discs, a little brighter at the rim.

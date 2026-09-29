@@ -169,7 +169,7 @@ vec3 atmo_sky(vec3 d) {
 	// the frame to white round it, disc and all. The lens adds the bloom
 	// ([LensFlare]).
 	float mu = max(dot(d, atmo_sun_dir), 0.0);
-	float halo = pow(mu, 900.0) * 0.5 + pow(mu, 60.0) * 0.18 + pow(mu, 6.0) * 0.08;
+	float halo = pow(mu, 3000.0) * 0.35 + pow(mu, 120.0) * 0.08 + pow(mu, 6.0) * 0.06;
 	float horizon_glow = mu * mu * band * 0.35;
 	return c + atmo_sun_color * (halo + horizon_glow) + atmo_flash_at(d);
 }

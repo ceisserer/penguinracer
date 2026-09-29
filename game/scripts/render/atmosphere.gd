@@ -45,16 +45,21 @@ const MOON_DIRECTION := Vector3(0.40, 0.16, -0.90)
 ## DEVIATION, the moon's again: not the light's direction. Every sunny
 ## `light.lst` puts the sun at `[pos] 1 1 0` — due right and 45 degrees up —
 ## which no chase camera looking down the fall line ever sees, so a sunny day
-## had no sun in it. The disc stands ahead and to the right instead, 35
-## degrees round and 10.5 up the dipped horizon: about a tenth of the frame
-## below its top edge and a fifth in from its right on every slope
-## ([method horizon_dip] puts the top of the frame near 16 degrees up the
-## backdrop on gentle and steep courses alike). On the same side as the light,
+## had no sun in it. The disc stands ahead and to the right instead, 52
+## degrees round and 10.5 up the dipped horizon. Round: just past the right
+## edge of a 16:9 frame (51 degrees either side) riding straight down the fall
+## line, so the sun — and its [LensFlare] — come into shot as the racer turns
+## right; straight ahead it would sit in every frame and dazzle. Not further:
+## a carve swings the heading only 5-10 degrees off the fall line (Bunny
+## Hill's scripted one peaks at 6), and at 62 degrees no ordinary turn ever
+## brought the sun in. Up: about a tenth of the frame below its top edge
+## on every slope ([method horizon_dip] puts the top of the frame near 16
+## degrees up the backdrop on gentle and steep courses alike). On the same side as the light,
 ## so the shadows still fall away from it. The glow round the disc, the clouds'
 ## silver linings and the light on the ridges follow the disc, as they follow
 ## the moon; the snow, the trees and the racers are lit by the real light, and
 ## the [LensFlare] shines from the disc.
-const SUN_DIRECTION := Vector3(0.56, 0.18, -0.81)
+const SUN_DIRECTION := Vector3(0.775, 0.182, -0.605)
 ## The disc's angular radius, radians: `sun_radius` on the sky, and the patch
 ## [LensFlare] looks at to decide whether anything is in front of it. The real
 ## sun is 0.0047; a game's has to read at 1280 pixels.

@@ -101,7 +101,7 @@ vec4 cloud_deck(vec3 d, float height, float scale, vec2 drift, float cover,
 	// Silver lining: thin edges close to the disc glow. Narrow, now the disc is
 	// in shot: as wide as it was, every cloud within 20 degrees of the sun
 	// clipped to white and the disc vanished into it.
-	col += atmo_sun_color * pow(mu, 60.0) * (1.0 - density) * 1.2;
+	col += atmo_sun_color * pow(mu, 150.0) * (1.0 - density) * 0.6;
 	// A flash lights the deck from inside: thick cloud glows, and the thin
 	// parts the light shines through glow more.
 	col += atmo_flash_at(d) * (1.6 - 0.8 * lit);
@@ -288,6 +288,8 @@ void sky() {
 		COLOR = display_encoded(atmo_sky(d));
 	} else {
 		vec3 c = atmo_sky(d);
+		// The disc is added after the clouds, through them: see below.
+		vec3 sun = vec3(0.0);
 		if (atmo_night > 0.0) {
 			float clear_air = smoothstep(-0.01, 0.1, d.y);
 			vec3 night = stars(d) * clear_air + moon(d) + aurora_light(d) * aurora;
@@ -297,8 +299,9 @@ void sky() {
 			float angle = length(d - normalize(atmo_sun_dir));
 			float edge = fwidth(angle) + 1e-5;
 			float disc = 1.0 - smoothstep(sun_radius - edge, sun_radius + edge, angle);
-			c += sun_disc_color * disc * sun_disc * step(0.0, mu);
+			sun = sun_disc_color * disc * sun_disc * step(0.0, mu);
 		}
+		float cloud = 0.0;
 		if (d.y > 0.0 && cloud_cover > 0.0) {
 			float fade = smoothstep(0.0, 0.08, d.y);
 			vec4 low = cloud_deck(d, 1.0, 1.1, cloud_offset, cloud_cover, 0.12);
@@ -306,7 +309,14 @@ void sky() {
 				cloud_cover * 0.75, 0.25);
 			c = mix(c, high.rgb, high.a * 0.6 * fade);
 			c = mix(c, low.rgb, low.a * fade);
+			cloud = 1.0 - (1.0 - high.a * 0.6 * fade) * (1.0 - low.a * fade);
 		}
+		// The sun shines through thin cloud. Drawn under the decks, any cloud
+		// that crossed it hid the disc outright — and with it the [LensFlare],
+		// which only flares where the disc shows — so a sky of scattered cloud
+		// had no sun most of the time. The disc is eight times white, so a
+		// thin deck leaves it white and only a thick one dims it to a glow.
+		c += sun * ((1.0 - cloud) * (1.0 - cloud) + 0.02);
 #ifdef ATMO_LIGHTNING
 		// Under the clouds and behind the ridges.
 		c += lightning_bolt(d);
