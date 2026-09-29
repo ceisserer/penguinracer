@@ -886,8 +886,11 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   never reads its neighbour. Flakes are soft-alpha without
   depth write, where ETR alpha-tests and writes depth. **ETR's `CCurtain` rings are gone**: a ring
   centred on the player has no parallax and was the most overlay-like thing on screen. The far
-  snow is a fourth area in the same shader (`FAR_AREAS`) — a 150 m square box of 5–6.5 m quads,
-  each a random 128² patch of a curtain tile, drawn only 25–72 m from the camera (`FAR_FADE`).
+  snow is a fourth area in the same shader (`FAR_AREAS`) — a 150 m square box of 6–8 m quads,
+  each a random 160² patch of a curtain tile, drawn only 25–72 m from the camera (`FAR_FADE`).
+  Each patch fades out over 40 % of its width from every edge (`FAR_WINDOW`, `patch_window`):
+  hard-edged patches of even specks read as tiles in heavy snow against a flat sky, one step in
+  density at every quad edge. The count and size are raised to keep the specks per square metre.
 - **Snow lands on the lens** (`LensSnow`); ETR's camera stays clean. The one piece of snow that is
   deliberately on the camera, so it is kept small: a few out-of-focus blobs (the frame behind
   blurred and lifted toward `[partcol]`, `lens_snow.gdshader`), counted and timed by the grade and

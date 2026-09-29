@@ -54,6 +54,10 @@ render_mode unshaded, cull_disabled, blend_mix, depth_draw_never, skip_vertex_tr
 // says where in the texture its cut starts and [param uv_scale] how big it is.
 uniform sampler2D flake_texture : source_color, filter_linear_mipmap, repeat_disable;
 uniform float uv_scale = 0.5;
+// The share of the quad, from each edge, over which it fades out. 0 for a near
+// flake, whose clump already sits inside its cell; the far area's patches are
+// cut from an even sheet of specks, and a hard-edged patch is a visible tile.
+uniform float patch_window = 0.0;
 // How fast a flake turns in its cell, rad/s before its own factor, and at the
 // same time how much it tumbles — a clump turning edge-on narrows. 0 for the
 // far area: its patches are sheets of specks, and a turned sheet reads as snow
@@ -223,6 +227,10 @@ void fragment() {
 	float inside = tumble > 0.0 ? step(length(p), 0.5) : 1.0;
 	vec4 puff = texture(flake_texture, (clamp(p, -0.5, 0.5) + 0.5) * uv_scale + cut);
 	puff.a *= inside;
+	if (patch_window > 0.0) {
+		vec2 w = smoothstep(0.0, patch_window, UV) * smoothstep(0.0, patch_window, 1.0 - UV);
+		puff.a *= w.x * w.y;
+	}
 	ALBEDO = tint.rgb * puff.rgb;
 	ALPHA = tint.a * puff.a * fade;
 }

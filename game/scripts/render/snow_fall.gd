@@ -30,8 +30,9 @@
 ## ring centred on the player moves with the player — no parallax, no looming as
 ## you ride into it — and that, more than anything the flakes did, is what made
 ## the snow read as an overlay. So the far half is a fourth flake area with the
-## same world-anchored shader: a box 150 m square holding two thousand-odd quads
-## 5–6.5 m wide, each a random patch cut from a curtain tile, drawn only in a
+## same world-anchored shader: a box 150 m square holding about four thousand
+## quads 6–8 m wide, each a random patch cut from a curtain tile and faded out
+## toward its edges, drawn only in a
 ## shell 25–72 m from the camera ([constant FAR_FADE]). Same specks per square
 ## metre as the curtains, and now they hang in the world like the flakes do.
 ##
@@ -113,18 +114,23 @@ const FLAKE_AREAS: Array = [
 ## looks into it whichever way it turns — a slalom, the start animation facing
 ## back up the hill. ETR's rings covered ±100° about the fall line and left the
 ## back of the view empty. The counts are the curtains' density over that
-## whole square; at a few thousand quads that is still nothing. The patches
-## top out at 6.5 m rather than the 8 that matches the rings' specks, because
+## whole square; at a few thousand quads that is still nothing. The patches'
+## texels are 4–5 cm rather than the 6 that matches the rings' specks, because
 ## the biggest specks read as blobs, and the counts rise to cover the same
 ## ground. The specks themselves are far smaller than the originals' — see
 ## [constant CURTAIN_SPECKS]. Which tile
 ## follows the curtains' own: grade 1 was three rings of tile 1, grade 2 of
 ## tile 2, grade 3 mostly tile 2 with its nearest ring in 3.
+##
+## Each patch fades out toward its edges ([constant FAR_WINDOW]), which keeps
+## only 0.36 of its specks, so the patches are 1.25× wider, cut 1.25× wider
+## ([constant FAR_UV_SCALE]) to keep the speck size, and 1.78× as many: the
+## same specks per square metre as the hard-edged 5–6.5 m patches drew.
 const FAR_AREAS: Array = [
 	[],
-	[2300, 150.0, 25.0, 65.0, -75.0, 150.0, 5.0, 6.5, 1],
-	[2300, 150.0, 25.0, 65.0, -75.0, 150.0, 5.0, 6.5, 2],
-	[2150, 150.0, 25.0, 65.0, -75.0, 150.0, 5.0, 6.5, 3],
+	[4090, 150.0, 25.0, 65.0, -75.0, 150.0, 6.25, 8.125, 1],
+	[4090, 150.0, 25.0, 65.0, -75.0, 150.0, 6.25, 8.125, 2],
+	[3820, 150.0, 25.0, 65.0, -75.0, 150.0, 6.25, 8.125, 3],
 ]
 ## Where the far snow is drawn: fading in from 25 to 35 m from the camera, where
 ## the near boxes are thinning out, and out again from 60 to 72, short of the
@@ -132,10 +138,15 @@ const FAR_AREAS: Array = [
 const FAR_FADE := Vector4(25.0, 35.0, 60.0, 72.0)
 ## The box is big, so its faces fade over a smaller share of it.
 const FAR_EDGE_FADE := 0.08
-## How much of a curtain tile one patch shows: a 128² cut of the 512², which at
-## 5–6.5 m makes a speck 4–5 cm a texel — the density and speck size the rings
+## How much of a curtain tile one patch shows: a 160² cut of the 512², which at
+## 6.25–8.1 m makes a speck 4–5 cm a texel — the density and speck size the rings
 ## had at 15–32 m for a whole tile.
-const FAR_UV_SCALE := 0.25
+const FAR_UV_SCALE := 0.3125
+## The share of a far patch, from each edge, over which its specks fade out.
+## With a hard edge every patch is a square of even density, and in heavy snow
+## against a flat sky the overlapping squares read as tiles, one step in density
+## at every edge. 0.4 leaves a soft blob whose sum over the box is smooth.
+const FAR_WINDOW := 0.4
 
 ## How fast a flake falls, m/s, before its own ±30 %. Real snow falls at about
 ## one metre a second whatever its size. DEVIATION — see the class notes; the
@@ -276,6 +287,7 @@ func _build_area(row: Array, rng: RandomNumberGenerator, far: bool) -> FlakeArea
 		area.material.set_shader_parameter("uv_scale", FAR_UV_SCALE)
 		area.material.set_shader_parameter("fade_band", FAR_FADE)
 		area.material.set_shader_parameter("edge_fade", FAR_EDGE_FADE)
+		area.material.set_shader_parameter("patch_window", FAR_WINDOW)
 	else:
 		area.material.set_shader_parameter("flake_texture", _flake_texture())
 		area.material.set_shader_parameter("uv_scale", 1.0 / float(FLAKE_CELLS))
