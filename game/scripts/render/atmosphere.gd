@@ -40,6 +40,26 @@ extends RefCounted
 ## the two directions impossible to tell apart on the snow.
 const MOON_DIRECTION := Vector3(0.40, 0.16, -0.90)
 
+## Where the sun's disc is drawn by day.
+##
+## DEVIATION, the moon's again: not the light's direction. Every sunny
+## `light.lst` puts the sun at `[pos] 1 1 0` — due right and 45 degrees up —
+## which no chase camera looking down the fall line ever sees, so a sunny day
+## had no sun in it. The disc stands ahead and to the right instead, 35
+## degrees round and 10.5 up the dipped horizon: about a tenth of the frame
+## below its top edge and a fifth in from its right on every slope
+## ([method horizon_dip] puts the top of the frame near 16 degrees up the
+## backdrop on gentle and steep courses alike). On the same side as the light,
+## so the shadows still fall away from it. The glow round the disc, the clouds'
+## silver linings and the light on the ridges follow the disc, as they follow
+## the moon; the snow, the trees and the racers are lit by the real light, and
+## the [LensFlare] shines from the disc.
+const SUN_DIRECTION := Vector3(0.56, 0.18, -0.81)
+## The disc's angular radius, radians: `sun_radius` on the sky, and the patch
+## [LensFlare] looks at to decide whether anything is in front of it. The real
+## sun is 0.0047; a game's has to read at 1280 pixels.
+const SUN_RADIUS := 0.012
+
 ## How far below the lowest point of the course the mist settles, and how fast
 ## it thins with height, in metres. A falloff of 16 m puts a racer at the top
 ## of a 200 m descent in clear air looking down into it, and one at the finish
@@ -72,24 +92,31 @@ const MIST_DENSITY := 0.009
 ##   0 is the data.
 ## - `zenith_lift`: how much brighter than its migrated average the zenith is.
 ## - `lightning`: whether [Lightning] flashes in the clouds, 0 or 1.
+## - `flare`: how strongly the disc flares the lens ([LensFlare]), 0..1. Only a
+##   clear sun does: a disc glimpsed through overcast is no light source.
 const LOOKS: Dictionary[String, Dictionary] = {
 	"sunny": {"cover": 0.3, "disc": 1.0, "glow": Color(0.95, 0.84, 0.66),
 		"night": 0.0, "mist": 0.35, "ridge_light": 1.5,
-		"ridge_haze": 0.55, "blue": 0.85, "zenith_lift": 1.8, "lightning": 0.0},
+		"ridge_haze": 0.55, "blue": 0.85, "zenith_lift": 1.8, "lightning": 0.0,
+		"flare": 1.0},
 	"cloudy": {"cover": 0.93, "disc": 0.15, "glow": Color(0.22, 0.22, 0.23),
 		"night": 0.0, "mist": 1.6, "ridge_light": 1.2,
-		"ridge_haze": 1.0, "blue": 0.0, "zenith_lift": 1.0, "lightning": 0.0},
+		"ridge_haze": 1.0, "blue": 0.0, "zenith_lift": 1.0, "lightning": 0.0,
+		"flare": 0.0},
 	"evening": {"cover": 0.4, "disc": 1.0, "glow": Color(1.0, 0.5, 0.24),
 		"night": 0.0, "mist": 0.8, "ridge_light": 1.5,
-		"ridge_haze": 0.85, "blue": 0.2, "zenith_lift": 1.0, "lightning": 0.0},
+		"ridge_haze": 0.85, "blue": 0.2, "zenith_lift": 1.0, "lightning": 0.0,
+		"flare": 0.8},
 	"night": {"cover": 0.2, "disc": 0.0, "glow": Color(0.16, 0.19, 0.27),
 		"night": 1.0, "mist": 0.3, "ridge_light": 3.5,
-		"ridge_haze": 0.7, "blue": 0.5, "zenith_lift": 1.0, "lightning": 0.0},
+		"ridge_haze": 0.7, "blue": 0.5, "zenith_lift": 1.0, "lightning": 0.0,
+		"flare": 0.0},
 	# Solid cloud, no disc, thick mist, ridges barely lit and soon hazed: the
 	# far ranges are dark shapes until a flash throws them against the sky.
 	"thunderstorm": {"cover": 1.0, "disc": 0.0, "glow": Color(0.05, 0.05, 0.06),
 		"night": 0.0, "mist": 1.8, "ridge_light": 0.8,
-		"ridge_haze": 1.1, "blue": 0.0, "zenith_lift": 0.85, "lightning": 1.0},
+		"ridge_haze": 1.1, "blue": 0.0, "zenith_lift": 0.85, "lightning": 1.0,
+		"flare": 0.0},
 }
 
 ## The hue a clear sky is turned toward, linear, at the zenith and along the
@@ -97,9 +124,21 @@ const LOOKS: Dictionary[String, Dictionary] = {
 ## brightness.
 const SKY_BLUE_ZENITH := Color(0.10, 0.25, 0.70)
 const SKY_BLUE_HORIZON := Color(0.45, 0.60, 0.85)
+## The brightest the zenith is turned toward, linear luminance. Some migrated
+## faces average almost white up there (`tuxracer_sunny`: 0.96), and lifted
+## by `zenith_lift` that clipped the whole sky a few degrees above the horizon
+## to cyan-white — against which the sun's disc cannot show. Darker skies are
+## far under it (`etr_sunny` lifts to 0.08) and do not move.
+const MAX_ZENITH_LUMINANCE := 0.45
 
 ## The parameters the sky shader reads, in `atmo_time` seconds.
 var atmo_time: float = 0.0
+## Where the drawn sun is as a world direction — the disc undone out of the
+## dipped backdrop ([method world_direction]) — and how strongly it flares the
+## lens: `flare` of the look, 0 at night, under `sky = etr` or with no disc.
+## Both set by [method apply], for [LensFlare].
+var sun_world_direction := SUN_DIRECTION.normalized()
+var flare: float = 0.0
 var _sky_material: ShaderMaterial
 ## `atmo_ridges` as last applied, and the valley floor its drop is measured
 ## from; the drop is the one part that moves with the camera.
@@ -196,8 +235,7 @@ static func globals_for(preset: EnvironmentPreset, fog_begin: float, fog_end: fl
 	var horizon: Color = colours["horizon"]
 	var night: float = float(look["night"])
 	var glow: Color = look["glow"]
-	var disc_dir: Vector3 = MOON_DIRECTION.normalized() if night > 0.0 \
-		else preset.sun_direction.normalized()
+	var disc_dir: Vector3 = disc_direction(preset)
 	# Mist: lit like the horizon, and paler than it by day, as a cloud is.
 	var mist_colour: Color = horizon.lerp(Color(0.92, 0.94, 0.97), 0.25 * (1.0 - night))
 	var g: Dictionary = {
@@ -228,6 +266,21 @@ static func globals_for(preset: EnvironmentPreset, fog_begin: float, fog_end: fl
 		g["atmo_dip"] = 0.0
 	return g
 
+## Where the bright disc of [param preset]'s sky is drawn, in the backdrop's
+## frame: [constant MOON_DIRECTION] at night, [constant SUN_DIRECTION] by day.
+static func disc_direction(preset: EnvironmentPreset) -> Vector3:
+	if float(look_for(preset)["night"]) > 0.0:
+		return MOON_DIRECTION.normalized()
+	return SUN_DIRECTION.normalized()
+
+## The world direction the backdrop draws at [param backdrop] under a horizon
+## dipped by [param dip]: `atmo_backdrop_dir` undone. That lifts a direction by
+## `dip` times its horizontal length and renormalises, and a renormalisation
+## keeps the ratio, so lowering by the same amount inverts it exactly.
+static func world_direction(backdrop: Vector3, dip: float) -> Vector3:
+	var hl: float = Vector2(backdrop.x, backdrop.z).length()
+	return Vector3(backdrop.x, backdrop.y - dip * hl, backdrop.z).normalized()
+
 ## The gradient the procedural sky is drawn from, linear: the migrated faces'
 ## averages, made as blue as [constant LOOKS] says.
 static func sky_colours(preset: EnvironmentPreset) -> Dictionary:
@@ -235,7 +288,7 @@ static func sky_colours(preset: EnvironmentPreset) -> Dictionary:
 	var blue: float = float(look["blue"])
 	return {
 		"zenith": toward_blue(preset.sky_zenith_color.srgb_to_linear(), SKY_BLUE_ZENITH,
-			blue, float(look["zenith_lift"])),
+			blue, float(look["zenith_lift"]), MAX_ZENITH_LUMINANCE),
 		"horizon": toward_blue(preset.sky_horizon_color.srgb_to_linear(), SKY_BLUE_HORIZON,
 			blue, 1.0),
 		"ground": preset.sky_nadir_color.srgb_to_linear(),
@@ -251,11 +304,14 @@ func apply(env: Environment, preset: EnvironmentPreset, course: CourseData,
 		surface: SurfaceProvider, procedural: bool,
 		sky_detail: int = QualityPreset.SKY_DETAIL_HIGH) -> void:
 	_valley_floor = valley_floor(course, surface)
+	var dip: float = horizon_dip(course)
 	var g: Dictionary = globals_for(preset, env.fog_depth_begin, env.fog_depth_end,
-		env.fog_enabled, _valley_floor, ridge_seed(course), procedural, horizon_dip(course))
+		env.fog_enabled, _valley_floor, ridge_seed(course), procedural, dip)
 	for name: String in g:
 		_global(name, g[name])
 	_ridges = g["atmo_ridges"]
+	sun_world_direction = world_direction(g["atmo_sun_dir"], dip)
+	flare = float(look_for(preset)["flare"]) if procedural else 0.0
 	if not procedural:
 		_sky_material = null
 		return
@@ -297,6 +353,7 @@ func _build_sky(look: Dictionary, zenith: Color, horizon: Color,
 	mat.shader = sky_shader(detail, float(look["lightning"]) > 0.0)
 	mat.set_shader_parameter("cloud_cover", float(look["cover"]))
 	mat.set_shader_parameter("sun_disc", float(look["disc"]))
+	mat.set_shader_parameter("sun_radius", SUN_RADIUS)
 	var glow: Color = look["glow"]
 	# Clouds are lit by the horizon's light plus the disc's, and shaded by the
 	# sky above them — so a night's clouds are night-dark without a case.
@@ -347,9 +404,12 @@ static func sky_variant_code(code: String, detail: int, lightning: bool = false)
 	return code.replace(SKY_SHADER_TYPE_LINE, "%s\n%s" % [SKY_SHADER_TYPE_LINE, defines])
 
 ## [param c] turned [param amount] of the way toward the hue of [param blue],
-## at [param c]'s own luminance times [param lift].
-static func toward_blue(c: Color, blue: Color, amount: float, lift: float) -> Color:
-	var target: Color = blue * (_luminance(c) / _luminance(blue)) * lift
+## at [param c]'s own luminance times [param lift], and no brighter than
+## [param max_luminance].
+static func toward_blue(c: Color, blue: Color, amount: float, lift: float,
+		max_luminance: float = INF) -> Color:
+	var luminance: float = minf(_luminance(c) * lift, max_luminance)
+	var target: Color = blue * (luminance / _luminance(blue))
 	var out: Color = c.lerp(target, amount)
 	out.a = 1.0
 	return out

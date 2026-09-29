@@ -169,6 +169,8 @@ var snowfall: SnowFall
 ## The flakes that land on the camera while it snows — the same grade and tint
 ## as [member snowfall], drawn under the HUD. See [LensSnow].
 var lens_snow: LensSnow
+## The sun's glare and ghosts on the lens, under a clear sky — see [LensFlare].
+var lens_flare: LensFlare
 ## The environment this course is lit by, kept because two things outside
 ## [method _apply_environment] need it — the snowfall's `[partcol]` tint, and
 ## anything else that has to be reapplied when the weather changes without the
@@ -373,6 +375,9 @@ func _ready() -> void:
 	lens_snow = LensSnow.new()
 	lens_snow.name = "LensSnow"
 	add_child(lens_snow)
+	lens_flare = LensFlare.new()
+	lens_flare.name = "LensFlare"
+	add_child(lens_flare)
 	ridge_map = RidgeMap.new()
 	add_child(ridge_map)
 	if not requested_course_path.is_empty():
@@ -893,6 +898,7 @@ func _present(delta: float) -> void:
 	# whole function while paused, which is the same thing.
 	snowfall.update(view.position, _racer_wind(), delta)
 	lens_snow.update(camera.global_transform, delta)
+	lens_flare.update(camera)
 	atmosphere.advance(delta, camera.global_position.y, _downwind())
 	lightning.advance(delta, -camera.global_transform.basis.z)
 	if course_lights != null:
@@ -1461,6 +1467,7 @@ func _apply_environment(preset: EnvironmentPreset) -> void:
 		course_root.course_data if course_root != null else null,
 		course_root.surface if course_root != null else null, Config.procedural_sky,
 		Config.sky_detail)
+	lens_flare.set_sun(atmosphere.sun_world_direction, atmosphere.flare)
 	if Config.procedural_sky:
 		ridge_map.bake()
 	else:

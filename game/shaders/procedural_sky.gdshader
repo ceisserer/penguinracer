@@ -39,8 +39,9 @@ const int CLOUD_SHADE_OCTAVES = 2;
 #endif
 
 group_uniforms Sun;
-// Angular radius of the disc, radians. The real sun is 0.0047; a game's has to
-// read at 1280 pixels.
+// Angular radius of the disc, radians — [constant Atmosphere.SUN_RADIUS], which
+// [LensFlare] also reads. The disc stands where a chase camera can see it, not
+// where the light comes from: see [constant Atmosphere.SUN_DIRECTION].
 uniform float sun_radius = 0.012;
 // How much of the disc shows: 1 on a clear day, low under overcast.
 uniform float sun_disc = 1.0;
@@ -97,8 +98,10 @@ vec4 cloud_deck(vec3 d, float height, float scale, vec2 drift, float cover,
 	float lit = clamp(0.55 + (n - ahead) * 3.0, 0.0, 1.0);
 	float mu = max(dot(d, atmo_sun_dir), 0.0);
 	vec3 col = mix(cloud_shade, cloud_lit, lit);
-	// Silver lining: thin edges toward the disc glow.
-	col += atmo_sun_color * pow(mu, 12.0) * (1.0 - density) * 1.5;
+	// Silver lining: thin edges close to the disc glow. Narrow, now the disc is
+	// in shot: as wide as it was, every cloud within 20 degrees of the sun
+	// clipped to white and the disc vanished into it.
+	col += atmo_sun_color * pow(mu, 60.0) * (1.0 - density) * 1.2;
 	// A flash lights the deck from inside: thick cloud glows, and the thin
 	// parts the light shines through glow more.
 	col += atmo_flash_at(d) * (1.6 - 0.8 * lit);

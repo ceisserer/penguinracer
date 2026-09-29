@@ -21,7 +21,8 @@
 // for a rebuild every frame.
 global uniform float atmo_time;
 // Where the bright disc is: the sun, or at night the moon. Not always the
-// light's direction — see [member Atmosphere.MOON_DIRECTION].
+// light's direction — see [constant Atmosphere.SUN_DIRECTION] and
+// [constant Atmosphere.MOON_DIRECTION].
 global uniform vec3 atmo_sun_dir;
 // The colour the disc tints the air around it, already scaled for the sky.
 global uniform vec3 atmo_sun_color;
@@ -163,8 +164,12 @@ vec3 atmo_sky(vec3 d) {
 	float band = exp(-abs(d.y) * 9.0);
 	c += atmo_horizon * 0.10 * band;
 	// Forward scattering round the disc, strongest along the horizon under it.
+	// Tight: the disc stands in shot now (see [constant Atmosphere.SUN_DIRECTION]),
+	// and the wide halo it had while it stood out of shot clipped a fifth of
+	// the frame to white round it, disc and all. The lens adds the bloom
+	// ([LensFlare]).
 	float mu = max(dot(d, atmo_sun_dir), 0.0);
-	float halo = pow(mu, 48.0) * 0.45 + pow(mu, 6.0) * 0.18;
+	float halo = pow(mu, 900.0) * 0.5 + pow(mu, 60.0) * 0.18 + pow(mu, 6.0) * 0.08;
 	float horizon_glow = mu * mu * band * 0.35;
 	return c + atmo_sun_color * (halo + horizon_glow) + atmo_flash_at(d);
 }

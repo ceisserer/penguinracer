@@ -36,6 +36,7 @@ static func run(t: TestCase) -> void:
 	_the_ridges_sink_as_you_climb(t)
 	_the_ridge_map(t)
 	_the_backdrop_dips_with_the_slope(t)
+	_the_sun_on_the_lens(t)
 	_torches(t)
 	_nearest_lights(t)
 	_settings(t)
@@ -110,7 +111,7 @@ static func _every_light_has_a_look(t: TestCase) -> void:
 	for light: String in LightCondition.ALL_NAMES:
 		t.ok(Atmosphere.LOOKS.has(light), "there is a look for `%s`" % light)
 		var look: Dictionary = Atmosphere.LOOKS.get(light, {})
-		for key: String in ["cover", "disc", "glow", "night", "mist", "ridge_light", "ridge_haze", "blue", "zenith_lift", "lightning"]:
+		for key: String in ["cover", "disc", "glow", "night", "mist", "ridge_light", "ridge_haze", "blue", "zenith_lift", "lightning", "flare"]:
 			t.ok(look.has(key), "`%s` says %s" % [light, key])
 	for id: String in ["etr_sunny", "tuxracer_cloudy", "etr_evening", "tuxracer_night"]:
 		var preset: EnvironmentPreset = _preset(id)
@@ -246,8 +247,10 @@ static func _the_procedural_sky(t: TestCase) -> void:
 	# The near field was fitted against a reference capture at 40 m of clear
 	# air; the mist must not reach inside that.
 	t.ok(mist.w >= fog.x, "the mist starts no nearer than the fog does")
-	t.eq_v(g["atmo_sun_dir"], sunny.sun_direction.normalized(), 1e-6,
-		"by day the disc is where the light comes from")
+	var sun: Vector3 = g["atmo_sun_dir"]
+	t.ok(sun.z < -0.7 and sun.x > 0.4 and sun.y > 0.1 and sun.y < 0.3,
+		"by day the sun stands low ahead and to the right, where a chase camera can see it")
+	t.ok(sun.x * sunny.sun_direction.x > 0.0, "on the side the light comes from")
 	var night: Dictionary = Atmosphere.globals_for(_preset("etr_night"), 40.0, 150.0, true,
 		0.0, 0.0, true)
 	var moon: Vector3 = night["atmo_sun_dir"]
@@ -444,6 +447,41 @@ static func _the_backdrop_dips_with_the_slope(t: TestCase) -> void:
 	t.ok(is_equal_approx(float(g["atmo_dip"]), 0.4), "the procedural sky takes the dip")
 	var etr: Dictionary = Atmosphere.globals_for(sunny, 40.0, 150.0, true, 0.0, 0.0, false, 0.4)
 	t.ok(float(etr["atmo_dip"]) == 0.0, "sky = etr does not")
+
+## [LensFlare] shines from where the sky draws the disc, which is in the dipped
+## backdrop's frame, so the world direction has to undo the dip exactly — or
+## the glare sits beside the sun.
+static func _the_sun_on_the_lens(t: TestCase) -> void:
+	t.begin("atmosphere/sun on the lens")
+	var disc: Vector3 = Atmosphere.SUN_DIRECTION.normalized()
+	for dip: float in [0.0, 0.2, tan(deg_to_rad(Atmosphere.MAX_DIP_DEGREES))]:
+		var world: Vector3 = Atmosphere.world_direction(disc, dip)
+		# `atmo_backdrop_dir`, as the shader writes it.
+		var hl: float = Vector2(world.x, world.z).length()
+		var back := Vector3(world.x, world.y + dip * hl, world.z).normalized()
+		t.eq_v(back, disc, 1e-5, "the world direction draws back onto the disc (dip %.2f)" % dip)
+	var sunny: EnvironmentPreset = _preset("etr_sunny")
+	var atmo := Atmosphere.new()
+	atmo.apply(sunny.to_environment(), sunny, null, null, true)
+	t.ok(atmo.flare > 0.0, "a clear sun flares the lens")
+	t.eq_v(atmo.sun_world_direction, disc, 1e-6, "from the disc, with no course to dip it")
+	for id: String in ["etr_night", "tuxracer_cloudy"]:
+		var other := Atmosphere.new()
+		other.apply(_preset(id).to_environment(), _preset(id), null, null, true)
+		t.ok(other.flare == 0.0, "%s does not" % id)
+	var etr := Atmosphere.new()
+	etr.apply(sunny.to_environment(), sunny, null, null, false)
+	t.ok(etr.flare == 0.0, "and sky = etr, which draws no disc, does not")
+	t.ok(LensFlare.edge_presence(Vector2(0.8, 0.1), 16.0 / 9.0) == 1.0,
+		"a sun on the canvas flares in full")
+	t.ok(LensFlare.edge_presence(Vector2(1.0 + 1.5 * LensFlare.EDGE_FADE, 0.1), 1.0) == 0.0
+		and LensFlare.edge_presence(Vector2(0.5, -0.5), 16.0 / 9.0) == 0.0,
+		"one out of shot not at all")
+	var halfway: float = LensFlare.edge_presence(Vector2(0.5, -LensFlare.EDGE_FADE * 0.5), 1.0)
+	t.ok(halfway > 0.0 and halfway < 1.0, "and one just past the edge fades")
+	var probe: float = LensFlare.probe_radius(70.0)
+	t.ok(probe > 0.002 and probe < Atmosphere.SUN_RADIUS / (2.0 * tan(deg_to_rad(35.0))),
+		"the occlusion probe lies inside the disc (%.4f of the height)" % probe)
 
 static func _preset(id: String) -> EnvironmentPreset:
 	return load("res://resources/environments/%s.tres" % id) as EnvironmentPreset
