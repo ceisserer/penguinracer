@@ -48,6 +48,7 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           own CourseMenu instance), LoadingScreen (shared by menu and race),
                           TouchControls (the phone's on-screen buttons + tilt level),
                           TouchListScroll (drag/flick scrolling for every menu ItemList)
+                          MenuSnow (ETR's pointer-scattered snow behind the main menu)
   scripts/race/           RaceScene (tick loop + course), RacerRoster (who is on the hill, who
                           is winning), IntroSequence, the racer layer (Racer, SimulatedRacer,
                           PlaybackRacer, RacerState — the 18-float snapshot that is also the
@@ -70,7 +71,7 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
   scripts/debug/          DebugCapture autoload (headless screenshots / scripted input), key_log
   shaders/                terrain, etr_skybox, procedural_sky, object_billboard (items), object_cross (shrubs),
                           conifer + conifer_impostor (all three species; + conifer.gdshaderinc:
-                          LOD fade, sway, snow, twig alpha), conifer_bake, snow_trail, snow_flakes,
+                          LOD fade, sway, snow, twig alpha), conifer_bake, snow_trail, snow_flakes, menu_snow,
                           s1_displace, torch_flame, etr_illumination.gdshaderinc (ETR's
                           sum-then-clamp, included by everything lit), atmosphere.gdshaderinc
                           (sky gradient, ridges, the `FOG` every lit shader writes, torchlight)

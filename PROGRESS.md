@@ -642,8 +642,16 @@ Three things followed from reading the original rather than guessing at it:
   `themes/checkbox_{on,off}.png` are that shape drawn here, 32², bound as the `CheckBox` icons.
 
 Not migrated: the four corner ornaments and the title logo `DrawGUIFrame`/`DrawGUIBackground`
-paint over the blue, and the `param.ui_snow` particles that drift across every menu. All of it is
-`etr-0.8.4/data/textures` art and waits on the licence audit.
+paint over the blue. Both are `etr-0.8.4/data/textures` art and wait on the licence audit.
+
+The `param.ui_snow` particles came later (`scripts/shell/menu_snow.gd`, `MenuSnow`): ETR's
+`TGuiParticle` update verbatim — gravity, air drag, and a push from the pointer's velocity that
+falls off with the squared distance and scales with flake size — drawn as one `MultiMesh` of the
+spray's redrawn puff atlas. It runs behind the main menu's root page and nowhere else yet: the
+panels opened from it are opaque `colBackgr` screens and hide it, where ETR draws it under every
+menu. The count stays at ETR's starting one (about one flake per pixel of width, ~1 ms a frame
+natively in GDScript) rather than climbing to ETR's ~2400. `TestMenuSnow` covers fall, push and
+determinism.
 
 The sixth slice: the other four characters. `char/characters.lst` is a five-record file — Tux,
 Trixi, Boris, Samuel, Beastie — and the importer has been walking all five since Phase 4, writing

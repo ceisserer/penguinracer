@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/shell/main_menu.gd" id="1_shell"]
 [ext_resource type="PackedScene" path="res://scenes/course_menu.tscn" id="2_courses"]
@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ghost_menu.tscn" id="6_ghost"]
 [ext_resource type="PackedScene" path="res://scenes/loading_screen.tscn" id="7_loading"]
 [ext_resource type="PackedScene" path="res://scenes/lobby_menu.tscn" id="8_lobby"]
+[ext_resource type="Script" path="res://scripts/shell/menu_snow.gd" id="9_snow"]
 
 [node name="MainMenu" type="Control"]
 layout_mode = 3
@@ -28,6 +29,16 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 color = Color(0.4, 0.6, 0.8, 1)
+
+[node name="Snow" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("9_snow")
 
 [node name="Frame" type="MarginContainer" parent="."]
 unique_name_in_owner = true
