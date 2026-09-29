@@ -57,10 +57,70 @@ theme_override_constants/separation = 16
 custom_minimum_size = Vector2(340, 0)
 layout_mode = 2
 
-[node name="CourseList" type="ItemList" parent="Frame/Body/Columns/ListPanel"]
+[node name="ListColumn" type="VBoxContainer" parent="Frame/Body/Columns/ListPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="CourseList" type="ItemList" parent="Frame/Body/Columns/ListPanel/ListColumn"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_vertical = 3
 theme_override_font_sizes/font_size = 17
+
+[node name="ExternalButtons" type="HBoxContainer" parent="Frame/Body/Columns/ListPanel/ListColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="AddCourseButton" type="Button" parent="Frame/Body/Columns/ListPanel/ListColumn/ExternalButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 17
+text = "ADD_COURSE"
+
+[node name="RemoveCourseButton" type="Button" parent="Frame/Body/Columns/ListPanel/ListColumn/ExternalButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 17
+text = "REMOVE_COURSE"
+
+[node name="AddRow" type="VBoxContainer" parent="Frame/Body/Columns/ListPanel/ListColumn"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="UrlEdit" type="LineEdit" parent="Frame/Body/Columns/ListPanel/ListColumn/AddRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+placeholder_text = "COURSE_URL_PLACEHOLDER"
+clear_button_enabled = true
+
+[node name="AddRowButtons" type="HBoxContainer" parent="Frame/Body/Columns/ListPanel/ListColumn/AddRow"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="CancelAddButton" type="Button" parent="Frame/Body/Columns/ListPanel/ListColumn/AddRow/AddRowButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 17
+text = "BACK"
+
+[node name="ConfirmAddButton" type="Button" parent="Frame/Body/Columns/ListPanel/ListColumn/AddRow/AddRowButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 17
+text = "ACTION_ADD"
 
 [node name="InfoPanel" type="PanelContainer" parent="Frame/Body/Columns"]
 layout_mode = 2

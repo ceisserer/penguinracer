@@ -534,13 +534,20 @@ const LOAD_TERRAIN_READY := 0.95
 
 func load_course(path: String) -> void:
 	var dir: String = path.get_base_dir().get_file()
-	var listing: CourseListing = CourseCatalog.load_default().find(dir)
+	var listing: CourseListing = CourseCatalog.load_with_external().find(dir)
 	_loading.begin(listing.title() if listing != null else dir)
 	# Asked before the fetch, because it governs the whole of what follows: see
-	# [method _load_step].
-	var streaming: bool = PackStream.is_streamed(path)
-	var err: Error = await PackStream.ensure(path, "courses/%s.pck" % dir,
-		_on_pack_progress if streaming else Callable())
+	# [method _load_step]. A course the player added by address is fetched on
+	# every platform, from wherever it was added from.
+	var external: bool = listing != null and listing.is_external()
+	var streaming: bool = (not ExternalCourses.is_mounted(dir)) if external \
+		else PackStream.is_streamed(path)
+	var progress: Callable = _on_pack_progress if streaming else Callable()
+	var err: Error
+	if external:
+		err = await ExternalCourses.ensure(listing, progress)
+	else:
+		err = await PackStream.ensure(path, "courses/%s.pck" % dir, progress)
 	if err != OK:
 		_loading.fail(tr("COULD_NOT_LOAD") % [dir, error_string(err)])
 		return

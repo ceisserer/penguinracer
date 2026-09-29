@@ -275,7 +275,7 @@ func _on_network_race_starting(course_dir: String, snow: int, sky: int, wind: in
 ## Practice button always has — and starts the race on the course the run was
 ## recorded on, with that run set as [member RaceScene.requested_ghost].
 func _on_ghost_run_chosen(recording: RaceRecording) -> void:
-	var listing: CourseListing = CourseCatalog.load_default().find(recording.course_dir)
+	var listing: CourseListing = CourseCatalog.load_with_external().find(recording.course_dir)
 	if listing == null:
 		# The course this was recorded on is no longer in this build. Nothing
 		# ventured — back to the root rather than starting a race with nowhere

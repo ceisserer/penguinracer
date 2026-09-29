@@ -55,14 +55,24 @@ static func ensure(probe_path: String, pck_url: String,
 		return ERR_FILE_NOT_FOUND
 	if _resolved.get(probe_path, false):
 		return OK if ResourceLoader.exists(probe_path) else ERR_FILE_NOT_FOUND
-	var err: Error = await _fetch_and_mount(pck_url, on_progress)
+	var err: Error = await fetch_and_mount(_page_base_url() + pck_url,
+		"user://cache/%s" % pck_url.get_file(), on_progress)
 	_resolved[probe_path] = true
 	if err != OK:
 		return err
 	return OK if ResourceLoader.exists(probe_path) else ERR_FILE_NOT_FOUND
 
-static func _fetch_and_mount(pck_url: String, on_progress: Callable) -> Error:
-	var url: String = _page_base_url() + pck_url
+## Download the `.pck` at the absolute `url` into `cache_path` and mount it.
+## `OK` once it is mounted, an [enum Error] otherwise; `on_progress` as in
+## [method ensure].
+##
+## The one download path, shared by the streamed web build and by
+## [ExternalCourses], which is why it runs on every platform: a course added
+## by address is fetched by a native build too. `replace_files` is passed
+## through to [method ProjectSettings.load_resource_pack] — a pack the player
+## pointed at must not be able to replace a file this build ships.
+static func fetch_and_mount(url: String, cache_path: String,
+		on_progress: Callable = Callable(), replace_files: bool = true) -> Error:
 	var http := HTTPRequest.new()
 	# `HTTPRequest` reads exactly one chunk per poll and it polls once a frame,
 	# so the default 64 KiB makes a download's speed the *frame rate* times
@@ -80,8 +90,15 @@ static func _fetch_and_mount(pck_url: String, on_progress: Callable) -> Error:
 	# direct add_child there fails outright — same shape as the
 	# change_scene_to_file/_ready trap elsewhere in the shell.
 	Engine.get_main_loop().root.add_child.call_deferred(http)
-	await Engine.get_main_loop().process_frame
-	_begin_size_probe(url)
+	# Until it is really in: `process_frame` is emitted before the frame's
+	# deferred calls are flushed, so a caller already inside the frame's process
+	# step — anything awaited from a `_process` — would wake to a request that
+	# refuses to start outside the tree.
+	while not http.is_inside_tree():
+		await Engine.get_main_loop().process_frame
+	var web: bool = OS.has_feature("web")
+	if web:
+		_begin_size_probe(url)
 	var request_err: Error = http.request(url)
 	if request_err != OK:
 		http.queue_free()
@@ -98,8 +115,13 @@ static func _fetch_and_mount(pck_url: String, on_progress: Callable) -> Error:
 	# 0 while the page has not answered yet, -1 once it has said it cannot.
 	var total: int = 0
 	while completed.is_empty():
-		if total == 0:
+		if web and total == 0:
 			total = _probed_size(url)
+		elif not web and total <= 0:
+			# Off the web the header is right there once it has arrived (-1
+			# until then); see [method _begin_size_probe] for why the browser
+			# has to be asked instead.
+			total = http.get_body_size()
 		if on_progress.is_valid():
 			on_progress.call(http.get_downloaded_bytes(), total)
 		await Engine.get_main_loop().process_frame
@@ -107,18 +129,19 @@ static func _fetch_and_mount(pck_url: String, on_progress: Callable) -> Error:
 	http.queue_free()
 	var response_code: int = result[1]
 	var body: PackedByteArray = result[3]
-	if response_code != 200:
+	if result[0] != HTTPRequest.RESULT_SUCCESS:
 		return ERR_CANT_CONNECT
+	if response_code != 200:
+		return ERR_FILE_NOT_FOUND if response_code == 404 else ERR_CANT_CONNECT
 
-	DirAccess.make_dir_recursive_absolute("user://cache")
-	var tmp_path: String = "user://cache/%s" % pck_url.get_file()
-	var f: FileAccess = FileAccess.open(tmp_path, FileAccess.WRITE)
+	DirAccess.make_dir_recursive_absolute(cache_path.get_base_dir())
+	var f: FileAccess = FileAccess.open(cache_path, FileAccess.WRITE)
 	if f == null:
 		return FileAccess.get_open_error()
 	f.store_buffer(body)
 	f.close()
-	var mounted: bool = ProjectSettings.load_resource_pack(tmp_path)
-	return OK if mounted else ERR_CANT_OPEN
+	var mounted: bool = ProjectSettings.load_resource_pack(cache_path, replace_files)
+	return OK if mounted else ERR_FILE_UNRECOGNIZED
 
 ## Ask the page how big `url` is, in the background.
 ##

@@ -32,7 +32,8 @@ the plan go in `godot-port-plan.md`, dated.
 game/                     Godot project (mobile on the desktop, gl_compatibility on the web)
   scripts/physics/        RacePhysics + surface + snow — plain RefCounted, zero node deps
   scripts/course/         CourseData, TerrainLayer, TerrainOcclusion (heightmap AO bake),
-                          prefabs, events, environments
+                          prefabs, events, environments, CourseCatalog/Listing (the menu's
+                          index + category), ExternalCourses (courses added by address)
                           (EnvironmentPreset + LightCondition: a course names a place,
                           a race names the time of day — ETR's light_id)
   scripts/render/         terrain chunks, GPU snow field, spray, SnowFall (falling flakes +
@@ -89,6 +90,8 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           server.tscn (the same project headless, no course)
   user://runs/            NOT in the repo: runs kept from the results screen (SavedRunStore),
                           raced as a translucent ghost from the main menu
+  user://external_courses.cfg  NOT in the repo: courses added by address (the entries only;
+                          packs are re-fetched per session into user://cache/external/)
   themes/                 etr_menu.tres — ETR's `common.cpp` palette + checkbox icons
   tests/                  headless suite + ODE benchmark + tone_report.gd,
                           bake_tree_impostors.gd and tree_portrait.gd (not tests)
@@ -223,7 +226,7 @@ Detail is in `PROGRESS.md`; this is the summary.
 | 2 — rendering | partial — Mobile on the desktop, Compatibility on the web (trap list: *sRGB-blended shadow pass*). ETR's illumination clamp in every lit shader except the character's; desktop-only PSSM shadow. Splat PBR, chunked terrain, instanced objects (conifers, bare trees and shrubs are 3D meshes at 3 LODs + an octahedral impostor, dithered hand-overs, wind sway, shader snow — [Forest]; anything else collidable is ETR's two crossed planes with a hashed yaw; items are billboards), ETR's HUD redrawn as primitives ([RaceHUD]), migrated skyboxes. Tone matched on Bunny Hill at both ends in all three channels; no LightmapGI. Snow/ice micro-relief, glint, Fresnel sky, ice reflecting the racers (`IceReflection`), textured carve spray. Heightmap AO baked at import + trench-wall AO; shaded/occluded/carved snow tinted blue (fake SSS). |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror; a carve leaves a shaded trench with a ploughed lip. |
 | 4 — character | **done for all five** — skinned mesh from `shape.lst`, keyframe clips as `AnimationLibrary` + `KeyframePath` root motion, start animation (`CIntro`), finish clips on the results screen (`RaceOutcome.clip`), racing pose layer (`CharacterRig.adjust_joints`, ETR's `AdjustJoints`) driven off `RacerState` alone so ghosts and peers animate. `GameConfig.character` picks one. |
-| 5 — game shell | partial — main menu → Practice / Race the computer / Network multiplayer / Race against ghost / character / Configuration; results screen with named runs; ETR palette theme; course + character catalogs; English + German, detected or chosen on the settings screen; audio (`AudioDirector`, ETR's one-voice-per-cue mixer). Missing: cups, medals, profiles (data imported), volume controls, ETR's menu art (licence audit). |
+| 5 — game shell | partial — main menu → Practice / Race the computer / Network multiplayer / Race against ghost / character / Configuration; results screen with named runs; ETR palette theme; course + character catalogs (course list in three parts: Tux Racer, ETR, added by address); English + German, detected or chosen on the settings screen; audio (`AudioDirector`, ETR's one-voice-per-cue mixer). Missing: cups, medals, profiles (data imported), volume controls, ETR's menu art (licence audit). |
 | 6 — polish/ship | not started. |
 | phones | **done, not raced on hardware** — `Android` preset + `tools/build_android.sh` (Mobile renderer by default, Compatibility selectable in the settings screen from the next launch, whole game in the APK, Medium preset on first run); tilt / buttons / off on Android and in a phone's browser (`TouchScheme`, `TouchControls`, `TiltSteering`, `MotionSensor`); back button is Esc. Verified by the suite, desktop renders with `--touch`, and Chromium emulating an Android phone with synthetic `devicemotion`. |
 | sky + atmosphere | **done** (beyond ETR) — procedural sky (sun disc, drifting clouds; stars, moon, aurora at night), three layers of distant ridges, aerial perspective and valley mist in every lit shader's `FOG`, night torches inside the clamp (baked into the terrain). `[display] sky = etr` / `--sky=etr` is the old frame to the level. See the deviations. |
@@ -630,6 +633,12 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   natural frame (turn it by `screen.orientation.angle`) and signed as the reaction force, except on
   iOS. iOS motion permission, fullscreen and orientation lock must be asked from a *page* touch
   handler: a Godot input event is dispatched off the gesture.
+- **A deferred `add_child` is not done one `process_frame` later** when the caller is already in
+  the frame's process step — the signal is emitted before the deferred calls are flushed, and an
+  `HTTPRequest` outside the tree refuses to start. `PackStream.fetch_and_mount` waits on
+  `is_inside_tree()`. Off the web, `get_body_size()` is -1 until the headers arrive: keep asking.
+- **A `.pck` from an address is code** — it can carry scripts. `ExternalCourses` mounts with
+  `replace_files = false` so it cannot replace a shipped file; nothing more stops it.
 - **A phone's browser is `web_android` / `web_ios`, not `mobile`.** `mobile` is only a native
   Android/iOS build; ask `TouchScheme.platform_is_mobile()`.
 
@@ -991,6 +1000,13 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   menu scene when the language changes. Adding a row: edit the CSV, then
   `godot --headless --path game --import` to regenerate `ui.*.translation`. Course names and
   descriptions stay as ETR ships them — untranslated there too.
+- **The course list is Tux Racer's five, then ETR's, then the player's own**, each under a header
+  row — not ETR's `default`/`extras` groups, since `default` holds seventeen courses ETR added.
+  The five are `CourseCatalog.TUXRACER_ORIGINALS` (Jasmin Patry's, `[env] tuxracer`, the
+  *Tux Racer Classics* event). **A course can be added by the http(s) address of its `.pck`**
+  (`ExternalCourses`, *Add course…*): the file name is the course dir, the entry is kept, the pack
+  is fetched again each session. The shell lists `CourseCatalog.load_with_external()`; tests and
+  the lobby use `load_default()` — a room cannot race a course only one machine has.
 - **A phone races by tilt or by buttons** (`TouchScheme`, `TouchControls`, `TiltSteering`); ETR
   is keyboard-only. The buttons press the ordinary actions; tilt is merged per tick in
   `LocalInputSource`. The physics sees a stick and flags, exactly as from a gamepad. A phone

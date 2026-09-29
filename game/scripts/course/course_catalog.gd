@@ -12,8 +12,14 @@ extends Resource
 
 const PATH := "res://resources/courses.tres"
 
-## Groups appear in this order in the menu; anything else sorts after them.
-const GROUP_ORDER: Array[String] = ["default", "extras"]
+## The courses the original Tux Racer shipped. ETR's own data is what says so:
+## these five are the ones by Jasmin Patry, the only ones on `[env] tuxracer`,
+## and the whole of `events.lst`'s "Tux Racer Classics" ("courses that shipped
+## with the original Tux Racer"). The rest of ETR's `default` group — Chinese
+## Wall, Milos Castle and fifteen more — came with ETR, so ETR's group cannot
+## stand in for this list.
+const TUXRACER_ORIGINALS: Array[String] = ["bunny_hill", "twisty_slope",
+	"bumpy_ride", "frozen_river", "path_of_daggers"]
 
 @export var entries: Array[CourseListing] = []
 
@@ -26,6 +32,20 @@ static func load_default() -> CourseCatalog:
 		if cat != null and not cat.entries.is_empty():
 			return cat
 	return scan()
+
+## The shipped catalog plus the courses the player added by address
+## ([ExternalCourses]) — what the shell lists and looks courses up in. A fresh
+## catalog every call: [method load_default] hands out the cached resource, and
+## appending to that would add the external rows again on every call.
+##
+## The shell's only; the suite asserts over [method load_default], which never
+## depends on what somebody once typed into a menu on the machine running it.
+static func load_with_external() -> CourseCatalog:
+	var cat := CourseCatalog.new()
+	cat.entries = load_default().entries.duplicate()
+	cat.entries.append_array(ExternalCourses.listings())
+	cat.sort()
+	return cat
 
 ## Degraded index built from directory names alone. No `course.tres` is opened:
 ## loading 44 of them to fill in an author line would also load 44 heightmaps.
@@ -56,14 +76,11 @@ func find(dir: String) -> CourseListing:
 			return e
 	return null
 
-## Group first — the original Tux Racer courses before the community extras —
-## then alphabetically by the name the player sees.
+## Category first — Tux Racer's, then ETR's, then the player's own (see
+## [enum CourseListing.Category]) — then alphabetically by the name the player
+## sees.
 func sort() -> void:
 	entries.sort_custom(func(a: CourseListing, b: CourseListing) -> bool:
-		var ga: int = GROUP_ORDER.find(a.group)
-		var gb: int = GROUP_ORDER.find(b.group)
-		if ga < 0: ga = GROUP_ORDER.size()
-		if gb < 0: gb = GROUP_ORDER.size()
-		if ga != gb:
-			return ga < gb
+		if a.category() != b.category():
+			return a.category() < b.category()
 		return a.title().naturalnocasecmp_to(b.title()) < 0)

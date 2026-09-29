@@ -9,9 +9,18 @@
 class_name CourseListing
 extends Resource
 
+## Where a course came from, which is the order the menu lists them in: the
+## five Tux Racer shipped, then everything Extreme Tux Racer added — ETR's
+## `default` and `extras` groups alike, see [constant
+## CourseCatalog.TUXRACER_ORIGINALS] — then courses the player added by address
+## ([ExternalCourses]).
+enum Category { TUXRACER, ETR, EXTERNAL }
+
 ## Directory under `res://courses/`, and the identity used everywhere else.
 @export var dir: String = ""
-## ETR course group it was imported from — `default` or `extras`.
+## ETR course group it was imported from — `default` or `extras`. Provenance
+## only: ETR's `default` holds seventeen courses it added itself, so the menu
+## groups by [method category], not by this.
 @export var group: String = "default"
 @export var display_name: String = ""
 @export var author: String = ""
@@ -24,6 +33,11 @@ extends Resource
 ## Global downhill slope in degrees.
 @export var base_angle: float = 0.0
 
+## The http(s) address of the course's `.pck` for a course the player added,
+## empty for every course this build ships. Never written by the importer: an
+## external listing is built by [ExternalCourses] from its own file.
+@export var source_url: String = ""
+
 func title() -> String:
 	return display_name if not display_name.is_empty() else dir
 
@@ -33,3 +47,13 @@ func preview() -> Texture2D:
 	if preview_path.is_empty() or not ResourceLoader.exists(preview_path):
 		return null
 	return load(preview_path) as Texture2D
+
+func is_external() -> bool:
+	return not source_url.is_empty()
+
+func category() -> Category:
+	if is_external():
+		return Category.EXTERNAL
+	if CourseCatalog.TUXRACER_ORIGINALS.has(dir):
+		return Category.TUXRACER
+	return Category.ETR

@@ -46,6 +46,7 @@ func _run() -> void:
 	TestAI.run(t)
 	TestAudio.run(t)
 	TestPackStream.run(t)
+	TestExternalCourses.run(t)
 
 	var elapsed: int = Time.get_ticks_msec() - start
 	print("")

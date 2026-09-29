@@ -2548,3 +2548,51 @@ species at its own distance. Frame rate, 1024x576 logical, iGPU, vsync off, `pad
 `--print-fps` over 1500 frames, before → after: Bunny Hill 120 → 123 (Mobile), 228 → 233
 (Compatibility); `bronze_set` 135 → 140, 199 → 202 — no cost, within noise. **Not done**: a
 browser, a phone.
+
+### The course list is in three parts, and a course can be added by address (2026-09-29) · **done, not tried in a browser or on a phone**
+
+**Three parts**, each under a header row that cannot be selected (`CourseMenu._fill_list`):
+*Tux Racer*, *Extreme Tux Racer*, *Added courses*. `CourseListing.category()` decides, from
+`CourseCatalog.TUXRACER_ORIGINALS` — Bunny Hill, Twisty Slope, Bumpy Ride, Frozen River, Path of
+Daggers. ETR's `default` group cannot stand in for that list: it holds 22 courses, seventeen of
+them ETR's own (Chinese Wall, Milos Castle, ...). The five are what ETR's data itself marks as Tux
+Racer's: the only courses by Jasmin Patry, the only ones on `[env] tuxracer`, and the whole of
+`events.lst`'s *Tux Racer Classics* ("courses that shipped with the original Tux Racer"). The
+Tux Racer 0.61 source tarball carries no course data to check against — its only course names are
+`path_of_daggers` and `ingos_speedway` (not in ETR) in a comment in `course_mgr.c`. `group` stays
+on the listing as provenance; `courses.tres` was not re-imported (its row order is the old one,
+`load_with_external` re-sorts).
+
+**Added courses** (`ExternalCourses`): *Add course…* under the list takes an http(s) address of a
+course `.pck` — the pack a `Course_<dir>` preset exports, the same file the streamed web build
+fetches. The file name is the course (`…/tuxway.pck` must carry `res://courses/tuxway/`), a name
+the build ships is refused before any fetch, and a pack that does not carry its course is refused
+after. What is kept, in `user://external_courses.cfg`, is the entry — address, name, author,
+description, size, slope — never the pack: it is fetched again on the first race of each session
+into `user://cache/external/`, which is emptied before that first fetch. Until then the row has no
+preview and shows the host it comes from. *Remove* forgets the entry; the pack stays mounted until
+quit (Godot cannot unmount one). `CourseCatalog.load_with_external()` is what the shell lists and
+looks up in (course menu, ghosts, `RaceScene.load_course`); `load_default()` stays the build's
+alone, so the suite never depends on the machine's list. The lobby's picker leaves added courses
+out — the other racers would have no way to fetch them.
+
+`PackStream.fetch_and_mount(url, cache_path, on_progress, replace_files)` is the old web-only fetch
+opened up to an absolute URL on every platform. Two fixes fell out: the `HTTPRequest` was added
+deferred and one `process_frame` later assumed to be in the tree, which it is not when the caller
+is itself inside the frame's process step (the request then refuses outright); and off the web
+the size comes from `get_body_size()`, which is -1 until the headers arrive, so it is asked until
+it answers.
+
+**A pack is code.** A `.pck` can carry scripts and a course scene can attach one, so adding an
+address trusts its host like installing a mod. Packs from an address are mounted with
+`replace_files = false`, so one cannot replace a file the build ships; that is all the protection
+there is. On the web the host must also answer CORS (the page is cross-origin isolated).
+
+**Verified**: the suite — 6289 passed, 1 failed, the pre-existing `lighting/what project.godot
+ships`; new `TestExternalCourses` (the five and nothing else are Tux Racer's, sort order, which
+addresses name which course, the entry round trip, the refusals). By hand, natively, against a
+local HTTP server: a pack added, listed last, its scene loaded; the same course twice, a 404, a
+pack missing its `course.tres` and a dead port each refused with their own message. The menu
+captured (Mobile, real GPU) with an added course and with the address row open; arrow keys step
+over the header rows. **Not done**: an added course raced from the menu, a browser (CORS, the
+`HEAD` size probe cross-origin), a phone.

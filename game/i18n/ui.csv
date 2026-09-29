@@ -129,3 +129,18 @@ NET_WAITING_FOR_RESULTS,Waiting for the results…,Warte auf die Ergebnisse …
 NET_FINISHED_WAITING,Finished — the race ends when the last racer is in (%d to go),"Im Ziel – das Rennen endet, wenn der letzte Fahrer ankommt (noch %d)"
 GHOST_BEATEN,Beat the ghost by %.2f s,Geist um %.2f s geschlagen
 GHOST_BEHIND,%.2f s behind the ghost,%.2f s hinter dem Geist
+COURSES_TUXRACER,Tux Racer,Tux Racer
+COURSES_ETR,Extreme Tux Racer,Extreme Tux Racer
+COURSES_EXTERNAL,Added courses,Hinzugefügte Strecken
+ADD_COURSE,Add course…,Strecke hinzufügen…
+REMOVE_COURSE,Remove,Entfernen
+ACTION_ADD,Add,Hinzufügen
+COURSE_URL_PLACEHOLDER,https://…/course.pck,https://…/strecke.pck
+EXTERNAL_BAD_URL,"That is not the address of a course: it needs http:// or https:// and a file name ending in .pck.","Das ist keine Adresse einer Strecke: Sie braucht http:// oder https:// und einen Dateinamen auf .pck."
+EXTERNAL_BUILT_IN,That course is already part of the game.,Diese Strecke ist schon Teil des Spiels.
+EXTERNAL_ALREADY_ADDED,That course has already been added.,Diese Strecke wurde schon hinzugefügt.
+EXTERNAL_NOT_A_COURSE,"The file arrived, but it is not the course its name says.","Die Datei ist angekommen, enthält aber nicht die Strecke, die ihr Name verspricht."
+EXTERNAL_DOWNLOAD_FAILED,Could not download the course from that address.,Die Strecke konnte von dieser Adresse nicht geladen werden.
+EXTERNAL_DOWNLOADING,Downloading the course…,Strecke wird geladen…
+EXTERNAL_ADDED,Added %s.,%s hinzugefügt.
+EXTERNAL_REMOVED,Removed %s.,%s entfernt.

@@ -37,6 +37,13 @@
 ## stays up until the lobby either takes it down or hands it the reason with
 ## [method show_error].
 ##
+## [b]The list is in three parts[/b], each under a header row that cannot be
+## selected: the five courses Tux Racer shipped, the ones Extreme Tux Racer
+## added, and the ones the player added by address ([ExternalCourses]) — see
+## [enum CourseListing.Category]. Add and Remove under the list manage the
+## third part. The network modes leave it out: the other racers in a room
+## would have no way to find a course only this machine has heard of.
+##
 ## Cups and events are imported and waiting in `res://resources/events/`; this
 ## screen only does free selection of a single course.
 class_name CourseMenu
@@ -78,10 +85,18 @@ const OVER_RACE_COLOR := Color(0.2, 0.3, 0.6, 0.72)
 const SNOW_LABELS: Array[String] = ["SNOWFALL_NONE", "SNOWFALL_A_LITTLE",
 	"SNOWFALL_MORE", "SNOWFALL_A_LOT"]
 
+## What each [enum CourseListing.Category] is called on its header row:
+## translation keys from `i18n/ui.csv`.
+const CATEGORY_LABELS: Array[String] = ["COURSES_TUXRACER", "COURSES_ETR",
+	"COURSES_EXTERNAL"]
+## The header rows' colour — [code]AccentLabel[/code]'s, ETR's `colDYell`.
+const HEADER_COLOR := Color(1.0, 0.8, 0.0)
+
 var _catalog: CourseCatalog
-## The catalog rows that are actually present in this build. The `WebOneCourse`
-## export ships one course against the full index; listing the other 43 would
-## offer the player 43 dead ends.
+## One per list row: the course, or `null` for a category header. Only the
+## catalog rows that are actually present in this build — the `WebOneCourse`
+## export ships one course against the full index, and listing the other 43
+## would offer the player 43 dead ends.
 var _entries: Array[CourseListing] = []
 
 @onready var _dim: ColorRect = %Dim
@@ -104,6 +119,13 @@ var _entries: Array[CourseListing] = []
 @onready var _room_row: Control = %RoomRow
 @onready var _race_name: LineEdit = %RaceNameEdit
 @onready var _password: LineEdit = %PasswordEdit
+@onready var _external_buttons: Control = %ExternalButtons
+@onready var _add_button: Button = %AddCourseButton
+@onready var _remove_button: Button = %RemoveCourseButton
+@onready var _add_row: Control = %AddRow
+@onready var _url_edit: LineEdit = %UrlEdit
+@onready var _confirm_add: Button = %ConfirmAddButton
+@onready var _cancel_add: Button = %CancelAddButton
 
 ## Which of the four screens this is right now. Read by [LobbyMenu] to tell a
 ## create in flight from an admin changing the course.
@@ -111,6 +133,9 @@ var mode: Mode = Mode.PRACTICE
 ## A room was asked for and the server has not answered. The Race button is
 ## off until it does, so a second Enter cannot ask twice.
 var _waiting: bool = false
+## A course is being fetched to be added. Everything that would change the list
+## under it is off until it lands.
+var _adding: bool = false
 
 ## The field the panel is currently offering. Held rather than read back off the
 ## widgets on close, so that a Practice open cannot lose the race settings the
@@ -118,7 +143,7 @@ var _waiting: bool = false
 var _setup := RaceSetup.new()
 
 func _ready() -> void:
-	_catalog = CourseCatalog.load_default()
+	_catalog = CourseCatalog.load_with_external()
 	_back_button.text = tr("BACK")
 	# The row labels are translation keys in the scene, and the drop-downs'
 	# rows are keys too: the engine translates both as it draws them.
@@ -132,21 +157,46 @@ func _ready() -> void:
 	_back_button.pressed.connect(_go_back)
 	_race_name.text_submitted.connect(func(_t: String) -> void: _race_selected())
 	_password.text_submitted.connect(func(_t: String) -> void: _race_selected())
+	_add_button.pressed.connect(_open_add_row)
+	_remove_button.pressed.connect(_remove_selected)
+	_confirm_add.pressed.connect(_add_course)
+	_cancel_add.pressed.connect(_close_add_row)
+	_url_edit.text_submitted.connect(func(_t: String) -> void: _add_course())
 
 	_fill_list()
 	visible = false
 
+## Rebuild the rows from [member _catalog]: a header, then its courses, for
+## each category — the external one even while it is empty, since the header
+## is what says the list can hold such a thing.
 func _fill_list() -> void:
 	_list.clear()
 	_entries.clear()
+	var networked: bool = mode == Mode.NET_CREATE or mode == Mode.NET_ROOM
+	var shown: Array[CourseListing] = []
 	for entry: CourseListing in _catalog.entries:
+		if entry.is_external():
+			if not networked:
+				shown.push_back(entry)
+			continue
 		# `preview_path`, not `scene_path`: a streamed web build (see
 		# `PackStream`) legitimately has no `course.tscn` bundled until the
 		# player picks the course, but every preview thumbnail ships up front.
-		if not ResourceLoader.exists(entry.preview_path):
+		# An external course has neither until it is fetched, which is why it
+		# is not asked.
+		if ResourceLoader.exists(entry.preview_path):
+			shown.push_back(entry)
+	for category: int in CATEGORY_LABELS.size():
+		if networked and category == CourseListing.Category.EXTERNAL:
 			continue
-		_entries.push_back(entry)
-		_list.add_item(entry.title())
+		var index: int = _list.add_item(tr(CATEGORY_LABELS[category]))
+		_list.set_item_selectable(index, false)
+		_list.set_item_custom_fg_color(index, HEADER_COLOR)
+		_entries.push_back(null)
+		for entry: CourseListing in shown:
+			if entry.category() == category:
+				_entries.push_back(entry)
+				_list.add_item("   " + entry.title())
 
 ## The one to nine an [OptionButton] offers, plus the skill names.
 ##
@@ -232,6 +282,8 @@ func _apply_mode(new_mode: Mode) -> void:
 	_race_button.disabled = false
 	_field_row.visible = mode == Mode.RACE
 	_room_row.visible = mode == Mode.NET_CREATE
+	_external_buttons.visible = mode == Mode.PRACTICE or mode == Mode.RACE
+	_add_row.visible = false
 	# None of the network words is a migrated string, for the reason [LobbyMenu]
 	# gives: ETR has no multiplayer to have migrated them from.
 	var action: String = tr("RACE")
@@ -261,15 +313,22 @@ func _present(current_dir: String) -> void:
 	_conditions.select(_conditions.get_item_index(LightCondition.of(_setup.conditions)))
 	_wind.select(_wind.get_item_index(WindField.strength_of(_setup.wind)))
 	visible = true
-	var index: int = _index_of(current_dir)
-	if index < 0 and not _entries.is_empty():
-		index = 0
+	# Every time: the network modes list fewer rows than the others.
+	_fill_list()
+	_select(current_dir)
+
+## Highlight `dir_name`, or the first course if the list has no such row.
+func _select(dir_name: String) -> void:
+	var index: int = _index_of(dir_name)
+	if index < 0:
+		index = _index_of("")
 	if index >= 0:
 		_list.select(index)
 		_show_details(_entries[index])
 		# Scrolling to the selection needs the list laid out, which has not
 		# happened yet on the frame the menu becomes visible.
 		_list.ensure_current_is_visible.call_deferred()
+	_remove_button.disabled = index < 0 or not _entries[index].is_external()
 
 func close() -> void:
 	if not visible:
@@ -284,25 +343,33 @@ func _go_back() -> void:
 	visible = false
 	back_requested.emit()
 
+## The row of `dir_name`, or of the first course when `dir_name` is empty;
+## -1 if there is none.
 func _index_of(dir_name: String) -> int:
 	for i: int in _entries.size():
-		if _entries[i].dir == dir_name:
+		if _entries[i] != null and (dir_name.is_empty() or _entries[i].dir == dir_name):
 			return i
 	return -1
 
 func _on_item_selected(index: int) -> void:
+	if _entries[index] == null:
+		return
 	_show_details(_entries[index])
+	_remove_button.disabled = not _entries[index].is_external()
 
 func _on_item_activated(index: int) -> void:
-	_choose(_entries[index])
+	if _entries[index] != null:
+		_choose(_entries[index])
 
 func _race_selected() -> void:
 	var selected: PackedInt32Array = _list.get_selected_items()
-	if selected.is_empty():
+	if selected.is_empty() or _entries[selected[0]] == null:
 		return
 	_choose(_entries[selected[0]])
 
 func _choose(entry: CourseListing) -> void:
+	if _adding:
+		return
 	if mode == Mode.NET_CREATE or mode == Mode.NET_ROOM:
 		if _waiting:
 			return
@@ -341,16 +408,87 @@ func _show_details(entry: CourseListing) -> void:
 		parts.push_back("%s %d m" % [tr("PATH_LENGTH"), int(entry.world_size.y)])
 	if entry.base_angle > 0.0:
 		parts.push_back("%.0f°" % entry.base_angle)
-	parts.push_back(_group_label(entry.group))
+	if entry.is_external():
+		# Where it comes from is the one thing a player can judge an added
+		# course by before racing it.
+		parts.push_back(entry.source_url.get_slice("://", 1).get_slice("/", 0))
+	else:
+		parts.push_back(tr(CATEGORY_LABELS[entry.category()]))
 	_meta.text = "   •   ".join(parts)
 	_description.text = entry.description
 
-## ETR's course groups, as something a player can read: `default` is the set the
-## original shipped with, `extras` the community courses collected since.
-func _group_label(group: String) -> String:
-	match group:
-		"default":
-			return "Tux Racer"
-		"extras":
-			return "Extras"
-	return group
+## Swap the Add/Remove buttons for the address row.
+func _open_add_row() -> void:
+	_external_buttons.visible = false
+	_add_row.visible = true
+	_set_result("")
+	_url_edit.grab_focus()
+	_url_edit.select_all()
+
+func _close_add_row() -> void:
+	if _adding:
+		return
+	_add_row.visible = false
+	_external_buttons.visible = true
+	_list.grab_focus()
+
+## Fetch the course at the typed address and, if it is one, list it and pick
+## it. Said on the result line either way; a refusal leaves the row open with
+## the address in it to be corrected.
+func _add_course() -> void:
+	if _adding:
+		return
+	var refusal: String = ExternalCourses.check_url(_url_edit.text)
+	if not refusal.is_empty():
+		_set_result(tr(refusal))
+		return
+	_adding = true
+	_confirm_add.disabled = true
+	_cancel_add.disabled = true
+	_race_button.disabled = true
+	_set_result(tr("EXTERNAL_DOWNLOADING"))
+	var added: Variant = await ExternalCourses.add(_url_edit.text, _on_add_progress)
+	_adding = false
+	_confirm_add.disabled = false
+	_cancel_add.disabled = false
+	_race_button.disabled = false
+	if added is String:
+		_set_result(tr(added))
+		return
+	var listing: CourseListing = added
+	_set_result(tr("EXTERNAL_ADDED") % listing.title())
+	_url_edit.text = ""
+	_close_add_row()
+	_catalog = CourseCatalog.load_with_external()
+	_fill_list()
+	_select(listing.dir)
+
+func _on_add_progress(downloaded: int, total: int) -> void:
+	var mb: float = float(downloaded) / 1048576.0
+	if total > 0:
+		_set_result("%s  %.1f / %.1f MB" % [tr("EXTERNAL_DOWNLOADING"), mb,
+			float(total) / 1048576.0])
+	else:
+		_set_result("%s  %.1f MB" % [tr("EXTERNAL_DOWNLOADING"), mb])
+
+## Forget the highlighted course if the player added it; the rest of the list
+## is the build's and cannot be removed.
+func _remove_selected() -> void:
+	var selected: PackedInt32Array = _list.get_selected_items()
+	if _adding or selected.is_empty():
+		return
+	var entry: CourseListing = _entries[selected[0]]
+	if entry == null or not entry.is_external():
+		return
+	ExternalCourses.remove(entry.dir)
+	_set_result(tr("EXTERNAL_REMOVED") % entry.title())
+	_catalog = CourseCatalog.load_with_external()
+	_fill_list()
+	_select("")
+
+## Esc while typing an address folds the row away rather than leaving the
+## screen. Runs before the host's handler: this node is below it in the tree.
+func _unhandled_input(event: InputEvent) -> void:
+	if visible and _add_row.visible and event.is_action_pressed("menu"):
+		get_viewport().set_input_as_handled()
+		_close_add_row()

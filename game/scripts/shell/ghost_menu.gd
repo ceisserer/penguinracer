@@ -27,7 +27,7 @@ var _catalog: CourseCatalog
 @onready var _delete_confirm: ConfirmationDialog = %DeleteConfirm
 
 func _ready() -> void:
-	_catalog = CourseCatalog.load_default()
+	_catalog = CourseCatalog.load_with_external()
 	# Mostly not migrated strings — ETR has no saved runs to have a word for —
 	# so they are `i18n/ui.csv`'s, like *Race the computer* and `ghost`.
 	_title.text = tr("RACE_AGAINST_GHOST")
