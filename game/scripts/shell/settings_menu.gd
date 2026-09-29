@@ -55,6 +55,7 @@ signal closed()
 @onready var _render_scale: OptionButton = %RenderScaleOption
 @onready var _render_scale_value: Label = %RenderScaleValue
 @onready var _ice_reflection: CheckBox = %IceReflectionCheck
+@onready var _ice_world_reflection: CheckBox = %IceWorldReflectionCheck
 @onready var _shadows_row: Control = %ShadowsRow
 @onready var _shadows: CheckBox = %ShadowsCheck
 @onready var _quality: OptionButton = %QualityOption
@@ -156,6 +157,7 @@ func _ready() -> void:
 	_render_scale.item_selected.connect(_on_quality_row_changed)
 	_shadows.toggled.connect(_on_quality_row_changed)
 	_ice_reflection.toggled.connect(_on_quality_row_changed)
+	_ice_world_reflection.toggled.connect(_on_quality_row_changed)
 
 	_render_scale.item_selected.connect(_on_render_scale_changed)
 	_fog_start.value_changed.connect(_on_fog_start_changed)
@@ -221,6 +223,7 @@ func _show_values(values: Dictionary) -> void:
 	_shadow_detail.select(values["shadow_detail"])
 	_shadow_filter.select(values["shadow_filter"])
 	_ice_reflection.button_pressed = values["ice_reflections"]
+	_ice_world_reflection.button_pressed = values["ice_world_reflections"]
 	_filling = false
 	_on_quality_row_changed()
 
@@ -237,6 +240,7 @@ func _row_values() -> Dictionary:
 		"shadow_detail": _shadow_detail.selected,
 		"shadow_filter": _shadow_filter.selected,
 		"ice_reflections": _ice_reflection.button_pressed,
+		"ice_world_reflections": _ice_world_reflection.button_pressed,
 	}
 
 func _custom_index() -> int:

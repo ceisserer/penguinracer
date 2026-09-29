@@ -327,6 +327,9 @@ func _build_area(row: Array, rng: RandomNumberGenerator, far: bool) -> FlakeArea
 	area.node.name = "FarSnow" if far else "Flakes%d" % _areas.size()
 	area.node.multimesh = mm
 	area.node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# The box follows the player, so from the world probe — a metre off the
+	# ice under them — the near flakes would be blobs across the whole cube.
+	area.node.layers = IceEnvironment.NEAR_FIELD_LAYER
 	# The instances only span the box, but a streak reaches past it by up to the
 	# shader's `MAX_STREAK`, and a culled box is a hole in the snow.
 	area.node.custom_aabb = AABB(-Vector3.ONE * 2.0, area.extent + Vector3.ONE * 4.0)

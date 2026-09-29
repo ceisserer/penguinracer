@@ -122,6 +122,8 @@ func _make_emitter(node_name: String, mat: ParticleProcessMaterial) -> GPUPartic
 	p.emitting = false
 	p.amount_ratio = 0.0
 	p.draw_order = GPUParticles3D.DRAW_ORDER_VIEW_DEPTH
+	# Drawn round the racer, so kept out of the world probe with the racer.
+	p.layers = IceEnvironment.NEAR_FIELD_LAYER
 	p.process_material = mat
 	p.draw_pass_1 = _make_mesh()
 	add_child(p)

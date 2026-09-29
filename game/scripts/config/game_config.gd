@@ -52,6 +52,15 @@ var render_scale: float = 1.0
 ## but it is a whole extra 3D pass on a WebGL2 budget, and the lowest tier
 ## should be able to say no. See [IceReflection].
 var ice_reflections: bool = true
+## Whether the ice reflects the hill round it — trees, banks, the sky as drawn.
+##
+## DEVIATION, like [member ice_reflections], and much the dearer of the two: a
+## cube of six small scene renders every frame while there is ice in range
+## (~5 ms on the desktop's iGPU with the sun's shadows on) and nothing where
+## there is none. On every renderer, the web's included — where it is also the
+## terrain shader's 16th texture unit, so this is the switch to reach for if
+## the course draws wrong in a browser. See [IceEnvironment].
+var ice_world_reflections: bool = true
 ## Whether the racers and the standing course objects cast a shadow on the snow.
 ##
 ## Half migrated, half DEVIATION. `CCharShape::DrawShadow` draws the character's
@@ -349,6 +358,8 @@ func read(cfg: ConfigFile) -> void:
 		render_scale)), 0.25, 2.0)
 	ice_reflections = bool(cfg.get_value("display", "ice_reflections",
 		ice_reflections))
+	ice_world_reflections = bool(cfg.get_value("display", "ice_world_reflections",
+		ice_world_reflections))
 	shadows = bool(cfg.get_value("display", "shadows", shadows))
 	procedural_sky = str(cfg.get_value("display", "sky",
 		"procedural" if procedural_sky else "etr")).strip_edges().to_lower() != "etr"
@@ -453,6 +464,12 @@ render_scale = %.2f
 ; frame, so it is the first thing to turn off on a slow machine.
 ice_reflections = %s
 
+; Whether ice reflects the hill round it: the trees, the far bank, the sky as
+; it is drawn. Six small extra renders of the course every frame while there
+; is ice in sight, so it costs frame rate on a lake. If the course draws wrong
+; in a browser, turn this off first.
+ice_world_reflections = %s
+
 ; Whether the racers and the trees cast a shadow on the snow. The original
 ; draws the character's shadow only at its highest detail level and never
 ; draws one for a tree; both are off under a cloudy or a night sky either way,
@@ -476,7 +493,7 @@ show_fps = %s
 [quality]
 
 ; The Configuration screen's quality preset sets these together (and render_scale,
-; ice_reflections, shadows and sky above). The file keeps the values, not the
+; ice_reflections, ice_world_reflections, shadows and sky above). The file keeps the values, not the
 ; preset: any mix that is no preset's shows there as "Custom".
 
 ; Smoothing of the 3D scene's edges: off, 2x or 4x.
@@ -579,7 +596,8 @@ server = "%s"
 ; assumed to use.
 port = %d
 """ % [_resolution_text(), str(fullscreen).to_lower(), render_scale,
-		str(ice_reflections).to_lower(), str(shadows).to_lower(),
+		str(ice_reflections).to_lower(), str(ice_world_reflections).to_lower(),
+		str(shadows).to_lower(),
 		"procedural" if procedural_sky else "etr", str(night_lights).to_lower(),
 		str(show_fps).to_lower(),
 		QualityPreset.ANTIALIASING_NAMES[antialiasing],

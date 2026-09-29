@@ -50,6 +50,7 @@ static func _defaults(t: TestCase) -> void:
 	t.ok(not c.fullscreen, "windowed by default")
 	t.eq_f(c.render_scale, 1.0, 1e-6, "3D renders at full resolution")
 	t.ok(c.ice_reflections, "and the ice reflects the racers on it")
+	t.ok(c.ice_world_reflections, "and the hill round it, where the renderer can")
 	# Wanting shadows is the default; getting them is also up to the renderer
 	# and the sky. See [method RaceScene._shadows_wanted].
 	t.ok(c.shadows, "and the racers and the trees cast a shadow")

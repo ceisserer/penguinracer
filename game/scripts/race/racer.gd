@@ -271,13 +271,16 @@ func install_fallback_mesh() -> void:
 	_apply_reflected()
 
 ## Put everything drawn for this racer on the layer the ice reflection renders,
-## in addition to the one everything else is on — or take it off again.
+## in addition to its own — or take it off again.
 ##
 ## [IceReflection] narrows its camera to that layer alone, which is how the
 ## mirror pass draws the racers without drawing the terrain — the reflection of
-## a slope in the slope itself is both wrong and expensive. Nothing else in the
-## game uses visual layers, so this function and that camera's `cull_mask` are
-## the whole convention.
+## a slope in the slope itself is both wrong and expensive. The racer's own
+## layer is [constant IceEnvironment.NEAR_FIELD_LAYER] rather than layer 1, so
+## the world probe, which is taken a metre from this very penguin, leaves it
+## out. The main camera sees every layer. Nothing else in the game uses visual
+## layers, so these two constants and the two passes' `cull_mask`s are the
+## whole convention.
 ##
 ## The bit is cleared rather than set for a racer the mirror plane does not
 ## speak for, which is the cheapest possible per-racer gate: no second material,
@@ -287,10 +290,8 @@ func install_fallback_mesh() -> void:
 func _apply_reflected() -> void:
 	for node: Node in _mesh_instances(self):
 		var mesh_instance: MeshInstance3D = node
-		if reflected:
-			mesh_instance.layers |= IceReflection.RACER_VISUAL_LAYER
-		else:
-			mesh_instance.layers &= ~IceReflection.RACER_VISUAL_LAYER
+		mesh_instance.layers = IceEnvironment.NEAR_FIELD_LAYER \
+			| (IceReflection.RACER_VISUAL_LAYER if reflected else 0)
 
 ## Render the rig as something you can see the course through.
 ##

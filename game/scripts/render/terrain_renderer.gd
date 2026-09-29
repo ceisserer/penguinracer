@@ -25,6 +25,11 @@ var surface: HeightmapSurface
 ## Chunks further than this from the camera are not instantiated.
 var stream_radius: float = 400.0
 
+## Whether the ice samples [IceEnvironment]'s atlas. Read once, by [method
+## setup]: it picks which shader is compiled, not just a uniform. Off is the
+## shader file as it stands; on is [method ice_environment_shader].
+var ice_environment: bool = false
+
 var _material: ShaderMaterial
 ## [member CourseData.ambient_occlusion]'s bytes, one per heightmap vertex, or
 ## empty for a course imported before it existed.
@@ -63,7 +68,8 @@ func setup(p_course: CourseData, p_surface: HeightmapSurface,
 
 func _build_material() -> ShaderMaterial:
 	var mat := ShaderMaterial.new()
-	mat.shader = load("res://shaders/terrain.gdshader")
+	mat.shader = ice_environment_shader() if ice_environment \
+		else load(SHADER_PATH) as Shader
 	var layers: Array[TerrainLayer] = course.terrain_layers
 	mat.set_shader_parameter("layer_count", maxi(1, layers.size()))
 	mat.set_shader_parameter("world_size", course.world_size)
@@ -174,6 +180,44 @@ func set_character_reflection(tex: Texture2D, plane_point: Vector3,
 	_material.set_shader_parameter("reflection_plane_normal", plane_normal)
 	_material.set_shader_parameter("reflection_fade_distance", fade_distance)
 	_material.set_shader_parameter("character_reflection_attachment", attachment)
+
+const SHADER_PATH := "res://shaders/terrain.gdshader"
+static var _ice_env_shader: Shader
+
+## `terrain.gdshader` with `ICE_ENV_ATLAS` defined, which is what declares the
+## atlas sampler. A variant rather than a uniform switch because a declared
+## sampler is bound whether or not it is read, and under Compatibility it is
+## the 16th: a player who turns the world reflection off gets the shader with
+## 15, exactly as before [IceEnvironment] existed. Built once and shared.
+##
+## The define goes after `shader_type`, which Godot reads off the code before
+## the preprocessor runs.
+static func ice_environment_shader() -> Shader:
+	if _ice_env_shader != null:
+		return _ice_env_shader
+	var code: String = (load(SHADER_PATH) as Shader).code
+	var at: int = code.find("shader_type spatial;")
+	assert(at >= 0, "terrain.gdshader has no shader_type line")
+	at += "shader_type spatial;".length()
+	_ice_env_shader = Shader.new()
+	_ice_env_shader.code = code.substr(0, at) + "\n#define ICE_ENV_ATLAS\n" + code.substr(at)
+	return _ice_env_shader
+
+## Point the ice at the world [IceEnvironment] last rendered round
+## [param origin]. [param strength] 0 — or a `null` [param atlas] — is the sky
+## ramp alone, which is the web's frame and a course without ice.
+func set_ice_environment(atlas: Texture2D, origin: Vector3, radius: float,
+		strength: float) -> void:
+	if _material == null:
+		return
+	var on: bool = atlas != null and strength > 0.0
+	_material.set_shader_parameter("ice_env_strength", strength if on else 0.0)
+	if not on:
+		return
+	_material.set_shader_parameter("ice_env_atlas", atlas)
+	_material.set_shader_parameter("ice_env_origin", origin)
+	_material.set_shader_parameter("ice_env_radius", radius)
+	_material.set_shader_parameter("ice_env_face_size", float(IceEnvironment.FACE_SIZE))
 
 # ------------------------------------------------------------------
 #                        procedural noise bakes

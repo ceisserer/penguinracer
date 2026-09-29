@@ -40,6 +40,7 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           far snow, all world-anchored), LensSnow (flakes melting on the camera,
                           out of focus, kept off the middle), LensFlare (the sun's glare and
                           ghosts, hidden by whatever covers the disc), IceReflection (planar mirror for the ice),
+                          IceEnvironment (cube of the hill round the racer, for the ice),
                           ConiferMesh (3 LOD meshes + hemi-octahedral maths), BareTreeMesh
                           (grown leafless tree, 3 LODs + its drawn twig/bark texture),
                           ShrubMesh (bush from `shrub.png`, 3 LODs), Forest (any of the
@@ -189,7 +190,7 @@ SHOT_METHOD=gl_compatibility SHOT_RESOLUTION=1024x576 tools/shot.sh /tmp/web-loo
 written with comments on first run; delete it for defaults. The **Configuration** screen edits
 the display rows (window size, frame-rate readout, fog distance), the quality rows
 (render scale, anti-aliasing, sky and sky detail, tree detail distance, shadows, tree shadows,
-shadow detail, shadow edges, ice reflections) and writes the same commented file back. The **quality preset**
+shadow detail, shadow edges, ice reflections, ice reflects the world) and writes the same commented file back. The **quality preset**
 drop-down (Fastest … Best quality) sets the quality rows together and is *derived*, never stored:
 `QualityPreset.matching` names whichever preset the values are, else "Custom". **High quality is
 the shipped frame and `GameConfig`'s defaults** — `TestConfig` holds them together, so an untouched
@@ -226,7 +227,7 @@ Detail is in `PROGRESS.md`; this is the summary.
 |---|---|
 | 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 4724 assertions, 0 failures, 13 s headless. |
 | 1 — importer + first course | **done** — 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. |
-| 2 — rendering | partial — Mobile on the desktop, Compatibility on the web (trap list: *sRGB-blended shadow pass*). ETR's illumination clamp in every lit shader except the character's; desktop-only PSSM shadow. Splat PBR, chunked terrain, instanced objects (conifers, bare trees and shrubs are 3D meshes at 3 LODs + an octahedral impostor, dithered hand-overs, wind sway, shader snow — [Forest]; anything else collidable is ETR's two crossed planes with a hashed yaw; items are billboards), ETR's HUD redrawn as primitives ([RaceHUD]), migrated skyboxes. Tone matched on Bunny Hill at both ends in all three channels; no LightmapGI. Snow/ice micro-relief, glint, Fresnel sky, ice reflecting the racers (`IceReflection`), textured carve spray. Heightmap AO baked at import + trench-wall AO; shaded/occluded/carved snow tinted blue (fake SSS). |
+| 2 — rendering | partial — Mobile on the desktop, Compatibility on the web (trap list: *sRGB-blended shadow pass*). ETR's illumination clamp in every lit shader except the character's; desktop-only PSSM shadow. Splat PBR, chunked terrain, instanced objects (conifers, bare trees and shrubs are 3D meshes at 3 LODs + an octahedral impostor, dithered hand-overs, wind sway, shader snow — [Forest]; anything else collidable is ETR's two crossed planes with a hashed yaw; items are billboards), ETR's HUD redrawn as primitives ([RaceHUD]), migrated skyboxes. Tone matched on Bunny Hill at both ends in all three channels; no LightmapGI. Snow/ice micro-relief, glint, Fresnel sky, ice reflecting the racers (`IceReflection`) and, as a setting, the hill round them (`IceEnvironment`), textured carve spray. Heightmap AO baked at import + trench-wall AO; shaded/occluded/carved snow tinted blue (fake SSS). |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror; a carve leaves a shaded trench with a ploughed lip. |
 | 4 — character | **done for all five** — skinned mesh from `shape.lst`, keyframe clips as `AnimationLibrary` + `KeyframePath` root motion, start animation (`CIntro`), finish clips on the results screen (`RaceOutcome.clip`), racing pose layer (`CharacterRig.adjust_joints`, ETR's `AdjustJoints`) driven off `RacerState` alone so ghosts and peers animate. `GameConfig.character` picks one. |
 | 5 — game shell | partial — main menu → Practice / Race the computer / Network multiplayer / Race against ghost / character / Configuration; results screen with named runs; ETR palette theme; course + character catalogs (course list in three parts: Tux Racer, ETR, added by address); English + German, detected or chosen on the settings screen; audio (`AudioDirector`, ETR's one-voice-per-cue mixer). Missing: cups, medals, profiles (data imported), volume controls, ETR's menu art (licence audit). |
@@ -557,6 +558,32 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   shaded fragment does not bound it. The ice mirror's plane belongs to the watched racer; other
   racers need a per-object admission test (`IceReflection.admits`), with the source racer exempt.
   Check such effects against the objects they were *not* derived from.
+- **Every camera that draws the world redraws the sun's shadow cascades.** A `SubViewport` sharing
+  the `World3D` has no switch for it: a 128² cube face cost ~0.9 ms on the iGPU, ~70 % of it
+  shadows, flat in the face size. Budget a probe in renders, not pixels. And **do not save by
+  re-taking a cube only every few metres**: at 3 m it was a sixth of the cost and read as a
+  stutter, the reflection jumping each time the probe caught up — the cube is taken every frame.
+- **The terrain shader is at its last texture unit under Compatibility.** It binds 15 (14 + the
+  global `atmo_ridge_map`); `ice_env_atlas` is the 16th and exists only in the variant
+  `TerrainRenderer.ice_environment_shader()` builds (`#define ICE_ENV_ATLAS`) while the setting is
+  on — a declared sampler is bound whether or not it is read, so the setting has to choose the
+  shader, not a uniform. Godot's GLES3 scene shader binds its own counting down from the top of the
+  device's range (`// texunit:-2` radiance, `-3` shadows, `-6`/`-7` screen and depth), none of
+  which the terrain uses in a browser. Most real browsers report 16; headless Chromium's
+  SwiftShader 32, so the 16-unit case has not been seen here.
+- **A cube map magnifies whatever is near its centre.** With a 0.1 m near plane a flag passed at
+  a metre filled a wedge of a face and turned a stripe of ice red for a few frames, and a canyon
+  wall at arm's length turned half of `inception`'s floor one flat colour. The probe's cameras clip
+  at 5 m (`IceEnvironment.PROBE_NEAR`): nothing that close was ever in the right place in a lookup
+  that assumes the world stands 60 m out.
+- **Compatibility does not decode a viewport texture, whatever the hint.** A `source_color` sampler
+  over a `SubViewport`'s texture reads its display-encoded bytes as linear there (a mountain at
+  119 came back mirrored at 184); Mobile decodes it. `terrain.gdshader` leaves the hint off under
+  Compatibility and decodes by hand (`ice_env_sample`), so no driver can do it twice.
+- **A shader can tell a probe face from the player's view by its lens**: `IceEnvironment` renders at
+  a 90° square projection, which no window has, and `terrain.gdshader` drops its screen-space terms
+  there (`probe_pass`). Keep the probe's `fov`/aspect if you change it, or last frame's probe and
+  the mirror leak into the cube.
 - **A planar reflection holds only while it stays behind its subject.** On a banked wall the image
   goes sideways and reads as a second penguin, at full Fresnel. Neither fragment distance nor
   grazing angle separates the cases (a chase camera is always near-grazing); screen-down fraction of
@@ -838,6 +865,16 @@ the whole sky to cyan-white, against which no disc can show. The fog
   and 15° of the plane, 1.6x hysteresis; the watched racer exempt) or `Racer.reflected` clears
   their layer bit; the whole term fades by `IceReflection.attachment()` between 0.94 and 0.80.
   `[display] ice_reflections = false` or `character_reflection_opacity = 0` turns it off.
+- **The ice reflects the hill too, as a setting** (`IceEnvironment`): six 128² faces
+  from 0.5 m above the ice under the watched racer, drawn into one 3x2 atlas by a 2D pass (a
+  `Cubemap` would need a readback), sampled by `ice_env_uv` along the mirror ray walked out to a
+  60 m sphere, in place of the sky ramp; the racers' mirror still goes on top. Racers, spray and
+  snowfall are on `NEAR_FIELD_LAYER`, not layer 1, so the probe leaves them out, and its cameras
+  clip everything within 5 m (`PROBE_NEAR`, trap list). Runs only with ice
+  within 90 m, all six faces every frame (~5 ms on the iGPU under Mobile, most of it shadows;
+  the web draws none). On every renderer; under Compatibility it is the terrain's 16th sampler,
+  compiled in only while on (trap list). `[display] ice_world_reflections = false` is the ramp and
+  the 15-unit shader again; off below the HIGH preset.
 - **Conifers are 3D trees**, where ETR draws the same two crossed quads for every tree.
   `ConiferMesh` builds three levels from `snowy_tree1.png`, unchanged — radial fins carrying the
   picture's halves for the silhouette, drooping whorl cards for depth, a trunk at LOD 0 — and

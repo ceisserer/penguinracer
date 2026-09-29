@@ -353,7 +353,11 @@ They resolve through `SurfaceSample.terrain_id`, the dominant layer at the conta
 
 - **`albedo` is the only per-layer texture, and the only one there is room for.** WebGL2 guarantees
   16 fragment texture units and `terrain.gdshader` binds 14: two splat maps, eight albedos, the
-  trail map, the detail map, the sparkle noise and the character reflection. Two units left.
+  trail map, the detail map, the sparkle noise and the character reflection — 15 with the global
+  `atmo_ridge_map` from `atmosphere.gdshaderinc`. Godot's GLES3 back end binds its own units from
+  the top of the range. A 16th, `ice_env_atlas` (`IceEnvironment`), is declared only in the shader
+  variant built while `[display] ice_world_reflections` is on (AGENTS.md trap list); with it off
+  the terrain binds 15.
   Eight per-layer normal maps would need 22.
   `TerrainLayer` used to carry `normal` and `roughness` as `Texture2D` exports that no importer
   wrote and no sampler read — assigning one in the Inspector did nothing at all. Both are gone;

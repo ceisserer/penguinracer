@@ -160,6 +160,10 @@ var snow_gpu: SnowFieldGPU
 ## The mirror the ice reflects the racers in, or a pass that is switched off.
 ## Presentation only — nothing in the simulation may read it.
 var reflection: IceReflection
+## The rest of the hill in the ice; `null` unless
+## [member GameConfig.ice_world_reflections] is on, which also decides which
+## terrain shader is compiled — see [IceEnvironment].
+var ice_environment: IceEnvironment
 ## Scratch for [method _admit_racers_to_reflection], which runs once per racer
 ## per drawn frame and has no business allocating in either loop.
 var _reflect_sample := SurfaceSample.new()
@@ -367,6 +371,10 @@ func _ready() -> void:
 	reflection.name = "IceReflection"
 	reflection.enabled = Config.ice_reflections
 	add_child(reflection)
+	if Config.ice_world_reflections:
+		ice_environment = IceEnvironment.new()
+		ice_environment.name = "IceEnvironment"
+		add_child(ice_environment)
 	# Built here for the same reason the mirror is: it is a field of quads that
 	# follows the player, not a thing anyone would place in the editor.
 	snowfall = SnowFall.new()
@@ -600,8 +608,11 @@ func load_course(path: String) -> void:
 
 	terrain = TerrainRenderer.new()
 	terrain.name = "Terrain"
+	terrain.ice_environment = ice_environment != null
 	add_child(terrain)
 	terrain.setup(course, course_root.surface, course_lights.terrain_light)
+	if ice_environment != null:
+		ice_environment.build_ice_map(course_root.surface, course.terrain_layers)
 	await _load_step(LOAD_TERRAIN_READY, streaming)
 
 	camera.surface = course_root.surface
@@ -743,6 +754,8 @@ func restart(with_intro: bool = true) -> void:
 		# Otherwise the smoothed plane normal eases across from wherever the
 		# last run left it, which on a restart is the bottom of the course.
 		reflection.reset()
+	if ice_environment != null:
+		ice_environment.reset()
 	# The herring are back. `hide_item` collapsed their instance transforms and
 	# `collectable` was cleared on the shared grid; a restart that skipped this
 	# left the course stripped of everything the last run picked up, which a
@@ -922,11 +935,10 @@ func _downwind() -> Vector2:
 
 ## Aim the ice's mirror at the racer being watched and hand the result to the
 ## terrain. See [IceReflection] for why the plane is the one under that racer.
+## The world probe ([IceEnvironment]) hangs off the same ground point, under
+## a setting of its own.
 func _update_reflection(view: RacerState, delta: float) -> void:
 	if reflection == null or terrain == null:
-		return
-	if not reflection.enabled:
-		terrain.set_character_reflection(null, Vector3.ZERO, Vector3.UP, 0.0)
 		return
 	# The *drawn* surface, not the simulated one. [SnowField] takes the trench
 	# off the height the physics stands on and the terrain mesh does not go down
@@ -937,9 +949,16 @@ func _update_reflection(view: RacerState, delta: float) -> void:
 	var height: float = course_root.surface.height_at(view.position.x, view.position.z)
 	if snow_cpu != null:
 		height += snow_cpu.depth_at(view.position.x, view.position.z)
-	reflection.update(camera,
-		Vector3(view.position.x, height, view.position.z),
-		roster.view_target.surface_normal(), delta)
+	var ground := Vector3(view.position.x, height, view.position.z)
+	if ice_environment != null:
+		ice_environment.update(camera, ground, delta)
+		terrain.set_ice_environment(ice_environment.texture(),
+			ice_environment.origin(), ice_environment.radius,
+			ice_environment.strength())
+	if not reflection.enabled:
+		terrain.set_character_reflection(null, Vector3.ZERO, Vector3.UP, 0.0)
+		return
+	reflection.update(camera, ground, roster.view_target.surface_normal(), delta)
 	_admit_racers_to_reflection()
 	terrain.set_character_reflection(reflection.texture(),
 		reflection.plane_point(), reflection.plane_normal(),
@@ -1477,6 +1496,8 @@ func _apply_environment(preset: EnvironmentPreset) -> void:
 	# [method IceReflection.set_environment].
 	if reflection != null:
 		reflection.set_environment(env)
+	if ice_environment != null:
+		ice_environment.set_environment(env)
 	preset.apply_sun(_sun)
 	# Seeded by the course, so a storm on the same hill strikes the same way
 	# every time — a capture under one is as reproducible as any other.

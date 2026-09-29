@@ -383,6 +383,40 @@ uniform float character_reflection_shear : hint_range(0.0, 0.2) = 0.02;
 // the sky ramp exactly as it was.
 uniform float character_reflection_attachment : hint_range(0.0, 1.0) = 1.0;
 
+group_uniforms Ice_Environment;
+// The rest of the hill, as [IceEnvironment] last saw it from the ice under the
+// watched racer: six cube faces side by side in a 3x2 atlas, drawn round the
+// racers rather than with them. Replaces the sky ramp in `reflected` by
+// `ice_env_strength`, which is 0 wherever there is no probe — the web build,
+// a course with no ice, a lake still out of range.
+//
+// Only declared in the variant [TerrainRenderer] builds while the setting is
+// on (`ICE_ENV_ATLAS`): under Compatibility this is the 16th sampler, and with
+// the setting off the shader keeps its 15. See [IceEnvironment].
+//
+// The faces are display-encoded like any viewport. Mobile decodes them for a
+// `source_color` sampler; Compatibility does not decode a viewport texture at
+// all, whatever the hint says — measured with the ice showing the atlas raw:
+// a mountain at 119 came back mirrored at 123 on Mobile and 184 on
+// Compatibility, which is its encoded 120/255 taken for linear. So there the
+// hint is left off, so no driver can decode it a second time, and
+// `ice_env_sample` decodes it by hand.
+#ifdef ICE_ENV_ATLAS
+#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
+uniform sampler2D ice_env_atlas : filter_linear, repeat_disable;
+#else
+uniform sampler2D ice_env_atlas : source_color, filter_linear, repeat_disable;
+#endif
+#endif
+uniform float ice_env_strength : hint_range(0.0, 1.0) = 0.0;
+uniform vec3 ice_env_origin = vec3(0.0);
+// Metres at which the reflected world is assumed to stand; see
+// [member IceEnvironment.radius].
+uniform float ice_env_radius = 60.0;
+// Texels along one face, for the half-texel inset that keeps the filter from
+// reading across a seam into the neighbouring face.
+uniform float ice_env_face_size = 128.0;
+
 // The packed varyings (see the top of the file). A varying belongs to the one
 // stage that writes it, so the packing is by stage: two written in vertex(),
 // four written in fragment() for light().
@@ -427,6 +461,46 @@ varying vec4 v_ambient;    // fragment: ambient_occlusion, scatter_base, ice_mas
 vec2 trail_uv_of(vec2 world_xz) {
 	return (world_xz - trail_origin) / trail_extent;
 }
+
+// Where direction `d` lands in the [IceEnvironment] atlas. The face order and
+// bases are that class's FACE_FORWARD / FACE_UP, and `IceEnvironment.face_uv`
+// is this function in GDScript, which is what the suite checks.
+vec2 ice_env_uv(vec3 d) {
+	vec3 a = abs(d);
+	vec3 f;
+	vec3 up;
+	float face;
+	if (a.x >= a.y && a.x >= a.z) {
+		face = d.x > 0.0 ? 0.0 : 1.0;
+		f = vec3(sign(d.x), 0.0, 0.0);
+		up = vec3(0.0, 1.0, 0.0);
+	} else if (a.y >= a.z) {
+		face = d.y > 0.0 ? 2.0 : 3.0;
+		f = vec3(0.0, sign(d.y), 0.0);
+		up = vec3(0.0, 0.0, sign(d.y));
+	} else {
+		face = d.z > 0.0 ? 4.0 : 5.0;
+		f = vec3(0.0, 0.0, sign(d.z));
+		up = vec3(0.0, 1.0, 0.0);
+	}
+	vec3 right = cross(f, up);
+	vec2 s = vec2(dot(d, right), dot(d, up)) / max(dot(d, f), 1e-4);
+	float inset = 0.5 / ice_env_face_size;
+	vec2 uv = clamp(vec2(s.x + 1.0, 1.0 - s.y) * 0.5, vec2(inset), vec2(1.0 - inset));
+	vec2 cell = vec2(mod(face, 3.0), floor(face / 3.0));
+	return (cell + uv) / vec2(3.0, 2.0);
+}
+
+#ifdef ICE_ENV_ATLAS
+// The atlas in linear light, on either renderer — see `ice_env_atlas`.
+vec3 ice_env_sample(vec3 d) {
+	vec3 c = texture(ice_env_atlas, ice_env_uv(d)).rgb;
+#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
+	c = mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
+#endif
+	return c;
+}
+#endif
 
 // Trench depth in metres at a world position, zero outside the window.
 float trail_depth(vec2 world_xz) {
@@ -719,13 +793,41 @@ void fragment() {
 		reflected = mix(reflected, ice_distant_tint,
 			ice_horizon_terrain * low_ray * far_off);
 
+		// Whether this is one of [IceEnvironment]'s own faces being drawn: a
+		// 90-degree square lens, which no player's window is. Neither screen-
+		// space term belongs in a face — the probe would reflect last frame's
+		// probe, and the mirror is sampled by the *main* view's SCREEN_UV — so
+		// a face gets the plain ramp, which is all a reflection of a
+		// reflection needs to be.
+		bool probe_pass = abs(abs(PROJECTION_MATRIX[0][0]) - 1.0) < 1e-3
+			&& abs(abs(PROJECTION_MATRIX[1][1]) - 1.0) < 1e-3;
+
+#ifdef ICE_ENV_ATLAS
+		// The world, where there is a probe. The ray is walked out to the
+		// sphere the probe assumes the world stands on and looked up from the
+		// probe's centre, so a fragment off to one side of it still sees the
+		// far bank roughly where it is. Past the sphere the probe is not
+		// speaking for this ice any more and the ramp takes it back.
+		if (ice_env_strength > 0.0 && !probe_pass) {
+			vec3 q = world_pos - ice_env_origin;
+			float b = dot(q, refl);
+			float c = dot(q, q) - ice_env_radius * ice_env_radius;
+			float t = -b + sqrt(max(b * b - c, 0.0));
+			vec3 hit = q + refl * max(t, 0.0);
+			vec3 env = ice_env_sample(normalize(hit));
+			float inside = 1.0 - smoothstep(ice_env_radius * 0.6, ice_env_radius,
+				length(q));
+			reflected = mix(reflected, env, ice_env_strength * inside);
+		}
+#endif
+
 		// The racers, where there are any. This *replaces* the sky rather than
 		// adding to it, which is both the physics and the reason it reads: a
 		// penguin standing on a frozen lake does not make the ice brighter, it
 		// stands between the ice and the sky the ice was reflecting. Against
 		// snow-white terrain the reflection is therefore a dark shape, which is
 		// the one thing that shows up on a surface already near the ceiling.
-		if (character_reflection_enabled) {
+		if (character_reflection_enabled && !probe_pass) {
 			// Distance from the mirror plane, along its own normal.
 			float off = abs(dot(world_pos - reflection_plane_point,
 				reflection_plane_normal));

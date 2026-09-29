@@ -22,6 +22,8 @@ static func run(t: TestCase) -> void:
 	_admission_has_hysteresis(t)
 	_a_floor_keeps_its_reflection_and_a_wall_loses_it(t)
 	_the_setting_survives_the_file(t)
+	_the_probe_faces_are_where_the_lookup_reads(t)
+	_only_the_setting_adds_a_sampler(t)
 
 const PLANES: Array[Array] = [
 	[Vector3.ZERO, Vector3.UP],
@@ -143,14 +145,18 @@ static func _racers_are_on_the_layer_the_mirror_renders(t: TestCase) -> void:
 		var mesh: MeshInstance3D = node
 		t.ok((mesh.layers & IceReflection.RACER_VISUAL_LAYER) != 0,
 			"%s is on the reflection layer" % mesh.name)
-		# And still on the ordinary one, or the main camera stops drawing it.
-		t.ok((mesh.layers & 1) != 0, "%s is still on layer 1" % mesh.name)
+		# And on its own, which the main camera draws and the world probe
+		# does not — a probe taken a metre from the penguin would be half
+		# penguin. Layer 1 is the probe's.
+		t.ok((mesh.layers & IceEnvironment.NEAR_FIELD_LAYER) != 0,
+			"%s is on the near-field layer" % mesh.name)
+		t.ok((mesh.layers & 1) == 0, "%s is off layer 1, out of the world probe" % mesh.name)
 	racer.free()
 
 ## And off again. [member Racer.reflected] is how a racer the plane does not
 ## speak for is kept out of the mirror, and it has to reach every mesh and leave
-## layer 1 alone — clearing both would take the penguin out of the frame, which
-## is a far worse bug than the one this fixes.
+## the near-field layer alone — clearing both would take the penguin out of the
+## frame, which is a far worse bug than the one this fixes.
 static func _a_racer_can_be_taken_out_of_the_mirror(t: TestCase) -> void:
 	t.begin("a racer can be taken out of the mirror and put back")
 	var racer := Racer.new()
@@ -162,8 +168,8 @@ static func _a_racer_can_be_taken_out_of_the_mirror(t: TestCase) -> void:
 			var mesh: MeshInstance3D = node
 			t.ok(((mesh.layers & IceReflection.RACER_VISUAL_LAYER) != 0) == pass_state,
 				"%s on the reflection layer = %s" % [mesh.name, pass_state])
-			t.ok((mesh.layers & 1) != 0,
-				"%s is still on layer 1 either way" % mesh.name)
+			t.ok((mesh.layers & IceEnvironment.NEAR_FIELD_LAYER) != 0,
+				"%s is still on the near-field layer either way" % mesh.name)
 	racer.free()
 
 ## Ground that *is* the plane is admitted, and so is ground anywhere along it —
@@ -275,15 +281,72 @@ static func _a_floor_keeps_its_reflection_and_a_wall_loses_it(t: TestCase) -> vo
 ## The setting is only useful if it survives the round trip through the file,
 ## and the file is written by hand — see [method GameConfig.file_text].
 static func _the_setting_survives_the_file(t: TestCase) -> void:
-	t.begin("ice_reflections survives the settings file")
-	for value: bool in [true, false]:
-		var written := GameConfig.new()
-		written.ice_reflections = value
-		var cfg := ConfigFile.new()
-		t.ok(cfg.parse(written.file_text()) == OK, "the written file parses")
-		var read_back := GameConfig.new()
-		read_back.read(cfg)
-		t.ok(read_back.ice_reflections == value,
-			"ice_reflections = %s round-trips" % value)
-		written.free()
-		read_back.free()
+	t.begin("ice_reflections and ice_world_reflections survive the settings file")
+	for key: String in ["ice_reflections", "ice_world_reflections"]:
+		for value: bool in [true, false]:
+			var written := GameConfig.new()
+			written.set(key, value)
+			# The other one the opposite way, so a file that swapped them
+			# would fail.
+			var other: String = "ice_world_reflections" if key == "ice_reflections" \
+				else "ice_reflections"
+			written.set(other, not value)
+			var cfg := ConfigFile.new()
+			t.ok(cfg.parse(written.file_text()) == OK, "the written file parses")
+			var read_back := GameConfig.new()
+			read_back.read(cfg)
+			t.ok(read_back.get(key) == value and read_back.get(other) == not value,
+				"%s = %s round-trips" % [key, value])
+			written.free()
+			read_back.free()
+
+## [IceEnvironment] draws six cameras into an atlas and `terrain.gdshader` reads
+## it back by direction; the two only meet on screen. So check the cameras
+## against the lookup here: every face is a proper rotation looking the way the
+## table says, and a direction through any point of a face's lens lands on that
+## same point of that face's cell. `IceEnvironment.face_uv` is the shader's
+## `ice_env_uv` line for line — the one half of this the suite cannot run.
+static func _the_probe_faces_are_where_the_lookup_reads(t: TestCase) -> void:
+	t.begin("the world probe's faces are where the ice looks them up")
+	for i: int in 6:
+		var b: Basis = IceEnvironment.face_basis(i)
+		t.eq_f(b.determinant(), 1.0, 1e-5, "face %d is a rotation" % i)
+		t.eq_v(-b.z, IceEnvironment.FACE_FORWARD[i], 1e-5, "face %d looks along its axis" % i)
+		var cell := Vector2(i % 3, i / 3)
+		for p: Vector2 in [Vector2(0.0, 0.0), Vector2(0.6, -0.3), Vector2(-0.9, 0.85)]:
+			# A point of the lens: x right, y up, one unit ahead — a 90-degree
+			# square lens reaches ±1 at its edges.
+			var d: Vector3 = b * Vector3(p.x, p.y, -1.0)
+			var want: Vector2 = (cell + Vector2(p.x + 1.0, 1.0 - p.y) * 0.5) / Vector2(3.0, 2.0)
+			var got: Vector2 = IceEnvironment.face_uv(d)
+			t.ok(got.distance_to(want) < 1e-5,
+				"face %d, lens point %s lands at %s (read %s)" % [i, p, want, got])
+
+## The atlas is the terrain's 16th sampler under Compatibility, so it may exist
+## only in the shader [TerrainRenderer] builds while the setting is on. Count
+## the samplers the preprocessor leaves in each: the file as it stands must
+## declare none of the atlas, and the variant must be the file plus the define,
+## placed after `shader_type` where Godot can still read the shader's type.
+static func _only_the_setting_adds_a_sampler(t: TestCase) -> void:
+	t.begin("only the world-reflection setting adds a sampler to the terrain")
+	var plain: String = (load(TerrainRenderer.SHADER_PATH) as Shader).code
+	var variant: String = TerrainRenderer.ice_environment_shader().code
+	t.ok(variant.contains("shader_type spatial;\n#define ICE_ENV_ATLAS\n"),
+		"the variant defines ICE_ENV_ATLAS straight after shader_type")
+	t.ok(variant.replace("\n#define ICE_ENV_ATLAS\n", "") == plain,
+		"and is otherwise the file")
+	# Every line declaring the atlas sits inside an #ifdef ICE_ENV_ATLAS block.
+	var depth: int = 0
+	var guarded: bool = true
+	var declared: bool = false
+	for line: String in plain.split("\n"):
+		var code: String = line.strip_edges()
+		if code.begins_with("#ifdef ICE_ENV_ATLAS"):
+			depth += 1
+		elif code.begins_with("#endif") and depth > 0:
+			depth -= 1
+		elif code.contains("uniform sampler2D ice_env_atlas"):
+			declared = true
+			guarded = guarded and depth > 0
+	t.ok(declared, "the file declares the atlas")
+	t.ok(guarded, "and only under #ifdef ICE_ENV_ATLAS")

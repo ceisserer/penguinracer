@@ -2677,3 +2677,70 @@ desktop — where, with no sensor, every button is drawn.
 project.godot ships`); `TestTouch` now covers the halves per kind, the half-merges and the
 buttons each mixed scheme draws. **Not done**: a phone, and a render (a desktop has no sensor, so
 the overlay shows every button whichever tilt scheme is forced).
+
+### The ice reflects the world, not only the racers (2026-09-29) · **done, browser seen only through SwiftShader, not measured on a phone**
+
+`IceEnvironment` (`scripts/render/ice_environment.gd`) renders a small cube round the watched
+racer — six 128² `SubViewport` faces from 0.5 m above the drawn ice, 90° square lenses, drawn side
+by side into one 3x2 atlas by a 2D pass (no readback) — and `terrain.gdshader` samples it in the
+ice branch in place of the two-colour sky ramp: the mirror ray is walked out to a 60 m sphere round
+the probe and looked up from its centre (`ice_env_uv`, face table shared with
+`IceEnvironment.FACE_FORWARD`/`FACE_UP`), faded back to the ramp toward the sphere's edge, then the
+racers' planar mirror goes on top as before. `tuxway`'s lake carries the mountains, `inception`'s
+walls reflect each other, and at night the bank's torches are in the ice.
+
+**What is not in it.** Racers, spray and falling snow moved from layer 1 to
+`IceEnvironment.NEAR_FIELD_LAYER` (1 << 2); the main camera sees every layer, the probe's cameras
+all but that one and the mirror's. `Racer._apply_reflected` now sets the whole mask. A face's own
+terrain skips both screen-space terms (the probe and the mirror) — recognised by its 90° square
+projection, which no window has.
+
+**When it runs.** Only while ice lies within 90 m of the camera (`build_ice_map`: the dominant
+layer sampled every 4 m, kept in 16 m cells dilated by the range) — a course without ice pays
+nothing. Then all six faces every frame. A first cut re-took the cube only every 3 m / 0.5 s at two
+faces a frame (0.3 ms) and **read as a stutter** — the reflection jumped each time the probe caught
+up — so that saving is gone.
+
+**Cost.** Per face ~0.9 ms on the Renoir iGPU under Mobile (720p, `tuxway` carve, unthrottled
+`--print-fps`), flat in the face size; with the sun's shadows off 0.26 ms — ~70 % of a face is the
+shadow cascades, which Godot renders again for every camera and has no per-viewport switch for.
+Six a frame measured 211 → 102 fps (~5 ms). Paired runs later in the day, with something else on
+the host holding the GPU at 75 % busy: Mobile 85 → 52 fps, Compatibility (desktop GL, no shadows)
+112 → 87 fps. The absolute numbers from that session are not worth keeping; the ratio is.
+
+**On every renderer, as a setting.** `[display] ice_world_reflections`, the quality row *Ice
+reflects the world*: on at HIGH and BEST, off at MEDIUM and below (a phone starts at MEDIUM). Under
+Compatibility the atlas is the terrain's **16th** sampler (15 = 14 + `atmo_ridge_map`), which is all
+WebGL2 guarantees and what most real browsers report. So it is declared only under `ICE_ENV_ATLAS`,
+defined in a variant of the shader `TerrainRenderer.ice_environment_shader()` builds when the
+setting is on (inserted after `shader_type`, which Godot reads before preprocessing); off, the
+terrain compiles exactly as before, 15 units. `RaceScene` builds no `IceEnvironment` at all then.
+
+**Compatibility does not decode the atlas.** Measured with the ice temporarily showing the atlas
+raw (`tuxway` frame 200): a mountain at R 119 came back mirrored at 123 under Mobile and 184 under
+Compatibility — its encoded 120/255 taken for linear. There the sampler has no `source_color` and
+`ice_env_sample` decodes by hand; after it, 122.9 on both.
+
+**Verified**: the suite — 6400 passed, 1 failed (the same pre-existing `lighting/what
+project.godot ships`); `TestReflection` checks the six face cameras against `face_uv`, the
+near-field layer on and off, both settings through the file, and that the atlas is declared only
+under `#ifdef ICE_ENV_ATLAS` and the variant is the file plus the define. Renders: `tuxway`,
+`inception`, `frozen_lakes`, `frozen_river` and a `tuxway` night under Mobile; `tuxway` under
+Compatibility on the desktop and **in headless Chromium** (streamed web build, WebGL2 over
+SwiftShader — which reports 32 units, so the 16-unit case is still unseen). Tone, `tuxway` against
+the build before (Mobile, R means): near ice 181.6 → 182.3, mid lake 164.7 → 162.0 with the
+mountains' contrast, far ice 166.5 → 180.9, nothing clipped; under Compatibility +0.7 / −2.5 / +8.
+The settings row, driven in a scene: ticked at HIGH, unticking gives *Custom*, MEDIUM clears it.
+Two of the first timing runs with the probe on hung (killed at 200 s); many runs since did not —
+the random GPU hang in the trap list, as far as can be told. **Not done**: a phone, a real browser
+on a 16-unit GPU, the thunderstorm.
+
+**Near things out of the cube (same day).** Reported: a small object — a red flag, once a whole ice
+field — colouring a large area of ice for a blink, depending on angle and distance. A cube map
+magnifies what is near its centre: a flag a metre from the probe spans ~6° by 50° of a face, and
+every ice pixel whose mirror ray falls in that wedge takes its colour. Reproduced with the ice
+showing the atlas raw: on `inception` (frame 300) the canyon wall beside the probe turned half the
+floor one flat pale blue, on `frozen_lakes` (frame 600) a shrub by the racer speckled a whole ice
+patch green. The probe cameras' near plane went from 0.1 m to 5 m (`PROBE_NEAR`); the same
+`inception` frame then reflects the far wall and the sky, `tuxway` is unchanged. The exact
+flag case was not caught on a capture.

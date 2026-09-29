@@ -56,7 +56,7 @@ const TREE_DETAIL_MAX := 1.5
 ## Every [GameConfig] property a preset sets, in the order the screen shows them.
 const KEYS: PackedStringArray = ["render_scale", "antialiasing", "procedural_sky",
 	"sky_detail", "tree_detail", "shadows", "tree_shadows", "shadow_detail",
-	"shadow_filter", "ice_reflections"]
+	"shadow_filter", "ice_reflections", "ice_world_reflections"]
 
 ## One row per [enum Kind]. HIGH must stay [GameConfig]'s defaults.
 ##
@@ -77,31 +77,42 @@ const KEYS: PackedStringArray = ["render_scale", "antialiasing", "procedural_sky
 ## what `project.godot` shipped (see the trap list on its dither), so MEDIUM and
 ## up keep it; FAST takes Soft Low and its grain for the taps it saves, and
 ## FASTEST, which draws no shadow, names the cheapest.
+##
+## The ice's world reflection is off below HIGH. It costs nothing on a course
+## without ice and ~5 ms a frame on the iGPU on one (`tuxway`, six faces every
+## frame, most of it the sun's shadow cascades drawn again per face — see
+## [IceEnvironment]), and a phone, which starts at MEDIUM, would pay for those
+## at a rate nobody has measured yet.
 const VALUES: Array[Dictionary] = [
 	{ # FASTEST
 		"render_scale": 0.5, "antialiasing": 0, "procedural_sky": false,
 		"sky_detail": 0, "tree_detail": 0.5, "shadows": false, "tree_shadows": 0,
 		"shadow_detail": 0, "shadow_filter": 0, "ice_reflections": false,
+		"ice_world_reflections": false,
 	},
 	{ # FAST
 		"render_scale": 0.75, "antialiasing": 0, "procedural_sky": true,
 		"sky_detail": 0, "tree_detail": 0.6, "shadows": true, "tree_shadows": 0,
 		"shadow_detail": 0, "shadow_filter": 2, "ice_reflections": false,
+		"ice_world_reflections": false,
 	},
 	{ # MEDIUM
 		"render_scale": 1.0, "antialiasing": 1, "procedural_sky": true,
 		"sky_detail": 0, "tree_detail": 0.8, "shadows": true, "tree_shadows": 1,
 		"shadow_detail": 1, "shadow_filter": 3, "ice_reflections": true,
+		"ice_world_reflections": false,
 	},
 	{ # HIGH — the shipped frame
 		"render_scale": 1.0, "antialiasing": 1, "procedural_sky": true,
 		"sky_detail": 2, "tree_detail": 1.0, "shadows": true, "tree_shadows": 2,
 		"shadow_detail": 2, "shadow_filter": 3, "ice_reflections": true,
+		"ice_world_reflections": true,
 	},
 	{ # BEST
 		"render_scale": 1.0, "antialiasing": 2, "procedural_sky": true,
 		"sky_detail": 2, "tree_detail": 1.2, "shadows": true, "tree_shadows": 2,
 		"shadow_detail": 2, "shadow_filter": 3, "ice_reflections": true,
+		"ice_world_reflections": true,
 	},
 ]
 
