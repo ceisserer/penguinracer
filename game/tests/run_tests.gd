@@ -42,6 +42,7 @@ func _run() -> void:
 	TestSpray.run(t)
 	TestSnowFall.run(t)
 	TestMenuSnow.run(t)
+	TestLensSnow.run(t)
 	TestWind.run(t)
 	TestAI.run(t)
 	TestAudio.run(t)

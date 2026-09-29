@@ -1523,6 +1523,29 @@ WebGL2's floor.
 
 4665 assertions, 0 failures.
 
+**Snow on the lens (2026-09-29).** While it snows, the odd flake now lands on the camera, sits
+there out of focus and melts away (`scripts/render/lens_snow.gd`, `LensSnow`, a `CanvasLayer` under
+the HUD). ETR has nothing like it, and it is the one piece of snow that is deliberately *on* the
+camera, so it is kept small: at most 2 / 4 / 6 flakes on the lens at once for grades 1 / 2 / 3,
+landing 0.35 / 0.8 / 1.5 a second at 20 m/s, each staying 0.8–2.8 s with the last 45 % a melt
+(fainter, shrinking to 75 %). The rate follows the camera's speed into the air along the way it
+faces (`LensSnow.landing_factor`): a tenth of it standing still, up to 1.5× — so the intro and a
+stopped spectator see almost none. A flake lands only where its whole disc clears an ellipse
+round the penguin (centre 0.5 / 0.54, half-extents 0.30 × 0.34 of the canvas), so it is only ever
+seen in the band round the edges. It is not white paint: `shaders/lens_snow.gdshader` blurs the
+frame behind each blob (24 taps over 3 % of the canvas height) and lifts it toward `[partcol]`, so
+it reads as a defocused frosted patch over sunlit snow and a hazy disc at night. The blob outlines
+are generated (`LensSnow.make_blob_image`). Deterministic from a seed and reset on every restart.
+
+Trap found on the way: in a `canvas_item` fragment `COLOR` already has the texture multiplied in,
+so reading the modulate's alpha there squared the mask and let the sharp scene through the blur.
+The shader carries the vertex colour across in a varying.
+
+**Verified**: `TestLensSnow` (middle stays clear at 16:9, 4:3 and 9:16; more per grade and under
+each cap; speed; melt; determinism; the atlas) and the suite — 6330 passed, 1 failed, the
+pre-existing `lighting/what project.godot ships`. Captured `wild_mountains` at grades 1 and 3,
+sunny and night, under Mobile and Compatibility (same frame in both). **Not done**: a phone.
+
 ### The window can be any shape · **done**
 
 `project.godot` now ships `window/stretch/mode="canvas_items"` with `aspect="expand"` instead of

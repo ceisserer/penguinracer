@@ -166,6 +166,9 @@ var _reflect_sample := SurfaceSample.new()
 ## The weather. Presentation only, like the mirror: [SnowFall] draws what
 ## [member RaceSetup.snowfall] asked for and the simulation never hears about it.
 var snowfall: SnowFall
+## The flakes that land on the camera while it snows — the same grade and tint
+## as [member snowfall], drawn under the HUD. See [LensSnow].
+var lens_snow: LensSnow
 ## The environment this course is lit by, kept because two things outside
 ## [method _apply_environment] need it — the snowfall's `[partcol]` tint, and
 ## anything else that has to be reapplied when the weather changes without the
@@ -367,6 +370,9 @@ func _ready() -> void:
 	snowfall = SnowFall.new()
 	snowfall.name = "SnowFall"
 	add_child(snowfall)
+	lens_snow = LensSnow.new()
+	lens_snow.name = "LensSnow"
+	add_child(lens_snow)
 	ridge_map = RidgeMap.new()
 	add_child(ridge_map)
 	if not requested_course_path.is_empty():
@@ -767,6 +773,7 @@ func restart(with_intro: bool = true) -> void:
 	course_root.release_markers()
 	_stop_slide_sound()
 	snowfall.restart()
+	lens_snow.restart()
 	Audio.play_theme(course.music_theme, MusicTheme.Situation.RACE)
 	# Marker for the browser harness: the course is loaded and the first frame
 	# of simulation has run.
@@ -885,6 +892,7 @@ func _present(delta: float) -> void:
 	# state draws the snow without updating it. `_process` returns before this
 	# whole function while paused, which is the same thing.
 	snowfall.update(view.position, _racer_wind(), delta)
+	lens_snow.update(camera.global_transform, delta)
 	atmosphere.advance(delta, camera.global_position.y, _downwind())
 	lightning.advance(delta, -camera.global_transform.basis.z)
 	if course_lights != null:
@@ -1536,7 +1544,9 @@ func _apply_snowfall() -> void:
 		# night snow is blue and evening snow is warm without anything here
 		# knowing which sky it is under.
 		snowfall.tint = _preset.particle_color
+		lens_snow.tint = _preset.particle_color
 	snowfall.set_grade(setup.snowfall if setup != null else 0)
+	lens_snow.set_grade(snowfall.grade)
 
 ## Blow [param wind] the way this start asks for.
 ##

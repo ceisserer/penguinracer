@@ -37,7 +37,8 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           (EnvironmentPreset + LightCondition: a course names a place,
                           a race names the time of day — ETR's light_id)
   scripts/render/         terrain chunks, GPU snow field, spray, SnowFall (falling flakes +
-                          far snow, all world-anchored), IceReflection (planar mirror for the ice),
+                          far snow, all world-anchored), LensSnow (flakes melting on the camera,
+                          out of focus, kept off the middle), IceReflection (planar mirror for the ice),
                           ConiferMesh (3 LOD meshes + hemi-octahedral maths), BareTreeMesh
                           (grown leafless tree, 3 LODs + its drawn twig/bark texture),
                           ShrubMesh (bush from `shrub.png`, 3 LODs), Forest (any of the
@@ -72,7 +73,7 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
   scripts/debug/          DebugCapture autoload (headless screenshots / scripted input), key_log
   shaders/                terrain, etr_skybox, procedural_sky, object_billboard (items), object_cross (shrubs),
                           conifer + conifer_impostor (all three species; + conifer.gdshaderinc:
-                          LOD fade, sway, snow, twig alpha), conifer_bake, snow_trail, snow_flakes, menu_snow,
+                          LOD fade, sway, snow, twig alpha), conifer_bake, snow_trail, snow_flakes, lens_snow, menu_snow,
                           s1_displace, torch_flame, etr_illumination.gdshaderinc (ETR's
                           sum-then-clamp, included by everything lit), atmosphere.gdshaderinc
                           (sky gradient, ridges, the `FOG` every lit shader writes, torchlight)
@@ -231,7 +232,7 @@ Detail is in `PROGRESS.md`; this is the summary.
 | 6 — polish/ship | not started. |
 | phones | **done, not raced on hardware** — `Android` preset + `tools/build_android.sh` (Mobile renderer by default, Compatibility selectable in the settings screen from the next launch, whole game in the APK, Medium preset on first run); tilt / buttons / off on Android and in a phone's browser (`TouchScheme`, `TouchControls`, `TiltSteering`, `MotionSensor`); back button is Esc. Verified by the suite, desktop renders with `--touch`, and Chromium emulating an Android phone with synthetic `devicemotion`. |
 | sky + atmosphere | **done** (beyond ETR) — procedural sky (sun disc, drifting clouds; stars, moon, aurora at night), three layers of distant ridges, aerial perspective and valley mist in every lit shader's `FOG`, night torches inside the clamp (baked into the terrain). `[display] sky = etr` / `--sky=etr` is the old frame to the level. See the deviations. |
-| weather | **snow (0–3), sky (sunny/cloudy/night/thunderstorm) and wind (none/light/strong) done** — `SnowFall` (world-anchored streaking flakes + far snow, deterministic), `LightCondition` and `WindField.init_crosswind`, all on the course screen, remembered in `[game] snowfall`/`conditions`/`wind`, carried on a lobby room. The sky moves sun, ambient, fog, skybox, tints, ice, and shadows (`EnvironmentPreset.casts_shadows`). The wind blows from a side rolled per start and moves the trees, the snow, the HUD's rose and a racer in flight. The thunderstorm is ours, not ETR's (`Lightning`, see the deviations). `evening` and ETR's wind grades (`--wind=`) are not offered. |
+| weather | **snow (0–3), sky (sunny/cloudy/night/thunderstorm) and wind (none/light/strong) done** — `SnowFall` (world-anchored streaking flakes + far snow, deterministic) and `LensSnow` (a few defocused flakes melting on the lens, off the middle), `LightCondition` and `WindField.init_crosswind`, all on the course screen, remembered in `[game] snowfall`/`conditions`/`wind`, carried on a lobby room. The sky moves sun, ambient, fog, skybox, tints, ice, and shadows (`EnvironmentPreset.casts_shadows`). The wind blows from a side rolled per start and moves the trees, the snow, the HUD's rose and a racer in flight. The thunderstorm is ours, not ETR's (`Lightning`, see the deviations). `evening` and ETR's wind grades (`--wind=`) are not offered. |
 | computer opponents | **done** (beyond ETR) — `RaceSetup` 1–9 opponents, each a `SimulatedRacer` + `AIInputSource` scoring nine candidate lines. Skill moves habits, never physics: 30 s on a 22° slope gives easy 231 m, medium 333 m, hard 422 m, a player holding straight 413 m. Deterministic from a seed. Solid via `RacerField`. |
 | multiplayer foundation | **done** — fixed 60 Hz tick with interpolated presentation; `SimulatedRacer`/`PlaybackRacer`; `RacerState` is the only thing drawn and is the ghost and wire format. Ghosts end to end: record, keep from the results screen, race from `GhostMenu`. |
 | network multiplayer | **done** (beyond ETR, plan §8.4), works in a browser — one dedicated server serves the web build over HTTP and races over WebSocket. Rooms with optional passwords, admin picks course and starts. Server relays snapshots; each peer simulates itself. Names unique server-wide. Countdown instead of intro; race ends when the last racer finishes. See the deviations. |
@@ -699,6 +700,9 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   build loses multiplayer, not the game.
 - **Compatibility can't `emit_particle()`.** Drive rate-based emitters (`amount_ratio`, direction,
   speed).
+- **In a `canvas_item` fragment, `COLOR` already has the texture multiplied in.** The vertex
+  colour (a modulate) is only in `vertex()`; carry it in a varying (`lens_snow.gdshader`) or its
+  alpha comes back times the texture's.
 - **A menu over a live race cannot be centred or dim the screen** — the penguin is in the middle.
   The results panel is anchored top-centre at 80 px like `CGameOver`, with no backdrop.
 
@@ -884,6 +888,12 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   centred on the player has no parallax and was the most overlay-like thing on screen. The far
   snow is a fourth area in the same shader (`FAR_AREAS`) — a 150 m square box of 5–6.5 m quads,
   each a random 128² patch of a curtain tile, drawn only 25–72 m from the camera (`FAR_FADE`).
+- **Snow lands on the lens** (`LensSnow`); ETR's camera stays clean. The one piece of snow that is
+  deliberately on the camera, so it is kept small: a few out-of-focus blobs (the frame behind
+  blurred and lifted toward `[partcol]`, `lens_snow.gdshader`), counted and timed by the grade and
+  landing faster as the camera runs into the air, melting in 1–3 s, and never inside an ellipse
+  round the penguin (`LensSnow.is_clear`). A `CanvasLayer` under the HUD, plain 2D, alike on both
+  renderers. Grade 0 draws nothing.
 - **The course screen's wind is a crosswind that pushes only in flight**, not ETR's `wind_id`
   (which drives the air drag everywhere and blows from anywhere — still `--wind=1..3`).
   `WindField.init_crosswind`: within 15° of square to the fall line, from a side rolled per start
