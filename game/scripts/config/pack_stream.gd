@@ -73,6 +73,23 @@ static func ensure(probe_path: String, pck_url: String,
 ## pointed at must not be able to replace a file this build ships.
 static func fetch_and_mount(url: String, cache_path: String,
 		on_progress: Callable = Callable(), replace_files: bool = true) -> Error:
+	var fetched: Array = await fetch(url, on_progress)
+	if fetched[0] != OK:
+		return fetched[0]
+	DirAccess.make_dir_recursive_absolute(cache_path.get_base_dir())
+	var f: FileAccess = FileAccess.open(cache_path, FileAccess.WRITE)
+	if f == null:
+		return FileAccess.get_open_error()
+	f.store_buffer(fetched[1])
+	f.close()
+	var mounted: bool = ProjectSettings.load_resource_pack(cache_path, replace_files)
+	return OK if mounted else ERR_FILE_UNRECOGNIZED
+
+## GET the absolute `url`: `[OK, body]`, or `[error, empty]` — a 404 is
+## [constant ERR_FILE_NOT_FOUND], anything else that went wrong
+## [constant ERR_CANT_CONNECT]. `on_progress` as in [method ensure]. Also how
+## [ExternalCourses] reads a server's course index.
+static func fetch(url: String, on_progress: Callable = Callable()) -> Array:
 	var http := HTTPRequest.new()
 	# `HTTPRequest` reads exactly one chunk per poll and it polls once a frame,
 	# so the default 64 KiB makes a download's speed the *frame rate* times
@@ -102,7 +119,7 @@ static func fetch_and_mount(url: String, cache_path: String,
 	var request_err: Error = http.request(url)
 	if request_err != OK:
 		http.queue_free()
-		return request_err
+		return [request_err, PackedByteArray()]
 	# Polled rather than a plain `await http.request_completed`, because the
 	# caller wants a number every frame and the signal only arrives once, at the
 	# end. A course pack is a few megabytes over a link nobody here controls;
@@ -130,18 +147,11 @@ static func fetch_and_mount(url: String, cache_path: String,
 	var response_code: int = result[1]
 	var body: PackedByteArray = result[3]
 	if result[0] != HTTPRequest.RESULT_SUCCESS:
-		return ERR_CANT_CONNECT
+		return [ERR_CANT_CONNECT, PackedByteArray()]
 	if response_code != 200:
-		return ERR_FILE_NOT_FOUND if response_code == 404 else ERR_CANT_CONNECT
-
-	DirAccess.make_dir_recursive_absolute(cache_path.get_base_dir())
-	var f: FileAccess = FileAccess.open(cache_path, FileAccess.WRITE)
-	if f == null:
-		return FileAccess.get_open_error()
-	f.store_buffer(body)
-	f.close()
-	var mounted: bool = ProjectSettings.load_resource_pack(cache_path, replace_files)
-	return OK if mounted else ERR_FILE_UNRECOGNIZED
+		return [ERR_FILE_NOT_FOUND if response_code == 404 else ERR_CANT_CONNECT,
+			PackedByteArray()]
+	return [OK, body]
 
 ## Ask the page how big `url` is, in the background.
 ##

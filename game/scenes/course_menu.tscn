@@ -94,6 +94,14 @@ visible = false
 layout_mode = 2
 theme_override_constants/separation = 8
 
+[node name="ServerEdit" type="LineEdit" parent="Frame/Body/Columns/ListPanel/ListColumn/AddRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+placeholder_text = "SERVER_NAME_PLACEHOLDER"
+max_length = 40
+
 [node name="UrlEdit" type="LineEdit" parent="Frame/Body/Columns/ListPanel/ListColumn/AddRow"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 36)
@@ -159,40 +167,6 @@ size_flags_vertical = 3
 theme_override_font_sizes/font_size = 16
 autowrap_mode = 3
 
-[node name="FieldRow" type="HBoxContainer" parent="Frame/Body/Columns/InfoPanel/Info"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="OpponentsLabel" type="Label" parent="Frame/Body/Columns/InfoPanel/Info/FieldRow"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "OPPONENTS_LABEL"
-
-[node name="OpponentsOption" type="OptionButton" parent="Frame/Body/Columns/InfoPanel/Info/FieldRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(90, 38)
-layout_mode = 2
-theme_override_font_sizes/font_size = 17
-
-[node name="FieldSpacer" type="Control" parent="Frame/Body/Columns/InfoPanel/Info/FieldRow"]
-custom_minimum_size = Vector2(20, 0)
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="SkillLabel" type="Label" parent="Frame/Body/Columns/InfoPanel/Info/FieldRow"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "SKILL_LABEL"
-
-[node name="SkillOption" type="OptionButton" parent="Frame/Body/Columns/InfoPanel/Info/FieldRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 38)
-layout_mode = 2
-theme_override_font_sizes/font_size = 17
-
 [node name="RoomRow" type="HBoxContainer" parent="Frame/Body/Columns/InfoPanel/Info"]
 unique_name_in_owner = true
 visible = false
@@ -204,6 +178,7 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "RACE_NAME_LABEL"
+vertical_alignment = 1
 
 [node name="RaceNameEdit" type="LineEdit" parent="Frame/Body/Columns/InfoPanel/Info/RoomRow"]
 unique_name_in_owner = true
@@ -218,6 +193,7 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "PASSWORD_LABEL"
+vertical_alignment = 1
 
 [node name="PasswordEdit" type="LineEdit" parent="Frame/Body/Columns/InfoPanel/Info/RoomRow"]
 unique_name_in_owner = true
@@ -227,56 +203,96 @@ theme_override_font_sizes/font_size = 17
 placeholder_text = "PASSWORD_NONE"
 secret = true
 
-[node name="WeatherRow" type="HBoxContainer" parent="Frame/Body/Columns/InfoPanel/Info"]
-unique_name_in_owner = true
+[node name="Options" type="GridContainer" parent="Frame/Body/Columns/InfoPanel/Info"]
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 10
+columns = 5
 
-[node name="SnowLabel" type="Label" parent="Frame/Body/Columns/InfoPanel/Info/WeatherRow"]
+[node name="OpponentsLabel" type="Label" parent="Frame/Body/Columns/InfoPanel/Info/Options"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "SNOWFALL_LABEL"
+text = "OPPONENTS_LABEL"
+vertical_alignment = 1
 
-[node name="SnowOption" type="OptionButton" parent="Frame/Body/Columns/InfoPanel/Info/WeatherRow"]
+[node name="OpponentsOption" type="OptionButton" parent="Frame/Body/Columns/InfoPanel/Info/Options"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(150, 38)
 layout_mode = 2
 theme_override_font_sizes/font_size = 17
 
-[node name="WeatherSpacer" type="Control" parent="Frame/Body/Columns/InfoPanel/Info/WeatherRow"]
+[node name="FieldSpacer" type="Control" parent="Frame/Body/Columns/InfoPanel/Info/Options"]
+unique_name_in_owner = true
 custom_minimum_size = Vector2(20, 0)
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="ConditionsLabel" type="Label" parent="Frame/Body/Columns/InfoPanel/Info/WeatherRow"]
+[node name="SkillLabel" type="Label" parent="Frame/Body/Columns/InfoPanel/Info/Options"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "SKILL_LABEL"
+vertical_alignment = 1
+
+[node name="SkillOption" type="OptionButton" parent="Frame/Body/Columns/InfoPanel/Info/Options"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 38)
+layout_mode = 2
+theme_override_font_sizes/font_size = 17
+
+[node name="SnowLabel" type="Label" parent="Frame/Body/Columns/InfoPanel/Info/Options"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "SNOWFALL_LABEL"
+vertical_alignment = 1
+
+[node name="SnowOption" type="OptionButton" parent="Frame/Body/Columns/InfoPanel/Info/Options"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 38)
+layout_mode = 2
+theme_override_font_sizes/font_size = 17
+
+[node name="WeatherSpacer" type="Control" parent="Frame/Body/Columns/InfoPanel/Info/Options"]
+custom_minimum_size = Vector2(20, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ConditionsLabel" type="Label" parent="Frame/Body/Columns/InfoPanel/Info/Options"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "CONDITIONS_LABEL"
+vertical_alignment = 1
 
-[node name="ConditionsOption" type="OptionButton" parent="Frame/Body/Columns/InfoPanel/Info/WeatherRow"]
+[node name="ConditionsOption" type="OptionButton" parent="Frame/Body/Columns/InfoPanel/Info/Options"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(150, 38)
 layout_mode = 2
 theme_override_font_sizes/font_size = 17
 
-[node name="WindRow" type="HBoxContainer" parent="Frame/Body/Columns/InfoPanel/Info"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="WindLabel" type="Label" parent="Frame/Body/Columns/InfoPanel/Info/WindRow"]
+[node name="WindLabel" type="Label" parent="Frame/Body/Columns/InfoPanel/Info/Options"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "WIND_LABEL"
+vertical_alignment = 1
 
-[node name="WindOption" type="OptionButton" parent="Frame/Body/Columns/InfoPanel/Info/WindRow"]
+[node name="WindOption" type="OptionButton" parent="Frame/Body/Columns/InfoPanel/Info/Options"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(150, 38)
 layout_mode = 2
 theme_override_font_sizes/font_size = 17
+
+[node name="WindSpacer" type="Control" parent="Frame/Body/Columns/InfoPanel/Info/Options"]
+layout_mode = 2
+
+[node name="WindFiller1" type="Control" parent="Frame/Body/Columns/InfoPanel/Info/Options"]
+layout_mode = 2
+
+[node name="WindFiller2" type="Control" parent="Frame/Body/Columns/InfoPanel/Info/Options"]
+layout_mode = 2
 
 [node name="Buttons" type="HBoxContainer" parent="Frame/Body/Columns/InfoPanel/Info"]
 layout_mode = 2

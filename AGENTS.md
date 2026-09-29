@@ -107,7 +107,8 @@ tools/                    import_all.sh; serve.sh (dedicated server + web export
                           tests/tone_report.gd does the same in a second); webtest/ (COOP/COEP
                           server + puppeteer runner); gen_course_export_presets.py +
                           build_web_streamed.sh (streamed web export, S6);
-                          build_android.sh (the `Android` preset → build/android/*.apk)
+                          build_android.sh (the `Android` preset → build/android/*.apk);
+                          gen_course_index.py (courses.json for a folder of course packs)
 ```
 
 Generated trees (`game/courses/`, `game/resources/`, `game/assets/`) are committed. A re-import
@@ -978,6 +979,9 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
 - **The menus reproduce ETR's palette, not its art.** `themes/etr_menu.tres` is `src/common.cpp`'s
   colour table; corner ornaments, title logo and menu snow wait on the licence audit. The checkbox
   is redrawn (`themes/checkbox_{on,off}.png`) because Godot's switch vanishes on blue.
+- **The button that goes on is the rightmost one; Back (or Cancel) is the leftmost.** Every
+  button row, every screen — the order is the scene file's child order. The course screen's
+  option rows are one `GridContainer` so their spinners share columns; add a row as five cells.
 - **The chosen character is remembered** (`[game] character`) and picked from its own main-menu
   entry (`character_menu.tscn`, the character half of ETR's `CRegist`). `--character=`/
   `?character=` override one run. Horizontal arrows flanking the name; ETR's clamping and greyed
@@ -1004,8 +1008,11 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   row — not ETR's `default`/`extras` groups, since `default` holds seventeen courses ETR added.
   The five are `CourseCatalog.TUXRACER_ORIGINALS` (Jasmin Patry's, `[env] tuxracer`, the
   *Tux Racer Classics* event). **A course can be added by the http(s) address of its `.pck`**
-  (`ExternalCourses`, *Add course…*): the file name is the course dir, the entry is kept, the pack
-  is fetched again each session. The shell lists `CourseCatalog.load_with_external()`; tests and
+  (`ExternalCourses`, *Add course…*), **or by a folder's**, whose `courses.json`
+  (`ExternalCourses.parse_index`, written by `tools/gen_course_index.py`) lists its packs — each
+  new one is added from the index alone. Every added course is filed under a server name the
+  player types, and listed under a header of that name. The file name is the course dir, the
+  entry is kept, the pack is fetched again each session. The shell lists `CourseCatalog.load_with_external()`; tests and
   the lobby use `load_default()` — a room cannot race a course only one machine has.
 - **A phone races by tilt or by buttons** (`TouchScheme`, `TouchControls`, `TiltSteering`); ETR
   is keyboard-only. The buttons press the ordinary actions; tilt is merged per tick in

@@ -135,8 +135,8 @@ COURSES_EXTERNAL,Added courses,Hinzugefügte Strecken
 ADD_COURSE,Add course…,Strecke hinzufügen…
 REMOVE_COURSE,Remove,Entfernen
 ACTION_ADD,Add,Hinzufügen
-COURSE_URL_PLACEHOLDER,https://…/course.pck,https://…/strecke.pck
-EXTERNAL_BAD_URL,"That is not the address of a course: it needs http:// or https:// and a file name ending in .pck.","Das ist keine Adresse einer Strecke: Sie braucht http:// oder https:// und einen Dateinamen auf .pck."
+COURSE_URL_PLACEHOLDER,https://… course.pck or folder/,https://… strecke.pck oder Ordner/
+EXTERNAL_BAD_URL,"That is not an address: it needs http:// or https://, and a course file must end in .pck.","Das ist keine Adresse: Sie braucht http:// oder https://, und eine Streckendatei muss auf .pck enden."
 EXTERNAL_BUILT_IN,That course is already part of the game.,Diese Strecke ist schon Teil des Spiels.
 EXTERNAL_ALREADY_ADDED,That course has already been added.,Diese Strecke wurde schon hinzugefügt.
 EXTERNAL_NOT_A_COURSE,"The file arrived, but it is not the course its name says.","Die Datei ist angekommen, enthält aber nicht die Strecke, die ihr Name verspricht."
@@ -144,3 +144,9 @@ EXTERNAL_DOWNLOAD_FAILED,Could not download the course from that address.,Die St
 EXTERNAL_DOWNLOADING,Downloading the course…,Strecke wird geladen…
 EXTERNAL_ADDED,Added %s.,%s hinzugefügt.
 EXTERNAL_REMOVED,Removed %s.,%s entfernt.
+SERVER_NAME_PLACEHOLDER,Server name,Name des Servers
+EXTERNAL_NO_SERVER_NAME,Give the server a name — the courses are listed under it.,Gib dem Server einen Namen – die Strecken werden darunter aufgeführt.
+EXTERNAL_BAD_INDEX,"The folder has no course list (courses.json), or it lists no courses.","Der Ordner hat keine Streckenliste (courses.json), oder sie nennt keine Strecken."
+EXTERNAL_NO_NEW_COURSES,Nothing new there: all %d courses are already in the game.,Dort gibt es nichts Neues: Alle %d Strecken sind schon im Spiel.
+EXTERNAL_ADDED_FROM_FOLDER,Added %d courses from %s.,%d Strecken von %s hinzugefügt.
+EXTERNAL_SKIPPED,(%d already in the game.),(%d schon im Spiel.)

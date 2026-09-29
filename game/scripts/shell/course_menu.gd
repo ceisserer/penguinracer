@@ -110,7 +110,10 @@ var _entries: Array[CourseListing] = []
 @onready var _race_button: Button = %RaceButton
 @onready var _back_button: Button = %BackButton
 @onready var _hint: Label = %Hint
-@onready var _field_row: Control = %FieldRow
+## The opponents/skill row of the options grid — its cells, since a grid has no
+## row node to hide. Hiding all five keeps the rows below in their columns.
+@onready var _field_cells: Array[Control] = [%OpponentsLabel, %OpponentsOption,
+		%FieldSpacer, %SkillLabel, %SkillOption]
 @onready var _opponents: OptionButton = %OpponentsOption
 @onready var _skill: OptionButton = %SkillOption
 @onready var _snow: OptionButton = %SnowOption
@@ -124,6 +127,7 @@ var _entries: Array[CourseListing] = []
 @onready var _remove_button: Button = %RemoveCourseButton
 @onready var _add_row: Control = %AddRow
 @onready var _url_edit: LineEdit = %UrlEdit
+@onready var _server_edit: LineEdit = %ServerEdit
 @onready var _confirm_add: Button = %ConfirmAddButton
 @onready var _cancel_add: Button = %CancelAddButton
 
@@ -162,12 +166,14 @@ func _ready() -> void:
 	_confirm_add.pressed.connect(_add_course)
 	_cancel_add.pressed.connect(_close_add_row)
 	_url_edit.text_submitted.connect(func(_t: String) -> void: _add_course())
+	_server_edit.text_submitted.connect(func(_t: String) -> void: _url_edit.grab_focus())
 
 	_fill_list()
 	visible = false
 
 ## Rebuild the rows from [member _catalog]: a header, then its courses, for
-## each category — the external one even while it is empty, since the header
+## each category. Added courses get a header per server name the player filed
+## them under, or one generic header while there are none, since that header
 ## is what says the list can hold such a thing.
 func _fill_list() -> void:
 	_list.clear()
@@ -189,14 +195,32 @@ func _fill_list() -> void:
 	for category: int in CATEGORY_LABELS.size():
 		if networked and category == CourseListing.Category.EXTERNAL:
 			continue
-		var index: int = _list.add_item(tr(CATEGORY_LABELS[category]))
-		_list.set_item_selectable(index, false)
-		_list.set_item_custom_fg_color(index, HEADER_COLOR)
-		_entries.push_back(null)
+		var external: bool = category == CourseListing.Category.EXTERNAL
+		var header: String = ""
 		for entry: CourseListing in shown:
-			if entry.category() == category:
-				_entries.push_back(entry)
-				_list.add_item("   " + entry.title())
+			if entry.category() != category:
+				continue
+			# The catalog is sorted by server within the category, so a
+			# server's courses are contiguous.
+			var wanted: String = _header_for(entry)
+			if wanted != header:
+				header = wanted
+				_add_header(header)
+			_entries.push_back(entry)
+			_list.add_item("   " + entry.title())
+		if header.is_empty() and external:
+			_add_header(tr(CATEGORY_LABELS[category]))
+
+func _add_header(text: String) -> void:
+	var index: int = _list.add_item(text)
+	_list.set_item_selectable(index, false)
+	_list.set_item_custom_fg_color(index, HEADER_COLOR)
+	_entries.push_back(null)
+
+func _header_for(entry: CourseListing) -> String:
+	if entry.is_external() and not entry.server_name.is_empty():
+		return entry.server_name
+	return tr(CATEGORY_LABELS[entry.category()])
 
 ## The one to nine an [OptionButton] offers, plus the skill names.
 ##
@@ -224,6 +248,17 @@ func _fill_field_options() -> void:
 	_wind.clear()
 	for level: WindField.Strength in WindField.STRENGTHS:
 		_wind.add_item(WindField.strength_label(level), level)
+	_equalize_option_widths()
+
+## One width for every spinner, the widest one's, so the two columns of the
+## options grid are the same width whatever the language makes the longest item.
+func _equalize_option_widths() -> void:
+	var options: Array[OptionButton] = [_opponents, _skill, _snow, _conditions, _wind]
+	var width: float = 0.0
+	for option: OptionButton in options:
+		width = maxf(width, option.get_combined_minimum_size().x)
+	for option: OptionButton in options:
+		option.custom_minimum_size.x = width
 
 ## Show the menu. `current_dir` is highlighted, `over_race` says whether there
 ## is a course loaded and rendered behind this panel — which is only true from
@@ -280,7 +315,8 @@ func _apply_mode(new_mode: Mode) -> void:
 	mode = new_mode
 	_waiting = false
 	_race_button.disabled = false
-	_field_row.visible = mode == Mode.RACE
+	for cell: Control in _field_cells:
+		cell.visible = mode == Mode.RACE
 	_room_row.visible = mode == Mode.NET_CREATE
 	_external_buttons.visible = mode == Mode.PRACTICE or mode == Mode.RACE
 	_add_row.visible = false
@@ -411,9 +447,10 @@ func _show_details(entry: CourseListing) -> void:
 	if entry.is_external():
 		# Where it comes from is the one thing a player can judge an added
 		# course by before racing it.
-		parts.push_back(entry.source_url.get_slice("://", 1).get_slice("/", 0))
+		parts.push_back("%s (%s)" % [_header_for(entry),
+			entry.source_url.get_slice("://", 1).get_slice("/", 0)])
 	else:
-		parts.push_back(tr(CATEGORY_LABELS[entry.category()]))
+		parts.push_back(_header_for(entry))
 	_meta.text = "   •   ".join(parts)
 	_description.text = entry.description
 
@@ -422,8 +459,11 @@ func _open_add_row() -> void:
 	_external_buttons.visible = false
 	_add_row.visible = true
 	_set_result("")
-	_url_edit.grab_focus()
-	_url_edit.select_all()
+	if _server_edit.text.strip_edges().is_empty():
+		_server_edit.grab_focus()
+	else:
+		_url_edit.grab_focus()
+		_url_edit.select_all()
 
 func _close_add_row() -> void:
 	if _adding:
@@ -432,36 +472,49 @@ func _close_add_row() -> void:
 	_external_buttons.visible = true
 	_list.grab_focus()
 
-## Fetch the course at the typed address and, if it is one, list it and pick
-## it. Said on the result line either way; a refusal leaves the row open with
-## the address in it to be corrected.
+## Add what the typed address names — one course, or every new one in a
+## folder's index — under the typed server name, list it and pick the first.
+## Said on the result line either way; a refusal leaves the row open with
+## both fields in it to be corrected.
 func _add_course() -> void:
 	if _adding:
 		return
-	var refusal: String = ExternalCourses.check_url(_url_edit.text)
+	var refusal: String = ExternalCourses.check(_server_edit.text, _url_edit.text)
 	if not refusal.is_empty():
 		_set_result(tr(refusal))
+		(_server_edit if refusal == ExternalCourses.NO_SERVER_NAME else _url_edit).grab_focus()
 		return
 	_adding = true
 	_confirm_add.disabled = true
 	_cancel_add.disabled = true
 	_race_button.disabled = true
 	_set_result(tr("EXTERNAL_DOWNLOADING"))
-	var added: Variant = await ExternalCourses.add(_url_edit.text, _on_add_progress)
+	var result: Dictionary = await ExternalCourses.add(_server_edit.text, _url_edit.text,
+		_on_add_progress)
 	_adding = false
 	_confirm_add.disabled = false
 	_cancel_add.disabled = false
 	_race_button.disabled = false
-	if added is String:
-		_set_result(tr(added))
+	var added: Array[CourseListing] = result["added"]
+	if added.is_empty():
+		var why: String = tr(result["error"])
+		if result["error"] == ExternalCourses.NO_NEW_COURSES:
+			why = why % result["skipped"]
+		_set_result(why)
 		return
-	var listing: CourseListing = added
-	_set_result(tr("EXTERNAL_ADDED") % listing.title())
+	if not ExternalCourses.is_pack_url(_url_edit.text):
+		var said: String = tr("EXTERNAL_ADDED_FROM_FOLDER") % [added.size(),
+			added[0].server_name]
+		if result["skipped"] > 0:
+			said += "  " + tr("EXTERNAL_SKIPPED") % result["skipped"]
+		_set_result(said)
+	else:
+		_set_result(tr("EXTERNAL_ADDED") % added[0].title())
 	_url_edit.text = ""
 	_close_add_row()
 	_catalog = CourseCatalog.load_with_external()
 	_fill_list()
-	_select(listing.dir)
+	_select(added[0].dir)
 
 func _on_add_progress(downloaded: int, total: int) -> void:
 	var mb: float = float(downloaded) / 1048576.0

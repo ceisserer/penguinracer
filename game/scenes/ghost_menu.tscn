@@ -66,7 +66,7 @@ layout_mode = 2
 alignment = 2
 theme_override_constants/separation = 10
 
-[node name="RaceButton" type="Button" parent="Frame/Body/Buttons"]
+[node name="BackButton" type="Button" parent="Frame/Body/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
@@ -78,7 +78,7 @@ custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
 
-[node name="BackButton" type="Button" parent="Frame/Body/Buttons"]
+[node name="RaceButton" type="Button" parent="Frame/Body/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 42)
 layout_mode = 2

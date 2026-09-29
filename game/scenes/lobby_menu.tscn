@@ -105,13 +105,13 @@ layout_mode = 2
 alignment = 2
 theme_override_constants/separation = 10
 
-[node name="ConnectButton" type="Button" parent="Frame/Body/ConnectPage/Buttons"]
+[node name="BackButton1" type="Button" parent="Frame/Body/ConnectPage/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
 
-[node name="BackButton1" type="Button" parent="Frame/Body/ConnectPage/Buttons"]
+[node name="ConnectButton" type="Button" parent="Frame/Body/ConnectPage/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
@@ -169,19 +169,7 @@ layout_mode = 2
 alignment = 2
 theme_override_constants/separation = 10
 
-[node name="JoinButton" type="Button" parent="Frame/Body/BrowsePage/Buttons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 42)
-layout_mode = 2
-theme_override_font_sizes/font_size = 22
-
-[node name="CreateButton" type="Button" parent="Frame/Body/BrowsePage/Buttons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 42)
-layout_mode = 2
-theme_override_font_sizes/font_size = 22
-
-[node name="RefreshButton" type="Button" parent="Frame/Body/BrowsePage/Buttons"]
+[node name="BackButton2" type="Button" parent="Frame/Body/BrowsePage/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
@@ -193,7 +181,19 @@ custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
 
-[node name="BackButton2" type="Button" parent="Frame/Body/BrowsePage/Buttons"]
+[node name="RefreshButton" type="Button" parent="Frame/Body/BrowsePage/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="CreateButton" type="Button" parent="Frame/Body/BrowsePage/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="JoinButton" type="Button" parent="Frame/Body/BrowsePage/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
@@ -240,13 +240,7 @@ layout_mode = 2
 alignment = 2
 theme_override_constants/separation = 10
 
-[node name="ChangeCourseButton" type="Button" parent="Frame/Body/RoomPage/Buttons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 42)
-layout_mode = 2
-theme_override_font_sizes/font_size = 22
-
-[node name="StartButton" type="Button" parent="Frame/Body/RoomPage/Buttons"]
+[node name="BackButton3" type="Button" parent="Frame/Body/RoomPage/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
@@ -258,7 +252,13 @@ custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
 
-[node name="BackButton3" type="Button" parent="Frame/Body/RoomPage/Buttons"]
+[node name="ChangeCourseButton" type="Button" parent="Frame/Body/RoomPage/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="StartButton" type="Button" parent="Frame/Body/RoomPage/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 42)
 layout_mode = 2

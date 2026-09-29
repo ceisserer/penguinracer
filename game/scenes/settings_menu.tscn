@@ -493,16 +493,16 @@ layout_mode = 2
 alignment = 2
 theme_override_constants/separation = 10
 
-[node name="OkButton" type="Button" parent="Frame/Panel/Body/Buttons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 42)
-layout_mode = 2
-theme_override_font_sizes/font_size = 22
-text = "OK"
-
 [node name="CancelButton" type="Button" parent="Frame/Panel/Body/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "CANCEL"
+
+[node name="OkButton" type="Button" parent="Frame/Panel/Body/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "OK"

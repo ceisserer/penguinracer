@@ -37,6 +37,9 @@ enum Category { TUXRACER, ETR, EXTERNAL }
 ## empty for every course this build ships. Never written by the importer: an
 ## external listing is built by [ExternalCourses] from its own file.
 @export var source_url: String = ""
+## The name the player filed an added course under — the header it is listed
+## beneath. Empty for the build's own courses.
+@export var server_name: String = ""
 
 func title() -> String:
 	return display_name if not display_name.is_empty() else dir

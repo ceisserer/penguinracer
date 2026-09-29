@@ -77,10 +77,13 @@ func find(dir: String) -> CourseListing:
 	return null
 
 ## Category first — Tux Racer's, then ETR's, then the player's own (see
-## [enum CourseListing.Category]) — then alphabetically by the name the player
-## sees.
+## [enum CourseListing.Category]), those by the server name they were added
+## under — then alphabetically by the name the player sees.
 func sort() -> void:
 	entries.sort_custom(func(a: CourseListing, b: CourseListing) -> bool:
 		if a.category() != b.category():
 			return a.category() < b.category()
+		var servers: int = a.server_name.naturalnocasecmp_to(b.server_name)
+		if servers != 0:
+			return servers < 0
 		return a.title().naturalnocasecmp_to(b.title()) < 0)

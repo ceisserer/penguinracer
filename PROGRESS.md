@@ -2596,3 +2596,43 @@ pack missing its `course.tres` and a dead port each refused with their own messa
 captured (Mobile, real GPU) with an added course and with the address row open; arrow keys step
 over the header rows. **Not done**: an added course raced from the menu, a browser (CORS, the
 `HEAD` size probe cross-origin), a phone.
+
+### The going-on button is the rightmost one, and the course screen's spinners line up (2026-09-29) · **done**
+
+Every button row reads Back first and the button that moves forward last: *Race* on the ghost
+list (Back · Delete · Race), *Connect*, *Join* (Back · Disconnect · Refresh · Create a race ·
+Join), *Start the race* (Back · Leave · Change course · Start), and *OK* in the settings (Cancel ·
+OK) — the order the course screen already had. Only the scene files' child order changed; no
+script depends on it.
+
+The course screen's option rows (opponents/skill, snowfall/conditions, wind) are one 5-column
+`GridContainer`, label · spinner · spacer · label · spinner, so each column starts at the same x
+whatever the labels say in either language. A grid has no row node to hide, so Race mode shows
+and hides the opponents row's five cells (`CourseMenu._field_cells`). `_equalize_option_widths`
+gives all five spinners the widest one's width (never below 150 px), so the two columns match.
+
+**Verified**: the suite — 6289 passed, 1 failed, the pre-existing `lighting/what project.godot
+ships`. Captured the course screen in English and German, in Race and in Create mode, and the
+ghost, lobby (all three pages) and settings screens, from a throwaway probe script.
+
+**Folders and server names (same day).** *Add course…* now asks for a **server name** as well as an
+address, and the added courses are listed under a header per server name rather than one *Added
+courses* header (that one is left only while nothing has been added). The address may be a
+**folder**: anything http(s) that is not a `.pck` is read as one, and its `courses.json` fetched
+(or the `.json` named outright). The index is `{"courses": [{"file", "name", "author",
+"description", "width", "length", "angle"}]}` with only `file` required — relative to the index or
+a whole address (`ExternalCourses.parse_index`). Every course in it this game does not have yet
+is added from the index alone; nothing is fetched until it is raced, and a pack that turns out not
+to be its course fails there, on the loading screen. Courses the game ships or already has are
+counted and skipped; a folder with nothing new says so. `tools/gen_course_index.py <folder>`
+writes the index for a folder of `<dir>.pck`, taking the menu lines from `courses.tres`.
+`PackStream.fetch` is the byte half of `fetch_and_mount`, which the index read shares.
+
+**Verified**: the suite — 6303 passed, 1 failed (the same pre-existing one); `TestExternalCourses`
+now also covers the index (relative, subfolder and whole addresses; non-packs and junk left out;
+a page that is not an index), folder addresses, the server-name refusal and the per-server order.
+By hand against a local HTTP server: a folder of three packs indexed by the tool → two added, the
+built-in one skipped; the same folder again → nothing new; a single pack under a second server;
+a folder without an index refused; a folder course fetched and loaded only on `ensure`. The menu
+captured with two servers and the two-field add row. **Not done**: a browser, a phone, removing a
+whole server at once (courses are removed one at a time).
