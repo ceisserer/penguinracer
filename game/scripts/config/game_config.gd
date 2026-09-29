@@ -199,7 +199,8 @@ var wind: WindField.Strength = WindField.Strength.NONE
 
 # --- controls ---
 
-## How a phone or tablet races: tilt the device, on-screen buttons, or neither.
+## How a phone or tablet races: tilt the device, on-screen buttons, a mix of
+## the two, or neither.
 ## See [TouchScheme]. Read only where [method TouchScheme.platform_is_mobile] is
 ## true or `--touch` forces the overlay — a desktop draws none whatever this
 ## says, which is also why the default can be the phone's.
@@ -556,8 +557,10 @@ wind = "%s"
 
 ; How a phone or tablet races: "tilt" (turn the device like a wheel to steer,
 ; tip the top edge away to paddle and back to brake; jump and tricks are
-; buttons), "buttons" (everything on screen) or "off". A desktop shows no
-; on-screen controls whatever this says; `--touch` forces them on for one run.
+; buttons), "tilt_steer" (tilt steers, paddle and brake are buttons),
+; "tilt_speed" (buttons steer, tilt paddles and brakes), "buttons" (everything
+; on screen) or "off". A desktop shows no on-screen controls whatever this
+; says; `--touch` forces them on for one run.
 touch = "%s"
 
 [multiplayer]

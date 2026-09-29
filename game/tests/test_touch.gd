@@ -66,6 +66,16 @@ static func _scheme(t: TestCase) -> void:
 	t.ok(TouchScheme.parse("sideways", off) == off, "an unknown name keeps the fallback")
 	for kind: int in TouchScheme.NAMES.size():
 		t.ok(TouchScheme.parse(TouchScheme.name_of(kind)) == kind, "name round-trips: %d" % kind)
+	t.ok(TouchScheme.NAMES.size() == TouchScheme.LABELS.size()
+		and TouchScheme.NAMES.size() == TouchScheme.Kind.size(), "a name and a label per kind")
+	t.ok(TouchScheme.resolve(tilt, false, "tilt_speed") == TouchScheme.Kind.TILT_SPEED,
+		"--touch names a mixed scheme too")
+	var halves: Array = []
+	for kind: int in TouchScheme.Kind.size():
+		halves.append([TouchScheme.tilt_steers(kind as TouchScheme.Kind),
+			TouchScheme.tilt_speeds(kind as TouchScheme.Kind)])
+	t.ok(halves == [[false, false], [true, false], [false, true], [true, true], [false, false]],
+		"buttons, tilt_steer, tilt_speed, tilt, off: which halves the tilt drives")
 
 static func _steering(t: TestCase) -> void:
 	t.begin("touch/tilt steers")
@@ -183,6 +193,24 @@ static func _merge(t: TestCase) -> void:
 	t.eq_f(out.stick_turn, 1.0, 1e-6, "a key held outranks the tilt")
 	t.ok(source.describe() == "keyboard + tilt", "describes itself")
 
+	# One half each: the other is left to the buttons, so a tilt there is ignored.
+	for steers: bool in [true, false]:
+		var half := LocalInputSource.new()
+		half.tilt = TiltSteering.new()
+		half.tilt.steers = steers
+		half.tilt.speeds = not steers
+		half.reset()
+		for i: int in 60:
+			out.clear()
+			half._merge_tilt(out, _gravity(40.0, 0.0), TICK)
+		for i: int in 30:
+			out.clear()
+			half._merge_tilt(out, _gravity(60.0, -15.0), TICK)
+		var what: String = "tilt_steer" if steers else "tilt_speed"
+		t.ok((out.stick_turn < -0.2) == steers and out.left_turn == steers,
+			"%s: the roll steers only if it is the tilt's" % what)
+		t.ok(out.paddling != steers, "%s: the pitch paddles only if it is the tilt's" % what)
+
 static func _shown(t: TestCase, controls: GDScript) -> void:
 	t.begin("touch/which buttons")
 	var id: Dictionary = controls.Id
@@ -193,6 +221,16 @@ static func _shown(t: TestCase, controls: GDScript) -> void:
 	var dead: Array = controls.shown(TouchScheme.Kind.TILT, false, false, false)
 	t.ok(id.LEFT in dead and id.RIGHT in dead and id.PADDLE in dead,
 		"a tilt that never answered brings the buttons back")
+	var steer_only: Array = controls.shown(TouchScheme.Kind.TILT_STEER, true, false, false)
+	t.ok(not (id.LEFT in steer_only) and not (id.RIGHT in steer_only)
+		and id.PADDLE in steer_only and id.BRAKE in steer_only,
+		"tilt_steer drops steering, keeps paddle and brake")
+	var speed_only: Array = controls.shown(TouchScheme.Kind.TILT_SPEED, true, false, false)
+	t.ok(id.LEFT in speed_only and id.RIGHT in speed_only
+		and not (id.PADDLE in speed_only) and not (id.BRAKE in speed_only),
+		"tilt_speed keeps steering, drops paddle and brake")
+	t.ok(controls.shown(TouchScheme.Kind.TILT_SPEED, false, false, false).size() == id.size(),
+		"a mixed scheme whose tilt never answered draws them all")
 	var buttons: Array = controls.shown(TouchScheme.Kind.BUTTONS, true, false, false)
 	t.ok(buttons.size() == id.size(), "buttons draws all of them")
 	var networked: Array = controls.shown(TouchScheme.Kind.BUTTONS, true, true, false)

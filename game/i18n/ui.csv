@@ -62,7 +62,9 @@ SKY_PROCEDURAL,Procedural,Prozedural
 SKY_ORIGINAL,Original (photographed),Original (fotografiert)
 TREE_SHADOWS_NEAREST,Nearest trees,Nächste Bäume
 TREE_SHADOWS_ALL,All trees,Alle Bäume
-TOUCH_TILT,Tilt the device,Gerät neigen
+TOUCH_TILT,Tilt to steer and for speed,Neigen zum Lenken und für Tempo
+TOUCH_TILT_STEER,"Tilt to steer, buttons for speed","Neigen zum Lenken, Tasten für Tempo"
+TOUCH_TILT_SPEED,"Buttons to steer, tilt for speed","Tasten zum Lenken, Neigen für Tempo"
 TOUCH_BUTTONS,On-screen buttons,Tasten auf dem Bildschirm
 QUALITY_FASTEST,Fastest,Am schnellsten
 QUALITY_FAST,Fast,Schnell

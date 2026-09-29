@@ -8,8 +8,8 @@ deformation, computer opponents and ghost replays the original never had.
 One project ships to two places: **the web** (WebGL2, Godot's Compatibility renderer) and
 **desktop native** (Vulkan, Godot's Mobile renderer). Both targets matter equally, and the
 difference between them is a deliberate, gated seam rather than an accident. An **Android** build
-runs the desktop's renderer, and on a phone — native or in its browser — you steer by tilting it or
-with on-screen buttons.
+runs the desktop's renderer, and on a phone — native or in its browser — you race by tilting it, with
+on-screen buttons, or a mix of the two (tilt to steer and buttons for speed, or the other way round).
 
 > **Status: playable, not finished.** Physics, the content pipeline, the characters and the game
 > shell are done or nearly so; rendering and snow integration are partial; polish has not started.

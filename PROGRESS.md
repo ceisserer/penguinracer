@@ -2659,3 +2659,21 @@ built-in one skipped; the same folder again → nothing new; a single pack under
 a folder without an index refused; a folder course fetched and loaded only on `ensure`. The menu
 captured with two servers and the two-field add row. **Not done**: a browser, a phone, removing a
 whole server at once (courses are removed one at a time).
+
+### A phone can split the tilt: steer by it, or speed by it (2026-09-29) · **done, not raced on hardware**
+
+`[controls] touch` has five schemes, in the settings screen's order: `buttons`, `tilt_steer` (the
+roll steers, paddle and brake are buttons), `tilt_speed` (buttons steer, the pitch paddles and
+brakes), `tilt` (both — still the phone's default) and `off`. The file stores the name, so an older
+file's `tilt`/`buttons` reads unchanged; the enum was reordered for the drop-down. `TouchScheme`
+answers `tilt_steers` / `tilt_speeds` per kind; `RacerRoster.build_local` takes the kind and sets
+`TiltSteering.steers` / `.speeds`, which `LocalInputSource._merge_tilt` honours (the other half is
+the buttons', and a tilt there is ignored). `TouchControls.shown` drops only the buttons the tilt
+replaced (`TILT_STEERED`, `TILT_SPED`) and brings them back if no reading ever arrives; the level
+along the bottom draws only the tilt's half. `--touch=tilt_steer|tilt_speed` forces either on a
+desktop — where, with no sensor, every button is drawn.
+
+**Verified**: the suite — 6360 passed, 1 failed (the same pre-existing `lighting/what
+project.godot ships`); `TestTouch` now covers the halves per kind, the half-merges and the
+buttons each mixed scheme draws. **Not done**: a phone, and a render (a desktop has no sensor, so
+the overlay shows every button whichever tilt scheme is forced).

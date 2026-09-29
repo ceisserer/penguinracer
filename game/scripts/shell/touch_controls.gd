@@ -13,11 +13,13 @@
 ## [b]Which buttons[/b] is [enum TouchScheme.Kind]'s question. With tilt, the
 ## device steers, paddles and brakes ([TiltSteering]) and only jump, the trick
 ## modifier, restart, pause and menu are drawn — plus a small level at the bottom showing
-## what the tilt is doing, since a tilt has no feel of its own to go by. With
-## buttons, all of them. And if tilt was asked for but no reading has ever
-## arrived — a browser that was refused motion access, a desktop with
-## `--touch=tilt` — the steering buttons come back rather than leaving the
-## player with no way to turn.
+## what the tilt is doing, since a tilt has no feel of its own to go by. The
+## two mixed schemes give the tilt one half: tilt_steer drops left and right
+## and keeps paddle and brake, tilt_speed the other way round, and the level
+## shows only that half. With buttons, all of them. And if tilt was asked for
+## but no reading has ever arrived — a browser that was refused motion access,
+## a desktop with `--touch=tilt` — the buttons come back rather than leaving
+## the player with no way to turn.
 ##
 ## [b]Multi-touch, and a thumb can slide.[/b] Each finger is tracked by its
 ## index, and which buttons are held is recomputed from where every finger is
@@ -52,8 +54,10 @@ const ACTIONS: Dictionary[Id, StringName] = {
 	Id.RESTART: &"reset_race", Id.PAUSE: &"pause", Id.MENU: &"menu",
 }
 const TAPS: Array[Id] = [Id.PAUSE, Id.MENU]
-## The buttons tilt replaces.
-const TILTED: Array[Id] = [Id.LEFT, Id.RIGHT, Id.PADDLE, Id.BRAKE]
+## The buttons the tilt's roll replaces ([method TouchScheme.tilt_steers])…
+const TILT_STEERED: Array[Id] = [Id.LEFT, Id.RIGHT]
+## …and the ones its pitch replaces ([method TouchScheme.tilt_speeds]).
+const TILT_SPED: Array[Id] = [Id.PADDLE, Id.BRAKE]
 ## The buttons a network race has no use for: its clock is shared, so there is
 ## nothing to pause or put back to zero (see [RaceScene]'s `P` and `r`).
 const LOCAL_ONLY: Array[Id] = [Id.RESTART, Id.PAUSE]
@@ -123,7 +127,9 @@ static func shown(kind: TouchScheme.Kind, tilt_live: bool, networked: bool,
 		out.append(Id.PAUSE)
 		return out
 	for id: Id in Id.values():
-		if id in TILTED and kind == TouchScheme.Kind.TILT and tilt_live:
+		if tilt_live and id in TILT_STEERED and TouchScheme.tilt_steers(kind):
+			continue
+		if tilt_live and id in TILT_SPED and TouchScheme.tilt_speeds(kind):
 			continue
 		if id in LOCAL_ONLY and networked:
 			continue
@@ -303,15 +309,19 @@ func _chevron(c: Vector2, s: float, direction: float) -> void:
 		c + Vector2(s * 0.8, -s * 0.35 * direction)]), ICON, 6.0, true)
 
 ## What the tilt is doing: a bar along the bottom with a marker for the steer,
-## and a chevron above or below it lit while paddling or braking.
+## and a chevron above or below it lit while paddling or braking. Only the
+## halves the tilt drives: without steering there is no bar.
 func _draw_level(size: Vector2, tilt: TiltSteering) -> void:
 	var center := Vector2(size.x * 0.5, size.y - LEVEL_FROM_BOTTOM)
-	var half := Vector2(LEVEL_HALF_WIDTH, 0.0)
-	_face.draw_line(center - half, center + half, Color(0, 0, 0, 0.5), 8.0, true)
-	_face.draw_line(center - half, center + half, EDGE, 3.0, true)
-	_face.draw_line(center + Vector2(0, -8), center + Vector2(0, 8), EDGE, 2.0)
-	var marker: Vector2 = center + half * tilt.steer
-	_face.draw_circle(marker, 9.0, FILL_HELD if tilt.steer != 0.0 else EDGE)
+	if tilt.steers:
+		var half := Vector2(LEVEL_HALF_WIDTH, 0.0)
+		_face.draw_line(center - half, center + half, Color(0, 0, 0, 0.5), 8.0, true)
+		_face.draw_line(center - half, center + half, EDGE, 3.0, true)
+		_face.draw_line(center + Vector2(0, -8), center + Vector2(0, 8), EDGE, 2.0)
+		var marker: Vector2 = center + half * tilt.steer
+		_face.draw_circle(marker, 9.0, FILL_HELD if tilt.steer != 0.0 else EDGE)
+	if not tilt.speeds:
+		return
 	if tilt.paddling:
 		_chevron(center + Vector2(0, -22), 14.0, -1.0)
 	if tilt.braking:

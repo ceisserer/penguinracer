@@ -112,7 +112,7 @@ godot --path game -- --light=night                   # ... after dark (sunny, cl
 godot --path game -- --server=<address>              # ... straight to the multiplayer lobby
 godot --path game -- --lobby                         # ... on the server the settings file names
 godot --path game -- --touch                         # ... with a phone's on-screen controls
-godot --path game -- --touch=buttons                 # ... naming the scheme (tilt, buttons, off)
+godot --path game -- --touch=buttons                 # ... naming the scheme (tilt, tilt_steer, tilt_speed, buttons, off)
 ```
 
 Every race opens with the original's start sequence: your character is standing off to one side of
@@ -138,17 +138,21 @@ than resumed, and Back from the list returns to the main menu. A gamepad's left 
 On a phone — the Android build, or the web build in a phone's browser — the race draws its own
 controls, chosen on the Configuration screen (`[controls] touch`):
 
-* **Tilt the device** (the default): turn it like a steering wheel to steer, tip the top edge away
+* **Tilt to steer and for speed** (the default): turn it like a steering wheel to steer, tip the top edge away
   from you to paddle and back towards you to brake. How you hold it at the start of each run is
   "neither" — tip from there. Jump (hold to charge, let go to jump) and the trick modifier are
   buttons on the right; a small level along the bottom shows what the tilt is doing.
+* **Tilt to steer, buttons for speed**: the roll steers as above; paddle and brake are buttons on the
+  right, and the level shows the steering only.
+* **Buttons to steer, tilt for speed**: steering arrows, and the pitch paddles and brakes as above;
+  the level shows the paddle and brake chevrons only.
 * **On-screen buttons**: steering arrows bottom left, paddle, brake, jump and trick bottom right.
 * **Off**, for a tablet with a keyboard or a gamepad.
 
 Every scheme has a menu button (Esc) and a pause button (`P`) top right; Android's back button is
 Esc too. In a browser the first tap asks for motion access where the browser wants that (iOS) and
-goes fullscreen in landscape; motion data needs the page on HTTPS (or localhost). If tilt is chosen
-but no reading ever arrives, the steering buttons appear instead. On a desktop, `--touch` draws the
+goes fullscreen in landscape; motion data needs the page on HTTPS (or localhost). If any tilt scheme is
+chosen but no reading ever arrives, the buttons it replaced appear instead. On a desktop, `--touch` draws the
 overlay and the mouse stands in for a finger.
 
 Playing over a remote desktop, set its keyboard to a raw/map mode rather than a character
@@ -373,7 +377,7 @@ conditions = "sunny"      ; what the sky is doing: sunny, cloudy, night or thund
 wind = "none"             ; the crosswind: none, light or strong
 
 [controls]
-touch = "tilt"            ; on a phone: tilt, buttons or off (a desktop draws none)
+touch = "tilt"            ; on a phone: tilt, tilt_steer, tilt_speed, buttons or off (a desktop draws none)
 
 [multiplayer]
 player_name = "Racer"     ; what other racers see you called

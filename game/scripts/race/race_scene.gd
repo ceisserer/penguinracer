@@ -439,8 +439,7 @@ func _ready() -> void:
 	# up on the course load below.
 	var touch: TouchScheme.Kind = Config.active_touch_scheme()
 	roster.build_local(_local_character_dir(), character_scene_path,
-		Config.player_name, _auto_input, _compensate_keys,
-		touch == TouchScheme.Kind.TILT)
+		Config.player_name, _auto_input, _compensate_keys, touch)
 	if touch != TouchScheme.Kind.OFF:
 		touch_controls = TouchControls.new()
 		touch_controls.name = "TouchControls"

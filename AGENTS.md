@@ -5,7 +5,7 @@ physics model and real snow deformation. Ships to **web (WebGL2 / Compatibility)
 native (Vulkan / Mobile renderer)** from one project; both targets matter equally — see
 architecture rule 2 and [RenderBackend]. **Android** is a third export and runs Mobile like the
 desktop (Compatibility where a device has no Vulkan, or where the player picks it in the settings
-screen — `RenderBackend.choose`, read back at the next launch); phones (native or in a browser) race with tilt or on-screen buttons ([TouchScheme]).
+screen — `RenderBackend.choose`, read back at the next launch); phones (native or in a browser) race with tilt, on-screen buttons or a mix of the two ([TouchScheme]).
 
 **This is a rebuild, not a port.** Only the physics model is translated faithfully (constants are
 the game). Everything else is redesigned; original content is imported into the new shape.
@@ -70,7 +70,7 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           and shadows), LaunchArgs (command line + URL query), DisplayModes,
                           PackStream (streamed web packs, risk S6; no-op elsewhere),
                           Language (en | de, auto-detected from the platform locale),
-                          TouchScheme (tilt | buttons | off, and "is this a phone")
+                          TouchScheme (buttons | tilt_steer | tilt_speed | tilt | off, and "is this a phone")
   scripts/debug/          DebugCapture autoload (headless screenshots / scripted input), key_log
   shaders/                terrain, etr_skybox, procedural_sky, object_billboard (items), object_cross (shrubs),
                           conifer + conifer_impostor (all three species; + conifer.gdshaderinc:
@@ -135,7 +135,7 @@ godot --path game -- --no-audio                                    # ... silent,
 godot --path game -- --no-intro                                    # ... skipping the start animation
 godot --path game -- --fps                                         # ... with a frame-rate readout (this run only)
 godot --path game -- --lang=de                                     # ... in German (en|de|auto)
-godot --path game -- --touch=buttons                               # ... with a phone's on-screen controls (tilt|buttons|off)
+godot --path game -- --touch=buttons                               # ... with a phone's on-screen controls (tilt|tilt_steer|tilt_speed|buttons|off)
 godot --path game -- --crosswind=strong                             # ... in a crosswind (none|light|strong)
 godot --path game -- --wind=2                                      # ... in ETR's wind grade 1..3 instead
 godot --path game -- --snow=3                                      # ... snowing (0..3)
@@ -197,7 +197,7 @@ file moves no reference capture; keep it that way when adding a knob. Elsewhere:
 multiplayer** screen, `port` file-only, `opponents`/`opponent_skill`/`snowfall`/`conditions`/`wind` on
 the course screen. Resolution offers the display's own modes (`DisplayModes`); resolution and
 fullscreen are hidden on the web and on a phone, where the page or the system sizes the canvas;
-`[controls] touch` (tilt/buttons/off) is shown only on a phone. The shadows row is hidden
+`[controls] touch` (buttons/tilt_steer/tilt_speed/tilt/off) is shown only on a phone. The shadows row is hidden
 wherever `RenderBackend.supports_light_shadows()` is false but the value is still written back,
 so a desktop preference survives a browser session. A ghost is not a setting: it is whichever
 saved run the player picks from **Race against ghost**, or none.
@@ -231,7 +231,7 @@ Detail is in `PROGRESS.md`; this is the summary.
 | 4 — character | **done for all five** — skinned mesh from `shape.lst`, keyframe clips as `AnimationLibrary` + `KeyframePath` root motion, start animation (`CIntro`), finish clips on the results screen (`RaceOutcome.clip`), racing pose layer (`CharacterRig.adjust_joints`, ETR's `AdjustJoints`) driven off `RacerState` alone so ghosts and peers animate. `GameConfig.character` picks one. |
 | 5 — game shell | partial — main menu → Practice / Race the computer / Network multiplayer / Race against ghost / character / Configuration; results screen with named runs; ETR palette theme; course + character catalogs (course list in three parts: Tux Racer, ETR, added by address); English + German, detected or chosen on the settings screen; audio (`AudioDirector`, ETR's one-voice-per-cue mixer). Missing: cups, medals, profiles (data imported), volume controls, ETR's menu art (licence audit). |
 | 6 — polish/ship | not started. |
-| phones | **done, not raced on hardware** — `Android` preset + `tools/build_android.sh` (Mobile renderer by default, Compatibility selectable in the settings screen from the next launch, whole game in the APK, Medium preset on first run); tilt / buttons / off on Android and in a phone's browser (`TouchScheme`, `TouchControls`, `TiltSteering`, `MotionSensor`); back button is Esc. Verified by the suite, desktop renders with `--touch`, and Chromium emulating an Android phone with synthetic `devicemotion`. |
+| phones | **done, not raced on hardware** — `Android` preset + `tools/build_android.sh` (Mobile renderer by default, Compatibility selectable in the settings screen from the next launch, whole game in the APK, Medium preset on first run); tilt / tilt-steer / tilt-speed / buttons / off on Android and in a phone's browser (`TouchScheme`, `TouchControls`, `TiltSteering`, `MotionSensor`); back button is Esc. Verified by the suite, desktop renders with `--touch`, and Chromium emulating an Android phone with synthetic `devicemotion`. |
 | sky + atmosphere | **done** (beyond ETR) — procedural sky (sun disc low ahead-right with a lens flare, drifting clouds; stars, moon, aurora at night), three layers of distant ridges, aerial perspective and valley mist in every lit shader's `FOG`, night torches inside the clamp (baked into the terrain). `[display] sky = etr` / `--sky=etr` is the old frame to the level. See the deviations. |
 | weather | **snow (0–3), sky (sunny/cloudy/night/thunderstorm) and wind (none/light/strong) done** — `SnowFall` (world-anchored streaking flakes + far snow, deterministic) and `LensSnow` (a few defocused flakes melting on the lens, off the middle), `LightCondition` and `WindField.init_crosswind`, all on the course screen, remembered in `[game] snowfall`/`conditions`/`wind`, carried on a lobby room. The sky moves sun, ambient, fog, skybox, tints, ice, and shadows (`EnvironmentPreset.casts_shadows`). The wind blows from a side rolled per start and moves the trees, the snow, the HUD's rose and a racer in flight. The thunderstorm is ours, not ETR's (`Lightning`, see the deviations). `evening` and ETR's wind grades (`--wind=`) are not offered. |
 | computer opponents | **done** (beyond ETR) — `RaceSetup` 1–9 opponents, each a `SimulatedRacer` + `AIInputSource` scoring nine candidate lines. Skill moves habits, never physics: 30 s on a 22° slope gives easy 231 m, medium 333 m, hard 422 m, a player holding straight 413 m. Deterministic from a seed. Solid via `RacerField`. |
@@ -1042,9 +1042,10 @@ the whole sky to cyan-white, against which no disc can show. The fog
   player types, and listed under a header of that name. The file name is the course dir, the
   entry is kept, the pack is fetched again each session. The shell lists `CourseCatalog.load_with_external()`; tests and
   the lobby use `load_default()` — a room cannot race a course only one machine has.
-- **A phone races by tilt or by buttons** (`TouchScheme`, `TouchControls`, `TiltSteering`); ETR
-  is keyboard-only. The buttons press the ordinary actions; tilt is merged per tick in
-  `LocalInputSource`. The physics sees a stick and flags, exactly as from a gamepad. A phone
+- **A phone races by tilt, by buttons, or by a mix** (`TouchScheme`, `TouchControls`,
+  `TiltSteering`); ETR is keyboard-only. The tilt's two halves — roll steers, pitch paddles and
+  brakes — are each the device's or a pair of buttons' (`TiltSteering.steers` / `.speeds`). The
+  buttons press the ordinary actions; tilt is merged per tick in `LocalInputSource`. The physics sees a stick and flags, exactly as from a gamepad. A phone
   leaving the app pauses the race like `P` (`RaceScene._notification`), not in a network race.
   The start hint reads `TAP TO START` under the overlay.
 

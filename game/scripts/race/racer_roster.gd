@@ -72,9 +72,11 @@ var _remote: Dictionary[int, PlaybackRacer] = {}
 ## [param auto_input] non-empty makes this a stand-in for a player rather than a
 ## player: it neither keeps a ghost nor races one.
 ##
-## [param tilt] makes the device's tilt steer too — see [TouchScheme].
+## [param touch] decides whether the device's tilt steers, paddles and brakes
+## too — see [TouchScheme].
 func build_local(character_dir: String, scene_path: String, display_name: String,
-		auto_input: String, compensate_keys: bool, tilt: bool = false) -> SimulatedRacer:
+		auto_input: String, compensate_keys: bool,
+		touch: TouchScheme.Kind = TouchScheme.Kind.OFF) -> SimulatedRacer:
 	local = SimulatedRacer.new()
 	local.name = "LocalRacer"
 	local.kind = Racer.Kind.LOCAL
@@ -82,8 +84,10 @@ func build_local(character_dir: String, scene_path: String, display_name: String
 	if auto_input.is_empty():
 		var keyboard := LocalInputSource.new()
 		keyboard.compensate = compensate_keys
-		if tilt:
+		if TouchScheme.uses_tilt(touch):
 			keyboard.tilt = TiltSteering.new()
+			keyboard.tilt.steers = TouchScheme.tilt_steers(touch)
+			keyboard.tilt.speeds = TouchScheme.tilt_speeds(touch)
 		local.input_source = keyboard
 		local.recorder = RaceRecorder.new()
 	else:

@@ -55,6 +55,13 @@ const SETTLE_TIME := 0.35
 ## to reject zero.
 const MIN_MAGNITUDE := 0.1
 
+## Which halves this run races with — [method TouchScheme.tilt_steers] and
+## [method TouchScheme.tilt_speeds]. Both are always computed; these say which
+## [LocalInputSource] merges and [TouchControls]' level shows, the rest being
+## buttons.
+var steers: bool = true
+var speeds: bool = true
+
 ## −1 (full left) … 1 (full right), 0 inside the deadzone.
 var steer: float = 0.0
 var paddling: bool = false
