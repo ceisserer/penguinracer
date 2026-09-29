@@ -46,7 +46,8 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           ShrubMesh (bush from `shrub.png`, 3 LODs), Forest (any of the
                           three: cells × levels, per-tree dithered LOD, wind + snow),
                           Atmosphere (the procedural sky's globals: haze, mist, ridges),
-                          CourseLights (night torches, flags → torches)
+                          CourseLights (night torches, flags → torches),
+                          TreeShadowBake (the trees' shadows in the terrain, per sun)
   scripts/camera/         chase camera
   scripts/shell/          main/course/settings menus, HUD, LobbyMenu (connect → browse → room,
                           own CourseMenu instance), LoadingScreen (shared by menu and race),
@@ -143,6 +144,7 @@ godot --path game -- --snow=3                                      # ... snowing
 godot --path game -- --light=night                                 # ... under another sky (sunny|cloudy|night|thunderstorm)
 godot --path game -- --sky=etr                                     # ... with ETR's skybox and flat fog (procedural|etr)
 godot --path game -- --quality=fast                                # ... at a quality preset (fastest|fast|medium|high|best)
+godot --path game -- --tree-shadows=baked                          # ... trees' shadows baked, not mapped (dynamic|baked)
 godot --path game -- --server=penguin.example                      # ... lobby on that server
 godot --path game -- --lobby                                       # ... lobby on the configured one
 godot --path game res://scenes/key_log.tscn                        # what the link does to the keyboard
@@ -189,8 +191,8 @@ SHOT_METHOD=gl_compatibility SHOT_RESOLUTION=1024x576 tools/shot.sh /tmp/web-loo
 **Settings** live in `user://penguinracer.cfg` (Linux: `~/.local/share/godot/app_userdata/PenguinRacer/`),
 written with comments on first run; delete it for defaults. The **Configuration** screen edits
 the display rows (window size, frame-rate readout, fog distance), the quality rows
-(render scale, anti-aliasing, sky and sky detail, tree detail distance, shadows, tree shadows,
-shadow detail, shadow edges, ice reflections, ice reflects the world) and writes the same commented file back. The **quality preset**
+(render scale, anti-aliasing, sky and sky detail, tree detail distance, shadows, tree shadow
+type, tree shadows, shadow detail, shadow edges, ice reflections, ice reflects the world) and writes the same commented file back. The **quality preset**
 drop-down (Fastest … Best quality) sets the quality rows together and is *derived*, never stored:
 `QualityPreset.matching` names whichever preset the values are, else "Custom". **High quality is
 the shipped frame and `GameConfig`'s defaults** — `TestConfig` holds them together, so an untouched
@@ -198,9 +200,11 @@ file moves no reference capture; keep it that way when adding a knob. Elsewhere:
 multiplayer** screen, `port` file-only, `opponents`/`opponent_skill`/`snowfall`/`conditions`/`wind` on
 the course screen. Resolution offers the display's own modes (`DisplayModes`); resolution and
 fullscreen are hidden on the web and on a phone, where the page or the system sizes the canvas;
-`[controls] touch` (buttons/tilt_steer/tilt_speed/tilt/off) is shown only on a phone. The shadows row is hidden
-wherever `RenderBackend.supports_light_shadows()` is false but the value is still written back,
-so a desktop preference survives a browser session. A ghost is not a setting: it is whichever
+`[controls] touch` (buttons/tilt_steer/tilt_speed/tilt/off) is shown only on a phone. The shadow
+map's rows (tree shadow type, tree shadows, shadow detail, shadow edges) are hidden wherever
+`RenderBackend.supports_light_shadows()` is false but their values are still written back, so a
+desktop preference survives a browser session; the shadows row stays, since it also switches the
+baked tree shadows. A ghost is not a setting: it is whichever
 saved run the player picks from **Race against ghost**, or none.
 
 **Export presets**: `Web` (streamed base — engine, shell, all 44 previews), one generated
@@ -212,7 +216,7 @@ the export fails obscurely. Prerequisites: Godot 4.7.2 on `PATH` as `godot`, web
 templates, and **Vulkan** for the desktop (Mobile renderer).
 
 **Captures**: `SHOT_METHOD` is `mobile` (desktop default), `gl_compatibility` (browser) or
-`forward_plus`; the driver follows it. `tools/shot.sh` uses the container's real GPU (Wayland
+`forward_plus`; the driver follows it. `SHOT_TREE_SHADOWS=dynamic|baked` picks the trees' shadows. `tools/shot.sh` uses the container's real GPU (Wayland
 socket + `/dev/dri/renderD128`, needs `libegl1 libegl-mesa0 libdecor-0-0`; without them Godot
 blames "video card drivers" and silently falls back). ~3 s for 120 frames on the GPU, ~2 min on
 llvmpipe; `SHOT_FORCE_SOFTWARE=1` takes the slow path, worth doing before trusting a small tone
@@ -227,7 +231,7 @@ Detail is in `PROGRESS.md`; this is the summary.
 |---|---|
 | 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 4724 assertions, 0 failures, 13 s headless. |
 | 1 — importer + first course | **done** — 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. |
-| 2 — rendering | partial — Mobile on the desktop, Compatibility on the web (trap list: *sRGB-blended shadow pass*). ETR's illumination clamp in every lit shader except the character's; desktop-only PSSM shadow. Splat PBR, chunked terrain, instanced objects (conifers, bare trees and shrubs are 3D meshes at 3 LODs + an octahedral impostor, dithered hand-overs, wind sway, shader snow — [Forest]; anything else collidable is ETR's two crossed planes with a hashed yaw; items are billboards), ETR's HUD redrawn as primitives ([RaceHUD]), migrated skyboxes. Tone matched on Bunny Hill at both ends in all three channels; no LightmapGI. Snow/ice micro-relief, glint, Fresnel sky, ice reflecting the racers (`IceReflection`) and, as a setting, the hill round them (`IceEnvironment`), textured carve spray. Heightmap AO baked at import + trench-wall AO; shaded/occluded/carved snow tinted blue (fake SSS). |
+| 2 — rendering | partial — Mobile on the desktop, Compatibility on the web (trap list: *sRGB-blended shadow pass*). ETR's illumination clamp in every lit shader except the character's; desktop-only PSSM shadow, the trees' shadows baked into the terrain's vertex colour on the web and by choice on the desktop (`TreeShadowBake`). Splat PBR, chunked terrain, instanced objects (conifers, bare trees and shrubs are 3D meshes at 3 LODs + an octahedral impostor, dithered hand-overs, wind sway, shader snow — [Forest]; anything else collidable is ETR's two crossed planes with a hashed yaw; items are billboards), ETR's HUD redrawn as primitives ([RaceHUD]), migrated skyboxes. Tone matched on Bunny Hill at both ends in all three channels; no LightmapGI. Snow/ice micro-relief, glint, Fresnel sky, ice reflecting the racers (`IceReflection`) and, as a setting, the hill round them (`IceEnvironment`), textured carve spray. Heightmap AO baked at import + trench-wall AO; shaded/occluded/carved snow tinted blue (fake SSS). |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror; a carve leaves a shaded trench with a ploughed lip. |
 | 4 — character | **done for all five** — skinned mesh from `shape.lst`, keyframe clips as `AnimationLibrary` + `KeyframePath` root motion, start animation (`CIntro`), finish clips on the results screen (`RaceOutcome.clip`), racing pose layer (`CharacterRig.adjust_joints`, ETR's `AdjustJoints`) driven off `RacerState` alone so ghosts and peers animate. `GameConfig.character` picks one. |
 | 5 — game shell | partial — main menu → Practice / Race the computer / Network multiplayer / Race against ghost / character / Configuration; results screen with named runs; ETR palette theme; course + character catalogs (course list in three parts: Tux Racer, ETR, added by address); English + German, detected or chosen on the settings screen; audio (`AudioDirector`, ETR's one-voice-per-cue mixer). Missing: cups, medals, profiles (data imported), volume controls, ETR's menu art (licence audit). |
@@ -446,6 +450,10 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
 - **A mesh without a colour array reads `COLOR` as white**, which is what lets a course imported
   before `ambient_occlusion.res` draw unoccluded. `TerrainRenderer` drops an occlusion image whose
   size is not the heightmap's without a word; `TestOcclusion` checks every course's.
+- **The terrain's vertex stage has one spare varying component**, `v_bake_lip.y`. `splat_uv` is
+  worked out in `fragment()` from `world_pos` (`splat_uv_of`) — a linear function of it, so the same
+  value — to make room for the baked tree shadow. Vertex colour is R sky, G torchlight, B tree sun:
+  a new per-vertex bake has A left, and then nothing.
 - **A varying costs a whole slot, and a phone has 28.** Godot's Mobile renderer charges one slot per
   declaration (a `float` is a `vec4`) on top of 15 of its own; the limit is the GPU's
   `maxFragmentInputComponents / 4` — 32 on the desktop's Radeon, 28 on an Adreno 650. Over it, the
@@ -847,8 +855,18 @@ the whole sky to cyan-white, against which no disc can show. The fog
   has no sound for it.
 - **The sun casts a real shadow map on the desktop only**; ETR casts a character blob. Off by
   renderer (`RenderBackend`), sky (`EnvironmentPreset.casts_shadows`, ETR's `light_id` rule) and
-  player (`GameConfig.shadows`, ETR's `perf_level`). The web has no shadows at all, deliberately;
-  its unshadowed frame measures within a level of the desktop's on snow.
+  player (`GameConfig.shadows`, ETR's `perf_level`). The web has no shadow map, deliberately.
+- **The trees' shadows can be baked instead** (`TreeShadowBake`), and on the web they always are:
+  once per course and sun, at load, into the terrain's vertex colour B, which `terrain.gdshader`
+  multiplies into the sun term wherever `ATTENUATION` goes (`tree_sun`, eased by
+  `tree_shadow_strength`, 0 when the map draws the trees or the sky casts nothing). On the desktop it
+  is `[quality] tree_shadow_kind = "baked"` (the *Tree shadow type* row, FAST's choice), which takes
+  the trees out of the shadow map; racers keep theirs. A stamp per tree size, `blend_rect`ed into a
+  half-float map; the ground's slope along the sun is folded into the height (`_stretch`), or the
+  shadows down a bank came out 2–3 m short. Soft (0.25–1 m grid, blurred, then doubled so only the
+  outer edge ramps — half a shadow is invisible on snow at the illumination clamp), still in the
+  wind, no flags, no bare-tree limbs. Up to ~240 ms at load in a browser; nothing a frame. A new sun
+  mid-race re-bakes and rebuilds the chunks. Racers are not shaded by it.
 - **Snow and ice get view-dependent terms ETR lacks.** Snow: two octaves of micro-relief and a
   crystal glint. Ice: Fresnel sky reflection on `SPECULAR_LIGHT` (a two-colour ramp from the skybox
   — Compatibility cannot bind `Sky`), sun glare, albedo 0.82. **Fresnel is a split**

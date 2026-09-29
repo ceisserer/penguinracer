@@ -90,6 +90,11 @@ var sky: String = ""
 ## Applied before [member sky], which can still override its sky. Empty means
 ## "whatever the settings file says".
 var quality: String = ""
+## `--tree-shadows=dynamic|baked` — [member GameConfig.tree_shadow_kind] for one
+## run, so the two can be captured side by side without touching the settings
+## file. Applied after [member quality]. Empty means "whatever the settings
+## file says".
+var tree_shadows: String = ""
 ## `?autostart` — the browser's way of saying "skip the menu" without naming a
 ## course, since it has no `--auto-input=` either.
 var autostart: bool = false
@@ -198,6 +203,8 @@ func parse(argv: PackedStringArray, query: Dictionary) -> void:
 			sky = arg.trim_prefix("--sky=")
 		elif arg.begins_with("--quality="):
 			quality = arg.trim_prefix("--quality=")
+		elif arg.begins_with("--tree-shadows="):
+			tree_shadows = arg.trim_prefix("--tree-shadows=")
 		elif arg.begins_with("--capture="):
 			capture_path = arg.trim_prefix("--capture=")
 		elif arg.begins_with("--capture-frames="):
@@ -244,6 +251,7 @@ func parse(argv: PackedStringArray, query: Dictionary) -> void:
 	light = _str(query, "light", light)
 	sky = _str(query, "sky", sky)
 	quality = _str(query, "quality", quality)
+	tree_shadows = _str(query, "tree-shadows", tree_shadows)
 	autostart = autostart or query.has("autostart")
 	# The lobby, from a link. `?server=` names one and `?lobby` takes the one
 	# the page's own host implies — see [method RaceNetwork.default_address],

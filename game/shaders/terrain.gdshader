@@ -33,7 +33,10 @@ render_mode cull_back, depth_draw_opaque, diffuse_burley, specular_schlick_ggx,
 // Every torch on the course, baked per vertex by [CourseLights.bake_terrain]
 // and stored as a square root. Not `atmo_torch_glow`, whose eight nearest
 // torches left every farther flame burning over dark snow.
-#define terrain_torch v_splat_lip.z
+#define terrain_torch v_bake_lip.z
+// How much of the sun gets past the trees to this vertex, baked per sun by
+// [TreeShadowBake] and eased in by `tree_shadow_strength`. 1 = sunlit.
+#define tree_sun v_bake_lip.x
 
 group_uniforms Splat;
 // Three things about these samplers matter and none is obvious.
@@ -156,6 +159,11 @@ uniform float terrain_ao_strength : hint_range(0.0, 2.0) = 1.0;
 // occlusion on the sun term is what lets a sunlit gully floor read at all,
 // since the ambient alone sits under the illumination clamp there.
 uniform float terrain_ao_sun : hint_range(0.0, 1.0) = 0.35;
+// The trees' shadows, baked per sun into the vertex colour's blue by
+// [TreeShadowBake] for a sun whose shadow map does not draw the trees: always
+// under Compatibility, by choice under Mobile. 0 is none — a sky that casts no
+// shadow, or trees that are in the shadow map already and would darken twice.
+uniform float tree_shadow_strength : hint_range(0.0, 1.0) = 0.0;
 
 group_uniforms Surface_Detail;
 // Procedural micro-relief. RG = the gradient of a tiling height field, packed
@@ -419,16 +427,15 @@ uniform float ice_env_face_size = 128.0;
 
 // The packed varyings (see the top of the file). A varying belongs to the one
 // stage that writes it, so the packing is by stage: two written in vertex(),
-// four written in fragment() for light().
+// four written in fragment() for light(). `v_bake_lip.y` is free.
 varying vec4 v_world_sky;  // vertex: world_pos, terrain_sky
-varying vec4 v_splat_lip;  // vertex: splat_uv, terrain_torch, ridge_lip
+varying vec4 v_bake_lip;   // vertex: tree_sun, -, terrain_torch, ridge_lip
 varying vec4 v_torch_snow; // fragment: torch_glow, snow_mask
 varying vec4 v_glint;      // fragment: glint_normal, sparkle
 varying vec4 v_ice;        // fragment: ice_sky, ice_fresnel
 varying vec4 v_ambient;    // fragment: ambient_occlusion, scatter_base, ice_mask
 
 #define world_pos v_world_sky.xyz
-#define splat_uv v_splat_lip.xy
 #define snow_mask v_torch_snow.a
 #define ice_mask v_ambient.z
 // Schlick weight for the ice terms, shared by the sky reflection in fragment
@@ -436,7 +443,7 @@ varying vec4 v_ambient;    // fragment: ambient_occlusion, scatter_base, ice_mas
 #define ice_fresnel v_ice.a
 // The lip of the trench, from the vertex stage that raises it — geometry-rate
 // on purpose, so the highlight and the displacement cannot disagree.
-#define ridge_lip v_splat_lip.w
+#define ridge_lip v_bake_lip.w
 // Glint intensity and the view-space facet direction it fires along. Both are
 // computed in fragment and consumed by the custom light function, where
 // SPECULAR is write-only and there is no texture sampling worth doing.
@@ -514,23 +521,36 @@ float trail_depth(vec2 world_xz) {
 	return t.r * trail_depth_scale;
 }
 
+// Where world position [param world] reads the splat maps.
+//
+// The splat is a *vertex* grid, not a texel grid: the importer writes it at the
+// heightmap's resolution with sample 0 on the near corner and sample n-1 on the
+// far one, and `HeightmapSurface` reads it back that way for friction. Sampling
+// it as `world / world_size` puts sample n-1 half a texel outside the texture
+// and slides everything between, so the picture and the physics disagree about
+// where a material ends by up to a quarter of a metre. Land on texel centres
+// instead.
+//
+// Worked out per fragment from `world_pos`, not handed down as a varying of its
+// own: it is a linear function of the world position, so interpolating one is
+// interpolating the other, and the two components it saved carry the baked
+// tree shadow instead.
+vec2 splat_uv_of(vec3 world) {
+	vec2 splat_grid = vec2(textureSize(splat_0, 0)) - 1.0;
+	return (vec2(world.x / world_size.x, -world.z / world_size.y)
+		* splat_grid + 0.5) / (splat_grid + 1.0);
+}
+
 void vertex() {
 	vec3 world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	// The splat is a *vertex* grid, not a texel grid: the importer writes it at
-	// the heightmap's resolution with sample 0 on the near corner and sample
-	// n-1 on the far one, and `HeightmapSurface` reads it back that way for
-	// friction. Sampling it as `world / world_size` puts sample n-1 half a
-	// texel outside the texture and slides everything between, so the picture
-	// and the physics disagree about where a material ends by up to a quarter
-	// of a metre. Land on texel centres instead.
-	vec2 splat_grid = vec2(textureSize(splat_0, 0)) - 1.0;
-	splat_uv = (vec2(world.x / world_size.x, -world.z / world_size.y)
-		* splat_grid + 0.5) / (splat_grid + 1.0);
 
 	// Godot's default colour is white for a mesh without one, which is a chunk
-	// from a course imported before the occlusion was baked: open sky.
+	// from a course imported before the occlusion was baked: open sky, and no
+	// tree in the sun's way.
 	terrain_sky = COLOR.r;
 	terrain_torch = COLOR.g;
+	tree_sun = mix(1.0, COLOR.b, tree_shadow_strength);
+	v_bake_lip.y = 0.0;
 
 	ridge_lip = 0.0;
 	if (trail_enabled) {
@@ -589,6 +609,7 @@ vec3 detail_slope(vec2 p, float metres, float stretch) {
 }
 
 void fragment() {
+	vec2 splat_uv = splat_uv_of(world_pos);
 	vec4 w0 = texture(splat_0, splat_uv);
 	vec4 w1 = layer_count > 4 ? texture(splat_1, splat_uv) : vec4(0.0);
 	float total = dot(w0, vec4(1.0)) + dot(w1, vec4(1.0));
@@ -939,7 +960,12 @@ void light() {
 	// the shadow map — takes `snow_scatter_tint` by how far below
 	// `snow_scatter_band` its sun term has fallen; occluded and carved snow
 	// already carries its share in `scatter_base`.
-	float sun_reach = shaped * ATTENUATION;
+	//
+	// The trees' baked shadow is the same thing where there is no shadow map
+	// for them to be in: `tree_sun` goes wherever `ATTENUATION` does, and is 1
+	// wherever the map draws the trees itself (see `tree_shadow_strength`).
+	float sun_seen = ATTENUATION * tree_sun;
+	float sun_reach = shaped * sun_seen;
 	float shade = 1.0 - smoothstep(0.0, snow_scatter_band, sun_reach);
 	float scatter = snow_mask * clamp(max(shade * snow_scatter_shade, scatter_base),
 		0.0, 1.0);
@@ -947,7 +973,7 @@ void light() {
 	// The sun's part of the relief occlusion — see `terrain_ao_sun`.
 	float sun_sky = mix(1.0, pow(clamp(terrain_sky, 0.0, 1.0), terrain_ao_strength),
 		terrain_ao_sun);
-	DIFFUSE_LIGHT += min(etr_illumination(LIGHT_COLOR / PI, shaped * sun_sky, ATTENUATION,
+	DIFFUSE_LIGHT += min(etr_illumination(LIGHT_COLOR / PI, shaped * sun_sky, sun_seen,
 		ambient_filter) + torch_glow,
 		vec3(1.0));
 
@@ -964,7 +990,7 @@ void light() {
 	float gloss = mix(mix(16.0, 90.0, 1.0 - ROUGHNESS), ice_gloss, ice_mask);
 	float strength = mix(specular_f0 * specular_strength,
 		ice_specular_strength * ice_fresnel, ice_mask);
-	SPECULAR_LIGHT += LIGHT_COLOR * ATTENUATION * pow(ndh, gloss) * strength / PI;
+	SPECULAR_LIGHT += LIGHT_COLOR * sun_seen * pow(ndh, gloss) * strength / PI;
 
 	// The sky the ice reflects, added once and unlit. It rides in here because
 	// SPECULAR_LIGHT is a channel both renderers agree on and EMISSION is not;
@@ -978,7 +1004,7 @@ void light() {
 	// widen it back into the sheen it exists to avoid.
 	if (sparkle > 0.0) {
 		float fdh = max(dot(glint_normal, h), 0.0);
-		SPECULAR_LIGHT += LIGHT_COLOR * ATTENUATION
+		SPECULAR_LIGHT += LIGHT_COLOR * sun_seen
 			* pow(fdh, sparkle_sharpness) * sparkle / PI;
 	}
 }

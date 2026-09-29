@@ -270,6 +270,29 @@ custom_minimum_size = Vector2(0, 38)
 layout_mode = 2
 size_flags_horizontal = 0
 
+[node name="TreeShadowKindRow" type="HBoxContainer" parent="Frame/Panel/Body/Scroll/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="TreeShadowKindLabel" type="Label" parent="Frame/Panel/Body/Scroll/Rows/TreeShadowKindRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(230, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "TREE_SHADOW_KIND_LABEL"
+
+[node name="TreeShadowKindOption" type="OptionButton" parent="Frame/Panel/Body/Scroll/Rows/TreeShadowKindRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(260, 38)
+layout_mode = 2
+theme_override_font_sizes/font_size = 17
+
+[node name="TreeShadowKindSpacer" type="Control" parent="Frame/Panel/Body/Scroll/Rows/TreeShadowKindRow"]
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
 [node name="TreeShadowsRow" type="HBoxContainer" parent="Frame/Panel/Body/Scroll/Rows"]
 unique_name_in_owner = true
 layout_mode = 2

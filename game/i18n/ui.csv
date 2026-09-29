@@ -38,6 +38,7 @@ SKY_LABEL,Sky:,Himmel:
 SKY_DETAIL_LABEL,Sky detail:,Himmelsdetails:
 TREE_DETAIL_LABEL,Tree detail distance:,Baumdetail-Distanz:
 SHADOWS_LABEL,Shadows:,Schatten:
+TREE_SHADOW_KIND_LABEL,Tree shadow type:,Art der Baumschatten:
 TREE_SHADOWS_LABEL,Tree shadows:,Baumschatten:
 SHADOW_DETAIL_LABEL,Shadow detail:,Schattendetails:
 SHADOW_FILTER_LABEL,Shadow edges:,Schattenkanten:
@@ -63,6 +64,8 @@ SKY_PROCEDURAL,Procedural,Prozedural
 SKY_ORIGINAL,Original (photographed),Original (fotografiert)
 TREE_SHADOWS_NEAREST,Nearest trees,Nächste Bäume
 TREE_SHADOWS_ALL,All trees,Alle Bäume
+TREE_SHADOWS_DYNAMIC,Dynamic,Dynamisch
+TREE_SHADOWS_BAKED,Pre-baked,Vorberechnet
 TOUCH_TILT,Tilt to steer and for speed,Neigen zum Lenken und für Tempo
 TOUCH_TILT_STEER,"Tilt to steer, buttons for speed","Neigen zum Lenken, Tasten für Tempo"
 TOUCH_TILT_SPEED,"Buttons to steer, tilt for speed","Tasten zum Lenken, Neigen für Tempo"

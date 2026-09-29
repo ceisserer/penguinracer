@@ -109,6 +109,7 @@ godot --path game -- --crosswind=strong              # ... in a crosswind (none,
 godot --path game -- --wind=2                        # ... in ETR's own wind grade (1..3) instead
 godot --path game -- --snow=3                        # ... snowing hard (0..3)
 godot --path game -- --light=night                   # ... after dark (sunny, cloudy, night or thunderstorm)
+godot --path game -- --tree-shadows=baked            # ... with the trees' shadows baked (dynamic or baked)
 godot --path game -- --server=<address>              # ... straight to the multiplayer lobby
 godot --path game -- --lobby                         # ... on the server the settings file names
 godot --path game -- --touch                         # ... with a phone's on-screen controls
@@ -351,16 +352,21 @@ resolution = "1280x720"   ; or "auto"; ignored on the web, where the page sizes 
 fullscreen = false
 render_scale = 1.00       ; fraction of the window the 3D scene renders at [0.25...2.0]
 ice_reflections = true    ; whether ice reflects the racers standing on it
-shadows = true            ; racers and trees cast a shadow. Desktop only — the browser's
-                          ; renderer cannot draw one without blowing the frame out — and
-                          ; off under a cloudy or a night sky either way
+shadows = true            ; racers and trees cast a shadow; off under a cloudy or a
+                          ; night sky either way. The browser's renderer cannot draw a
+                          ; shadow map without blowing the frame out, so there it is
+                          ; only the trees', baked
 sky = "procedural"        ; or "etr": the original's photographed skybox and flat fog
 
 [quality]
 antialiasing = "2x"       ; off, 2x or 4x
 sky_detail = "high"       ; low, medium or high: the procedural sky's clouds and crests
 tree_detail = 1.00        ; tree hand-overs at this times 50 / 90 / 130 m [0.5...1.5]
-tree_shadows = "all"      ; off, near (the nearest, full-detail level) or all
+tree_shadow_kind = "dynamic" ; or "baked": the trees' shadows worked out once per sun as
+                          ; the course loads, into the terrain — soft, still in the wind,
+                          ; free a frame. The browser always bakes
+tree_shadows = "all"      ; off, near (the nearest, full-detail level) or all: which trees
+                          ; go into the shadow map, when it is dynamic
 shadow_detail = "high"    ; low, medium, high or best: the sun's shadow map
 shadow_filter = "medium"  ; hard, very_low, low, medium or high: the shadow's edge
 
@@ -408,7 +414,7 @@ Best quality — sets `render_scale`, `ice_reflections`, `shadows`, `sky` and th
 section together. The file keeps only the values: the screen shows whichever preset they add up
 to, and "Custom" for any other mix. High quality is the defaults, the frame the game has always
 shipped. `--quality=fast` (or `?quality=fast` in the browser) runs one session at a preset without
-touching the file; `--sky=` still outranks its sky.
+touching the file; `--sky=` still outranks its sky, and `--tree-shadows=` its tree shadows.
 
 The **Configuration** screen's resolution list is the display's, not a fixed one: the screen's own
 resolution, the standard modes that share its shape and fit beside the taskbar, and whatever the
@@ -473,6 +479,7 @@ SHOT_LIGHT=night SHOT_SNOW=2 tools/shot.sh /tmp/night.png
                                                      # ... after dark, in moderate snow
 SHOT_WIND=strong tools/shot.sh /tmp/windy.png        # ... in a strong crosswind (side pinned)
 SHOT_SKY=etr tools/shot.sh /tmp/etr-sky.png          # ... under ETR's skybox and flat fog
+SHOT_TREE_SHADOWS=baked tools/shot.sh /tmp/baked.png # ... with the trees' shadows baked, not mapped
 ```
 
 `SHOT_METHOD` is `mobile`, `gl_compatibility` or `forward_plus` and the driver follows it; unset

@@ -5,7 +5,8 @@
 ## the second half because there was no screen. This is the screen, and it moves
 ## every key a player can act on today: the language, window size, fullscreen, the quality
 ## rows (render scale, anti-aliasing, the sky and its detail, how far out the
-## trees keep their detail, shadows and which trees cast them, the shadow map
+## trees keep their detail, shadows, whether the trees' are baked and which
+## trees cast them, the shadow map
 ## and its edge filter, ice reflections), the HUD's frame-rate readout, the two fog distances, and
 ## on a phone how it is raced ([TouchScheme]) and which renderer it runs
 ## ([RenderBackend]).
@@ -64,6 +65,8 @@ signal closed()
 @onready var _sky_detail: OptionButton = %SkyDetailOption
 @onready var _tree_detail: HSlider = %TreeDetailSlider
 @onready var _tree_detail_value: Label = %TreeDetailValue
+@onready var _tree_shadow_kind_row: Control = %TreeShadowKindRow
+@onready var _tree_shadow_kind: OptionButton = %TreeShadowKindOption
 @onready var _tree_shadows_row: Control = %TreeShadowsRow
 @onready var _tree_shadows: OptionButton = %TreeShadowsOption
 @onready var _shadow_detail_row: Control = %ShadowDetailRow
@@ -100,17 +103,20 @@ func _ready() -> void:
 	var on_web: bool = OS.has_feature("web")
 	_resolution_row.visible = not on_web
 	_fullscreen_row.visible = not on_web
-	# And the same argument for the shadows row. The browser runs the
+	# And the same argument for the shadow map's rows. The browser runs the
 	# Compatibility renderer, where a shadow-casting light is drawn in a second,
-	# sRGB-blended pass that wrecks the whole frame — so [RaceScene] refuses
-	# there whatever this says, and offering the switch would be offering a
-	# third dead knob. Asked of [RenderBackend] rather than of `web`, so a
-	# desktop run started with `--rendering-method gl_compatibility` — which is
-	# how the web look gets checked without a browser — hides it too.
-	_shadows_row.visible = RenderBackend.supports_light_shadows()
-	_tree_shadows_row.visible = _shadows_row.visible
-	_shadow_detail_row.visible = _shadows_row.visible
-	_shadow_filter_row.visible = _shadows_row.visible
+	# sRGB-blended pass that wrecks the whole frame — so [RaceScene] draws no
+	# shadow map there whatever these say, and offering them would be offering
+	# dead knobs. The shadows row itself stays: it switches the trees' baked
+	# shadows, which are all the shadow there is on that renderer. Asked of
+	# [RenderBackend] rather than of `web`, so a desktop run started with
+	# `--rendering-method gl_compatibility` — which is how the web look gets
+	# checked without a browser — hides them too.
+	var shadow_map: bool = RenderBackend.supports_light_shadows()
+	_tree_shadow_kind_row.visible = shadow_map
+	_tree_shadows_row.visible = shadow_map
+	_shadow_detail_row.visible = shadow_map
+	_shadow_filter_row.visible = shadow_map
 	# Only where there is an overlay for it to choose: a phone, or a desktop
 	# run with `--touch`. Written back either way, like the shadow rows.
 	_touch_row.visible = TouchScheme.platform_is_mobile() \
@@ -130,6 +136,7 @@ func _ready() -> void:
 	_fill_options(_antialiasing, ["OPTION_OFF", "2x", "4x"])
 	_fill_options(_sky, ["SKY_PROCEDURAL", "SKY_ORIGINAL"])
 	_fill_options(_sky_detail, ["OPTION_LOW", "OPTION_MEDIUM", "OPTION_HIGH"])
+	_fill_options(_tree_shadow_kind, ["TREE_SHADOWS_DYNAMIC", "TREE_SHADOWS_BAKED"])
 	_fill_options(_tree_shadows, ["OPTION_OFF", "TREE_SHADOWS_NEAREST", "TREE_SHADOWS_ALL"])
 	_fill_options(_shadow_detail, ["OPTION_LOW", "OPTION_MEDIUM", "OPTION_HIGH", "OPTION_BEST"])
 	_fill_options(_shadow_filter, ["SHADOW_FILTER_HARD", "OPTION_VERY_LOW", "OPTION_LOW",
@@ -150,6 +157,7 @@ func _ready() -> void:
 	_antialiasing.item_selected.connect(_on_quality_row_changed)
 	_sky.item_selected.connect(_on_quality_row_changed)
 	_sky_detail.item_selected.connect(_on_quality_row_changed)
+	_tree_shadow_kind.item_selected.connect(_on_quality_row_changed)
 	_tree_shadows.item_selected.connect(_on_quality_row_changed)
 	_shadow_detail.item_selected.connect(_on_quality_row_changed)
 	_shadow_filter.item_selected.connect(_on_quality_row_changed)
@@ -219,6 +227,7 @@ func _show_values(values: Dictionary) -> void:
 	_sky_detail.select(values["sky_detail"])
 	_tree_detail.value = values["tree_detail"]
 	_shadows.button_pressed = values["shadows"]
+	_tree_shadow_kind.select(values["tree_shadow_kind"])
 	_tree_shadows.select(values["tree_shadows"])
 	_shadow_detail.select(values["shadow_detail"])
 	_shadow_filter.select(values["shadow_filter"])
@@ -236,6 +245,7 @@ func _row_values() -> Dictionary:
 		"sky_detail": _sky_detail.selected,
 		"tree_detail": _tree_detail.value,
 		"shadows": _shadows.button_pressed,
+		"tree_shadow_kind": _tree_shadow_kind.selected,
 		"tree_shadows": _tree_shadows.selected,
 		"shadow_detail": _shadow_detail.selected,
 		"shadow_filter": _shadow_filter.selected,
@@ -259,7 +269,10 @@ func _on_quality_row_changed(_value: Variant = null) -> void:
 	_quality.select(_custom_index() if kind == QualityPreset.CUSTOM else kind)
 	# The detail of a sky that is not being drawn is not a choice.
 	_sky_detail.disabled = _sky.selected != 0
-	_tree_shadows.disabled = not _shadows.button_pressed
+	_tree_shadow_kind.disabled = not _shadows.button_pressed
+	# Which trees go into the shadow map is no question once they are baked.
+	_tree_shadows.disabled = not _shadows.button_pressed \
+		or _tree_shadow_kind.selected == QualityPreset.TREE_SHADOWS_BAKED
 	_shadow_detail.disabled = not _shadows.button_pressed
 	_shadow_filter.disabled = not _shadows.button_pressed
 

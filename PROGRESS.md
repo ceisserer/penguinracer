@@ -2744,3 +2744,58 @@ floor one flat pale blue, on `frozen_lakes` (frame 600) a shrub by the racer spe
 patch green. The probe cameras' near plane went from 0.1 m to 5 m (`PROBE_NEAR`); the same
 `inception` frame then reflects the far wall and the sky, `tuxway` is unchanged. The exact
 flag case was not caught on a capture.
+
+### The trees' shadows can be baked, and the web gets them (2026-09-29) · **done, not measured on a phone, not seen in a real browser**
+
+**What.** `TreeShadowBake` works out the conifers', bare trees' and shrubs' shadows once per course
+and sun, as the course loads, into the terrain's vertex colour B (`TerrainRenderer`, beside the
+relief occlusion in R and the torchlight in G). `terrain.gdshader` multiplies it into the sun term
+wherever the shadow map's `ATTENUATION` goes, so a baked shadow falls to the ambient and goes the
+same blue a mapped one does. Under **Compatibility** — which cannot draw a shadow map at all — it is
+always on (sky and `[display] shadows` permitting), so the web build has tree shadows for the first
+time. Under **Mobile** it is a choice: `[quality] tree_shadow_kind = "dynamic" | "baked"`, the
+*Tree shadow type* row, `--tree-shadows=` / `?tree-shadows=` / `SHOT_TREE_SHADOWS` for one run.
+Baked takes the trees out of the shadow map (the racers keep theirs) and the *Tree shadows* row is
+disabled. The **Fast** preset now bakes (it had no tree shadows); every other preset, and the
+defaults, are unchanged, and the default Mobile frame is pixel-identical to before. The settings
+screen's *Shadows* row is now shown under Compatibility too, since it switches the bake; the four
+shadow-map rows stay hidden there.
+
+**How.** A tree is its species' crown profile (the one its mesh is built on) as a solid of
+revolution with a density; a vertex's shadow is what a ray from it to the sun loses crossing it.
+Marched once per tree size as a small stamp and `Image.blend_rect`ed, black at the shadow's
+opacity, into a half-float map of the course — which multiplies, so crowns in line compound. Found
+along the way, top down against the shadow map on Bunny Hill:
+
+- **A density of 1.4 left every tip pale.** The fins are cutouts of an opaque picture; a thin ray
+  through the crown's tip is stopped. 5 for conifers, 4 for shrubs.
+- **The course's plane is not the ground.** Shadows down Bunny Hill's banks came out 2–3 m short
+  of the mapped ones. Ground falling away from the sun lengthens a shadow exactly as a taller tree
+  would on the plane, so the slope along the sun (a plane fitted through three heights under the
+  shadow) goes into the height the stamp is picked by (`_stretch`). A stamp per slope instead was
+  ~3000 stamps and 0.8 s on `bronze_set`.
+- **Bunny Hill's rows are 1 m apart**, and a sharp stamp drew every shadow as a staircase. Blurred
+  [1 2 1], the shadows turned into pale smears: snow in the sun sits at ETR's illumination clamp,
+  so half a shadow barely darkens it. Blurred and then doubled (up to the species' ceiling), the
+  inside of the sharp shadow's half-way line is full strength and only the ramp outside is soft.
+  Probe points in a shadow now read 171/204/254 baked against 163/198/249 mapped.
+
+`splat_uv` moved from a vertex varying to `splat_uv_of(world_pos)` in `fragment()` to free the
+components the bake rides in (trap list).
+
+**Cost.** Nothing a frame. At load, headless on the desktop ~50–150 ms for the biggest courses
+(the machine's own noise is 2× run to run); **in headless Chromium 121 ms on Bunny Hill and 237 ms
+on `bronze_set`** (8153 trees), printed as `TREE_SHADOWS baked N trees in M ms`. A sky change
+mid-race to one with the same sun costs nothing (cloudy only turns the strength to 0); a new sun
+re-bakes and rebuilds the built chunks (~220 ms, headless).
+
+**Not done, by design.** Flags (a pole is thinner than a vertex spacing), bare trees' limbs (a
+faint wash instead), trees shading each other, racers darkening under a tree, shadows that sway.
+
+**Verified**: the suite — 6425 passed, 1 failed (the same pre-existing `lighting/what
+project.godot ships`); `TestTreeShadows` holds a conifer's shadow to the side away from the sun,
+its length at 45°, a bare crown fainter, two crowns compounding, a bank lengthening it, no bytes
+for no trees or a sun on the horizon, and times the bake on `bronze_set` and Bunny Hill;
+`TestConfig` the new key through the file. Renders: Bunny Hill top down and in the chase view
+under Mobile dynamic, Mobile baked and Compatibility; `bronze_set` and `challenge_one` chase views;
+Bunny Hill and `bronze_set` in headless Chromium (streamed web build over SwiftShader).

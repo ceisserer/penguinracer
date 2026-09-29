@@ -37,6 +37,9 @@ var _occlusion: PackedByteArray = PackedByteArray()
 ## [member CourseLights.terrain_light]'s bytes, one per heightmap vertex, or
 ## empty for a course with no torches.
 var _torchlight: PackedByteArray = PackedByteArray()
+## [method TreeShadowBake.bake]'s bytes, one per heightmap vertex, or empty
+## for no baked tree shadows — see [method set_tree_shadows].
+var _tree_sun: PackedByteArray = PackedByteArray()
 var _chunks: Dictionary[Vector2i, MeshInstance3D] = {}
 var _chunk_world: Dictionary[Vector2i, AABB] = {}
 var _chunks_x: int = 0
@@ -351,6 +354,28 @@ static func _lattice_value(lattice: PackedFloat32Array, period: int,
 	var b: float = lerpf(lattice[y1 * period + x0], lattice[y1 * period + x1], sx)
 	return lerpf(a, b, sy)
 
+## The trees' baked shadows: [param sun] is [method TreeShadowBake.bake]'s
+## bytes (empty for none), [param strength] how much of them shows — 0 under a
+## sky that casts no shadow, or wherever the shadow map draws the trees instead.
+##
+## The bytes are in the chunks' vertex colour, so new ones rebuild every chunk
+## already built. That is only ever a change of sky over a running race; a
+## course load hands them over before the first chunk exists.
+func set_tree_shadows(sun: PackedByteArray, strength: float) -> void:
+	if _material == null:
+		return
+	_material.set_shader_parameter("tree_shadow_strength", strength)
+	if sun.size() != surface.size.x * surface.size.y:
+		sun = PackedByteArray()
+	if sun == _tree_sun:
+		return
+	_tree_sun = sun
+	for key: Vector2i in _chunks:
+		_chunks[key].queue_free()
+	_chunks.clear()
+	if _last_center.is_finite():
+		update_streaming(_last_center, true)
+
 ## Point the shader at the live snow trail map.
 func set_trail_map(tex: Texture2D, origin: Vector2, extent: float, depth_scale: float) -> void:
 	if _material == null:
@@ -452,13 +477,15 @@ func _build_chunk(key: Vector2i) -> void:
 	verts.resize(nx * nz)
 	normals.resize(nx * nz)
 	uvs.resize(nx * nz)
-	# The baked sky visibility (R) and torchlight (G) ride in vertex colour
-	# rather than a texture: the terrain shader already binds 13 of WebGL2's 16
-	# guaranteed units, and both live on exactly this grid anyway. Always
-	# written, since Godot's default colour for a mesh without one is white —
-	# open sky, but also every vertex under a torch.
+	# The baked sky visibility (R), torchlight (G) and the sun past the trees
+	# (B) ride in vertex colour rather than a texture: the terrain shader
+	# already binds 15 of WebGL2's 16 guaranteed units, and all three live on
+	# exactly this grid anyway. Always written, since Godot's default colour for
+	# a mesh without one is white — open sky, but also every vertex under a
+	# torch.
 	var has_ao: bool = not _occlusion.is_empty()
 	var has_torches: bool = not _torchlight.is_empty()
+	var has_tree_sun: bool = not _tree_sun.is_empty()
 	var colors := PackedColorArray()
 	colors.resize(nx * nz)
 
@@ -495,7 +522,8 @@ func _build_chunk(key: Vector2i) -> void:
 			uvs[idx] = Vector2(wx * inv_world_x, v)
 			var sky: float = float(_occlusion[row + i]) / 255.0 if has_ao else 1.0
 			var torch: float = float(_torchlight[row + i]) / 255.0 if has_torches else 0.0
-			colors[idx] = Color(sky, torch, 0.0)
+			var sun: float = float(_tree_sun[row + i]) / 255.0 if has_tree_sun else 1.0
+			colors[idx] = Color(sky, torch, sun)
 			min_y = minf(min_y, y)
 			max_y = maxf(max_y, y)
 

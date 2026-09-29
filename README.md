@@ -112,9 +112,10 @@ one behind a gate, as long as the web frame without it is still a frame worth sh
 This started as a single-renderer project and was corrected when the cost became measurable: under
 Compatibility a shadow-casting light is moved into a second additive pass that is blended in
 **sRGB** rather than linear, so the sun arrives five to ten times too bright with its N·L gradient
-crushed flat — and no shader can reach a framebuffer blend. Shadows are therefore desktop-only,
-`RenderBackend.supports_light_shadows()` is the gate, and they are the only thing through it so
-far.
+crushed flat — and no shader can reach a framebuffer blend. The sun's shadow map is therefore
+desktop-only, `RenderBackend.supports_light_shadows()` is the gate, and it is the only thing through
+it so far. The web gets the trees' shadows another way: baked into the terrain's vertex colour
+once per course as it loads, which the desktop can choose too.
 
 ### 4. Snow is represented twice on purpose
 

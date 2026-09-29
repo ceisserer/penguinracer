@@ -202,6 +202,10 @@ var ridge_map: RidgeMap
 ## Torches down the edges and in place of the flags, lit under a night sky. A child of
 ## [member course_root], so it goes when the course does.
 var course_lights: CourseLights
+## The trees' shadows baked for the loaded course under a sun toward
+## [member _tree_sun_for], or empty — see [method _apply_tree_shadows].
+var _tree_sun: PackedByteArray = PackedByteArray()
+var _tree_sun_for: Vector3 = Vector3.ZERO
 var camera: ChaseCamera
 
 ## Everyone on the hill: the player, the field, the ghost and any peers. See
@@ -432,6 +436,9 @@ func _ready() -> void:
 			Config.apply_display()
 	if not args.sky.is_empty():
 		Config.procedural_sky = args.sky.strip_edges().to_lower() != "etr"
+	if not args.tree_shadows.is_empty():
+		Config.tree_shadow_kind = QualityPreset.parse(args.tree_shadows,
+			QualityPreset.TREE_SHADOW_KIND_NAMES, Config.tree_shadow_kind)
 	_cli_setup.wind = Config.wind
 	if not args.crosswind.is_empty():
 		_cli_setup.wind = WindField.parse_strength(args.crosswind)
@@ -581,6 +588,7 @@ func load_course(path: String) -> void:
 
 	current_course_dir = dir
 	requested_course_path = path
+	_tree_sun = PackedByteArray()
 	await _load_step(LOAD_DOWNLOADED, streaming)
 	var packed: PackedScene = load(path)
 	course_root = packed.instantiate()
@@ -1506,9 +1514,12 @@ func _apply_environment(preset: EnvironmentPreset) -> void:
 	_sun.shadow_enabled = _shadows_wanted(preset)
 	_sun.directional_shadow_max_distance = _shadow_range_for(env)
 	_apply_shadow_detail()
+	var baked: bool = _tree_shadows_baked(preset)
 	if course_root != null:
+		# Baked trees stay out of the shadow map: they would darken twice.
 		course_root.set_casting_shadows(_sun.shadow_enabled,
-			QualityPreset.tree_shadow_levels(Config.tree_shadows))
+			0 if baked else QualityPreset.tree_shadow_levels(Config.tree_shadows))
+		_apply_tree_shadows(preset, baked)
 		course_root.set_ambient(preset.ambient_illumination())
 	if course_lights != null:
 		course_lights.set_active(Config.night_lights
@@ -1633,6 +1644,42 @@ func _racer_wind() -> WindField:
 func _shadows_wanted(preset: EnvironmentPreset) -> bool:
 	return RenderBackend.supports_light_shadows() \
 		and Config.shadows and preset.casts_shadows
+
+## Whether the trees' shadows are baked into the terrain ([TreeShadowBake])
+## rather than drawn by the shadow map. The sky and the player's switch as for
+## [method _shadows_wanted], but not the renderer: a bake is vertex colour, so
+## Compatibility — which has no shadow map to offer — always bakes, and Mobile
+## bakes when `[quality] tree_shadow_kind` asks it to.
+func _tree_shadows_baked(preset: EnvironmentPreset) -> bool:
+	if not Config.shadows or not preset.casts_shadows:
+		return false
+	return not RenderBackend.supports_light_shadows() \
+		or Config.tree_shadow_kind == QualityPreset.TREE_SHADOWS_BAKED
+
+## Hand the terrain the trees' baked shadows, [param baked] or not.
+##
+## Baked once per course and sun, as the course loads (up to ~150 ms on the
+## desktop and ~240 ms in a browser, on the course with the most trees), and kept: a sky that casts none only turns them
+## down, and a sky with another sun bakes again. The bytes arrive before the
+## first chunk is built on a load; a later change of sky rebuilds the chunks —
+## see [method TerrainRenderer.set_tree_shadows].
+func _apply_tree_shadows(preset: EnvironmentPreset, baked: bool) -> void:
+	if terrain == null:
+		return
+	if not baked:
+		terrain.set_tree_shadows(_tree_sun, 0.0)
+		return
+	var sun: Vector3 = preset.sun_direction.normalized()
+	if _tree_sun.is_empty() or not sun.is_equal_approx(_tree_sun_for):
+		var start: int = Time.get_ticks_usec()
+		var casters: Array = TreeShadowBake.casters_of(course_root)
+		_tree_sun = TreeShadowBake.bake(casters[0], casters[1], course_root.surface, sun)
+		_tree_sun_for = sun
+		# One line per bake, like RACE_READY: the one cost this adds is here,
+		# at load, and the browser is where it is dearest.
+		print("TREE_SHADOWS baked %d trees in %.0f ms" % [(casters[0] as Array).size(),
+			float(Time.get_ticks_usec() - start) / 1000.0])
+	terrain.set_tree_shadows(_tree_sun, 1.0)
 
 ## The sun's shadow map at the player's `[quality] shadow_detail`: the atlas is
 ## the renderer's, shared by every directional light, and the cascade count is

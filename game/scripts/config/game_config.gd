@@ -73,9 +73,11 @@ var ice_world_reflections: bool = true
 ## [member EnvironmentPreset.casts_shadows] carries ETR's own per-sky rule, and
 ## [method RenderBackend.supports_light_shadows] answers no on the web build,
 ## where a shadow-casting light is drawn in an sRGB-blended second pass and
-## wrecks the frame. Wanting shadows is what this says; getting them needs all
-## three. Nothing writes it back to `false` when the renderer refuses — the file
-## records the preference, not what the hardware made of it.
+## wrecks the frame. Wanting shadows is what this says; getting a shadow map
+## needs all three. Nothing writes it back to `false` when the renderer refuses —
+## the file records the preference, not what the hardware made of it. The
+## trees' baked shadows ([member tree_shadow_kind]) need only the first two,
+## which is how the web build gets any shadow at all.
 var shadows: bool = true
 ## Which sky is drawn: the procedural one ([Atmosphere]: sun disc, drifting
 ## clouds, distant ridges, aerial perspective, valley mist, and stars, a moon
@@ -114,8 +116,14 @@ var sky_detail: int = QualityPreset.SKY_DETAIL_HIGH
 ## [constant Forest.LOD_ENDS] (50 / 90 / 130 m at 1.0). Nearer hand-overs are
 ## cheaper and easier to see: the levels differ in shape, not only in density.
 var tree_detail: float = 1.0
-## Which tree levels cast a shadow when [member shadows] is on: an index into
-## [constant QualityPreset.TREE_SHADOW_NAMES] (off, near, all).
+## Where the trees' shadows come from when [member shadows] is on: an index
+## into [constant QualityPreset.TREE_SHADOW_KIND_NAMES] — the sun's shadow map,
+## or baked into the terrain ([TreeShadowBake]). Only the Mobile renderer has
+## the choice; Compatibility, with no shadow map, always bakes.
+var tree_shadow_kind: int = QualityPreset.TREE_SHADOWS_DYNAMIC
+## Which tree levels cast a shadow when [member shadows] is on and they come
+## from the shadow map: an index into [constant QualityPreset.TREE_SHADOW_NAMES]
+## (off, near, all).
 var tree_shadows: int = QualityPreset.TREE_SHADOWS_ALL
 ## The sun's shadow map: an index into [constant QualityPreset.SHADOW_DETAIL_NAMES],
 ## which [method QualityPreset.shadow_map_for] turns into an atlas size and a
@@ -371,6 +379,8 @@ func read(cfg: ConfigFile) -> void:
 		"")), QualityPreset.SKY_DETAIL_NAMES, sky_detail)
 	tree_detail = clampf(float(cfg.get_value("quality", "tree_detail", tree_detail)),
 		QualityPreset.TREE_DETAIL_MIN, QualityPreset.TREE_DETAIL_MAX)
+	tree_shadow_kind = QualityPreset.parse(str(cfg.get_value("quality", "tree_shadow_kind",
+		"")), QualityPreset.TREE_SHADOW_KIND_NAMES, tree_shadow_kind)
 	tree_shadows = QualityPreset.parse(str(cfg.get_value("quality", "tree_shadows",
 		"")), QualityPreset.TREE_SHADOW_NAMES, tree_shadows)
 	shadow_detail = QualityPreset.parse(str(cfg.get_value("quality", "shadow_detail",
@@ -472,9 +482,9 @@ ice_world_reflections = %s
 
 ; Whether the racers and the trees cast a shadow on the snow. The original
 ; draws the character's shadow only at its highest detail level and never
-; draws one for a tree; both are off under a cloudy or a night sky either way,
-; and off entirely on the web build, whose renderer cannot draw one without
-; blowing the whole frame out.
+; draws one for a tree; both are off under a cloudy or a night sky either way.
+; The web build's renderer cannot draw a racer's without blowing the whole
+; frame out, so there it is only the trees', baked (see tree_shadow_kind).
 shadows = %s
 
 ; Which sky: "procedural" (sun, drifting clouds, distant mountains, haze that
@@ -507,8 +517,14 @@ sky_detail = "%s"
 ; [0.5...1.5]. Lower is faster, and the change of shape is closer to you.
 tree_detail = %.2f
 
-; Which trees cast a shadow when shadows are on: off, near (the ones close by,
-; at full detail) or all.
+; Where the trees' shadows come from when shadows are on: "dynamic" (the sun's
+; shadow map, which trees as tree_shadows says) or "baked" (worked out once as
+; the course loads: softer, and they stay put while the trees sway, but they
+; cost no frame rate). The web build has no shadow map, and always bakes.
+tree_shadow_kind = "%s"
+
+; Which trees cast a shadow when shadows are on and dynamic: off, near (the
+; ones close by, at full detail) or all.
 tree_shadows = "%s"
 
 ; The sun's shadow map: low, medium, high or best. Lower is blurrier and cheaper.
@@ -602,6 +618,7 @@ port = %d
 		str(show_fps).to_lower(),
 		QualityPreset.ANTIALIASING_NAMES[antialiasing],
 		QualityPreset.SKY_DETAIL_NAMES[sky_detail], tree_detail,
+		QualityPreset.TREE_SHADOW_KIND_NAMES[tree_shadow_kind],
 		QualityPreset.TREE_SHADOW_NAMES[tree_shadows],
 		QualityPreset.SHADOW_DETAIL_NAMES[shadow_detail],
 		QualityPreset.SHADOW_FILTER_NAMES[shadow_filter],

@@ -77,6 +77,9 @@ ARGS+=(--resolution "${SHOT_RESOLUTION:-1280x720}" --fixed-fps 60 --
 # SHOT_SKY is procedural or etr: the drawn sky or the original's three faces
 # and flat fog. Unset takes the settings file's `[display] sky`.
 [[ -n "${SHOT_SKY:-}" ]] && ARGS+=(--sky="$SHOT_SKY")
+# SHOT_TREE_SHADOWS is dynamic or baked: where the trees' shadows come from under
+# Mobile (Compatibility always bakes). Unset takes `[quality] tree_shadow_kind`.
+[[ -n "${SHOT_TREE_SHADOWS:-}" ]] && ARGS+=(--tree-shadows="$SHOT_TREE_SHADOWS")
 
 WL_SOCKET="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/${WAYLAND_DISPLAY:-wayland-0}"
 if [[ -z "${SHOT_FORCE_SOFTWARE:-}" && -S "$WL_SOCKET" && -e /dev/dri/renderD128 ]]; then
