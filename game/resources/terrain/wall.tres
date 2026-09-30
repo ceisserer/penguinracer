@@ -15,4 +15,4 @@ is_deformable = false
 legacy_color = Color(0.47058824, 0, 0, 1)
 legacy_name = &"wall"
 legacy_index = 25
-import_fingerprint = "df1cd34f6be86e9bbadf54f3915b5c50ffaa0c52752096a564a78b7c30541d8e"
+import_fingerprint = "8ac458924b08cc3310e93b2ec0dcfc7570090ac6f34d7587a143bb9d704cf610"

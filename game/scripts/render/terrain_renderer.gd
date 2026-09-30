@@ -91,6 +91,7 @@ func _build_material() -> ShaderMaterial:
 	# Unused slots keep a legal repeat length: the shader divides by these, and
 	# `layer_count` gates the sample but not the uniform.
 	var uv_scales := [6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0]
+	var detail := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 	for i: int in mini(layers.size(), 8):
 		if layers[i].albedo != null:
 			mat.set_shader_parameter("albedo_%d" % i, layers[i].albedo)
@@ -101,6 +102,7 @@ func _build_material() -> ShaderMaterial:
 		# terrain that wants to be rougher than its neighbours can now say so.
 		roughness[i] = layers[i].roughness
 		uv_scales[i] = layers[i].uv_scale
+		detail[i] = layers[i].detail_strength
 		iceness[i] = 1.0 if ice else 0.0
 		# `is_deformable` is the migrated "snow deforms, rock does not" flag,
 		# which is exactly the distinction the wrap, micro-relief and glint
@@ -112,6 +114,7 @@ func _build_material() -> ShaderMaterial:
 	_set_layer_table(mat, "layer_snowness", snowness)
 	_set_layer_table(mat, "layer_iceness", iceness)
 	_set_layer_table(mat, "layer_uv_scale", uv_scales)
+	_set_layer_table(mat, "layer_detail", detail)
 	mat.set_shader_parameter("sparkle_noise", _sparkle_texture())
 	mat.set_shader_parameter("detail_map", _detail_texture())
 	mat.set_shader_parameter("detail_gradient_scale", _detail_gradient_scale)

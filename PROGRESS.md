@@ -2799,3 +2799,37 @@ for no trees or a sun on the horizon, and times the bake on `bronze_set` and Bun
 `TestConfig` the new key through the file. Renders: Bunny Hill top down and in the chase view
 under Mobile dynamic, Mobile baked and Compatibility; `bronze_set` and `challenge_one` chase views;
 Bunny Hill and `bronze_set` in headless Chromium (streamed web build over SwiftShader).
+
+### Rock has grain at the racer's feet (2026-09-30) · **done, not seen in a real browser or on a phone**
+
+**What.** Steering left from the start of Who Says Penguins Can't Fly puts the racer on `rock`,
+and at the chase camera's distance its 256-texel photograph (6 m repeat, 2.3 cm a texel) is
+magnified into visible blocks. Rock now has a **detail texture**: each layer with a
+`TerrainLayer.detail_strength` reads its own albedo a second time, 4.7x finer and turned 0.63 rad,
+and multiplies the colour by that read's brightness over the photograph's mean, fading out by 30 m.
+The importer seeds 0.8 on `is_rock()` — ETR's friction ≥ 0.6 and not deformable: the eight
+`rock*`, `snowy_rock02/06`, `fine_pebbles` — and 0 everywhere else. `DEVIATION`, marked in the
+shader.
+
+**Why not a bump map.** Asked first, and measured before answering: on that view in the sunny
+preset every visible rock pixel is at the illumination clamp in all three channels, the red one
+(the least clamped) at 1.5–2x. A perturbed normal changes nothing there — an exaggerated 4 cm
+luminance bump moved 599 pixels of ~920k on the course's opening frame, all on the sun-grazing rim.
+Under cloudy the same rock is below the clamp in every channel, so a bump would show there. The
+detail texture changes the albedo, which is what the clamp lets through, so it shows in every sky.
+
+**Found on the way.** The mean is the 1x1 mip, read in the shader rather than uploaded, and mips
+are averaged in display space, so it is below the linear mean: a linear ratio brightened the rock
+by 2.4 levels. Taken in display space (`pow(ratio, 1/2.2)`) the near-field mean is 115.8 before,
+116.0 at strength 0.6 and 115.6 at 1.0; the standard deviation 38.0 → 39.6 → 41.7.
+
+**Cost.** No texture unit (the shader is at its last one under Compatibility), no varying: two
+taps of an already-bound sampler per detailed layer, only where that layer has weight and within
+30 m. Adding the field to the fingerprint moved all 43 layers' hashes; they were rewritten, and
+`import_all.sh --course=penguins_cant_fly` then reproduced every layer byte for byte.
+
+**Verified**: the suite — 6471 passed, 1 failed (the same pre-existing `lighting/what
+project.godot ships`); `TestTerrainLibrary` pins the seed on all 43 layers, the eleven rock
+terrains, and `layer_detail` in splat order in Penguins' built material (rock, ice, rock, rock).
+Renders: Penguins steering left at 6 s and 8 s under Mobile and at 6 s under Compatibility;
+Bunny Hill's opening frame is unchanged beyond 13 pixels (its rock is beyond the fade there).

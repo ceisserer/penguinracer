@@ -52,6 +52,12 @@ extends Resource
 ## scale for the whole course; the shader keeps a table so a coarse rock can
 ## tile at a different rate from the snow beside it.
 @export var uv_scale: float = 6.0
+## How strongly the shader lays this layer's own albedo over itself, finer and
+## turned, near the camera — the grain a 256-texel photograph lacks at the
+## racer's feet. 0 is none, and the photograph exactly as ETR draws it. Read
+## into `terrain.gdshader`'s `layer_detail` table; see its `Detail_Texture`
+## group. No ETR source: the importer seeds it from [method is_rock].
+@export_range(0.0, 1.0, 0.01) var detail_strength: float = 0.0
 ## Snow deforms; rock does not.
 @export var is_deformable: bool = true
 ## Migrated `[shiny]` flag — drives the specular/sparkle term.
@@ -103,6 +109,7 @@ func fingerprint() -> String:
 		albedo.resource_path if albedo != null else "",
 		"%.6f" % roughness,
 		"%.6f" % uv_scale,
+		"%.6f" % detail_strength,
 		str(is_deformable),
 		str(shiny),
 		str(legacy_color),
@@ -130,3 +137,14 @@ func edited_since_import() -> bool:
 ## frozen ground, not a frozen surface.
 func is_ice() -> bool:
 	return shiny or (friction <= 0.25 and not is_deformable)
+
+## Whether this layer is rock — bare, or with snow on it — for the rendering
+## defaults the importer seeds.
+##
+## ETR has no such flag either, but its friction table draws the line: every
+## `rock*` record is `[friction] 0.7`, `snowy_rock02`/`snowy_rock06` and
+## `fine_pebbles` are 0.6, and nothing else in the file reaches 0.6. `icy_rock06`
+## (0.5) falls outside with the paving and the grass, which is where its
+## photograph — mostly a sheet of ice — belongs.
+func is_rock() -> bool:
+	return friction >= 0.6 and not is_deformable

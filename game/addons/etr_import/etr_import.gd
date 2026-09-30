@@ -32,6 +32,9 @@ const HEIGHT_UPSAMPLE := 2
 const MAX_TERRAIN_LAYERS := 8
 ## OpenGL's default `GL_LIGHT_MODEL_AMBIENT`, which the original never overrides.
 const GL_LIGHT_MODEL_AMBIENT := 0.2
+## `TerrainLayer.detail_strength` seeded on rock (`TerrainLayer.is_rock`); no ETR
+## source. Tuned by eye on Who Says Penguins Can't Fly's rock at the racer's feet.
+const DETAIL_STRENGTH_ROCK := 0.8
 
 const OUT_TERRAIN := "res://resources/terrain"
 const OUT_OBJECTS := "res://resources/objects"
@@ -212,6 +215,10 @@ func import_terrains(stage: String) -> Dictionary:
 		# migrated library keeps the look it had, and leave it authorable.
 		# After `is_deformable`, because `is_ice()` reads it.
 		layer.roughness = 0.25 if layer.is_ice() else 0.85
+		# The detail texture has no source either (ETR draws each photograph
+		# once). Seeded on rock, whose photographs are the ones the chase camera
+		# magnifies into blocks; everything else keeps ETR's single read.
+		layer.detail_strength = DETAIL_STRENGTH_ROCK if layer.is_rock() else 0.0
 
 		# The original matches colours within ±30 per channel against a 45-entry
 		# list, so two terrains can silently collide (etracer.md §9). Report it

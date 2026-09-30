@@ -26,6 +26,7 @@ static func run(t: TestCase) -> void:
 	_matches_source(t, layers)
 	_repeated_name(t, layers)
 	_shading_table(t, layers)
+	_detail_reaches_shader(t)
 	_provenance(t, layers)
 
 static func _load_all(t: TestCase) -> Array[TerrainLayer]:
@@ -139,6 +140,7 @@ static func _shading_table(t: TestCase, layers: Array[TerrainLayer]) -> void:
 	t.begin("terrain library/shading table")
 	var ice_count: int = 0
 	var shiny_count: int = 0
+	var rock_count: int = 0
 	for layer: TerrainLayer in layers:
 		if layer.shiny:
 			shiny_count += 1
@@ -146,6 +148,13 @@ static func _shading_table(t: TestCase, layers: Array[TerrainLayer]) -> void:
 			"'%s' has a roughness in range (%.2f)" % [layer.id, layer.roughness])
 		t.ok(layer.uv_scale > 0.0,
 			"'%s' has a positive repeat length (%.2f m)" % [layer.id, layer.uv_scale])
+		if layer.is_rock():
+			rock_count += 1
+			t.eq_f(layer.detail_strength, ETRImport.DETAIL_STRENGTH_ROCK, 1e-6,
+				"rock '%s' takes the detail texture" % layer.id)
+		else:
+			t.eq_f(layer.detail_strength, 0.0, 1e-6,
+				"'%s' is drawn once, as ETR draws it" % layer.id)
 		if layer.is_ice():
 			ice_count += 1
 			t.eq_f(layer.roughness, 0.25, 1e-6, "ice '%s' is smooth" % layer.id)
@@ -161,6 +170,29 @@ static func _shading_table(t: TestCase, layers: Array[TerrainLayer]) -> void:
 	# 0.25 this assertion is what notices.
 	t.ok(ice_count == 7, "seven terrains shade as ice (%d)" % ice_count)
 	t.ok(shiny_count == 3, "only three of them are marked shiny (%d)" % shiny_count)
+	# ETR's friction table is the rock test: eight `rock*` at 0.7, then
+	# `snowy_rock02`, `snowy_rock06` and `fine_pebbles` at 0.6, and nothing else
+	# reaches 0.6. A new terrain at 0.6 or above is what this notices.
+	t.ok(rock_count == 11, "eleven terrains are rock (%d)" % rock_count)
+
+## `detail_strength` is only a field until the material carries it: build the
+## terrain material for a course whose layers disagree — Who Says Penguins
+## Can't Fly is rock, ice1, rock06, rock01 — and read the table back in splat
+## order, where a table filled in the wrong order or not at all shows up as the
+## ice getting the grain.
+static func _detail_reaches_shader(t: TestCase) -> void:
+	t.begin("terrain library/detail texture table")
+	var course: CourseData = load("res://courses/penguins_cant_fly/course.tres")
+	var renderer := TerrainRenderer.new()
+	renderer.course = course
+	var mat: ShaderMaterial = renderer._build_material()
+	var lo: Vector4 = mat.get_shader_parameter("layer_detail")
+	var r := ETRImport.DETAIL_STRENGTH_ROCK
+	t.ok(lo.is_equal_approx(Vector4(r, 0.0, r, r)),
+		"rock, ice, rock, rock → detail %s" % [lo])
+	t.ok(Vector4(mat.get_shader_parameter("layer_detail_hi")).is_zero_approx(),
+		"the unused slots carry none")
+	renderer.free()
 
 ## Provenance: the committed library has to still hash to what the importer
 ## wrote, and an edit has to be detectable. Without the second assertion the

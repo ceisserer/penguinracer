@@ -18,4 +18,4 @@ shiny = true
 legacy_color = Color(0, 0.3529412, 0.47058824, 1)
 legacy_name = &"greenice"
 legacy_index = 2
-import_fingerprint = "90cff4df708e851b017b8deedbeb9b51a7978c3d33a856b315654059cb6f0229"
+import_fingerprint = "94d35c56c54c4f545a4bb1ffd4edebecfa8956c93f0bf4fff8a4d40fcf68341f"

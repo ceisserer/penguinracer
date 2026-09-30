@@ -97,6 +97,35 @@ uniform vec4 layer_snowness_hi = vec4(0.0);
 // terrain in the game that reflects its surroundings.
 uniform vec4 layer_iceness = vec4(0.0);
 uniform vec4 layer_iceness_hi = vec4(0.0);
+// Per-layer strength of the detail texture, 0 = none — see `detail_texture`.
+uniform vec4 layer_detail = vec4(0.0);
+uniform vec4 layer_detail_hi = vec4(0.0);
+
+group_uniforms Detail_Texture;
+// DEVIATION: ETR draws each terrain photograph once, at its 6 m repeat. At
+// 256 texels that is 2.3 cm a texel, so from the chase camera the ground at the
+// racer's feet is the photograph magnified into visible blocks — the rock on
+// Who Says Penguins Can't Fly most of all. A layer that asks for it
+// (`TerrainLayer.detail_strength`) reads its own albedo a second time,
+// `detail_texture_ratio` times finer and turned by `detail_texture_turn`, and
+// multiplies the colour by that read's brightness over the photograph's mean.
+// The mean of that factor is one, so the tone the course was matched at stays
+// where it was; only the grain changes.
+//
+// It modulates the albedo, not the light, and that is the point: a sunlit slope
+// sits at the illumination clamp, where a bumped normal changes nothing (the
+// trench AO note above is the same fact), while the albedo is exactly what the
+// clamp lets through.
+//
+// No new sampler (the shader is at its last texture unit under Compatibility)
+// and no varying: two taps of a sampler already bound, per detailed layer, only
+// where the layer has weight and inside `detail_texture_fade`. Past that the
+// fine tap has mipped to the mean anyway.
+uniform float detail_texture_ratio : hint_range(1.0, 16.0) = 4.7;
+// Radians. Any angle that is not a multiple of a right angle keeps the fine
+// grain from lining up with the photograph's own features and axes.
+uniform float detail_texture_turn = 0.63;
+uniform float detail_texture_fade = 30.0;
 
 group_uniforms Course;
 // World extent of the course in metres, for splat UV lookup.
@@ -576,18 +605,50 @@ void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 
+// One layer's albedo at world XZ `p`, with its detail texture when it has one.
+//
+// `near` is the detail's distance fade, 1 at the camera and 0 from
+// `detail_texture_fade` on. The detail is skipped where it would be multiplied
+// by nothing — no strength, no weight or out of range — and all three reach
+// zero continuously at the skip's edge, so the mip level a divergent branch
+// leaves undefined there only ever scales a vanishing term.
+vec4 layer_albedo(sampler2D tex, vec2 p, float repeat_m, float weight,
+		float strength, float near) {
+	vec4 c = texture(tex, p / repeat_m);
+	float amount = strength * near;
+	if (amount > 0.0 && weight > 0.0) {
+		float cs = cos(detail_texture_turn);
+		float sn = sin(detail_texture_turn);
+		vec2 q = mat2(vec2(cs, sn), vec2(-sn, cs)) * p
+			* (detail_texture_ratio / repeat_m);
+		const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
+		float fine = dot(texture(tex, q).rgb, LUMA);
+		// The 1x1 mip is the photograph's mean, read rather than uploaded so
+		// that it can never disagree with the texture it averages. Its mips
+		// are averaged in display space, though, so it is the decoded mean of
+		// the encoded texels, which sits below the linear mean; the ratio is
+		// taken in display space to match, or the grain brightens the layer.
+		float mean = dot(textureLod(tex, vec2(0.5), 16.0).rgb, LUMA);
+		float ratio = pow(max(fine, 0.0) / max(mean, 0.001), 1.0 / 2.2);
+		c.rgb *= mix(1.0, ratio, amount);
+	}
+	return c;
+}
+
 // `p` is the world XZ position; each layer divides it by its own repeat length.
-vec4 sample_layers(vec2 p, vec4 w0, vec4 w1) {
+vec4 sample_layers(vec2 p, vec4 w0, vec4 w1, float near) {
 	vec4 s0 = max(layer_uv_scale, vec4(0.001));
 	vec4 s1 = max(layer_uv_scale_hi, vec4(0.001));
-	vec4 c = texture(albedo_0, p / s0.r) * w0.r;
-	if (layer_count > 1) { c += texture(albedo_1, p / s0.g) * w0.g; }
-	if (layer_count > 2) { c += texture(albedo_2, p / s0.b) * w0.b; }
-	if (layer_count > 3) { c += texture(albedo_3, p / s0.a) * w0.a; }
-	if (layer_count > 4) { c += texture(albedo_4, p / s1.r) * w1.r; }
-	if (layer_count > 5) { c += texture(albedo_5, p / s1.g) * w1.g; }
-	if (layer_count > 6) { c += texture(albedo_6, p / s1.b) * w1.b; }
-	if (layer_count > 7) { c += texture(albedo_7, p / s1.a) * w1.a; }
+	vec4 d0 = layer_detail;
+	vec4 d1 = layer_detail_hi;
+	vec4 c = layer_albedo(albedo_0, p, s0.r, w0.r, d0.r, near) * w0.r;
+	if (layer_count > 1) { c += layer_albedo(albedo_1, p, s0.g, w0.g, d0.g, near) * w0.g; }
+	if (layer_count > 2) { c += layer_albedo(albedo_2, p, s0.b, w0.b, d0.b, near) * w0.b; }
+	if (layer_count > 3) { c += layer_albedo(albedo_3, p, s0.a, w0.a, d0.a, near) * w0.a; }
+	if (layer_count > 4) { c += layer_albedo(albedo_4, p, s1.r, w1.r, d1.r, near) * w1.r; }
+	if (layer_count > 5) { c += layer_albedo(albedo_5, p, s1.g, w1.g, d1.g, near) * w1.g; }
+	if (layer_count > 6) { c += layer_albedo(albedo_6, p, s1.b, w1.b, d1.b, near) * w1.b; }
+	if (layer_count > 7) { c += layer_albedo(albedo_7, p, s1.a, w1.a, d1.a, near) * w1.a; }
 	return c;
 }
 
@@ -616,7 +677,9 @@ void fragment() {
 	w0 /= max(total, 0.001);
 	w1 /= max(total, 0.001);
 
-	ALBEDO = sample_layers(world_pos.xz, w0, w1).rgb;
+	float view_dist = length(VERTEX);
+	float detail_near = 1.0 - smoothstep(0.0, detail_texture_fade, view_dist);
+	ALBEDO = sample_layers(world_pos.xz, w0, w1, detail_near).rgb;
 	METALLIC = 0.0;
 	// The relief's occlusion, eased in by `terrain_ao_strength` and never past
 	// black. Squared at strength 2 rather than scaled linearly, so a strong
@@ -629,8 +692,6 @@ void fragment() {
 	ice_mask = clamp(dot(layer_iceness, w0) + dot(layer_iceness_hi, w1), 0.0, 1.0);
 	float rough = dot(layer_roughness, w0) + dot(layer_roughness_hi, w1);
 	ROUGHNESS = mix(rough, ice_roughness, ice_mask);
-
-	float view_dist = length(VERTEX);
 
 	// The geometric normal, before anything below bends it. Kept because the
 	// ice reflection shears its lookup by how far the perturbation moved it,

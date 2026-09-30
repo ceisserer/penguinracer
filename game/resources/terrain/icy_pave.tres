@@ -15,4 +15,4 @@ is_deformable = false
 legacy_color = Color(0.9411765, 0.3529412, 0, 1)
 legacy_name = &"icy_pave"
 legacy_index = 31
-import_fingerprint = "bcc202ab298d9a7afd2f909bf480fcda1839c21519c42011320501365816bb7b"
+import_fingerprint = "39ca2b34796b5b6ceb643c2b5a44e2086ecd6f49d7c7bf712d930d30b1fc1703"

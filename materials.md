@@ -166,6 +166,7 @@ the PNG is reachable.
 | `shiny` + `friction` | `[shiny]`, via `is_ice()` | weighted mean of the flag | `layer_iceness` → reflection, gloss, albedo cut |
 | `roughness` | new, seeded from `is_ice()` | weighted mean | `layer_roughness` |
 | `uv_scale` | new (ETR hardcoded 1/6) | per layer | `layer_uv_scale` |
+| `detail_strength` | new, seeded from `is_rock()` | per layer | `layer_detail` → the detail texture |
 | `legacy_color` | `[col]` | — | importer only: colour-key matching, re-import diffing |
 | `legacy_name`, `legacy_index` | `[name]`, position | — | importer and `test_terrain_library.gd` |
 
@@ -173,7 +174,7 @@ Everything in the "Gameplay" group is migrated verbatim in `import_terrains()` �
 are tuned balance data and are the part of ETR worth being exact about. The "Rendering" group has
 no source at all: ETR draws every terrain as flat textured diffuse, so `roughness` and `uv_scale`
 are authored here and seeded by the importer with values that reproduce what the renderer used to
-hardcode.
+hardcode. `detail_strength` reproduces nothing: it is 0 (ETR's single read) everywhere but rock.
 
 ---
 
@@ -256,7 +257,7 @@ while a race is loaded. What it uploads from the layer table:
 - `albedo_0` … `albedo_7` — the per-layer `albedo` textures. This is the only per-layer *texture*
   the shader has.
 - `layer_count`, `world_size`, `splat_0`, `splat_1`, `uv_scale`.
-- three per-layer scalar tables, each split into a `vec4` low half and a `vec4` `_hi` half:
+- five per-layer scalar tables, each split into a `vec4` low half and a `vec4` `_hi` half:
 
 | Uniform | Source | Values |
 |---|---|---|
@@ -264,15 +265,16 @@ while a race is loaded. What it uploads from the layer table:
 | `layer_uv_scale` / `_hi` | `TerrainLayer.uv_scale` | metres per texture repeat, `6.0` throughout the migrated set |
 | `layer_snowness` / `_hi` | `is_deformable` | `1.0` / `0.0` |
 | `layer_iceness` / `_hi` | `is_ice()` | `1.0` / `0.0` |
+| `layer_detail` / `_hi` | `TerrainLayer.detail_strength` | authored; importer seeds `0.8` for rock (`is_rock()`), `0` otherwise |
 
 The split exists because GLSL ES 3.0 gives no `float[8]` uniform worth relying on, and a pair of
 `vec4`s indexes for free against the two splat textures' weights. Filling only the low half was a
 real bug: eight-layer courses got "rough, not snow, not ice" for their last four terrains, visible
 as a slope that stops sparkling halfway across a blend.
 
-Two of the four are authored and two are derived. "Snowness" is `is_deformable`, which the
+Three of the five are authored and two are derived. "Snowness" is `is_deformable`, which the
 importer sets equal to `[trackmarks]`; "iceness" is `TerrainLayer.is_ice()`. Roughness and the UV
-scale come off the layer, so a terrain that wants to be rougher than its neighbours, or to tile at
+scale come off the layer, and so does the detail texture's strength, so a terrain that wants to be rougher than its neighbours, or to tile at
 a different rate, can say so without a code change.
 
 ### 4.2 `is_ice()` — why it is not `[shiny]`
@@ -288,9 +290,14 @@ and `snowy_hockey_ice` ship without it, so the friction clause is carrying the m
 set, not a couple of stragglers. It catches them because all seven are `[friction] 0.2` and the
 next lowest terrain in the file is 0.3 — there is nothing in the gap for the `≤ 0.25` threshold to
 pick up by accident. `icy_pave` and `icy_grass03` sit at 0.4 and are correctly excluded: they are
-frozen ground, not a frozen surface. This is the one place where a gameplay number feeds a
-rendering decision, and `test_terrain_library.gd` pins the counts so the clause cannot quietly
-stop working.
+frozen ground, not a frozen surface. This is one of two places where a gameplay number feeds a
+rendering decision (`is_rock()` below is the other), and `test_terrain_library.gd` pins the counts
+so the clause cannot quietly stop working.
+
+`is_rock()` is the same move for the detail texture's seed: `friction >= 0.6 and not
+is_deformable`. Every `rock*` record is 0.7; `snowy_rock02`, `snowy_rock06` and `fine_pebbles` are
+0.6, and nothing else in the file reaches 0.6 — eleven terrains, pinned by the same test.
+`icy_rock06` (0.5) is excluded, with the paving and the grass.
 
 ### 4.3 Blending in the fragment shader
 
@@ -298,11 +305,23 @@ stop working.
 w0 = texture(splat_0, splat_uv);  w1 = layer_count > 4 ? texture(splat_1, splat_uv) : 0;
 w0 /= total;  w1 /= total;                       // renormalise
 
-ALBEDO     = Σ texture(albedo_N, world_pos.xz / layer_uv_scale[N]) · w[N];
+ALBEDO     = Σ texture(albedo_N, world_pos.xz / layer_uv_scale[N]) · detail_N · w[N];
 snow_mask  = clamp(dot(layer_snowness, w0) + dot(layer_snowness_hi, w1), 0, 1);
 ice_mask   = clamp(dot(layer_iceness,  w0) + dot(layer_iceness_hi,  w1), 0, 1);
 ROUGHNESS  = mix(dot(layer_roughness, w0) + dot(layer_roughness_hi, w1), ice_roughness, ice_mask);
 ```
+
+`detail_N` is 1 unless the layer has a `layer_detail` strength (**DEVIATION**, rock only as
+imported). Then it is the layer's *own* albedo read a second time, `detail_texture_ratio` (4.7)
+times finer and turned by `detail_texture_turn`, as a brightness ratio over the photograph's mean
+(its 1x1 mip), taken in display space because that is where the mips were averaged — in linear
+the grain brightened the layer by ~2 levels. The ratio averages to one, so the tone the course was
+matched at does not move (Who Says Penguins Can't Fly, rock at the racer's feet: mean 115.8 →
+115.6–116.0 at strengths 0.6–1.0). It fades out by `detail_texture_fade` (30 m) and is skipped
+where the layer has no weight, so it costs two taps of an already-bound sampler per detailed layer
+near the camera and no texture unit. It changes the albedo rather than the light on purpose: a
+sunlit slope sits at the illumination clamp (`etr_illumination.gdshaderinc`, history §24), where a perturbed normal is invisible — measured
+on the same view, the rock there is 1.5–2x over the clamp in its least-clamped channel.
 
 Two masks, computed once, and everything material-dependent downstream is gated on them:
 
@@ -512,6 +531,9 @@ have.
 - Per-layer **normal maps** are out of reach under Compatibility (§5), so all surface relief on the
   terrain comes from one shared procedural field. Every snow layer therefore has identical
   micro-structure; only the albedo distinguishes them close up.
+- Rock has grain close up (the detail texture) but no relief. A bump from the photograph would be
+  invisible on a sunny course, which sits at the clamp; only a darken-only term after the clamp
+  would show, and that would be a further deviation. Not attempted.
 - The splat map is generated and unpaintable, and unlike the resources it has no provenance guard —
   an edited `splat_*.png` is still overwritten silently by a re-import.
 - Snow tone is matched on one course under one environment (Bunny Hill / `tuxracer_sunny`). The

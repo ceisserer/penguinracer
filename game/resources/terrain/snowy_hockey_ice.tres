@@ -15,4 +15,4 @@ is_deformable = false
 legacy_color = Color(0.23529412, 0.23529412, 0.7058824, 1)
 legacy_name = &"snowy_hockey_ice"
 legacy_index = 10
-import_fingerprint = "bd25fcfb6519260088433f03e9a5659b2764036c67015f4a8860294ac60f9606"
+import_fingerprint = "fb3ba59bdd6713eeb78292bc7e375000f9ec51860aeb54e388954b9bc985f850"
