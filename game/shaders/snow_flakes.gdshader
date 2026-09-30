@@ -96,9 +96,12 @@ uniform float frame_time = 0.016667;
 uniform float shutter = 0.016667;
 // The distances from the camera, in metres, over which a quad fades in and
 // then out again: `(in_start, in_end, out_start, out_end)`. A near area only
-// fades in — one that passes the lens would otherwise fill the screen for a
-// frame. The far area is a shell, drawn only beyond where the near ones end.
-uniform vec4 fade_band = vec4(0.25, 0.9, 1e5, 2e5);
+// fades in, and on how close its streak comes to the lens rather than where
+// its head is: a flake that passes the lens is a white burst over a sizeable
+// part of the frame for a frame or two, which no camera shows as snow. Gone by
+// a metre, where a flake is still a couple of dozen pixels. The far area is a
+// shell, drawn only beyond where the near ones end.
+uniform vec4 fade_band = vec4(1.0, 2.0, 1e5, 2e5);
 // The share of each box axis over which a quad fades in at one face and out at
 // the other, so the wrap is never a pop.
 uniform float edge_fade = 0.12;
@@ -161,6 +164,13 @@ void vertex() {
 		streak *= MAX_STREAK / streak_len;
 	}
 	vec3 tail = head - streak;
+	// How close the streak comes to the lens: its nearest point, and neither
+	// end may be beside or behind it. Taken before the clamp below, which pins
+	// a tail that crossed the lens 5 cm in front of it — where a 5 cm flake is
+	// half the frame. A camera jerked round by a crash does that to a whole box.
+	vec3 along_streak = tail - head;
+	float t = clamp(dot(-head, along_streak) / max(dot(along_streak, along_streak), 1e-8), 0.0, 1.0);
+	float closest = min(length(head + t * along_streak), min(-head.z, -tail.z));
 	// Keep the tail in front of the lens, or its projection flips.
 	tail.z = min(tail.z, -0.05);
 	float depth = max(-head.z, 0.05);
@@ -198,8 +208,14 @@ void vertex() {
 	// eye reads a streak's length before its brightness anyway.
 	fade *= sqrt(flake_size / (flake_size + screen_len * depth));
 	float distance = length(head);
-	fade *= smoothstep(fade_band.x, fade_band.y, distance)
+	fade *= smoothstep(fade_band.x, fade_band.y, closest)
 		* (1.0 - smoothstep(fade_band.z, fade_band.w, distance));
+	// A faded-out flake is not drawn at all rather than drawn at alpha 0: the
+	// quad of one at the lens reaches past the frame, and that is fill for
+	// nothing.
+	if (fade <= 0.0) {
+		VERTEX = vec3(0.0, 0.0, -1.0);
+	}
 	cut = INSTANCE_CUSTOM.xy;
 
 	// Each flake turns one way or the other at its own rate from its own start,

@@ -1503,6 +1503,17 @@ of one already placed), and the shader turns each one at its own rate and wobble
 no two flakes on screen share an outline for long. The spray keeps its puffs. `TestSnowFall`
 asserts the clumps stay inside `FLAKE_REACH` and that none covers as much as the disc it reaches.
 
+**Update, 2026-09-30: no white bursts at the lens.** A flake passing the camera flashed a white
+haze over a sizeable part of the frame. The near fade read only the streak's head, and the tail is
+clamped 5 cm in front of the lens so its projection cannot flip — so a flake beside or behind the
+lens, with its tail across it, was drawn as a 5 cm quad at 5 cm: half the frame at full alpha. A
+camera jerked round by a crash does that to a whole box at once (Bunny Hill, grade 3, `paddle`:
+frames 428–433 hazed, the tree on the left washed out). The near fade now reads the streak's
+closest approach to the lens, with both ends required in front of it, and runs 1–2 m rather than
+0.25–0.9 m, so a flake no longer whizzes past as a 30–70 px blob either; a faded-out quad collapses
+to nothing rather than filling the frame at alpha 0. `LensSnow`'s flakes melting on the lens are
+the one deliberate snow on the camera and are unchanged.
+
 Chosen on the course screen, in Practice and in a race alike — ETR puts it there too — and
 remembered as `[game] snowfall` in `penguinracer.cfg`. `--snow=0..3` and `?snow=` name a grade for
 one run without going through the menu, which is how the captures above were taken. It is

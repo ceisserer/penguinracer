@@ -941,6 +941,9 @@ the whole sky to cyan-white, against which no disc can show. The fog
   follows and the flakes do not, and each is drawn as a streak of its motion against the camera
   over a 1/60 s shutter (previous view matrix as a uniform). Real fall speed (`FALL_SPEED`, ±30 %
   per flake, not size × 5), per-flake sway, level wind, fades at the box faces and the lens.
+  **The lens fade reads the streak's closest approach, not its head**, and is gone by a metre:
+  the tail is clamped 5 cm in front of the lens, so a flake beside or behind it drew a 5 cm quad
+  at 5 cm — a white burst over half the frame whenever a crash jerked the camera.
   **Every flake is the same size in the world**, where ETR grows them with distance to hold their
   screen size: on screen, size and speed both go as 1/distance, so a far flake drawn as big as a
   near one is also slower than it, and reads as a round blob floating in front of the lens. A
