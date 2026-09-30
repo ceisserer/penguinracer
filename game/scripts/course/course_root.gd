@@ -70,16 +70,19 @@ func build_runtime() -> void:
 				continue
 			var m: Node3D = marker
 			var p: Vector3 = m.position
-			# The heightmap is the authority for Y: it has just been resampled,
-			# and the markers only ever stored a planar position.
-			p.y = surface.height_at(p.x, p.z)
+			# The heightmap is the authority for Y: it has just been resampled.
+			# A marker's own Y is a height above the ground — 0 for everything
+			# but a trunk lodged across a gully overhead (Mountain Forest).
+			p.y = surface.height_at(p.x, p.z) + m.position.y
 			var diam: float = m.scale.x
 			var height: float = m.scale.y
 			var collidable: bool = prefab != null and prefab.collidable
 			# Only the crossed quads need turning; an item billboards and has no
 			# plane of its own to share.
 			var yaw: float = m.rotation.y + (decorrelating_yaw(p) if collidable else 0.0)
-			var basis := Basis().rotated(Vector3.UP, yaw)
+			# Pitch and roll as the marker has them — 0 but on a lodged trunk,
+			# which leans from one bank to the other.
+			var basis := Basis.from_euler(Vector3(m.rotation.x, yaw, m.rotation.z))
 			if prefab != null and prefab.ground_aligned:
 				basis = Basis(Quaternion(Vector3.UP, ground_normal(p))) * basis
 			var xf := Transform3D(basis, p)

@@ -61,9 +61,10 @@ static func _load_all(t: TestCase) -> Dictionary[String, ObjectPrefab]:
 		if prefab != null:
 			out[String(prefab.id)] = prefab
 	# ETR's fourteen, plus the four solid props an authored course adds
-	# (`TestProps`).
-	t.ok(out.size() == 14 + TestProps.PROPS.size(),
-		"fourteen object types and the props (%d)" % out.size())
+	# (`TestProps`) and Mountain Forest's lodged trunk and trunk collider
+	# (`TestMountainForest`).
+	t.ok(out.size() == 14 + TestProps.PROPS.size() + 2,
+		"fourteen object types, the props, the trunk and its collider (%d)" % out.size())
 	return out
 
 static func _trees_are_crossed_quads(t: TestCase,

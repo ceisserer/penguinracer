@@ -17,7 +17,9 @@
 class_name PropMesh
 extends RefCounted
 
-enum Kind { BOULDER, STONES, LOG, STUMP }
+## [code]TRUNK[/code] is a log for long spans — a dead tree lodged across a
+## gully, ten to twenty times as long as it is thick (Mountain Forest).
+enum Kind { BOULDER, STONES, LOG, STUMP, TRUNK }
 
 ## Rock greys, sRGB; a boulder picks its own tint between them.
 const ROCK_LIGHT := Color(0.56, 0.55, 0.52)
@@ -34,6 +36,11 @@ const RING := Color(0.45, 0.33, 0.21)
 const LOG_AXIS_Y := 0.3
 const LOG_SIDES := 10
 const LOG_SEGMENTS := 6
+## A trunk is stretched much further than a log, so it has more of both, and
+## its bark's unevenness runs along it rather than changing ring by ring —
+## stretched twelve times, a per-ring wobble reads as a stack of planks.
+const TRUNK_SIDES := 12
+const TRUNK_SEGMENTS := 16
 const STUMP_SIDES := 9
 const STUMP_LEVELS: Array[float] = [-0.15, 0.0, 0.12, 0.45, 1.0]
 const STUMP_FLARE: Array[float] = [1.0, 0.95, 0.72, 0.62, 0.6]
@@ -52,6 +59,8 @@ static func build(kind: Kind, seed_value: int = 1) -> ArrayMesh:
 			_log(st, rng)
 		Kind.STUMP:
 			_stump(st, rng)
+		Kind.TRUNK:
+			_trunk(st, rng)
 	# Normals first, from the unshared flat faces; indexing after merges only
 	# the vertices that already agree.
 	st.generate_normals()
@@ -152,6 +161,45 @@ static func _log(st: SurfaceTool, rng: RandomNumberGenerator) -> void:
 		var dir := Vector3(rng.randf_range(-0.3, 0.3), cos(ang), sin(ang)).normalized()
 		var root := Vector3(rng.randf_range(-0.35, 0.35), LOG_AXIS_Y, 0.0) + dir * 0.4
 		_stub(st, root, dir, 0.09, 0.03, rng.randf_range(0.25, 0.5))
+
+## A long dead trunk: tapering to its top end, sagging a little, bark in
+## streaks along it, broken-off branches standing out square to it, and both
+## ends broken off.
+static func _trunk(st: SurfaceTool, rng: RandomNumberGenerator) -> void:
+	var sag: float = rng.randf_range(-0.05, 0.02)
+	var side_r := PackedFloat32Array()
+	var side_col: Array[Color] = []
+	for k: int in TRUNK_SIDES:
+		side_r.push_back(rng.randf_range(0.9, 1.04))
+		side_col.push_back(BARK.lerp(BARK_DARK, rng.randf()) * rng.randf_range(0.85, 1.1))
+	var rings: Array[PackedVector3Array] = []
+	for s: int in TRUNK_SEGMENTS + 1:
+		var along: float = float(s) / TRUNK_SEGMENTS
+		var taper: float = lerpf(1.0, 0.7, along)
+		var bend: float = sag * sin(PI * along)
+		var ring := PackedVector3Array()
+		for k: int in TRUNK_SIDES:
+			var ang: float = TAU * float(k) / TRUNK_SIDES
+			var r: float = 0.5 * taper * side_r[k] * rng.randf_range(0.98, 1.02)
+			ring.push_back(Vector3(-0.5 + along, LOG_AXIS_Y + bend + cos(ang) * r,
+				sin(ang) * r))
+		rings.push_back(ring)
+	var axis := Vector3(0.0, LOG_AXIS_Y, 0.0)
+	for s: int in TRUNK_SEGMENTS:
+		for k: int in TRUNK_SIDES:
+			var k1: int = (k + 1) % TRUNK_SIDES
+			_quad(st, rings[s][k], rings[s + 1][k], rings[s + 1][k1], rings[s][k1],
+				side_col[k] * rng.randf_range(0.95, 1.05), axis)
+	_end_cap(st, rng, rings[0], axis)
+	_end_cap(st, rng, rings[TRUNK_SEGMENTS], axis)
+	# Up and to the sides only — the ones underneath broke off in the fall —
+	# and short enough to stay within the unit box's allowance.
+	for i: int in rng.randi_range(5, 8):
+		var ang: float = rng.randf_range(-1.5, 1.5)
+		var dir := Vector3(0.0, cos(ang), sin(ang))
+		var x: float = rng.randf_range(-0.4, 0.4)
+		var root := Vector3(x, LOG_AXIS_Y, 0.0) + dir * 0.35 * lerpf(1.0, 0.7, x + 0.5)
+		_stub(st, root, dir, 0.12, 0.04, rng.randf_range(0.2, 0.3))
 
 ## Close a ring with bands painted in: heartwood, a darker ring, heartwood, and
 ## the bark's edge.

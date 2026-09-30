@@ -2933,3 +2933,103 @@ middle, both in the play area) and the floor (the course's own needle layer, >50
 forest floor needles, 10–40 % snow, none of the trail's snow in the forest). All 132 night
 torches still stand. Renders under Mobile down the whole course and through the fork with
 `--auto-input=ai` (the hard driver holds a branch at 60–69 km/h), and under Compatibility.
+
+### A second course of our own: Mountain Forest (2026-09-30) · **done, not seen in a real browser or on a phone**
+
+**What.** **Mountain Forest** (`courses/mountain_forest/`), 1420 m to the finish down the floor
+of a steep wooded gully — Forest Trail's opposite. The trail is **5–8 m wide** (Forest Trail:
+8–12), and either side a bank climbs off a narrow shoulder: 14–30 m high, over a 14–22 m length
+scale, craggy, drifting in height and steepness along the course and independently per side.
+The walls close the view in, so the forest is thinner (~900 conifers against Forest Trail's
+~1500) and stands where it is seen: a tree line along both edges and a jittered grid on the lower
+walls, thinning up them and missing on the crags. **The fall line is uneven**: thirteen sections,
+chutes of 24–31° and benches of 12–14° (under the 19.3° at which snow's friction holds a racer),
+eased over ±14 m so no lip launches anyone; the base slope is their mean, 22.0°. On five benches
+and in one chute the gully **pinches to a 5 m slot with a dead trunk lodged across it
+overhead** — resting where each bank first stands 3.6 m (one side up to a metre higher, so it
+leans) over the trail, ends sunk 1.8 m into the banks, a line of herring under it as bait. Two
+kickers stand at the foot of benches, so their landings are downhill; nine ice patches lie in the
+chutes. The walls are the forest floor (needles under crowns, snow in gaps), bare earth with snow
+lying in patches where too steep for litter, and `snowy_rock06` / `rock06` on the crags. The
+**sky is a near range**: twice the usual height, broader, less hazed, wooded almost to the crests.
+
+**How.** `tools/gen_mountain_forest.sh` → `addons/course_gen/gen_mountain_forest.gd`, the same
+two stages as Forest Trail. The steps are relief: the heightmap is relief over the analytic
+`base_angle`, so the generator integrates each section's gradient minus the mean down the course
+(`_profile`, centred) and adds it to the walls. **The occlusion bake gets the walls without the
+steps** — it measures against a uniformly tilted plane, and a change of gradient is not a bank.
+What both generators share moved to `CourseGenKit` (splat maps, the occupancy grid, the drawn
+needle texture and layer, `course.tscn`, the catalog row); Forest Trail regenerates byte-identical
+(only `course.tscn`'s ids churn). Mountain Forest writes its own copy of the needle layer: a
+course's web pack carries only its own directory.
+
+**Three general additions carry it**, each a no-op for every other course:
+- **A marker's Y is a height above the ground, and its X/Z rotations are read** (`CourseRoot`).
+  Every existing marker has Y = 0 and no tilt — checked across all 45 `course.tscn`.
+- **`PropMesh.Kind.TRUNK`**: a log for 12:0.7 spans — 16 segments, 12 sides, bark unevenness that
+  runs along it rather than changing per ring (Forest Trail's log stretched that far read as a
+  stack of planks), branch stubs square to the axis so the stretch leaves them alone. Prefab
+  `lodged_log`: level, decorative, not collidable — the grid knows only upright cylinders.
+- **`CourseData.backdrop_height` / `backdrop_forest` / `backdrop_near`** → `Atmosphere.ridge_shape`
+  → a new global, `atmo_ridge_shape` (default `(1, 0, 0, 0)`, the old skyline to the term):
+  scales the ridges' amplitude, broadens and de-hazes them, and lifts the tree line to just under
+  the crests, where `atmo_ridge_firs` draws the canopy as staggered fir tops (one per cell, shifted,
+  sized, some missing, a few snowed on). The ridge map's top row is now `atmo_map_t_max()`, 0.16 or
+  just over the tallest crest a shape raises.
+
+**Found on the way.** A play area reaching 3 m up the walls had the computer — which plans inside
+it and reads no slope — carve up the bank on every bend and stall on the rock at 29 km/h. At 1 m
+(the foot of the bank) the hard driver holds the gully floor at 60–87 km/h and finishes in about
+1:20 with 25 herring.
+
+**Verified**: the suite — 6643 passed, 3 failed, all three pre-existing: `lighting/what project.godot ships` and `props/forest floor` ×2 (Forest
+Trail's committed floor is 23 % needles / 69 % snow since `FOREST_DENSITY` went to 0.2 — the test
+still expects the denser forest). `TestMountainForest`: catalog row, own needle layer, the near
+backdrop, the fall line on the real heightmap (≥ 5 chutes over 24°, ≥ 5 benches under 16°, never
+uphill), walls ≥ 4 m up 8 m out and ≥ 10 m up 25 m out every 10 m, trail ≤ 9 m wide, every marker
+on the right side of the edge, every trunk ≥ 3 m clear of the snow over the whole trail with both
+ends in a bank, and `CourseRoot` lifting and rolling a marker. `TestAtmosphere`: the shape's
+default everywhere and its reach to the shaders and the map. Renders under Mobile (sunny, night)
+down the whole course with `--auto-input=ai`, and under Compatibility.
+**Not done**: a real browser, a phone, a frame-rate measurement, event/cup targets.
+
+### Mountain Forest: fewer trunks overhead, bumps, obstacles on the trail (2026-09-30) · **done, not seen in a real browser or on a phone**
+
+**What.** After a first look: **two** trunks lodged overhead (560 m, 1140 m), not five; five read
+as a pattern. **Eight bumps** (0.6–0.8 m over a 7 m ramp and a 3 m drop, a hop rather than a
+kicker's flight) besides the two kickers. None sits within 30 m before an obstacle, so no
+landing is on one, and none on a lip: at 290 m the bench-to-chute crest threw it 1.1 m proud.
+**Obstacles on the trail**: three boulders (`trail_boulder`, the boulder prefab by another type
+name via `CourseGenKit.write_scene`'s `prefab_of`) and four **fallen trunks** lying from a bank
+to just short of the trail's middle, crown on the snow, resting on the bank where it first stands
+1.2 m, the rest sunk into it. A fallen trunk is drawn with the lodged trunk's prefab and made
+solid by a row of `trunk_collider` markers (a new prefab: collidable, no mesh), one every 0.5 m
+along the part over the trail, each as tall as the trunk there. The grid only knows upright
+cylinders, and the physics checks their height, so a trunk can be jumped.
+
+**Making them fair took four passes, each found by the hard AI stopping dead**, the last three
+with a headless probe that drives it through the real collision grid and play area and logs
+speed by distance:
+1. A fallen trunk first ran on 1.8 m into the bank at ground level and stood up the wall like a
+   pole. It now rests where the bank stands 1.2 m and runs on along that line.
+2. The AI crawled at 5 km/h in the 1140 m slot. The corridor's 24 m pieces, drawn from the width
+   at their ends, cut across the slot's pinch; each vertex now takes the narrowest width within a
+   piece either side. On the way, every collidable object's cylinder (a conifer's is as wide as
+   its crown) was moved clear of the play area plus 0.8 m (`PLAY_CLEARANCE`); the tree line's had
+   reached the edge.
+3. With the open half on the outside of the next bend, every one of the AI's nine lanes round the
+   trunk left the play area. The open side is now the one the trail turns toward over the next
+   30 m (`open_side`), and the trail widens 1.2 m a side beside an obstacle (`obstacle_room`).
+4. On a real bend there is still no straight line round anything, so obstacles moved to where the
+   centre line is nearly straight from 40 m before to 30 m after, early in chutes. A crash at a
+   chute's foot left the racer crawling across the bench below.
+
+The hard AI now passes all seven and finishes in about 1:21 with no dip under 30 km/h in the probe.
+
+**Verified**: the suite, 6690 passed and 3 failed, the same three pre-existing ones.
+`TestMountainForest` adds: every obstacle blocks part of the trail and leaves ≥ 2.5 m of line
+past it (the collision cylinders plus a racer's 0.6 m either side, 3 m before to 3 m after) on
+the side the trail turns toward; the trunk's collider draws nothing; every bump stands roughly
+its height proud of the trail on the real heightmap; the 9 m width limit holds away from
+obstacles. `TestObjects` counts the collider prefab. Renders under Mobile with
+`--auto-input=ai`: jumps off the bumps, round a fallen trunk, past a boulder, to the finish.

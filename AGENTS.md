@@ -83,11 +83,12 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           sum-then-clamp, included by everything lit), atmosphere.gdshaderinc
                           (sky gradient, ridges, the `FOG` every lit shader writes, torchlight)
   addons/etr_import/      one-way, re-runnable importer from the ETR data tree
-  addons/course_gen/      generators of authored courses (Forest Trail) — the importer's output
-                          shape, never visited by the importer
+  addons/course_gen/      generators of authored courses (Forest Trail, Mountain Forest) and
+                          CourseGenKit, what they share — the importer's output shape, never
+                          visited by the importer
   courses/<name>/         GENERATED: course.tres, course.tscn, heightmap.res,
                           ambient_occlusion.res, splat_*.png (44 by the importer,
-                          forest_trail by tools/gen_forest_trail.sh)
+                          forest_trail and mountain_forest by tools/gen_<name>.sh)
   resources/  i18n/       GENERATED: layers, prefabs, environments, events, course + character
                           catalogs, five rigs + previews, sound bank, music, 13 translations
   i18n/                   GENERATED penguinracer.csv (ETR's strings × 13) + HAND-WRITTEN ui.csv
@@ -117,7 +118,8 @@ tools/                    import_all.sh; serve.sh (dedicated server + web export
                           server + puppeteer runner); gen_course_export_presets.py +
                           build_web_streamed.sh (streamed web export, S6);
                           build_android.sh (the `Android` preset → build/android/*.apk);
-                          gen_forest_trail.sh (regenerate the authored course Forest Trail);
+                          gen_forest_trail.sh, gen_mountain_forest.sh (regenerate an
+                          authored course);
                           gen_course_index.py (courses.json for a folder of course packs)
 ```
 
@@ -169,6 +171,7 @@ godot --headless --path game res://scenes/server.tscn -- --port=27015 \
 
 ./tools/import_all.sh [--course=bunny_hill] [--force]              # 4-pass importer
 ./tools/gen_forest_trail.sh                                        # the authored course, its props, its catalog row
+./tools/gen_mountain_forest.sh                                     # ... the other one, and its lodged trunk
 ./tools/bake_tree_impostors.sh [conifer|bare|shrub]                # after any tree mesh change
 ./tools/tree_portrait.sh /tmp/t.png bare --dist=8 [--level=2]      # one species up close, no course
 ./tools/build_android.sh [--release] [--install]                   # Android APK (setup: .devcontainer/setup-android.sh)
@@ -237,7 +240,7 @@ Detail is in `PROGRESS.md`; this is the summary.
 | Area | State |
 |---|---|
 | 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 4724 assertions, 0 failures, 13 s headless. |
-| 1 — importer + first course | **done** — 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. Plus one authored course, Forest Trail (`addons/course_gen/`), with four prop prefabs of its own. |
+| 1 — importer + first course | **done** — 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. Plus two authored courses, Forest Trail and Mountain Forest (`addons/course_gen/`), with six prop prefabs of their own (one only a collider). |
 | 2 — rendering | partial — Mobile on the desktop, Compatibility on the web (trap list: *sRGB-blended shadow pass*). ETR's illumination clamp in every lit shader except the character's; desktop-only PSSM shadow, the trees' shadows baked into the terrain's vertex colour on the web and by choice on the desktop (`TreeShadowBake`). Splat PBR, chunked terrain, instanced objects (conifers, bare trees and shrubs are 3D meshes at 3 LODs + an octahedral impostor, dithered hand-overs, wind sway, shader snow — [Forest]; anything else collidable is ETR's two crossed planes with a hashed yaw; items are billboards), ETR's HUD redrawn as primitives ([RaceHUD]), migrated skyboxes. Tone matched on Bunny Hill at both ends in all three channels; no LightmapGI. Snow/ice micro-relief, glint, rock detail texture, Fresnel sky, ice reflecting the racers (`IceReflection`) and, as a setting, the hill round them (`IceEnvironment`), textured carve spray. Heightmap AO baked at import + trench-wall AO; shaded/occluded/carved snow tinted blue (fake SSS). |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror; a carve leaves a shaded trench with a ploughed lip. |
 | 4 — character | **done for all five** — skinned mesh from `shape.lst`, keyframe clips as `AnimationLibrary` + `KeyframePath` root motion, start animation (`CIntro`), finish clips on the results screen (`RaceOutcome.clip`), racing pose layer (`CharacterRig.adjust_joints`, ETR's `AdjustJoints`) driven off `RacerState` alone so ghosts and peers animate. `GameConfig.character` picks one. |
@@ -396,16 +399,36 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   guaranteed texture units, so per-layer `normal`/`roughness` texture slots were dropped rather
   than left as silent no-ops. Do not add a per-layer field the shader cannot consume.
 - **An authored course is the importer's output shape, not its input.** `tools/gen_forest_trail.sh`
-  writes `courses/forest_trail/` and its catalog row directly; `imported_from` is empty and the row's
+  (and `gen_mountain_forest.sh`) writes `courses/forest_trail/` and its catalog row directly; `imported_from` is empty and the row's
   group is `CourseListing.AUTHORED_GROUP`, so `import_all.sh` never visits it and its catalog merge
   keeps it. Re-run the generator, not the importer, after changing it — and re-take its preview
   only on purpose: a run keeps an existing `preview.png`. **`resources/terrain/` is
   `terrains.lst`, record for record** (`TestTerrainLibrary`): a layer of an authored course's own
-  (Forest Trail's `conifer_needles`) lives in the course's directory with its texture.
+  (Forest Trail's `conifer_needles`) lives in the course's directory with its texture — each
+  course its own copy, since a web pack carries only its own directory. **An uneven fall line is
+  relief too** (Mountain Forest's chutes and benches, integrated over the mean `base_angle`), so
+  keep it out of the occlusion bake: `TerrainOcclusion` measures against a uniformly tilted plane,
+  and a change of gradient is not a bank that shades anything.
 - **A play area that follows a trail is a polygon, and everything reads it.** Physics clamps the
   racer to it and the AI plans inside it (an AI reads no terrain but friction, so without it the
-  computer ran straight on at Forest Trail's first bend). `CourseLights` stands a torch every 22 m
+  computer ran straight on at Forest Trail's first bend). **Keep it off a wall**: the AI reads no
+  slope, and a corridor 3 m up Mountain Forest's banks had it carve up them on every bend and stall
+  on the rock — at 1 m it holds the gully floor. **Build it from the narrowest width over each
+  piece**: a 24 m piece drawn from the width at its ends cut across a slot's pinch, and the AI
+  raced into the slot's wall. `CourseLights` stands a torch every 22 m
   along its long edges, so pieces shorter than that get none; outward is taken from the winding.
+- **A conifer's collision cylinder is as wide as its crown** (the marker's X scale), so a tree
+  whose trunk stands off the trail can still reach into the play area. Keep every collidable
+  object's whole cylinder out of the play area plus slack (`PLAY_CLEARANCE` in
+  `gen_mountain_forest.gd`), or a racer hugging the edge hits trunks it cannot see.
+- **An obstacle on the trail needs a straight line round it.** The AI aims one straight line
+  about 30 m ahead through nine lanes. On a bend, or with the open side on the outside of the
+  next bend, every lane round a fallen trunk left the play area and it drove into it. Mountain
+  Forest's obstacles stand where the trail is nearly straight from 40 m before to 30 m after,
+  leave open the side the trail turns toward (`open_side`), widen the trail beside them, and sit
+  early in a chute: a crash at a chute's foot leaves a racer crawling across the bench below.
+  The headless probe that found all of this, the hard AI through the real grid and play area,
+  logging speed by distance, is worth writing again before moving an obstacle.
 - **`DirAccess` over `res://` finds nothing in an exported build.** Anything the shell enumerates
   needs a generated index (`resources/courses.tres`).
 - **Re-importing for a character change also rewrites object prefabs and every `course.tscn`**, and
@@ -848,7 +871,12 @@ the whole sky to cyan-white, against which no disc can show. The fog
   fades to the sky along the horizon (aerial perspective) and, as it reaches full, to the ridges
   behind; exponential **valley mist** settles 4 m under the course's lowest point, kept light under
   clear skies (it greys everything it lies over). Both start at the
-  fog's clear distance, so the fitted near field does not move. `[display] sky = etr` / `--sky=etr`
+  fog's clear distance, so the fitted near field does not move. **A course may shape its
+  ridges** (`CourseData.backdrop_height`/`_forest`/`_near` → `atmo_ridge_shape`): taller,
+  wooded to just under the crests (`atmo_ridge_firs`: staggered fir tops, no texture unit) and
+  nearer — broader, less hazed. Only Mountain Forest does; the default `(1, 0, 0, 0)` is the old
+  skyline term for term, and the ridge map's top row rises only for a taller range
+  (`atmo_map_t_max`). `[display] sky = etr` / `--sky=etr`
   is ETR's skybox and flat `[fogcol]`, to the level.
 - **Night courses are lit** (`CourseLights`): a torch in place of every flag (the flag batch is
   hidden while they burn; each shines at `FLAG_SHARE` 0.3 of an edge torch, since at full strength
@@ -944,13 +972,24 @@ the whole sky to cyan-white, against which no disc can show. The fog
   has only pictures on quads. `PropMesh` builds them (flat-shaded, colours in the vertex colours,
   nothing from a picture), `object_prop.gdshader` draws them inside ETR's clamp with a dusting of
   snow on upward faces, and `ObjectPrefab.ground_aligned` lays them square to the slope. A
-  marker's Z scale is read (it was always X's), so a log is long in X and thin in Y and Z. Only
-  the authored Forest Trail uses them; every imported course is unchanged.
-- **There is a course ETR has not got**, and a fourth heading for it in the course list
-  (*PenguinRacer*, `CourseListing.Category.PENGUINRACER`): Forest Trail, generated by
-  `addons/course_gen/gen_forest_trail.gd`: a narrow trail that forks into two branches and
-  rejoins, a drawn conifer-needle floor with snow where the crowns leave gaps (the forest is
-  planted before the ground is painted), and the props below.
+  marker's Z scale is read (it was always X's), so a log is long in X and thin in Y and Z. **A
+  marker's Y is a height above the ground and its X/Z rotations are read** (`CourseRoot`), for
+  the one prop that is not on the ground: Mountain Forest's `lodged_log`, a long
+  `PropMesh.Kind.TRUNK` wedged across the gully overhead, leaning bank to bank — level, not
+  ground-aligned, and not collidable. The same trunk also lies fallen from a bank onto the trail,
+  and there it is solid: the grid knows only upright cylinders, so a row of `trunk_collider`
+  markers (a prefab with no mesh), each as tall as the trunk there, runs along the part over the
+  trail. It can be hit or jumped. Only the two authored courses use props; every imported course
+  has Y = 0, no tilt, and is unchanged.
+- **There are courses ETR has not got**, and a fourth heading for them in the course list
+  (*PenguinRacer*, `CourseListing.Category.PENGUINRACER`), each from a generator in
+  `addons/course_gen/` sharing `CourseGenKit`. **Forest Trail** (`gen_forest_trail.gd`): a narrow
+  trail that forks into two branches and rejoins, a drawn conifer-needle floor with snow where the
+  crowns leave gaps (the forest is planted before the ground is painted), and the props below.
+  **Mountain Forest** (`gen_mountain_forest.gd`): a narrower trail down a gully whose walls climb
+  14–30 m, a fall line of chutes (24–31°) and benches (12–14°) eased into each other, two slots
+  with a trunk lodged overhead, eight bumps and two kickers, three boulders and four fallen
+  trunks on the trail, and a near, wooded skyline (below).
 - **Crossed-quad trees are shaded as a cylinder across both planes**, where ETR gives all eight vertices
   normal (0,0,1). Per-face normals would split each tree into bright and dark halves.
   `normal_roundness = 0` in `object_cross.gdshader` is the flat card.

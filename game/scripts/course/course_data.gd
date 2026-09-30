@@ -54,6 +54,19 @@ extends Resource
 ## Legacy `[use_keyframe]` — plays the canned finish animation.
 @export var use_keyframe: bool = true
 
+## The distant ridges' shape, for [Atmosphere] (`atmo_ridge_shape`). None of
+## ETR's; an imported course keeps the defaults, which are the ridges every
+## course had before these existed.
+@export_group("Backdrop")
+## How tall the ranges stand, 1 the usual low skyline.
+@export var backdrop_height: float = 1.0
+## How far up their flanks the forest climbs, 0 the usual dark fringe at the
+## foot, 1 wooded almost to the crests.
+@export var backdrop_forest: float = 0.0
+## How near they are, 0 kilometres off, 1 the next valley over: broader,
+## clearer (less haze) and coarser in detail.
+@export var backdrop_near: float = 0.0
+
 @export_group("Provenance")
 @export var imported_from: String = ""
 @export var import_version: int = 0

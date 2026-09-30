@@ -45,6 +45,12 @@ global uniform float atmo_valley_mist;
 // a couple of kilometres off, so a racer at the top of a 200 m descent looks
 // down on them and one at the finish looks across.
 global uniform vec4 atmo_ridges;
+// The ridges' shape, per course ([method Atmosphere.ridge_shape]): how tall the
+// ranges stand (1 the usual low skyline), how far up their flanks the forest
+// climbs (0 a fringe at the foot, 1 almost to the crests), how near they are
+// (0 kilometres off, 1 the next valley over: broader, less hazed). w unused.
+// (1, 0, 0, 0) is the skyline every imported course has.
+global uniform vec4 atmo_ridge_shape;
 // How far below the true horizon the backdrop's horizon sits, as a tangent:
 // the sky, its clouds and the ridges are all drawn as if the world's horizon
 // were this much lower. A chase camera at its pitch clamp sees nothing above
@@ -185,13 +191,21 @@ float atmo_ridge_base(float layer) {
 	return -0.02 - layer * 0.04;
 }
 
+// How tall layer [param layer]'s crests can stand over its foot, per unit of
+// noise. The far range stands tallest and the near ranges lowest, so every
+// layer shows over the one in front of it.
+float atmo_ridge_amplitude(float layer) {
+	return (0.15 - layer * 0.025) * atmo_ridge_shape.x;
+}
+
 // The ridge line of layer [param layer] (0 farthest) above horizontal
 // direction [param h], as the tangent of its elevation before the drop
 // (`atmo_ridges.w`): everything about a ridge is worked out in that frame, so
 // the ranges sink as one rigid picture. Noise sampled round a circle, so it
 // closes on itself at 360 degrees without a seam.
 float atmo_ridge_top(vec2 h, float layer) {
-	float radius = 2.6 + layer * 1.7;
+	// A near range is broader: fewer peaks round the horizon.
+	float radius = (2.6 + layer * 1.7) * (1.0 - 0.4 * atmo_ridge_shape.z);
 	vec2 p = h * radius + vec2(atmo_ridges.x * 13.7 + layer * 41.3, layer * 17.9);
 	float n = 0.0;
 	float amp = 0.55;
@@ -209,7 +223,7 @@ float atmo_ridge_top(vec2 h, float layer) {
 	// shows over the one in front of it. Kept low: this is measured from the
 	// dipped horizon, and the sky above them is what makes a clear day read
 	// as one.
-	return atmo_ridge_base(layer) + (0.15 - layer * 0.025) * n;
+	return atmo_ridge_base(layer) + atmo_ridge_amplitude(layer) * n;
 }
 
 // The most the octaves above can sum to: every `v` at 1 and every clamp at 1,
@@ -220,7 +234,39 @@ const float ATMO_RIDGE_NOISE_MAX = 1.0828125;
 // the noise: 0.1425 for the far range. Above it the layer covers nothing, and
 // that is most of the sky.
 float atmo_ridge_crest_max(float layer) {
-	return atmo_ridge_base(layer) + (0.15 - layer * 0.025) * ATMO_RIDGE_NOISE_MAX;
+	return atmo_ridge_base(layer) + atmo_ridge_amplitude(layer) * ATMO_RIDGE_NOISE_MAX;
+}
+
+// Firs on a wooded range, at azimuth [param az] (0..1 round the horizon) and
+// tangent-of-elevation [param t], for a layer whose face noise has
+// [param period] cells round the horizon: x is 1 on a tree and 0 in the dark
+// between trees, y the snow lying on one. The canopy seen from across a
+// valley is the pointed tops of trees standing behind one another, so each
+// cell of a grid (four to a face cell round the horizon, rows staggered up
+// the slope) holds one top — shifted, sized and shaded at random, or none —
+// and the rest is shadow. The grid wraps at 360 degrees like the face.
+vec2 atmo_ridge_firs(float az, float t, float period, float layer) {
+	float cols = period * 4.0;
+	// The same angular unit up the slope as round it: a top about as tall as
+	// it is wide.
+	float v = t * cols / TAU * 1.1;
+	float row = floor(v);
+	float u = az * cols + atmo_hash12(vec2(row, layer + 11.0));
+	float cell = mod(floor(u), cols);
+	vec2 f = vec2(fract(u) - 0.5, fract(v));
+	vec2 key = vec2(cell, row + layer * 97.0);
+	float r1 = atmo_hash12(key);
+	float r2 = atmo_hash12(key + vec2(31.7, 5.3));
+	if (r2 < 0.18) {
+		return vec2(0.0);
+	}
+	float base = r1 * 0.3;
+	float g = clamp((f.y - base) / (1.0 - base), -1.0, 1.0);
+	float half_width = (1.0 - g) * mix(0.32, 0.55, r2) * step(0.0, g);
+	float edge = abs(f.x + (r1 - 0.5) * 0.35);
+	float tree = smoothstep(half_width + 0.06, half_width - 0.06, edge);
+	float snow = tree * smoothstep(0.55, 0.25, g) * step(0.85, r1);
+	return vec2(tree * mix(0.55, 1.0, r2), snow);
 }
 
 // A layer's own colour where it is solid: a rock face with snow lying on
@@ -234,7 +280,7 @@ float atmo_ridge_crest_max(float layer) {
 vec3 atmo_ridge_shade(vec2 h, float t, float top, float layer) {
 	// Cells round the horizon: the far range the finest, the foothills the
 	// coarsest, as they would be at those distances.
-	float period = floor(150.0 - layer * 40.0);
+	float period = floor((150.0 - layer * 40.0) * (1.0 - 0.4 * atmo_ridge_shape.z));
 	float az = atan(h.y, h.x) / TAU + 0.5;
 	vec2 p = vec2(az * period, t * period / TAU * 0.9 + layer * 7.0);
 	vec2 g = vec2(0.0);
@@ -256,15 +302,27 @@ vec3 atmo_ridge_shade(vec2 h, float t, float top, float layer) {
 	float ndl = max(dot(face, atmo_sun_dir), 0.0);
 
 	// Snow holds where the face turns upward, and more of it higher up.
-	float below = (top - t) / 0.04;
+	float below = (top - t) / (0.04 * atmo_ridge_shape.x);
 	float holds = face.y + (n - 0.5) * 0.5 - below * 0.25 + 0.05 * layer;
 	float snow = smoothstep(0.42, 0.62, holds);
 	vec3 rock = vec3(0.16, 0.17, 0.2);
-	// Forest on the lower flanks, dark and ragged at the tree line.
+	// Forest on the lower flanks, dark and ragged at the tree line — or, on a
+	// wooded range, up to just under the crests, following them.
 	float foot = atmo_ridge_base(layer);
-	float tree_line = foot + 0.035 + (n - 0.5) * 0.03;
-	float forest = smoothstep(tree_line + 0.01, tree_line - 0.01, t) * (1.0 - snow * 0.6);
-	rock = mix(rock, vec3(0.07, 0.10, 0.09), forest);
+	float tree_line = mix(foot + 0.035, top - 0.02 * atmo_ridge_shape.x, atmo_ridge_shape.y)
+		+ (n - 0.5) * 0.03 * mix(1.0, atmo_ridge_shape.x, atmo_ridge_shape.y);
+	float forest = smoothstep(tree_line + 0.01, tree_line - 0.01, t)
+		* (1.0 - snow * mix(0.6, 0.25, atmo_ridge_shape.y));
+	// A wooded face is trees, not a flat green: fir silhouettes, lit green
+	// against dark gaps, snow on their tiers. Only there, so the usual fringe
+	// keeps its one colour.
+	vec3 woods = vec3(0.07, 0.10, 0.09);
+	if (atmo_ridge_shape.y > 0.0) {
+		vec2 firs = atmo_ridge_firs(az, t, period, layer);
+		woods = mix(vec3(0.012, 0.022, 0.015), vec3(0.045, 0.09, 0.05), firs.x);
+		woods = mix(woods, vec3(0.45, 0.5, 0.54), firs.y * 0.35);
+	}
+	rock = mix(rock, woods, forest);
 	vec3 albedo = mix(rock, vec3(0.88, 0.91, 0.97), snow * (1.0 - forest * 0.7));
 
 	vec3 sky_light = mix(atmo_zenith, atmo_horizon, 0.5);
@@ -297,7 +355,8 @@ vec4 atmo_ridge_layers(vec2 h, float t, float aa, out float haze) {
 			continue;
 		}
 		vec3 col = atmo_ridge_shade(h, t, top, layer);
-		float hz = clamp((0.62 - layer * 0.24) * atmo_ridges.z, 0.0, 1.0);
+		float hz = clamp((0.62 - layer * 0.24) * atmo_ridges.z
+			* (1.0 - 0.7 * atmo_ridge_shape.z), 0.0, 1.0);
 		// Mist pools in the valley at the foot of each range.
 		float foot = atmo_ridge_base(layer);
 		float mist = smoothstep(foot + 0.025, foot - 0.015, t) * 0.92 * atmo_valley_mist;
@@ -344,7 +403,7 @@ vec4 atmo_ridge_stack(vec3 d, float aa) {
 // layers of noise. The evaluation cost about a millisecond a frame on the
 // desktop's iGPU. Columns go once round the horizon (the same azimuth as
 // `atmo_ridge_shade`); rows run over tangent-of-elevation before the drop from
-// ATMO_MAP_T_MIN to ATMO_MAP_T_MAX, which clears the tallest crest the noise
+// ATMO_MAP_T_MIN to atmo_map_t_max(), which clears the tallest crest the noise
 // can make (0.1425). Steeper down than T_MIN reads the bottom row: a surface
 // fogged past 80 m that far under the dipped horizon did not show in captures
 // of the five steepest courses. The upper half holds colour and coverage, the
@@ -354,7 +413,11 @@ vec4 atmo_ridge_stack(vec3 d, float aa) {
 const float ATMO_MAP_WIDTH = 4096.0;
 const float ATMO_MAP_ROWS = 512.0;
 const float ATMO_MAP_T_MIN = -0.6;
-const float ATMO_MAP_T_MAX = 0.16;
+// The top row: 0.16, or over a taller range ([code]atmo_ridge_shape.x[/code])
+// just over its tallest crest.
+float atmo_map_t_max() {
+	return max(0.16, atmo_ridge_crest_max(0.0) + 0.01);
+}
 const float ATMO_MAP_RANGE = 2.0;
 // The edge width the fog has always asked the ridges for.
 const float ATMO_FOG_RIDGE_AA = 0.004;
@@ -384,7 +447,7 @@ vec4 atmo_ridge_stack_far(vec3 d) {
 		return vec4(0.0);
 	}
 	float t0 = t + atmo_ridges.w;
-	float row = clamp((t0 - ATMO_MAP_T_MIN) / (ATMO_MAP_T_MAX - ATMO_MAP_T_MIN), 0.0, 1.0)
+	float row = clamp((t0 - ATMO_MAP_T_MIN) / (atmo_map_t_max() - ATMO_MAP_T_MIN), 0.0, 1.0)
 		* (ATMO_MAP_ROWS - 1.0) + 0.5;
 	float u = atan(h.y, h.x) / TAU + 0.5;
 	vec4 texel = texture(atmo_ridge_map, vec2(u, row / (2.0 * ATMO_MAP_ROWS)));

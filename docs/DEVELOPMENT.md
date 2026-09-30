@@ -84,6 +84,7 @@ sudo mv Godot_v4.7.2-stable_linux.x86_64 /usr/local/bin/godot
 ```bash
 ./tools/import_all.sh                 # all 44 courses
 ./tools/gen_forest_trail.sh           # the authored course Forest Trail (not the importer's)
+./tools/gen_mountain_forest.sh        # ... and Mountain Forest
 ./tools/import_all.sh --course=bunny_hill
 ./tools/import_all.sh --force         # overwrite courses edited in-editor
 ```

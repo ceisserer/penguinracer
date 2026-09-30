@@ -31,6 +31,7 @@ func _run() -> void:
 	TestObjects.run(t)
 	TestForest.run(t)
 	TestProps.run(t)
+	TestMountainForest.run(t)
 	TestTreeShadows.run(t)
 	TestCharacter.run(t)
 	TestCamera.run(t)

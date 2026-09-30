@@ -20,7 +20,7 @@ void fragment() {
 	// Column centres are where `atan(h.y, h.x) / TAU + 0.5` lands on them.
 	float angle = ((column + 0.5) / ATMO_MAP_WIDTH - 0.5) * TAU;
 	vec2 h = vec2(cos(angle), sin(angle));
-	float t = ATMO_MAP_T_MIN + row / (ATMO_MAP_ROWS - 1.0) * (ATMO_MAP_T_MAX - ATMO_MAP_T_MIN);
+	float t = ATMO_MAP_T_MIN + row / (ATMO_MAP_ROWS - 1.0) * (atmo_map_t_max() - ATMO_MAP_T_MIN);
 	float haze;
 	vec4 stack = atmo_ridge_layers(h, t, ATMO_FOG_RIDGE_AA, haze);
 	if (haze_half) {

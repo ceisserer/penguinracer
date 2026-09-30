@@ -36,6 +36,7 @@ static func run(t: TestCase) -> void:
 	_the_valley_floor(t)
 	_the_ridges_sink_as_you_climb(t)
 	_the_ridge_map(t)
+	_the_ridge_shape(t)
 	_the_backdrop_dips_with_the_slope(t)
 	_the_sun_on_the_lens(t)
 	_torches(t)
@@ -321,6 +322,38 @@ static func _the_ridge_map(t: TestCase) -> void:
 		and bake.find("#define ATMO_RIDGE_MAP_BAKE") < bake.find("#include \"%s\"" % INCLUDE),
 		"the bake shader is not handed the map it draws")
 	t.ok(include.contains("atmo_background(bd)"), "the fog fades into the baked ridges")
+
+## A course may shape its ridges ([member CourseData.backdrop_height] and the
+## rest); one that does not — every imported course — has to get exactly the
+## skyline it had before there was a choice, from the globals and from the
+## project's own default alike.
+static func _the_ridge_shape(t: TestCase) -> void:
+	t.begin("atmosphere/ridge shape")
+	var shipped: Vector4 = ProjectSettings.get_setting("shader_globals/atmo_ridge_shape")["value"]
+	t.ok(shipped == Atmosphere.DEFAULT_RIDGE_SHAPE,
+		"the project's default is the usual skyline (%s)" % shipped)
+	t.ok(Atmosphere.ridge_shape(CourseData.new()) == Atmosphere.DEFAULT_RIDGE_SHAPE,
+		"so is a course that says nothing")
+	t.ok(Atmosphere.ridge_shape(null) == Atmosphere.DEFAULT_RIDGE_SHAPE, "and no course")
+	var bunny: CourseData = load("res://courses/bunny_hill/course.tres")
+	t.ok(Atmosphere.ridge_shape(bunny) == Atmosphere.DEFAULT_RIDGE_SHAPE,
+		"an imported course keeps its skyline")
+	var sunny: EnvironmentPreset = _preset("etr_sunny")
+	var shape := Vector4(2.0, 1.0, 1.0, 0.0)
+	var g: Dictionary = Atmosphere.globals_for(sunny, 40.0, 150.0, true, 0.0, 0.0, true, 0.0,
+		shape)
+	t.ok(g["atmo_ridge_shape"] == shape, "the shape reaches the shaders")
+	var etr: Dictionary = Atmosphere.globals_for(sunny, 40.0, 150.0, true, 0.0, 0.0, false,
+		0.0, shape)
+	t.ok(etr["atmo_ridge_shape"] == Atmosphere.DEFAULT_RIDGE_SHAPE,
+		"and ETR's sky has no ridges to shape")
+	# The map has to reach over the tallest crest a shape can raise, and stay
+	# at its old top for the usual one.
+	var include: String = _read(INCLUDE)
+	t.ok(include.contains("return max(0.16, atmo_ridge_crest_max(0.0) + 0.01);"),
+		"the map's top row rises with the ranges and no lower than 0.16")
+	t.ok(_read(RidgeMap.SHADER).contains("atmo_map_t_max()"),
+		"and the bake spans the same rows the lookup reads")
 
 static func _torches(t: TestCase) -> void:
 	t.begin("atmosphere/torches")

@@ -204,6 +204,19 @@ static func ridge_seed(course: CourseData) -> float:
 		return 0.0
 	return float(hash(course.display_name) & 0xffff) / 655.36
 
+## The ridges' shape for [param course], `atmo_ridge_shape`: how tall the
+## ranges stand, how far the forest climbs them, how near they are
+## ([member CourseData.backdrop_height] and its two neighbours). w is unused.
+## [constant DEFAULT_RIDGE_SHAPE] is the skyline every imported course has.
+static func ridge_shape(course: CourseData) -> Vector4:
+	if course == null:
+		return DEFAULT_RIDGE_SHAPE
+	return Vector4(course.backdrop_height, clampf(course.backdrop_forest, 0.0, 1.0),
+		clampf(course.backdrop_near, 0.0, 1.0), 0.0)
+
+## Ranges at their usual height, wooded only at the foot, kilometres off.
+const DEFAULT_RIDGE_SHAPE := Vector4(1.0, 0.0, 0.0, 0.0)
+
 ## How far below the true horizon [param course]'s backdrop horizon sits, as a
 ## tangent — `atmo_dip`.
 ##
@@ -225,7 +238,8 @@ static func horizon_dip(course: CourseData) -> float:
 ## under a fog from [param fog_begin] to [param fog_end] metres (or none, if
 ## [param fog_on] is false), over a valley floor at [param valley] metres, with
 ## ridges seeded by [param seed] and the backdrop's horizon [param dip] below
-## the true one ([method horizon_dip]). [param procedural] false is ETR's sky:
+## the true one ([method horizon_dip]), shaped by [param shape]
+## ([method ridge_shape]). [param procedural] false is ETR's sky:
 ## flat `[fogcol]`, no mist, no ridges, no dip. `atmo_time` and the torches are not here —
 ## they move every frame.
 ##
@@ -233,7 +247,7 @@ static func horizon_dip(course: CourseData) -> float:
 ## have to read the globals back from is a dummy there.
 static func globals_for(preset: EnvironmentPreset, fog_begin: float, fog_end: float,
 		fog_on: bool, valley: float, seed: float, procedural: bool,
-		dip: float = 0.0) -> Dictionary:
+		dip: float = 0.0, shape: Vector4 = DEFAULT_RIDGE_SHAPE) -> Dictionary:
 	var look: Dictionary = look_for(preset)
 	var colours: Dictionary = sky_colours(preset)
 	var zenith: Color = colours["zenith"]
@@ -264,11 +278,13 @@ static func globals_for(preset: EnvironmentPreset, fog_begin: float, fog_end: fl
 		g["atmo_mist"] = Vector4(valley - MIST_BELOW_COURSE, MIST_FALLOFF, density, fog_begin)
 		g["atmo_ridges"] = Vector4(seed, float(look["ridge_light"]), float(look["ridge_haze"]), 0.0)
 		g["atmo_dip"] = dip
+		g["atmo_ridge_shape"] = shape
 	else:
 		g["atmo_fog"] = Vector4(fog_begin, fog_end, 0.0, 0.0)
 		g["atmo_mist"] = Vector4(0.0, MIST_FALLOFF, 0.0, 0.0)
 		g["atmo_ridges"] = Vector4(0.0, 1.0, 1.0, 0.0)
 		g["atmo_dip"] = 0.0
+		g["atmo_ridge_shape"] = DEFAULT_RIDGE_SHAPE
 	return g
 
 ## Where the bright disc of [param preset]'s sky is drawn, in the backdrop's
@@ -311,7 +327,8 @@ func apply(env: Environment, preset: EnvironmentPreset, course: CourseData,
 	_valley_floor = valley_floor(course, surface)
 	var dip: float = horizon_dip(course)
 	var g: Dictionary = globals_for(preset, env.fog_depth_begin, env.fog_depth_end,
-		env.fog_enabled, _valley_floor, ridge_seed(course), procedural, dip)
+		env.fog_enabled, _valley_floor, ridge_seed(course), procedural, dip,
+		ridge_shape(course))
 	for name: String in g:
 		_global(name, g[name])
 	_ridges = g["atmo_ridges"]

@@ -167,6 +167,10 @@ atmo_ridges={
 "type": "vec4",
 "value": Vector4(0, 1, 1, 0)
 }
+atmo_ridge_shape={
+"type": "vec4",
+"value": Vector4(1, 0, 0, 0)
+}
 atmo_dip={
 "type": "float",
 "value": 0.0
