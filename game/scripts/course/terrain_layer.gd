@@ -33,12 +33,12 @@ extends Resource
 @export var slide_sound: StringName = &""
 
 @export_group("Rendering")
-## The only per-layer [b]texture[/b] the terrain shader has, and the only one it
-## can have. WebGL2 guarantees 16 fragment texture units and `terrain.gdshader`
-## already binds 13 — two splat maps, eight albedos, the trail map, the detail
-## map and the sparkle noise. A per-layer normal or roughness map would need
-## eight more units each, so neither is implementable under Compatibility; both
-## used to be declared here as unread `Texture2D` slots that silently did
+## The only per-layer [b]texture[/b] the terrain shader has. [TerrainRenderer]
+## packs the course's into one array (`albedo_array`), brought up to the size
+## of the largest, so a layer may be any size — but one larger than the rest
+## makes every other layer on its course that large in memory. A per-layer
+## normal or roughness map would be a second array, and is not implemented;
+## both used to be declared here as unread `Texture2D` slots that silently did
 ## nothing when assigned. Relief comes from the shared procedural detail field
 ## instead, and roughness from [member roughness] below.
 @export var albedo: Texture2D

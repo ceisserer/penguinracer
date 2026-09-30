@@ -92,9 +92,8 @@ func _build_material() -> ShaderMaterial:
 	# `layer_count` gates the sample but not the uniform.
 	var uv_scales := [6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0]
 	var detail := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+	mat.set_shader_parameter("albedos", albedo_array(layers))
 	for i: int in mini(layers.size(), 8):
-		if layers[i].albedo != null:
-			mat.set_shader_parameter("albedo_%d" % i, layers[i].albedo)
 		var ice: bool = layers[i].is_ice()
 		# Authored on the layer, not derived here. The importer seeds it from
 		# `is_ice()` with the 0.25/0.85 this line used to hardcode, so the
@@ -119,6 +118,63 @@ func _build_material() -> ShaderMaterial:
 	mat.set_shader_parameter("detail_map", _detail_texture())
 	mat.set_shader_parameter("detail_gradient_scale", _detail_gradient_scale)
 	return mat
+
+## The course's layer photographs as one [Texture2DArray], slice [i]i[/i] for
+## layer [i]i[/i] — the shader's `albedos`, which is one texture unit where
+## eight samplers were eight.
+##
+## An array needs every slice the same size and format, which the layers do not
+## promise: the imported library is all 256², but an authored course's own
+## needle floor is 512². Every slice is therefore brought up to the largest,
+## never down — a smaller photograph is only ever magnified, which is what the
+## sampler was doing to it anyway, while shrinking the drawn texture would
+## throw away the detail it was drawn at. The price is memory: a 256² layer on
+## a course with a 512² one costs four times what it did.
+##
+## The pixels are read back from the textures the layers already hold (Godot
+## renders them into a target and reads that under Compatibility), then
+## re-mipped here, since the web path returns level 0 only. The importer's mips
+## are made by the same `generate_mipmaps` from the same display-encoded bytes,
+## so the shader's 1×1-mip mean is what it was. A layer with no photograph is a
+## white slice, which is what an unbound sampler used to read.
+static func albedo_array(layers: Array[TerrainLayer]) -> Texture2DArray:
+	var images: Array[Image] = albedo_slices(layers)
+	var array := Texture2DArray.new()
+	var err: Error = array.create_from_images(images)
+	if err != OK:
+		push_error("TerrainRenderer: no albedo array for %d layers (%s)" % [images.size(), error_string(err)])
+	return array
+
+## [method albedo_array]'s slices, before they go to the GPU — from where no
+## headless test could read them back.
+static func albedo_slices(layers: Array[TerrainLayer]) -> Array[Image]:
+	var images: Array[Image] = []
+	var size := Vector2i(1, 1)
+	for i: int in maxi(1, mini(layers.size(), 8)):
+		var img: Image = null
+		if i < layers.size() and layers[i].albedo != null:
+			img = layers[i].albedo.get_image()
+		if img != null and not img.is_empty():
+			img = img.duplicate() as Image
+			if img.is_compressed():
+				img.decompress()
+			size = size.max(img.get_size())
+		else:
+			img = null
+		images.push_back(img)
+	for i: int in images.size():
+		var img: Image = images[i]
+		if img == null:
+			img = Image.create_empty(size.x, size.y, false, Image.FORMAT_RGB8)
+			img.fill(Color.WHITE)
+		img.clear_mipmaps()
+		# The shader reads RGB only.
+		img.convert(Image.FORMAT_RGB8)
+		if img.get_size() != size:
+			img.resize(size.x, size.y, Image.INTERPOLATE_BILINEAR)
+		img.generate_mipmaps()
+		images[i] = img
+	return images
 
 static func _set_layer_table(mat: ShaderMaterial, name: String, v: Array) -> void:
 	mat.set_shader_parameter(name, Vector4(v[0], v[1], v[2], v[3]))
@@ -192,9 +248,9 @@ static var _ice_env_shader: Shader
 
 ## `terrain.gdshader` with `ICE_ENV_ATLAS` defined, which is what declares the
 ## atlas sampler. A variant rather than a uniform switch because a declared
-## sampler is bound whether or not it is read, and under Compatibility it is
-## the 16th: a player who turns the world reflection off gets the shader with
-## 15, exactly as before [IceEnvironment] existed. Built once and shared.
+## sampler is bound whether or not it is read: a player who turns the world
+## reflection off gets the shader without it, exactly as before
+## [IceEnvironment] existed. Built once and shared.
 ##
 ## The define goes after `shader_type`, which Godot reads off the code before
 ## the preprocessor runs.
@@ -481,9 +537,9 @@ func _build_chunk(key: Vector2i) -> void:
 	normals.resize(nx * nz)
 	uvs.resize(nx * nz)
 	# The baked sky visibility (R), torchlight (G) and the sun past the trees
-	# (B) ride in vertex colour rather than a texture: the terrain shader
-	# already binds 15 of WebGL2's 16 guaranteed units, and all three live on
-	# exactly this grid anyway. Always written, since Godot's default colour for
+	# (B) ride in vertex colour rather than a texture: texture units are the
+	# terrain shader's scarcest budget (see its `albedos`), and all three live
+	# on exactly this grid anyway. Always written, since Godot's default colour for
 	# a mesh without one is white — open sky, but also every vertex under a
 	# torch.
 	var has_ao: bool = not _occlusion.is_empty()

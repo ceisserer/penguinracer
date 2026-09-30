@@ -27,6 +27,7 @@ static func run(t: TestCase) -> void:
 	_repeated_name(t, layers)
 	_shading_table(t, layers)
 	_detail_reaches_shader(t)
+	_albedo_array(t)
 	_provenance(t, layers)
 
 static func _load_all(t: TestCase) -> Array[TerrainLayer]:
@@ -192,6 +193,46 @@ static func _detail_reaches_shader(t: TestCase) -> void:
 		"rock, ice, rock, rock → detail %s" % [lo])
 	t.ok(Vector4(mat.get_shader_parameter("layer_detail_hi")).is_zero_approx(),
 		"the unused slots carry none")
+	renderer.free()
+
+## The layers' photographs reach the shader as one array, slice for layer, and
+## a course whose layers differ in size gets all of them at the largest:
+## Forest Trail's own needle floor is 512² among the library's 256² photographs.
+## A slice has to be the photograph it stands for, not merely the right size —
+## compared at one texel against the texture it came from, upscaled or not.
+static func _albedo_array(t: TestCase) -> void:
+	t.begin("terrain library/albedo array")
+	var course: CourseData = load("res://courses/forest_trail/course.tres")
+	var layers: Array[TerrainLayer] = course.terrain_layers
+	var slices: Array[Image] = TerrainRenderer.albedo_slices(layers)
+	t.ok(slices.size() == layers.size(),
+		"one slice per layer (%d of %d)" % [slices.size(), layers.size()])
+	var widest: int = 0
+	for layer: TerrainLayer in layers:
+		if layer.albedo != null:
+			widest = maxi(widest, layer.albedo.get_width())
+	var fits: bool = widest == 512
+	for slice: Image in slices:
+		fits = fits and slice.get_size() == Vector2i(512, 512) \
+			and slice.get_format() == slices[0].get_format() and slice.has_mipmaps()
+	t.ok(fits, "all brought up to the largest layer, 512², one format, mipmapped")
+	for i: int in layers.size():
+		if layers[i].albedo == null:
+			continue
+		var src: Image = layers[i].albedo.get_image()
+		var got: Image = slices[i]
+		var scale: int = got.get_width() / src.get_width()
+		var at := Vector2i(src.get_width() / 3, src.get_height() / 3)
+		var want: Color = src.get_pixelv(at)
+		var have: Color = got.get_pixelv(at * scale)
+		t.ok(absf(want.r - have.r) + absf(want.g - have.g) + absf(want.b - have.b) < 0.1,
+			"slice %d is %s (%s vs %s)" % [i, layers[i].id, want, have])
+	var renderer := TerrainRenderer.new()
+	renderer.course = course
+	var mat: ShaderMaterial = renderer._build_material()
+	var bound: Texture2DArray = mat.get_shader_parameter("albedos")
+	t.ok(bound != null and bound.get_layers() == layers.size() and bound.get_width() == 512,
+		"and they are what the material binds")
 	renderer.free()
 
 ## Provenance: the committed library has to still hash to what the importer

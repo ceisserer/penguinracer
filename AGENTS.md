@@ -395,9 +395,10 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   can see an Inspector edit. `import_fingerprint` hashes what the importer wrote and
   `edited_since_import()` recomputes it; hash rather than diff, or every importer change makes all
   layers look hand-edited.
-- **An exported field nothing reads is an invitation.** The terrain shader binds 13 of WebGL2's 16
-  guaranteed texture units, so per-layer `normal`/`roughness` texture slots were dropped rather
-  than left as silent no-ops. Do not add a per-layer field the shader cannot consume.
+- **An exported field nothing reads is an invitation.** Per-layer `normal`/`roughness` texture
+  slots were dropped rather than left as silent no-ops, when the terrain's eight albedos were eight
+  samplers; a per-layer map would now be a second `Texture2DArray` (trap list, texture units). Do
+  not add a per-layer field the shader cannot consume.
 - **An authored course is the importer's output shape, not its input.** `tools/gen_forest_trail.sh`
   (and `gen_mountain_forest.sh`) writes `courses/forest_trail/` and its catalog row directly; `imported_from` is empty and the row's
   group is `CourseListing.AUTHORED_GROUP`, so `import_all.sh` never visits it and its catalog merge
@@ -625,14 +626,37 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   probe alone. `CourseRoot` cuts every non-collectable object type into `Forest.CELL_SIZE` cells
   under a `Batch_<type>` node, which also halved the main view there (17 → 8.6 ms); a
   collectable type stays one `MultiMeshInstance3D`, since `hide_item` addresses its slots.
-- **The terrain shader is at its last texture unit under Compatibility.** It binds 15 (14 + the
-  global `atmo_ridge_map`); `ice_env_atlas` is the 16th and exists only in the variant
+- **Texture units are the terrain shader's scarcest budget.** It binds 8 (7 + the global
+  `atmo_ridge_map`), 9 with `ice_env_atlas`, which exists only in the variant
   `TerrainRenderer.ice_environment_shader()` builds (`#define ICE_ENV_ATLAS`) while the setting is
   on — a declared sampler is bound whether or not it is read, so the setting has to choose the
-  shader, not a uniform. Godot's GLES3 scene shader binds its own counting down from the top of the
-  device's range (`// texunit:-2` radiance, `-3` shadows, `-6`/`-7` screen and depth), none of
-  which the terrain uses in a browser. Most real browsers report 16; headless Chromium's
-  SwiftShader 32, so the 16-unit case has not been seen here.
+  shader, not a uniform. It was 15 and 16, with one sampler per layer albedo, and 16 crashed every
+  Windows browser on the first race (below); the albedos are now one `Texture2DArray`
+  (`TerrainRenderer.albedo_array`), built per course at load from the layers' textures read back
+  and re-mipped. An array needs one size for every slice, so all of a course's layers are brought
+  up to its largest — Forest Trail's 512² needle floor makes its 256² photographs 512² in memory.
+  Upscaled, never down; the byte-identical capture of a course whose layers already agree is the
+  check that nothing else moved. **The real budget is 15, not 16**, for any shader that reads a
+  `global uniform` (every lit surface does, through `atmosphere.gdshaderinc`) under ANGLE's D3D11
+  backend — what Chrome *and* Firefox run WebGL on under Windows, which reports 16 units whatever
+  the GPU (the same Ryzen iGPU reports 32 through Mesa on Linux). Godot keeps the globals in one
+  block holding a single `vec4[256]`; ANGLE rewrites any block whose only member is an array of 50
+  or more into a structured buffer (`RecordUniformBlocksWithLargeArrayMember`), which takes a
+  texture register *after* all the samplers (`ResourcesHLSL`), while its per-stage register cache
+  is sized to the 16 units (`StateManager11`). WebGL's link check counts samplers only, so 16
+  passes; the first draw then writes register 16, a release-build `ASSERT` fires and the browser's
+  GPU process dies (`STATUS_ILLEGAL_INSTRUCTION`, `setShaderResourceInternal` ←
+  `syncUniformBuffersForShader`), and the page sees only `CONTEXT_LOST_WEBGL`, preceded by shader
+  compiles "failing" with an empty log. That is what the 16-sampler ice variant did to every
+  Windows browser on the first race; 15 is the most any stage may bind. Godot's GLES3 scene shader adds its own counting
+  down from the top of the range (`// texunit:-2` radiance, `-3` shadows, `-6`/`-7` screen and
+  depth, and since 4.7 `-10`/`-11` `ltc_lut1`/`ltc_lut2` for area lights). The terrain reads none of
+  the first four in a browser, but the area-light pair is in Godot's *default* specialization
+  (`DISABLE_LIGHT_AREA = false`), compiled at load and never drawn while no area light exists. At
+  15 samplers it logged "Program linking failed: … exceeds MAX_TEXTURE_IMAGE_UNITS(16)" twice at
+  startup on Windows, harmless; at 9 + 2 it should link, so that message coming back means the
+  count has crept up again. None of this shows here: headless
+  Chromium's SwiftShader and Mesa both report 32, so test a Windows browser.
 - **A cube map magnifies whatever is near its centre.** With a 0.1 m near plane a flag passed at
   a metre filled a wedge of a face and turned a stripe of ice red for a few frames, and a canyon
   wall at arm's length turned half of `inception`'s floor one flat colour. The probe's cameras clip
@@ -955,9 +979,9 @@ the whole sky to cyan-white, against which no disc can show. The fog
   snowfall are on `NEAR_FIELD_LAYER`, not layer 1, so the probe leaves them out, and its cameras
   clip everything within 5 m (`PROBE_NEAR`, trap list). Runs only with ice
   within 90 m, all six faces every frame (~3 ms on Forest Trail on the iGPU under Mobile, lit by a shadowless copy of the sun;
-  the web draws none). On every renderer; under Compatibility it is the terrain's 16th sampler,
-  compiled in only while on (trap list). `[display] ice_world_reflections = false` is the ramp and
-  the 15-unit shader again; off below the HIGH preset.
+  the web draws none). On every renderer; it is the terrain's 9th sampler, compiled in only while
+  on (trap list). `[display] ice_world_reflections = false` is the ramp and the 8-unit shader
+  again; off below the HIGH preset.
 - **Conifers are 3D trees**, where ETR draws the same two crossed quads for every tree.
   `ConiferMesh` builds three levels from `snowy_tree1.png`, unchanged — radial fins carrying the
   picture's halves for the silhouette, drooping whorl cards for depth, a trunk at LOD 0 — and

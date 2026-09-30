@@ -61,14 +61,13 @@ uniform sampler2D splat_1 : filter_linear_mipmap_anisotropic, repeat_disable;
 uniform int layer_count : hint_range(1, 8) = 1;
 
 group_uniforms Layers;
-uniform sampler2D albedo_0 : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2D albedo_1 : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2D albedo_2 : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2D albedo_3 : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2D albedo_4 : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2D albedo_5 : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2D albedo_6 : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2D albedo_7 : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+// Every layer's photograph, one slice each, in `TerrainLayer` order. One array
+// rather than eight samplers because texture units are the scarcest thing this
+// shader has: a Windows browser allows 15 per stage (AGENTS.md trap list), and
+// eight albedos alone were more than half of them. [TerrainRenderer] builds it
+// per course, every slice brought to one size and format — see
+// `TerrainRenderer.albedo_array`.
+uniform sampler2DArray albedos : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 // Metres per texture repeat, per layer. ETR generated terrain UVs at 1/6 world
 // scale for the whole course, and this was a single uniform to match — but the
 // scale is declared per layer on `TerrainLayer`, and uploading only layer 0's
@@ -117,10 +116,10 @@ group_uniforms Detail_Texture;
 // trench AO note above is the same fact), while the albedo is exactly what the
 // clamp lets through.
 //
-// No new sampler (the shader is at its last texture unit under Compatibility)
-// and no varying: two taps of a sampler already bound, per detailed layer, only
-// where the layer has weight and inside `detail_texture_fade`. Past that the
-// fine tap has mipped to the mean anyway.
+// No new sampler (texture units are the budget; see `albedos`) and no varying:
+// two taps of an array already bound, per detailed layer, only where the layer
+// has weight and inside `detail_texture_fade`. Past that the fine tap has
+// mipped to the mean anyway.
 uniform float detail_texture_ratio : hint_range(1.0, 16.0) = 4.7;
 // Radians. Any angle that is not a multiple of a right angle keeps the fine
 // grain from lining up with the photograph's own features and axes.
@@ -428,8 +427,8 @@ group_uniforms Ice_Environment;
 // a course with no ice, a lake still out of range.
 //
 // Only declared in the variant [TerrainRenderer] builds while the setting is
-// on (`ICE_ENV_ATLAS`): under Compatibility this is the 16th sampler, and with
-// the setting off the shader keeps its 15. See [IceEnvironment].
+// on (`ICE_ENV_ATLAS`): with it the shader binds 9 texture units, without it 8.
+// See [IceEnvironment].
 //
 // The faces are display-encoded like any viewport. Mobile decodes them for a
 // `source_color` sampler; Compatibility does not decode a viewport texture at
@@ -612,9 +611,9 @@ void vertex() {
 // by nothing — no strength, no weight or out of range — and all three reach
 // zero continuously at the skip's edge, so the mip level a divergent branch
 // leaves undefined there only ever scales a vanishing term.
-vec4 layer_albedo(sampler2D tex, vec2 p, float repeat_m, float weight,
+vec4 layer_albedo(float layer, vec2 p, float repeat_m, float weight,
 		float strength, float near) {
-	vec4 c = texture(tex, p / repeat_m);
+	vec4 c = texture(albedos, vec3(p / repeat_m, layer));
 	float amount = strength * near;
 	if (amount > 0.0 && weight > 0.0) {
 		float cs = cos(detail_texture_turn);
@@ -622,13 +621,13 @@ vec4 layer_albedo(sampler2D tex, vec2 p, float repeat_m, float weight,
 		vec2 q = mat2(vec2(cs, sn), vec2(-sn, cs)) * p
 			* (detail_texture_ratio / repeat_m);
 		const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
-		float fine = dot(texture(tex, q).rgb, LUMA);
+		float fine = dot(texture(albedos, vec3(q, layer)).rgb, LUMA);
 		// The 1x1 mip is the photograph's mean, read rather than uploaded so
 		// that it can never disagree with the texture it averages. Its mips
 		// are averaged in display space, though, so it is the decoded mean of
 		// the encoded texels, which sits below the linear mean; the ratio is
 		// taken in display space to match, or the grain brightens the layer.
-		float mean = dot(textureLod(tex, vec2(0.5), 16.0).rgb, LUMA);
+		float mean = dot(textureLod(albedos, vec3(0.5, 0.5, layer), 16.0).rgb, LUMA);
 		float ratio = pow(max(fine, 0.0) / max(mean, 0.001), 1.0 / 2.2);
 		c.rgb *= mix(1.0, ratio, amount);
 	}
@@ -641,14 +640,14 @@ vec4 sample_layers(vec2 p, vec4 w0, vec4 w1, float near) {
 	vec4 s1 = max(layer_uv_scale_hi, vec4(0.001));
 	vec4 d0 = layer_detail;
 	vec4 d1 = layer_detail_hi;
-	vec4 c = layer_albedo(albedo_0, p, s0.r, w0.r, d0.r, near) * w0.r;
-	if (layer_count > 1) { c += layer_albedo(albedo_1, p, s0.g, w0.g, d0.g, near) * w0.g; }
-	if (layer_count > 2) { c += layer_albedo(albedo_2, p, s0.b, w0.b, d0.b, near) * w0.b; }
-	if (layer_count > 3) { c += layer_albedo(albedo_3, p, s0.a, w0.a, d0.a, near) * w0.a; }
-	if (layer_count > 4) { c += layer_albedo(albedo_4, p, s1.r, w1.r, d1.r, near) * w1.r; }
-	if (layer_count > 5) { c += layer_albedo(albedo_5, p, s1.g, w1.g, d1.g, near) * w1.g; }
-	if (layer_count > 6) { c += layer_albedo(albedo_6, p, s1.b, w1.b, d1.b, near) * w1.b; }
-	if (layer_count > 7) { c += layer_albedo(albedo_7, p, s1.a, w1.a, d1.a, near) * w1.a; }
+	vec4 c = layer_albedo(0.0, p, s0.r, w0.r, d0.r, near) * w0.r;
+	if (layer_count > 1) { c += layer_albedo(1.0, p, s0.g, w0.g, d0.g, near) * w0.g; }
+	if (layer_count > 2) { c += layer_albedo(2.0, p, s0.b, w0.b, d0.b, near) * w0.b; }
+	if (layer_count > 3) { c += layer_albedo(3.0, p, s0.a, w0.a, d0.a, near) * w0.a; }
+	if (layer_count > 4) { c += layer_albedo(4.0, p, s1.r, w1.r, d1.r, near) * w1.r; }
+	if (layer_count > 5) { c += layer_albedo(5.0, p, s1.g, w1.g, d1.g, near) * w1.g; }
+	if (layer_count > 6) { c += layer_albedo(6.0, p, s1.b, w1.b, d1.b, near) * w1.b; }
+	if (layer_count > 7) { c += layer_albedo(7.0, p, s1.a, w1.a, d1.a, near) * w1.a; }
 	return c;
 }
 
