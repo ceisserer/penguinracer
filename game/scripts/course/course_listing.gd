@@ -12,15 +12,21 @@ extends Resource
 ## Where a course came from, which is the order the menu lists them in: the
 ## five Tux Racer shipped, then everything Extreme Tux Racer added — ETR's
 ## `default` and `extras` groups alike, see [constant
-## CourseCatalog.TUXRACER_ORIGINALS] — then courses the player added by address
+## CourseCatalog.TUXRACER_ORIGINALS] — then this project's own
+## ([constant AUTHORED_GROUP]), then courses the player added by address
 ## ([ExternalCourses]).
-enum Category { TUXRACER, ETR, EXTERNAL }
+enum Category { TUXRACER, ETR, PENGUINRACER, EXTERNAL }
+
+## [member group] of a course authored for this project rather than imported
+## from ETR — written by its generator, never by the importer.
+const AUTHORED_GROUP := "penguinracer"
 
 ## Directory under `res://courses/`, and the identity used everywhere else.
 @export var dir: String = ""
-## ETR course group it was imported from — `default` or `extras`. Provenance
-## only: ETR's `default` holds seventeen courses it added itself, so the menu
-## groups by [method category], not by this.
+## ETR course group it was imported from — `default` or `extras` — or
+## [constant AUTHORED_GROUP]. Between the first two, provenance only: ETR's
+## `default` holds seventeen courses it added itself, so the menu groups by
+## [method category], not by this.
 @export var group: String = "default"
 @export var display_name: String = ""
 @export var author: String = ""
@@ -59,4 +65,6 @@ func category() -> Category:
 		return Category.EXTERNAL
 	if CourseCatalog.TUXRACER_ORIGINALS.has(dir):
 		return Category.TUXRACER
+	if group == AUTHORED_GROUP:
+		return Category.PENGUINRACER
 	return Category.ETR

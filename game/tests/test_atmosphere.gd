@@ -20,6 +20,7 @@ const LIT_SHADERS: Array[String] = [
 	"res://shaders/conifer_impostor.gdshader",
 	"res://shaders/object_cross.gdshader",
 	"res://shaders/object_billboard.gdshader",
+	"res://shaders/object_prop.gdshader",
 ]
 
 static func run(t: TestCase) -> void:

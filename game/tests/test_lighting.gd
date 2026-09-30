@@ -30,6 +30,7 @@ const LIT_SHADERS: Array[String] = [
 	"res://shaders/terrain.gdshader",
 	"res://shaders/object_cross.gdshader",
 	"res://shaders/object_billboard.gdshader",
+	"res://shaders/object_prop.gdshader",
 ]
 const INCLUDE_PATH := "res://shaders/etr_illumination.gdshaderinc"
 

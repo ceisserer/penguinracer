@@ -26,3 +26,6 @@ extends Resource
 ## Drawn as a 3D bush ([ShrubMesh]) by [Forest], likewise. Set by the importer
 ## for ETR's shrub picture, `shrub.png`.
 @export var shrub: bool = false
+## Stood square to the ground under it rather than upright — a boulder or a log
+## ([PropMesh]) lies on a slope; a tree grows straight up whatever it stands on.
+@export var ground_aligned: bool = false

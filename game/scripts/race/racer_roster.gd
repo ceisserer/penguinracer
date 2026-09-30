@@ -90,6 +90,10 @@ func build_local(character_dir: String, scene_path: String, display_name: String
 			keyboard.tilt.speeds = TouchScheme.tilt_speeds(touch)
 		local.input_source = keyboard
 		local.recorder = RaceRecorder.new()
+	elif auto_input == "ai":
+		# The computer's driver in the player's seat: a capture that follows a
+		# course's line to the finish rather than slaloming into its trees.
+		local.input_source = AIInputSource.new(AISkill.for_level(AISkill.Level.HARD), 0, 0)
 	else:
 		local.input_source = ScriptedInputSource.new(auto_input)
 	add(local, character_dir, scene_path)

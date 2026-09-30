@@ -60,7 +60,10 @@ static func _load_all(t: TestCase) -> Dictionary[String, ObjectPrefab]:
 		t.ok(prefab != null, "%s loads as an ObjectPrefab" % file)
 		if prefab != null:
 			out[String(prefab.id)] = prefab
-	t.ok(out.size() == 14, "fourteen object types (%d)" % out.size())
+	# ETR's fourteen, plus the four solid props an authored course adds
+	# (`TestProps`).
+	t.ok(out.size() == 14 + TestProps.PROPS.size(),
+		"fourteen object types and the props (%d)" % out.size())
 	return out
 
 static func _trees_are_crossed_quads(t: TestCase,
@@ -70,6 +73,9 @@ static func _trees_are_crossed_quads(t: TestCase,
 	for id: String in prefabs:
 		var prefab: ObjectPrefab = prefabs[id]
 		if not prefab.collidable or prefab.mesh == null:
+			continue
+		# A boulder or a stump is a real mesh, not ETR's cross — `TestProps`.
+		if TestProps.PROPS.has(id):
 			continue
 		checked += 1
 		_assert_cross(t, prefab.mesh, id)

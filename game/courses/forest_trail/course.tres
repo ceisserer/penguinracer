@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="CourseData" format=3]
+
+[ext_resource type="Image" path="res://courses/forest_trail/ambient_occlusion.res" id="1_gnktw"]
+[ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="2_4gvkl"]
+[ext_resource type="Image" path="res://courses/forest_trail/heightmap.res" id="3_l4o3w"]
+[ext_resource type="Texture2D" path="res://courses/forest_trail/preview.png" id="4_4kmoa"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="5_bb74b"]
+[ext_resource type="Texture2D" path="res://courses/forest_trail/splat_0.png" id="6_poorn"]
+[ext_resource type="Texture2D" path="res://courses/forest_trail/splat_1.png" id="7_lepq6"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="8_wnhol"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="9_cotpn"]
+[ext_resource type="Resource" path="res://resources/terrain/icy_forest_floor.tres" id="10_yonoa"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="11_emq64"]
+[ext_resource type="Resource" path="res://resources/terrain/thin_snow.tres" id="12_deocn"]
+[ext_resource type="Resource" path="res://courses/forest_trail/conifer_needles.tres" id="13_638td"]
+[ext_resource type="Resource" path="res://resources/terrain/dirt.tres" id="14_cdki5"]
+
+[resource]
+script = ExtResource("5_bb74b")
+display_name = "Forest Trail"
+author = "PenguinRacer"
+description = "A narrow snowy trail through a dark pine forest. Halfway down it splits in two: pick a branch, they meet again further down. Stay on the snow, the forest floor is full of rocks and fallen trees, and watch for ice."
+preview = ExtResource("4_4kmoa")
+heightmap = ExtResource("3_l4o3w")
+heightmap_size = Vector2i(241, 3201)
+ambient_occlusion = ExtResource("1_gnktw")
+world_size = Vector2(120, 1600)
+height_scale = 6.0
+base_angle = 19.0
+splat_maps = Array[Texture2D]([ExtResource("6_poorn"), ExtResource("7_lepq6")])
+splat_size = Vector2i(241, 3201)
+terrain_layers = Array[ExtResource("8_wnhol")]([ExtResource("9_cotpn"), ExtResource("10_yonoa"), ExtResource("11_emq64"), ExtResource("12_deocn"), ExtResource("13_638td"), ExtResource("14_cdki5")])
+start_position = Vector2(60, 3.5)
+finish_line_z = -1500.0
+play_bounds = PackedVector2Array(45, 1, 45.06456, -23, 50.247997, -47, 59.05238, -71, 61.122032, -95, 59.748104, -119, 59.775227, -143, 55.028164, -167, 44.60468, -191, 36.403286, -215, 31.504232, -239, 30.864227, -263, 35.74758, -287, 41.05018, -311, 45.174076, -335, 49.98875, -359, 51.32612, -383, 52.466763, -407, 59.099728, -431, 65.48958, -455, 67.892525, -479, 67.66039, -503, 61.584137, -527, 49.258537, -551, 36.77134, -575, 29.788933, -599, 31.655027, -623, 35.64295, -647, 32.041126, -671, 24.879723, -695, 23.359629, -719, 27.763744, -743, 32.907063, -767, 34.160645, -791, 32.128613, -815, 32.967587, -839, 37.795406, -863, 41.25746, -887, 40.264027, -911, 36.018173, -935, 31.972763, -959, 32.74456, -983, 36.89931, -1007, 36.580498, -1031, 31.125038, -1055, 28.378542, -1079, 29.95726, -1103, 34.78285, -1127, 42.69074, -1151, 46.583363, -1175, 49.94124, -1199, 53.188393, -1223, 53.35776, -1247, 55.94233, -1271, 62.08538, -1295, 66.35966, -1319, 68.15128, -1343, 64.43578, -1367, 55.40512, -1391, 49.068005, -1415, 45.82504, -1439, 43.500526, -1463, 44.939587, -1487, 45, -1511, 45, -1535, 45, -1559, 45, -1583, 45, -1599, 75, -1599, 75, -1583, 75, -1559, 75, -1535, 75, -1511, 74.95248, -1487, 69.38964, -1463, 62.600822, -1439, 66.84933, -1415, 76.33303, -1391, 85.78663, -1367, 88.39852, -1343, 87.47249, -1319, 85.00079, -1295, 78.02604, -1271, 72.26791, -1247, 71.17922, -1223, 68.954506, -1199, 65.268265, -1175, 60.354523, -1151, 53.594265, -1127, 51.25381, -1103, 66.12376, -1079, 78.18023, -1055, 85.447784, -1031, 87.68494, -1007, 86.89144, -983, 86.82846, -959, 88.310074, -935, 91.06491, -911, 94.9739, -887, 96.24108, -863, 92.7615, -839, 88.26868, -815, 84.961784, -791, 82.48616, -767, 82.47907, -743, 84.314125, -719, 85.65677, -695, 85.36559, -671, 82.61137, -647, 78.81367, -623, 77.88723, -599, 77.97303, -575, 77.427414, -551, 84.68421, -527, 90.15438, -503, 87.90963, -479, 83.75952, -455, 78.22706, -431, 71.57292, -407, 68.935425, -383, 67.651695, -359, 65.47627, -335, 63.296112, -311, 57.553303, -287, 51.519135, -263, 53.15543, -239, 58.10304, -215, 64.044334, -191, 72.436646, -167, 77.792206, -143, 79.019684, -119, 79.89674, -95, 78.085335, -71, 77.1335, -47, 75.08961, -23, 75, 1)
+play_size = Vector2(110, 1500)
+environment_preset = ExtResource("2_4gvkl")

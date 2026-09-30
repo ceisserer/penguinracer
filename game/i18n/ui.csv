@@ -137,6 +137,7 @@ GHOST_BEATEN,Beat the ghost by %.2f s,Geist um %.2f s geschlagen
 GHOST_BEHIND,%.2f s behind the ghost,%.2f s hinter dem Geist
 COURSES_TUXRACER,Tux Racer,Tux Racer
 COURSES_ETR,Extreme Tux Racer,Extreme Tux Racer
+COURSES_PENGUINRACER,PenguinRacer,PenguinRacer
 COURSES_EXTERNAL,Added courses,Hinzugefügte Strecken
 ADD_COURSE,Add course…,Strecke hinzufügen…
 REMOVE_COURSE,Remove,Entfernen

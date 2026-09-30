@@ -148,10 +148,12 @@ static func torch_positions(course: CourseData, surface: SurfaceProvider,
 	var bounds: PackedVector2Array = course.effective_play_bounds()
 	if bounds.size() < 3:
 		return out
-	var centre := Vector2.ZERO
-	for v: Vector2 in bounds:
-		centre += v
-	centre /= float(bounds.size())
+	# Outward from the polygon's winding, not from its middle: a play area that
+	# follows a winding trail has stretches of edge on the far side of its own
+	# centroid. For a rectangle the two agree.
+	var winding: float = 0.0
+	for i: int in bounds.size():
+		winding += bounds[i].cross(bounds[(i + 1) % bounds.size()])
 	var near := PackedInt32Array()
 	for i: int in bounds.size():
 		var a: Vector2 = bounds[i]
@@ -163,7 +165,7 @@ static func torch_positions(course: CourseData, surface: SurfaceProvider,
 		if length < 1.0 or absf(edge.y) < 0.7 * length:
 			continue
 		var outward := Vector2(edge.y, -edge.x).normalized()
-		if outward.dot((a + b) * 0.5 - centre) < 0.0:
+		if winding < 0.0:
 			outward = -outward
 		var count: int = floori(length / SPACING)
 		for k: int in range(1, count + 1):

@@ -47,7 +47,8 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           three: cells × levels, per-tree dithered LOD, wind + snow),
                           Atmosphere (the procedural sky's globals: haze, mist, ridges),
                           CourseLights (night torches, flags → torches),
-                          TreeShadowBake (the trees' shadows in the terrain, per sun)
+                          TreeShadowBake (the trees' shadows in the terrain, per sun),
+                          PropMesh (boulder, stones, log, stump: procedural solid props)
   scripts/camera/         chase camera
   scripts/shell/          main/course/settings menus, HUD, LobbyMenu (connect → browse → room,
                           own CourseMenu instance), LoadingScreen (shared by menu and race),
@@ -75,14 +76,18 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           TouchScheme (buttons | tilt_steer | tilt_speed | tilt | off, and "is this a phone")
   scripts/debug/          DebugCapture autoload (headless screenshots / scripted input), key_log
   shaders/                terrain, etr_skybox, procedural_sky, object_billboard (items), object_cross (shrubs),
+                          object_prop (PropMesh's boulders, stones, logs, stumps),
                           conifer + conifer_impostor (all three species; + conifer.gdshaderinc:
                           LOD fade, sway, snow, twig alpha), conifer_bake, snow_trail, snow_flakes, lens_snow, lens_flare, menu_snow,
                           s1_displace, torch_flame, etr_illumination.gdshaderinc (ETR's
                           sum-then-clamp, included by everything lit), atmosphere.gdshaderinc
                           (sky gradient, ridges, the `FOG` every lit shader writes, torchlight)
   addons/etr_import/      one-way, re-runnable importer from the ETR data tree
+  addons/course_gen/      generators of authored courses (Forest Trail) — the importer's output
+                          shape, never visited by the importer
   courses/<name>/         GENERATED: course.tres, course.tscn, heightmap.res,
-                          ambient_occlusion.res, splat_*.png
+                          ambient_occlusion.res, splat_*.png (44 by the importer,
+                          forest_trail by tools/gen_forest_trail.sh)
   resources/  i18n/       GENERATED: layers, prefabs, environments, events, course + character
                           catalogs, five rigs + previews, sound bank, music, 13 translations
   i18n/                   GENERATED penguinracer.csv (ETR's strings × 13) + HAND-WRITTEN ui.csv
@@ -112,6 +117,7 @@ tools/                    import_all.sh; serve.sh (dedicated server + web export
                           server + puppeteer runner); gen_course_export_presets.py +
                           build_web_streamed.sh (streamed web export, S6);
                           build_android.sh (the `Android` preset → build/android/*.apk);
+                          gen_forest_trail.sh (regenerate the authored course Forest Trail);
                           gen_course_index.py (courses.json for a folder of course packs)
 ```
 
@@ -162,6 +168,7 @@ godot --headless --path game res://scenes/server.tscn -- --port=27015 \
 ./tools/build_server.sh [--build-web]                              # ... packaged into build/server/
 
 ./tools/import_all.sh [--course=bunny_hill] [--force]              # 4-pass importer
+./tools/gen_forest_trail.sh                                        # the authored course, its props, its catalog row
 ./tools/bake_tree_impostors.sh [conifer|bare|shrub]                # after any tree mesh change
 ./tools/tree_portrait.sh /tmp/t.png bare --dist=8 [--level=2]      # one species up close, no course
 ./tools/build_android.sh [--release] [--install]                   # Android APK (setup: .devcontainer/setup-android.sh)
@@ -170,7 +177,7 @@ godot --headless --path game res://scenes/server.tscn -- --port=27015 \
 godot --path game -- --capture=/tmp/shot.png --capture-frames=200 \
     --auto-input=carve --camera=above --course=wild_mountains
 # --auto-input= is carve | brake | paddle | jump (jump is the only way to capture the
-# gauge's inner half). It also DISABLES the start animation, so those captures run on a
+# gauge's inner half) | ai (the computer's driver: follows a course's line to the finish). It also DISABLES the start animation, so those captures run on a
 # different clock from a player's. To reproduce what a player saw in the first seconds,
 # pass no input source — --capture= plus --course= plays the intro and steers nowhere:
 godot --path game -- --capture=/tmp/shot.png --capture-frames=655 \
@@ -207,7 +214,7 @@ desktop preference survives a browser session; the shadows row stays, since it a
 baked tree shadows. A ghost is not a setting: it is whichever
 saved run the player picks from **Race against ghost**, or none.
 
-**Export presets**: `Web` (streamed base — engine, shell, all 44 previews), one generated
+**Export presets**: `Web` (streamed base — engine, shell, all 45 previews), one generated
 `Course_<dir>` per course, `MusicPack`, `WebSpike`, `Server` (Linux dedicated server), `Android`
 (whole game in one APK, arm64, prebuilt template). The generated presets belong to
 `tools/gen_course_export_presets.py`, which finds them by name — re-run it when a course is
@@ -230,11 +237,11 @@ Detail is in `PROGRESS.md`; this is the summary.
 | Area | State |
 |---|---|
 | 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 4724 assertions, 0 failures, 13 s headless. |
-| 1 — importer + first course | **done** — 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. |
+| 1 — importer + first course | **done** — 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. Plus one authored course, Forest Trail (`addons/course_gen/`), with four prop prefabs of its own. |
 | 2 — rendering | partial — Mobile on the desktop, Compatibility on the web (trap list: *sRGB-blended shadow pass*). ETR's illumination clamp in every lit shader except the character's; desktop-only PSSM shadow, the trees' shadows baked into the terrain's vertex colour on the web and by choice on the desktop (`TreeShadowBake`). Splat PBR, chunked terrain, instanced objects (conifers, bare trees and shrubs are 3D meshes at 3 LODs + an octahedral impostor, dithered hand-overs, wind sway, shader snow — [Forest]; anything else collidable is ETR's two crossed planes with a hashed yaw; items are billboards), ETR's HUD redrawn as primitives ([RaceHUD]), migrated skyboxes. Tone matched on Bunny Hill at both ends in all three channels; no LightmapGI. Snow/ice micro-relief, glint, rock detail texture, Fresnel sky, ice reflecting the racers (`IceReflection`) and, as a setting, the hill round them (`IceEnvironment`), textured carve spray. Heightmap AO baked at import + trench-wall AO; shaded/occluded/carved snow tinted blue (fake SSS). |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror; a carve leaves a shaded trench with a ploughed lip. |
 | 4 — character | **done for all five** — skinned mesh from `shape.lst`, keyframe clips as `AnimationLibrary` + `KeyframePath` root motion, start animation (`CIntro`), finish clips on the results screen (`RaceOutcome.clip`), racing pose layer (`CharacterRig.adjust_joints`, ETR's `AdjustJoints`) driven off `RacerState` alone so ghosts and peers animate. `GameConfig.character` picks one. |
-| 5 — game shell | partial — main menu → Practice / Race the computer / Network multiplayer / Race against ghost / character / Configuration; results screen with named runs; ETR palette theme; course + character catalogs (course list in three parts: Tux Racer, ETR, added by address); English + German, detected or chosen on the settings screen; audio (`AudioDirector`, ETR's one-voice-per-cue mixer). Missing: cups, medals, profiles (data imported), volume controls, ETR's menu art (licence audit). |
+| 5 — game shell | partial — main menu → Practice / Race the computer / Network multiplayer / Race against ghost / character / Configuration; results screen with named runs; ETR palette theme; course + character catalogs (course list in four parts: Tux Racer, ETR, PenguinRacer's own, added by address); English + German, detected or chosen on the settings screen; audio (`AudioDirector`, ETR's one-voice-per-cue mixer). Missing: cups, medals, profiles (data imported), volume controls, ETR's menu art (licence audit). |
 | 6 — polish/ship | not started. |
 | phones | **done, not raced on hardware** — `Android` preset + `tools/build_android.sh` (Mobile renderer by default, Compatibility selectable in the settings screen from the next launch, whole game in the APK, Medium preset on first run); tilt / tilt-steer / tilt-speed / buttons / off on Android and in a phone's browser (`TouchScheme`, `TouchControls`, `TiltSteering`, `MotionSensor`); back button is Esc. Verified by the suite, desktop renders with `--touch`, and Chromium emulating an Android phone with synthetic `devicemotion`. |
 | sky + atmosphere | **done** (beyond ETR) — procedural sky (sun disc low ahead-right with a lens flare, drifting clouds; stars, moon, aurora at night), three layers of distant ridges, aerial perspective and valley mist in every lit shader's `FOG`, night torches inside the clamp (baked into the terrain). `[display] sky = etr` / `--sky=etr` is the old frame to the level. See the deviations. |
@@ -388,6 +395,17 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
 - **An exported field nothing reads is an invitation.** The terrain shader binds 13 of WebGL2's 16
   guaranteed texture units, so per-layer `normal`/`roughness` texture slots were dropped rather
   than left as silent no-ops. Do not add a per-layer field the shader cannot consume.
+- **An authored course is the importer's output shape, not its input.** `tools/gen_forest_trail.sh`
+  writes `courses/forest_trail/` and its catalog row directly; `imported_from` is empty and the row's
+  group is `CourseListing.AUTHORED_GROUP`, so `import_all.sh` never visits it and its catalog merge
+  keeps it. Re-run the generator, not the importer, after changing it — and re-take its preview
+  only on purpose: a run keeps an existing `preview.png`. **`resources/terrain/` is
+  `terrains.lst`, record for record** (`TestTerrainLibrary`): a layer of an authored course's own
+  (Forest Trail's `conifer_needles`) lives in the course's directory with its texture.
+- **A play area that follows a trail is a polygon, and everything reads it.** Physics clamps the
+  racer to it and the AI plans inside it (an AI reads no terrain but friction, so without it the
+  computer ran straight on at Forest Trail's first bend). `CourseLights` stands a torch every 22 m
+  along its long edges, so pieces shorter than that get none; outward is taken from the winding.
 - **`DirAccess` over `res://` finds nothing in an exported build.** Anything the shell enumerates
   needs a generated index (`resources/courses.tres`).
 - **Re-importing for a character change also rewrites object prefabs and every `course.tscn`**, and
@@ -922,6 +940,17 @@ the whole sky to cyan-white, against which no disc can show. The fog
   conifer; the shader widens a limb to ≥ ~0.4 px (`min_radius_per_metre`, vertices coding a radius
   in `COLOR.b`) so far limbs stay lines, and holds more snow on round limbs
   (`snow_facing_offset`). Clearing `bare` on a prefab draws ETR's cross again.
+- **Courses can carry solid props** — boulders, stone scatters, fallen logs, stumps — where ETR
+  has only pictures on quads. `PropMesh` builds them (flat-shaded, colours in the vertex colours,
+  nothing from a picture), `object_prop.gdshader` draws them inside ETR's clamp with a dusting of
+  snow on upward faces, and `ObjectPrefab.ground_aligned` lays them square to the slope. A
+  marker's Z scale is read (it was always X's), so a log is long in X and thin in Y and Z. Only
+  the authored Forest Trail uses them; every imported course is unchanged.
+- **There is a course ETR has not got**, and a fourth heading for it in the course list
+  (*PenguinRacer*, `CourseListing.Category.PENGUINRACER`): Forest Trail, generated by
+  `addons/course_gen/gen_forest_trail.gd`: a narrow trail that forks into two branches and
+  rejoins, a drawn conifer-needle floor with snow where the crowns leave gaps (the forest is
+  planted before the ground is painted), and the props below.
 - **Crossed-quad trees are shaded as a cylinder across both planes**, where ETR gives all eight vertices
   normal (0,0,1). Per-face normals would split each tree into bright and dark halves.
   `normal_roundness = 0` in `object_cross.gdshader` is the flat card.
@@ -1096,7 +1125,7 @@ the whole sky to cyan-white, against which no disc can show. The fog
   menu scene when the language changes. Adding a row: edit the CSV, then
   `godot --headless --path game --import` to regenerate `ui.*.translation`. Course names and
   descriptions stay as ETR ships them — untranslated there too.
-- **The course list is Tux Racer's five, then ETR's, then the player's own**, each under a header
+- **The course list is Tux Racer's five, then ETR's, then this project's, then the player's own**, each under a header
   row — not ETR's `default`/`extras` groups, since `default` holds seventeen courses ETR added.
   The five are `CourseCatalog.TUXRACER_ORIGINALS` (Jasmin Patry's, `[env] tuxracer`, the
   *Tux Racer Classics* event). **A course can be added by the http(s) address of its `.pck`**

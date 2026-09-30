@@ -79,8 +79,13 @@ func build_runtime() -> void:
 			# Only the crossed quads need turning; an item billboards and has no
 			# plane of its own to share.
 			var yaw: float = m.rotation.y + (decorrelating_yaw(p) if collidable else 0.0)
-			var xf := Transform3D(Basis().rotated(Vector3.UP, yaw), p)
-			transforms.push_back(xf.scaled_local(Vector3(diam, height, diam)))
+			var basis := Basis().rotated(Vector3.UP, yaw)
+			if prefab != null and prefab.ground_aligned:
+				basis = Basis(Quaternion(Vector3.UP, ground_normal(p))) * basis
+			var xf := Transform3D(basis, p)
+			# Z is the diameter again for everything the importer writes; a
+			# log's marker gives its length in X and its thickness in Z.
+			transforms.push_back(xf.scaled_local(Vector3(diam, height, m.scale.z)))
 			if collidable:
 				trees.add(p, diam, height, 0)
 			elif prefab == null or prefab.collectable:
@@ -97,6 +102,14 @@ func build_runtime() -> void:
 
 	trees.build()
 	items.build()
+
+## The ground's normal at [param p], across a metre either way — as wide as the
+## props that ask for it, so a boulder settles on the slope and not on a bump.
+func ground_normal(p: Vector3) -> Vector3:
+	const D := 1.0
+	var dx: float = surface.height_at(p.x - D, p.z) - surface.height_at(p.x + D, p.z)
+	var dz: float = surface.height_at(p.x, p.z - D) - surface.height_at(p.x, p.z + D)
+	return Vector3(dx, 2.0 * D, dz).normalized()
 
 ## Widest turn [method decorrelating_yaw] gives a crossed-quad object, either
 ## way. Small enough that a tree still presents ETR's face to a racer coming

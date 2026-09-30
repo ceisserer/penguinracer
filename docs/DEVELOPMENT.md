@@ -83,6 +83,7 @@ sudo mv Godot_v4.7.2-stable_linux.x86_64 /usr/local/bin/godot
 
 ```bash
 ./tools/import_all.sh                 # all 44 courses
+./tools/gen_forest_trail.sh           # the authored course Forest Trail (not the importer's)
 ./tools/import_all.sh --course=bunny_hill
 ./tools/import_all.sh --force         # overwrite courses edited in-editor
 ```
@@ -172,7 +173,7 @@ original's quirks came along deliberately — the slide sound has no speed term 
 left it commented out) and 12 of its 43 terrains, `snow` included, name no sound at all.
 
 The game opens on a main menu with four entries. Three are ETR's own words for what they do:
-**Practice** is a single free race and opens the course list — all 44 courses with preview, author
+**Practice** is a single free race and opens the course list — all 45 courses with preview, author
 and description, arrows and Enter to pick one — **Select a character** is the five of them from
 `char/characters.lst`, arrows over a framed name with the original's 128x128 preview under it, and
 **Configuration** is the settings screen below. The fourth, **Race the computer**, is beyond the
@@ -552,7 +553,7 @@ the web does. A phone's first run starts at the **Medium** quality preset.
 
 ## Web
 
-The web export is streamed: `Web` builds a slim base (engine + shell + all 44 course preview
+The web export is streamed: `Web` builds a slim base (engine + shell + all 45 course preview
 thumbnails, ~65 MB) that excludes every course's `course.tscn`/`course.tres`/`heightmap.res`/
 `splat_*.png` and all of `assets/music/`. Those are built as separate `.pck` files — one per
 course (268 KB–9.2 MB each, depending on the course) plus one for music (14 MB) — and fetched

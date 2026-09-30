@@ -88,7 +88,7 @@ const SNOW_LABELS: Array[String] = ["SNOWFALL_NONE", "SNOWFALL_A_LITTLE",
 ## What each [enum CourseListing.Category] is called on its header row:
 ## translation keys from `i18n/ui.csv`.
 const CATEGORY_LABELS: Array[String] = ["COURSES_TUXRACER", "COURSES_ETR",
-	"COURSES_EXTERNAL"]
+	"COURSES_PENGUINRACER", "COURSES_EXTERNAL"]
 ## The header rows' colour — [code]AccentLabel[/code]'s, ETR's `colDYell`.
 const HEADER_COLOR := Color(1.0, 0.8, 0.0)
 

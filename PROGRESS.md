@@ -2844,3 +2844,92 @@ project.godot ships`); `TestTerrainLibrary` pins the seed on all 43 layers, the 
 terrains, and `layer_detail` in splat order in Penguins' built material (rock, ice, rock, rock).
 Renders: Penguins steering left at 6 s and 8 s under Mobile and at 6 s under Compatibility;
 Bunny Hill's opening frame is unchanged beyond 13 pixels (its rock is beyond the fade there).
+
+### A course of our own: Forest Trail (2026-09-30) · **done, not seen in a real browser or on a phone**
+
+**What.** The first course that is not ETR's: **Forest Trail** (`courses/forest_trail/`), 1600 m
+at 19°, a snowy trail winding down through a conifer forest. The trail is `snow` with eight
+patches of `ice1` on it, edged by `icy_forest_floor`; the forest floor is bare earth (`dirt` and
+`forest_floor2`, in patches). About 4400 conifers (5.5–14 m, taller than ETR's) and 700 bushes
+stand in it, with **boulders, stone scatters, fallen logs and stumps** on the ground: 316 / 616 /
+192 / 201, half of each drawn within 25 m of the trail, where a racer sees them. Sixty-five
+herring in 13 lines drift across the trail; the start and finish banners stand on it.
+Listed under a new fourth heading, **PenguinRacer** (`CourseListing.Category.PENGUINRACER`,
+group `penguinracer`), between ETR's courses and those added by address.
+
+**How it is made.** `tools/gen_forest_trail.sh` runs `addons/course_gen/gen_forest_trail.gd`
+twice with an `--import` between, as the importer is run. Everything is a function of the
+distance down the trail — its centre line (three sines, straight for the first 90 m and the last
+180 m), its width (13–23 m, 24 m at the gates), three kickers — plus seeded `FastNoiseLite`. It
+writes what the importer writes (float relief at 0.5 m, the occlusion bake, splat maps summing
+to 255 exactly, `course.tscn` of markers) and adds its row to `resources/courses.tres`.
+`imported_from` is empty, so the ETR importer never visits the course and its catalog merge keeps
+the row. Deterministic; re-running it rewrites the same course. A first run with no
+`preview.png` draws a map as a placeholder; the committed preview is a capture.
+
+**The props** are new object types — `resources/objects/{boulder,stones,log,stump}.tres`, written
+by the generator — drawn from `PropMesh` (procedural, flat-shaded, colours painted into the
+vertex colours: nothing for the licence audit) with `object_prop.gdshader` (vertex colour ×
+world-space value-noise mottle, a dusting of snow on upward faces, ETR's clamp, the atmosphere's
+fog, torchlight). They are ordinary `MultiMesh` batches in `CourseRoot`. Two small general
+additions carry them: `ObjectPrefab.ground_aligned` stands a prop square to the ground
+(`CourseRoot.ground_normal`, across ±1 m) rather than upright, and a marker's Z scale is now read
+(it was always the X scale), so a log's marker gives length in X and thickness in Y and Z.
+Boulders and stumps are collidable, as trees are (cylinder); stones and logs are decoration.
+
+**The play area is the trail.** `play_bounds` is a corridor, the trail plus 5 m of forest either
+side, in 24 m pieces. `RacePhysics` keeps a racer inside it and `AIInputSource` plans inside it,
+and without it a computer opponent — which reads no terrain but friction — ran straight on at
+the first bend and spent the race in the trees. With it, and the tightest wiggle of the centre
+line softened, the hard driver holds the trail at ~60 km/h and collects the herring.
+
+**Found on the way.** Night torches stand every `CourseLights.SPACING` along the play area's
+long edges, so a corridor built of 8 m pieces got none, and `torch_positions` decided "outward"
+from the polygon's centroid, which a winding corridor puts on the wrong side of its own edge.
+It now takes the side from the polygon's winding (same answer for every rectangle), the corridor
+is built in 24 m pieces, and the generator clears 3.5 m round each torch spot before planting the
+forest, which otherwise took 117 of the 132.
+
+**Also.** `--auto-input=ai` puts the computer's driver (hard) in the player's seat, so a capture
+follows a course's line instead of slaloming into its trees.
+
+**Verified**: the suite — 6557 passed, 1 failed (the same pre-existing `lighting/what
+project.godot ships`); `TestProps` checks the meshes face out and fit the unit box, the prefabs,
+the ground normal on a plain slope, the catalog row and category, that every tree, bush and prop
+is off the trail and on earth rather than snow or ice, herring and banners on it, and the
+corridor. `TestObjects` now counts the four props beside ETR's fourteen. Renders under Mobile
+(sunny, night) and Compatibility, driven by `--auto-input=ai` down the whole course.
+**Not done**: a real browser, a phone, a frame-rate measurement of 4400 trees, and the
+course's music/time/herring targets (it is in no event or cup).
+
+### Forest Trail: a narrower trail that forks, and a conifer floor with snow in the gaps (2026-09-30) · **done, not seen in a real browser or on a phone**
+
+**What.** Reworked after a first look. The trail is **8–12 m wide** (was 13–23 m, which read as
+a snowfield beside a forest). A tree line stands along both edges of every branch, so the racer
+runs between walls of trees. From 540 m to 1100 m the trail **forks**: two branches part to ~36 m
+apart, each wandering on its own, with a wooded island between them. The left branch has the
+kicker; the right has more ice. They rejoin before the finish. The world is 120 m wide to make
+room. The **forest floor is conifer litter**: a new layer, `conifer_needles`, whose 512² texture
+the generator draws (humus, 16 000 needles in rust, tan, dark brown and a few green, twigs, spruce
+cones, all antialiased and tileable). It repeats every 3 m with a detail strength of 0.5 and has
+ETR's forest-floor friction and sound. **Snow lies where the crowns leave a gap**: the generator
+plants the forest *before* painting the ground, sums each conifer's crown (and, weaker, each
+bush's) into a 1 m canopy map, and lays `thin_snow` where cover is low, snow-dusted litter
+(`icy_forest_floor`) where it is partial, and needles under the crowns, with a little bare
+`dirt`. The result: about 58 % needles, 21 % forest snow, 10 % trail.
+
+**How.** Everything that used `centre_x(d)` takes a branch; `beyond_edge` is the nearer branch's.
+Both stages now place the same objects: the assets stage to lay the snow round them, the
+resources stage to write them. Torch spots need only the play area, so both stages clear them
+against a flat stand-in surface. The play area spans both branches and the island (a polygon has
+no holes). The branches part with an ease-out rather than a smoothstep: a smoothstep kept them
+overlapping for half the ramp, one snowfield three trails wide. `conifer_needles` lives in
+`courses/forest_trail/` with its texture, not in `resources/terrain/`, which `TestTerrainLibrary`
+holds to `terrains.lst` record for record. It ships in the course's own pack.
+
+**Verified**: the suite — 6570 passed, 1 failed (the pre-existing `lighting/what project.godot
+ships`). `TestProps` adds the fork (one trail above and below, two with forest between in the
+middle, both in the play area) and the floor (the course's own needle layer, >50 % of the
+forest floor needles, 10–40 % snow, none of the trail's snow in the forest). All 132 night
+torches still stand. Renders under Mobile down the whole course and through the fork with
+`--auto-input=ai` (the hard driver holds a branch at 60–69 km/h), and under Compatibility.

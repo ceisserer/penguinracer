@@ -30,6 +30,7 @@ func _run() -> void:
 	TestOcclusion.run(t)
 	TestObjects.run(t)
 	TestForest.run(t)
+	TestProps.run(t)
 	TestTreeShadows.run(t)
 	TestCharacter.run(t)
 	TestCamera.run(t)

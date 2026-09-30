@@ -2,8 +2,8 @@
 
 A [Godot 4.7](https://godotengine.org/) rebuild of
 [Extreme Tux Racer](https://sourceforge.net/projects/extremetuxracer/) 0.8.4 — downhill penguin
-racing with the original's physics model, its 44 courses and its five characters, plus real snow
-deformation, computer opponents and ghost replays the original never had.
+racing with the original's physics model, its 44 courses and its five characters, plus a course of its
+own (Forest Trail), real snow deformation, computer opponents and ghost replays the original never had.
 
 One project ships to two places: **the web** (WebGL2, Godot's Compatibility renderer) and
 **desktop native** (Vulkan, Godot's Mobile renderer). Both targets matter equally, and the
