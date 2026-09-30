@@ -447,6 +447,10 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
 - **`EMISSION` differs between renderers; `DIFFUSE_LIGHT`/`SPECULAR_LIGHT` do not.**
   `EMISSION = 0.5` reads 0.500 under Mobile and 0.216 under Compatibility. Additive terms go on
   `SPECULAR_LIGHT` in `light()`. Never calibrate against a constant written to a colour output.
+  **`ALBEDO` is the same**: Compatibility sRGB-decodes it and passes a `source_color` uniform or
+  sampler through undecoded, so textures agree by accident and anything *computed in linear*
+  (vertex colours, constants) is decoded twice — the props' unsnowed rock and bark went near black
+  on the web (25 vs 76). Build it in linear and encode under Compatibility (`object_prop.gdshader`).
 - **Godot multiplies `DIFFUSE_LIGHT` by `ALBEDO` once, after the light loop**, so
   `DIFFUSE_LIGHT += ALBEDO * ...` squares it.
 - **An additive term outside the illumination clamp undoes the clamp.** Bound it as the energy

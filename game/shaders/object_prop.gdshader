@@ -48,6 +48,32 @@ float value_noise(vec3 p) {
 			mix(hash3(i + vec3(0, 1, 1)), hash3(i + vec3(1, 1, 1)), f.x), f.y), f.z);
 }
 
+// [b]`ALBEDO` is not in the same units on the two renderers.[/b] Mobile takes
+// it as linear; Compatibility sRGB-decodes it, and hands a `source_color`
+// uniform in undecoded — so a textured surface agrees by accident (sRGB in,
+// decoded once) and this one, whose colours are the mesh's *linear* vertex
+// colours ([PropMesh] stores them `srgb_to_linear`), was decoded twice. Measured
+// with a constant: `ALBEDO = vec3(0.18)` fully lit read 118 on Mobile and 45 on
+// Compatibility, which is `srgb_to_linear(0.18)`; the rock faces that get no
+// snow — the undersides a racer on the trail looks up at — went near black.
+// So the colour is built in linear on both, and encoded for Compatibility.
+vec3 snow_linear() {
+#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
+	return mix(snow_color / 12.92, pow((snow_color + 0.055) / 1.055, vec3(2.4)),
+		step(vec3(0.04045), snow_color));
+#else
+	return snow_color;
+#endif
+}
+
+vec3 albedo_out(vec3 c) {
+#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
+	return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c));
+#else
+	return c;
+#endif
+}
+
 void vertex() {
 	grain_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
@@ -62,7 +88,7 @@ void fragment() {
 	vec3 world_n = (INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz;
 	float up = smoothstep(0.35, 0.8, world_n.y + (n - 0.5) * 0.5);
 	float snow = up * snow_cover;
-	ALBEDO = clamp(mix(base, snow_color, snow), 0.0, 1.0);
+	ALBEDO = albedo_out(clamp(mix(base, snow_linear(), snow), 0.0, 1.0));
 	ROUGHNESS = 0.9;
 	METALLIC = 0.0;
 
