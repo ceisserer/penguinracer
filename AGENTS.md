@@ -674,6 +674,13 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   goes sideways and reads as a second penguin, at full Fresnel. Neither fragment distance nor
   grazing angle separates the cases (a chase camera is always near-grazing); screen-down fraction of
   the offset does — `IceReflection.attachment()`.
+- **A MultiMesh instance's own non-uniform scale bends its normals.** Godot uses the
+  inverse-transpose only when the *node* is non-uniformly scaled, on both renderers, so a
+  per-instance stretch turns normals by the plain matrix. `object_prop.gdshader` is
+  `skip_vertex_transform` and transforms `NORMAL` itself. Without that, a 15:1 trunk lights and
+  snows in a checkerboard. Any new shader drawn over stretched instances needs the same. The
+  geometry stretches too: anything meant to stay round on a log's surface (its branch stubs) is
+  built pre-squashed along X in `PropMesh` (`LOG_STRETCH`, `TRUNK_STRETCH`).
 
 ### Characters and animation
 
@@ -1006,9 +1013,9 @@ the whole sky to cyan-white, against which no disc can show. The fog
   in `COLOR.b`) so far limbs stay lines, and holds more snow on round limbs
   (`snow_facing_offset`). Clearing `bare` on a prefab draws ETR's cross again.
 - **Courses can carry solid props** — boulders, stone scatters, fallen logs, stumps — where ETR
-  has only pictures on quads. `PropMesh` builds them (flat-shaded, colours in the vertex colours,
-  nothing from a picture), `object_prop.gdshader` draws them inside ETR's clamp with a dusting of
-  snow on upward faces, and `ObjectPrefab.ground_aligned` lays them square to the slope. A
+  has only pictures on quads. `PropMesh` builds them (flat-shaded except a log's bark, colours in
+  the vertex colours, nothing from a picture), `object_prop.gdshader` draws them inside ETR's
+  clamp with patches of snow on upward faces, and `ObjectPrefab.ground_aligned` lays them square to the slope. A
   marker's Z scale is read (it was always X's), so a log is long in X and thin in Y and Z. **A
   marker's Y is a height above the ground and its X/Z rotations are read** (`CourseRoot`), for
   the one prop that is not on the ground: Mountain Forest's `lodged_log`, a long

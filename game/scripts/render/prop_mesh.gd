@@ -13,7 +13,8 @@
 ##
 ## Vertex colours are stored linear (a [ShaderMaterial] reads `COLOR` raw), and
 ## faces are flat-shaded: a faceted rock reads as rock at a chase camera's
-## distance, where a smooth one reads as a potato.
+## distance, where a smooth one reads as a potato. A log's bark is the
+## exception ([constant BARK_SMOOTH_GROUP]): faceted, it reads as a beam.
 class_name PropMesh
 extends RefCounted
 
@@ -41,6 +42,17 @@ const LOG_SEGMENTS := 6
 ## stretched twelve times, a per-ring wobble reads as a stack of planks.
 const TRUNK_SIDES := 12
 const TRUNK_SEGMENTS := 16
+## How much longer than thick a marker makes each, typically: a log 2.5-6 m by
+## 0.3-0.55 m, a trunk 7-15 m by 0.45-0.8 m (Mountain Forest). Its branch stubs
+## are built this much narrower along X, so that the stretch leaves them round —
+## built round in the unit box, they came out as blades 1-2 m long and a few
+## centimetres thick, a pale strip of broken tip smeared along the bark.
+const LOG_STRETCH := 10.0
+## The bark of a log or trunk is shaded smooth round its girth — faceted, a
+## 12-sided trunk reads as a sawn beam up close. Rock, cut ends and stubs stay
+## flat. Any group but the flat one; SurfaceTool averages within it.
+const BARK_SMOOTH_GROUP := 1
+const TRUNK_STRETCH := 15.0
 const STUMP_SIDES := 9
 const STUMP_LEVELS: Array[float] = [-0.15, 0.0, 0.12, 0.45, 1.0]
 const STUMP_FLARE: Array[float] = [1.0, 0.95, 0.72, 0.62, 0.6]
@@ -153,14 +165,14 @@ static func _log(st: SurfaceTool, rng: RandomNumberGenerator) -> void:
 			var col: Color = (BARK if (k + s) % 3 != 0 else BARK_DARK) \
 				* rng.randf_range(0.85, 1.1)
 			_quad(st, rings[s][k], rings[s + 1][k], rings[s + 1][k1], rings[s][k1], col,
-				axis)
+				axis, BARK_SMOOTH_GROUP)
 	_end_cap(st, rng, rings[0], axis)
 	_end_cap(st, rng, rings[LOG_SEGMENTS], axis)
 	for i: int in rng.randi_range(2, 4):
 		var ang: float = rng.randf_range(-1.2, 1.2)
 		var dir := Vector3(rng.randf_range(-0.3, 0.3), cos(ang), sin(ang)).normalized()
 		var root := Vector3(rng.randf_range(-0.35, 0.35), LOG_AXIS_Y, 0.0) + dir * 0.4
-		_stub(st, root, dir, 0.09, 0.03, rng.randf_range(0.25, 0.5))
+		_stub(st, root, dir, 0.09, 0.07, rng.randf_range(0.12, 0.25), LOG_STRETCH)
 
 ## A long dead trunk: tapering to its top end, sagging a little, bark in
 ## streaks along it, broken-off branches standing out square to it, and both
@@ -189,7 +201,7 @@ static func _trunk(st: SurfaceTool, rng: RandomNumberGenerator) -> void:
 		for k: int in TRUNK_SIDES:
 			var k1: int = (k + 1) % TRUNK_SIDES
 			_quad(st, rings[s][k], rings[s + 1][k], rings[s + 1][k1], rings[s][k1],
-				side_col[k] * rng.randf_range(0.95, 1.05), axis)
+				side_col[k] * rng.randf_range(0.95, 1.05), axis, BARK_SMOOTH_GROUP)
 	_end_cap(st, rng, rings[0], axis)
 	_end_cap(st, rng, rings[TRUNK_SEGMENTS], axis)
 	# Up and to the sides only — the ones underneath broke off in the fall —
@@ -199,7 +211,7 @@ static func _trunk(st: SurfaceTool, rng: RandomNumberGenerator) -> void:
 		var dir := Vector3(0.0, cos(ang), sin(ang))
 		var x: float = rng.randf_range(-0.4, 0.4)
 		var root := Vector3(x, LOG_AXIS_Y, 0.0) + dir * 0.35 * lerpf(1.0, 0.7, x + 0.5)
-		_stub(st, root, dir, 0.12, 0.04, rng.randf_range(0.2, 0.3))
+		_stub(st, root, dir, 0.12, 0.1, rng.randf_range(0.12, 0.22), TRUNK_STRETCH)
 
 ## Close a ring with bands painted in: heartwood, a darker ring, heartwood, and
 ## the bark's edge.
@@ -259,9 +271,11 @@ static func _stump(st: SurfaceTool, rng: RandomNumberGenerator) -> void:
 
 # ---------------------------------------------------------------- helpers
 
-## A broken branch: a tapered five-sided prism with a pale broken tip.
+## A broken branch: a tapered five-sided prism with a pale broken tip, built
+## [param stretch] times narrower along X than it is to look once the mesh's
+## X is stretched by that much.
 static func _stub(st: SurfaceTool, root: Vector3, dir: Vector3, r0: float, r1: float,
-		length: float) -> void:
+		length: float, stretch: float) -> void:
 	const SIDES := 5
 	var side: Vector3 = dir.cross(Vector3.RIGHT)
 	if side.length() < 0.1:
@@ -271,17 +285,21 @@ static func _stub(st: SurfaceTool, root: Vector3, dir: Vector3, r0: float, r1: f
 	var tip: Vector3 = root + dir * length
 	# Behind the root, so every face — the tip too — points away from it.
 	var inside: Vector3 = root - dir * 0.2
+	var squash := func(p: Vector3) -> Vector3:
+		return Vector3(root.x + (p.x - root.x) / stretch, p.y, p.z)
 	for k: int in SIDES:
 		var o0: Vector3 = side * cos(TAU * k / SIDES) + other * sin(TAU * k / SIDES)
 		var o1: Vector3 = side * cos(TAU * (k + 1) / SIDES) + other * sin(TAU * (k + 1) / SIDES)
-		_quad(st, root + o0 * r0, tip + o0 * r1, tip + o1 * r1, root + o1 * r0, BARK, inside)
-		_tri(st, tip, tip + o0 * r1, tip + o1 * r1, HEARTWOOD, inside)
+		_quad(st, squash.call(root + o0 * r0), squash.call(tip + o0 * r1),
+			squash.call(tip + o1 * r1), squash.call(root + o1 * r0), BARK, squash.call(inside))
+		_tri(st, squash.call(tip), squash.call(tip + o0 * r1), squash.call(tip + o1 * r1),
+			HEARTWOOD, squash.call(inside))
 
 ## One flat-shaded triangle, wound clockwise as seen from outside (Godot's front
 ## face), where outside is away from [param inside] — so no caller has to get a
 ## winding right. [param colour] is sRGB and stored linear.
 static func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, colour: Color,
-		inside: Vector3) -> void:
+		inside: Vector3, smooth_group: int = 0xFFFFFFFF) -> void:
 	var centroid: Vector3 = (a + b + c) / 3.0
 	# Counter-clockwise from the viewer puts (b-a)x(c-a) toward the viewer.
 	if (b - a).cross(c - a).dot(centroid - inside) > 0.0:
@@ -290,17 +308,17 @@ static func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, colour: Co
 		c = swap
 	var lin: Color = colour.srgb_to_linear()
 	lin.a = 1.0
-	# -1: this face's own normal, shared with no neighbour.
-	st.set_smooth_group(0xFFFFFFFF)
+	# 0xFFFFFFFF (the default): this face's own normal, shared with no neighbour.
+	st.set_smooth_group(smooth_group)
 	st.set_color(lin)
 	st.add_vertex(a)
 	st.add_vertex(b)
 	st.add_vertex(c)
 
 static func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3,
-		colour: Color, inside: Vector3) -> void:
-	_tri(st, a, b, c, colour, inside)
-	_tri(st, a, c, d, colour, inside)
+		colour: Color, inside: Vector3, smooth_group: int = 0xFFFFFFFF) -> void:
+	_tri(st, a, b, c, colour, inside, smooth_group)
+	_tri(st, a, c, d, colour, inside, smooth_group)
 
 ## Unit icosphere: `[vertices, triangle indices]`, winding unspecified.
 static func _icosphere(subdivisions: int) -> Array:

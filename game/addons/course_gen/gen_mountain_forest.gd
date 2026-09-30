@@ -150,6 +150,16 @@ const L_NEEDLES := 4
 const L_DIRT := 5
 const L_SNOWY_ROCK := 6
 const L_ROCK := 7
+## How much of the walls (everything off the trail and its edge) is bare or
+## snowed-on rock, and how much is ice. Each comes in a few long stretches of
+## one wall, trail to ridge, not scattered about; no tree stands on them. The
+## rest is earth and forest floor. Shares, not thresholds: [method
+## _wall_thresholds] turns them into cut-offs on the scores below, so they
+## hold whatever the noise does. Bare rock is a stretch's core, snowed-on rock
+## its fringe.
+const WALL_ROCK_SHARE := 0.10
+const WALL_BARE_ROCK_SHARE := 0.04
+const WALL_ICE_SHARE := 0.05
 const NEEDLES_LAYER := "res://courses/mountain_forest/conifer_needles.tres"
 const NEEDLES_TEXTURE := "res://courses/mountain_forest/conifer_needles.png"
 const NEEDLES_SIZE := 512
@@ -169,6 +179,13 @@ var _patch_noise := FastNoiseLite.new()
 var _density_noise := FastNoiseLite.new()
 var _wall_noise := FastNoiseLite.new()
 var _crag_noise := FastNoiseLite.new()
+var _seep_noise := FastNoiseLite.new()
+var _outcrop_noise := FastNoiseLite.new()
+## The cut-offs on [method _rock_score] and [method _ice_score] that give the
+## walls their shares; see [method _wall_thresholds].
+var _rock_cut: float = INF
+var _bare_rock_cut: float = INF
+var _ice_cut: float = INF
 ## One per ice patch: `{d, u (offset in half-widths), a, b (half-axes)}`.
 var _ice: Array[Dictionary] = []
 ## [method _profile] at every metre down the course, and the slope it is
@@ -188,6 +205,7 @@ func _initialize() -> void:
 	_setup_noise()
 	_build_profile()
 	_plan_ice()
+	_wall_thresholds()
 	DirAccess.make_dir_recursive_absolute(OUT)
 	var start: int = Time.get_ticks_msec()
 	if stage == "assets":
@@ -204,7 +222,7 @@ func _initialize() -> void:
 
 func _setup_noise() -> void:
 	var all: Array[FastNoiseLite] = [_relief_noise, _fine_noise, _edge_noise, _patch_noise,
-		_density_noise, _wall_noise, _crag_noise]
+		_density_noise, _wall_noise, _crag_noise, _seep_noise, _outcrop_noise]
 	for i: int in all.size():
 		all[i].seed = SEED + i
 		all[i].noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
@@ -224,6 +242,12 @@ func _setup_noise() -> void:
 	_crag_noise.frequency = 1.0 / 14.0
 	_crag_noise.fractal_type = FastNoiseLite.FRACTAL_RIDGED
 	_crag_noise.fractal_octaves = 3
+	# Where a wall is rock, or ice, all the way up: slow, along the course and
+	# per side (see _rock_score).
+	_outcrop_noise.frequency = 1.0 / 45.0
+	_outcrop_noise.fractal_octaves = 1
+	_seep_noise.frequency = 1.0 / 35.0
+	_seep_noise.fractal_octaves = 1
 
 # ================================================================ the fall line
 
@@ -484,19 +508,26 @@ func _write_assets() -> void:
 	var canopy := _Canopy.new(_place_objects(_course_shape()))
 	var index := PackedByteArray()
 	index.resize(_w * _h)
+	var wall_cells: int = 0
+	var wall_share := PackedInt32Array()
+	wall_share.resize(LAYERS.size())
 	for gy: int in _h:
 		var z: float = -float(gy) * CELL
 		for gx: int in _w:
 			var x: float = float(gx) * CELL
-			index[gy * _w + gx] = _material(x, z, trail_e[gy * _w + gx],
-				_steepness(heights, gx, gy), canopy)
+			var i: int = gy * _w + gx
+			index[i] = _material(x, z, trail_e[i], _steepness(heights, gx, gy), canopy)
+			if _on_wall(x, z, trail_e[i]):
+				wall_cells += 1
+				wall_share[index[i]] += 1
 
 	var share := PackedInt32Array()
 	share.resize(LAYERS.size())
 	for i: int in index.size():
 		share[index[i]] += 1
 	for l: int in LAYERS.size():
-		print("  %s: %.1f %%" % [LAYERS[l], 100.0 * share[l] / index.size()])
+		print("  %s: %.1f %% (walls %.1f %%)" % [LAYERS[l], 100.0 * share[l] / index.size(),
+			100.0 * wall_share[l] / maxi(wall_cells, 1)])
 	var maps: Array[Image] = CourseGenKit.splat_maps(index, _w, _h, LAYERS.size())
 	for m: int in maps.size():
 		var path: String = OUT.path_join("splat_%d.png" % m)
@@ -531,10 +562,70 @@ func _steepness(heights: PackedFloat32Array, gx: int, gy: int) -> float:
 	var along: float = _row_gradient[gy] - _base_tan
 	return Vector2(dx, dz + along).length()
 
+## Whether (x, z) is up a wall: past the trail's edge litter in [method _material].
+func _on_wall(x: float, z: float, e: float) -> bool:
+	return e + _edge_noise.get_noise_2d(x, z) * 0.18 >= 1.05
+
+## How rocky a wall is at (x, z): a slow noise down the course, one per side,
+## so that where it is high the whole wall is rock from the trail's edge to the
+## ridge; the crags and a finer noise only rag its edges.
+func _rock_score(x: float, z: float) -> float:
+	var d: float = -z
+	var side: float = signf(x - centre_x(d))
+	return _outcrop_noise.get_noise_2d(d, side * 400.0) \
+		+ 0.08 * _crag_noise.get_noise_2d(x, z) + 0.06 * _edge_noise.get_noise_2d(x, z)
+
+## How icy a wall is at (x, z): [method _rock_score]'s shape, its own noise.
+func _ice_score(x: float, z: float) -> float:
+	var d: float = -z
+	var side: float = signf(x - centre_x(d))
+	return _seep_noise.get_noise_2d(d, side * 400.0) \
+		+ 0.08 * _crag_noise.get_noise_2d(x, z) + 0.06 * _edge_noise.get_noise_2d(x, z)
+
+## Whether (x, z) is up a wall and in a stretch of rock or ice, where no tree
+## is planted.
+func _bare_wall(x: float, z: float) -> bool:
+	var d: float = -z
+	if not _on_wall(x, z, absf(x - centre_x(d)) / lateral_half_width(d)):
+		return false
+	return _rock_score(x, z) >= _rock_cut or _ice_score(x, z) >= _ice_cut
+
+## Sets [member _rock_cut], [member _bare_rock_cut] and [member _ice_cut] so
+## that [constant WALL_ROCK_SHARE], [constant WALL_BARE_ROCK_SHARE] and
+## [constant WALL_ICE_SHARE] of the wall cells come out rock, bare rock and
+## ice; the ice from what the rock leaves. Both stages need them — the trees
+## keep off both — so it reads only the course's shape, not the heightmap.
+func _wall_thresholds() -> void:
+	var rock := PackedFloat32Array()
+	var ice := PackedFloat32Array()
+	for gy: int in _h:
+		var z: float = -float(gy) * CELL
+		var d: float = -z
+		var cx: float = centre_x(d)
+		var hl: float = lateral_half_width(d)
+		for gx: int in _w:
+			var x: float = float(gx) * CELL
+			if _on_wall(x, z, absf(x - cx) / hl):
+				rock.push_back(_rock_score(x, z))
+				ice.push_back(_ice_score(x, z))
+	var n: int = rock.size()
+	var sorted: PackedFloat32Array = rock.duplicate()
+	sorted.sort()
+	_rock_cut = sorted[clampi(int(n * (1.0 - WALL_ROCK_SHARE)), 0, n - 1)]
+	_bare_rock_cut = sorted[clampi(int(n * (1.0 - WALL_BARE_ROCK_SHARE)), 0, n - 1)]
+	var left := PackedFloat32Array()
+	for k: int in n:
+		if rock[k] < _rock_cut:
+			left.push_back(ice[k])
+	left.sort()
+	var m: int = left.size()
+	_ice_cut = left[clampi(m - int(n * WALL_ICE_SHARE), 0, m - 1)]
+
 ## Which terrain (x, z) is: snow on the trail, snow-dusted litter at its edge,
-## ice in the patches; up the walls rock on the crags — bare where steepest,
-## snowed on where less — bare earth with snow lying in patches where the bank
-## is too steep for a forest floor, and elsewhere the forest floor, needles
+## ice in the patches; up the walls a few long stretches of rock — bare at
+## their core, snowed on at the fringe — and of ice ([constant
+## WALL_ROCK_SHARE], [constant WALL_ICE_SHARE]); elsewhere bare earth with
+## snow lying in patches where the bank is too steep for a forest floor, and elsewhere the forest floor, needles
 ## under the crowns and snow in the gaps.
 func _material(x: float, z: float, e: float, steep: float, canopy: _Canopy) -> int:
 	var edge: float = e + _edge_noise.get_noise_2d(x, z) * 0.18
@@ -544,11 +635,13 @@ func _material(x: float, z: float, e: float, steep: float, canopy: _Canopy) -> i
 		return L_SNOW
 	if edge < 1.05:
 		return L_EDGE
-	var crag: float = _crag_noise.get_noise_2d(x, z) + steep * 0.25
-	if steep > 0.7 and crag > 1.0:
+	var rock: float = _rock_score(x, z)
+	if rock >= _bare_rock_cut:
 		return L_ROCK
-	if steep > 0.6 and crag > 0.8:
+	if rock >= _rock_cut:
 		return L_SNOWY_ROCK
+	if _ice_score(x, z) >= _ice_cut:
+		return L_ICE
 	var patch: float = _patch_noise.get_noise_2d(x * 1.3, z * 1.3)
 	if steep > 0.9:
 		if patch > 0.25:
@@ -801,6 +894,7 @@ func _place_objects(course: CourseData) -> Dictionary[String, Array]:
 			var z: float = -d - rng.randf_range(-1.0, 1.0)
 			if x > 1.0 and x < WORLD.x - 1.0 \
 					and beyond_edge(x, z) > PLAY_CLEARANCE + diam * 0.5 \
+					and not _bare_wall(x, z) \
 					and taken.is_free(x, z, diam * 0.3):
 				out["tree"].push_back([x, z, Vector3(diam, height, diam), 0.0])
 				taken.add(x, z, diam * 0.3)
@@ -823,6 +917,7 @@ func _place_objects(course: CourseData) -> Dictionary[String, Array]:
 				- 0.8 * maxf(_crag_noise.get_noise_2d(x, z) - 0.4, 0.0)
 			if rng.randf() < keep \
 					and beyond > PLAY_CLEARANCE + diam * 0.5 \
+					and not _bare_wall(x, z) \
 					and taken.is_free(x, z, diam * 0.3):
 				out["tree"].push_back([x, z, Vector3(diam, height, diam), 0.0])
 				taken.add(x, z, diam * 0.3)

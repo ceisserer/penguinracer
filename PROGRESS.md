@@ -3033,3 +3033,64 @@ the side the trail turns toward; the trunk's collider draws nothing; every bump 
 its height proud of the trail on the real heightmap; the 9 m width limit holds away from
 obstacles. `TestObjects` counts the collider prefab. Renders under Mobile with
 `--auto-input=ai`: jumps off the bumps, round a fallen trunk, past a boulder, to the finish.
+
+### Mountain Forest: rock and ice on the walls in long stretches (2026-09-30) · **done, not yet looked at**
+
+**What.** The walls (everything past the trail's edge litter) were ~22 % rock in crag-sized
+speckles and had no ice. They are now 10 % rock (6 % snowed-on `snowy_rock06` at a stretch's
+fringe, 4 % bare `rock06` at its core) and 5 % ice (`ice1`), each as a few long stretches of
+one wall — 5–30 m down the course, trail's edge to ridge — where no tree stands: 22 of rock and
+16 of ice over both walls. The rest stays earth, needles and snow-dusted litter. A first cut by
+share, over the crag noise and a small seep noise, scattered both evenly along the walls.
+
+**How.** `gen_mountain_forest.gd` scores each wall cell by a slow noise of distance down the
+course, one per side (`_outcrop_noise` 1/45 m for rock, `_seep_noise` 1/35 m for ice), with the
+crag and edge noises only ragging the edges, and `_wall_thresholds` picks the cut-offs by
+quantile, so `WALL_ROCK_SHARE` / `WALL_BARE_ROCK_SHARE` / `WALL_ICE_SHARE` hold whatever the
+noise does; the ice cut is taken over what the rock leaves. The scores read only the course's
+shape, so both stages compute the cuts and the tree line and wall forest skip those stretches
+(`_bare_wall`). The generator prints each layer's share of the walls.
+
+**Verified**: the generator's own counts (walls 10.0 % rock, 5.0 % ice), stretch lengths read back
+from the splat maps; the suite, the same three pre-existing failures. Not rendered.
+
+### Stretched props light in a checkerboard: the shader turns their normals itself (2026-09-30) · **done, not seen in a real browser or on a phone**
+
+**What.** Mountain Forest's trunks (fallen on the trail and lodged overhead) were patched light
+and dark triangle by triangle, in the snow dusting and in the lighting alike — reported under
+Mobile, where the sun's shadows make it loudest, but Compatibility drew the same pattern.
+
+**Why.** Godot turns a MultiMesh instance's normal by the instance matrix itself and uses the
+inverse-transpose only when the *node* is non-uniformly scaled (`INSTANCE_FLAGS_NON_UNIFORM_SCALE`
+in `scene_forward_mobile.glsl`, `FLAGS_NON_UNIFORM_SCALE` in the Compatibility `scene.glsl`),
+never for a per-instance scale. `PropMesh.TRUNK` is built in the unit box and its marker
+stretches it ~15:1, so each bark facet's small along-the-axis tilt is multiplied by that ratio
+and the two triangles of every slightly non-planar quad point far apart.
+
+**How.** `object_prop.gdshader` is `skip_vertex_transform` and transforms the vertex and the normal
+itself, with `transpose(inverse(mat3(MODEL_MATRIX)))`. That covers every solid prop, since each
+one's marker scale is non-uniform.
+
+**Verified**: a throwaway probe (one trunk as a MultiMesh stretched 9 × 0.6 × 0.6 under a
+shadowed sun), old shader against new, Mobile and Compatibility: the checkerboard went, and the
+snow sits as one cap along the top. The suite shows the same three pre-existing failures. Not
+raced to a trunk in the game itself.
+
+**Then the branch stubs.** Once the normals were right, the trunk still had pale strips along its
+side and flat brown wedges on top. Those were its broken-branch stubs: built round in the unit
+box, then stretched with the rest, so a stub 0.12 across became a blade 1–2 m long and a few cm
+thick, with the pale broken tip smeared along the bark. `PropMesh._stub` now builds each stub
+`LOG_STRETCH` (10) / `TRUNK_STRETCH` (15) times narrower along X, the typical ratio of length to
+thickness for each kind of marker. Only `log.tres` and `lodged_log.tres` had their meshes rebuilt;
+the courses were not regenerated. Checked in the same probe: short round nubs, no strips.
+
+**Then the look close up.** Seen from above, the trunk was a grey beam: 12 flat-shaded sides, a
+top painted one uniform grey (the shader *mixed* `snow_cover` = 0.55 of snow into every upward
+face, so a log's top was 45 % bark), and stubs tapering to spikes. Now the bark of a log or trunk
+is smooth-shaded round its girth (`PropMesh.BARK_SMOOTH_GROUP`; rock, cut ends and stubs stay
+faceted), the stubs are short and blunt, and `snow_cover` is how much of what faces the sky
+carries snow: full-white patches from a coarse noise (`snow_patch_scale` 0.6 m, plus an octave
+0.3 of that) with a ragged edge. This applies to every solid prop. Checked in the probe on
+Mobile: round logs with a snow cap that breaks along the top; the boulder with a snowed crown; the
+stump white on top. Open: a stone scatter comes out nearly all white, since its tops are flat. A
+lower `snow_cover` on `stones.tres` would fix it, and the Forest Trail generator writes that material.

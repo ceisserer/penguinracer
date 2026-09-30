@@ -8,7 +8,7 @@
 // up. Lit through ETR's clamp and faded by the atmosphere like everything else.
 shader_type spatial;
 render_mode cull_back, depth_draw_opaque, diffuse_burley, specular_schlick_ggx,
-	ambient_light_disabled;
+	ambient_light_disabled, skip_vertex_transform;
 
 #include "res://shaders/etr_illumination.gdshaderinc"
 #include "res://shaders/atmosphere.gdshaderinc"
@@ -17,9 +17,14 @@ render_mode cull_back, depth_draw_opaque, diffuse_burley, specular_schlick_ggx,
 // sums it inside the clamp. Black by day. See `atmo_torch_glow`.
 varying vec3 torch_glow;
 
-// How much of an upward face is snow, 0..1. A forest floor keeps less snow
-// than open ground, so the default is a dusting rather than a cap.
+// How much of what faces the sky is snowed on, 0..1: the snow lies in whole
+// patches with bark or rock between them, never as a tint. A forest floor
+// keeps less snow than open ground, so the default leaves gaps even on top.
+// (It used to be how much snow was mixed into every upward face, which painted
+// a log's whole top one flat grey.)
 uniform float snow_cover : hint_range(0.0, 1.0) = 0.55;
+// Metres per snow patch.
+uniform float snow_patch_scale = 0.6;
 uniform vec3 snow_color : source_color = vec3(0.92, 0.95, 1.0);
 // How strongly the object-space noise mottles the painted colour.
 uniform float mottle : hint_range(0.0, 1.0) = 0.35;
@@ -74,8 +79,21 @@ vec3 albedo_out(vec3 c) {
 #endif
 }
 
+// [b]The normal is transformed here, not by the engine.[/b] Godot turns a
+// MultiMesh instance's normal with the instance matrix itself, and swaps in the
+// inverse-transpose only when the *node* is non-uniformly scaled (the
+// `NON_UNIFORM_SCALE` flag, in `scene_forward_mobile.glsl` and the
+// Compatibility `scene.glsl` alike) — never for a per-instance scale. A prop's
+// marker stretches it: a trunk is 10-20 times longer than thick. Turned by the
+// plain matrix, the small along-the-axis tilt every bark facet has in the unit
+// mesh is multiplied by that ratio, the two triangles of each slightly
+// non-planar quad point far apart, and the trunk lights and snows in a
+// checkerboard (Mountain Forest's fallen and lodged trunks, 2026-09-30).
 void vertex() {
 	grain_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	mat3 normal_matrix = transpose(inverse(mat3(MODEL_MATRIX)));
+	VERTEX = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	NORMAL = normalize(mat3(VIEW_MATRIX) * (normal_matrix * NORMAL));
 }
 
 void fragment() {
@@ -83,11 +101,17 @@ void fragment() {
 	float n = value_noise(p) * 0.6 + value_noise(p * 2.7) * 0.4;
 	vec3 base = COLOR.rgb * (1.0 + (n - 0.5) * 2.0 * mottle);
 
-	// Snow on whatever faces the sky, thinned by the same noise so its edge is
-	// ragged rather than a contour line.
+	// Snow on whatever faces the sky, in patches: a coarse noise decides where
+	// it lies, the fine one rags the patch's edge, and the more a face looks up
+	// the more of it is covered. `snow_cover` moves the threshold.
 	vec3 world_n = (INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz;
-	float up = smoothstep(0.35, 0.8, world_n.y + (n - 0.5) * 0.5);
-	float snow = up * snow_cover;
+	// The finer octave is for props smaller than a patch: a stone would
+	// otherwise sit inside one and go wholly white on white.
+	float patch = value_noise(grain_pos / snow_patch_scale) * 0.6
+		+ value_noise(grain_pos / (snow_patch_scale * 0.3)) * 0.4;
+	float lie = world_n.y + (patch - 0.5) * 0.7 + (n - 0.5) * 0.25;
+	float threshold = mix(1.1, 0.25, snow_cover);
+	float snow = smoothstep(threshold - 0.05, threshold + 0.05, lie);
 	ALBEDO = albedo_out(clamp(mix(base, snow_linear(), snow), 0.0, 1.0));
 	ROUGHNESS = 0.9;
 	METALLIC = 0.0;
