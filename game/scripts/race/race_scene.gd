@@ -379,6 +379,7 @@ func _ready() -> void:
 		ice_environment = IceEnvironment.new()
 		ice_environment.name = "IceEnvironment"
 		add_child(ice_environment)
+		ice_environment.attach_sun(_sun, camera)
 	# Built here for the same reason the mirror is: it is a field of quads that
 	# follows the player, not a thing anyone would place in the editor.
 	snowfall = SnowFall.new()

@@ -23,7 +23,11 @@ var _item_instances: Dictionary[int, Array] = {}
 ## The instanced batch per object type, so hiding a herring is a dictionary
 ## lookup rather than a string format and a `get_node_or_null` down the scene
 ## tree — which a restart on a fish-heavy course paid once per collected item.
-var _batches: Dictionary[String, MultiMeshInstance3D] = {}
+## A collectable type's is its one [MultiMeshInstance3D]; any other type's is a
+## [Node3D] holding one per cell — see [method _add_batch].
+var _batches: Dictionary[String, Node3D] = {}
+## Every [MultiMeshInstance3D] in [member _batches], cells and all.
+var _batch_meshes: Array[MultiMeshInstance3D] = []
 ## The conifer, bare-tree and shrub types, drawn by a [Forest] each instead
 ## of a batch above.
 var _forests: Array[Forest] = []
@@ -144,7 +148,38 @@ static func decorrelating_yaw(p: Vector3) -> float:
 	var k: int = roundi(p.x * 100.0) * 73856093 ^ roundi(p.z * 100.0) * 19349663
 	return (float(k & 0xffff) / 32768.0 - 1.0) * YAW_JITTER
 
+## One object type's instances, for drawing.
+##
+## [b]Cut into cells, like a [Forest].[/b] One [MultiMesh] across a whole course
+## has an AABB as big as the course, so no camera ever culls it: every view drew
+## every instance. That was the ice probe's cost on Forest Trail — each of
+## [IceEnvironment]'s six faces drew all 1397 stone clusters, some 700k
+## triangles, 9.6 ms of its 14 on the iGPU. In [constant Forest.CELL_SIZE]
+## squares, a face draws what is in front of it. Nothing is culled that a camera
+## could see, so it changes no frame. A collectable type stays one batch: its
+## instance slots are what [method hide_item] addresses, and it is only ever
+## billboards.
 func _add_batch(type_name: String, prefab: ObjectPrefab, transforms: Array[Transform3D]) -> void:
+	if prefab.collectable:
+		var mmi := _batch_mesh(prefab, transforms)
+		mmi.name = "Batch_%s" % type_name
+		add_child(mmi)
+		_batches[type_name] = mmi
+		return
+	var batch := Node3D.new()
+	batch.name = "Batch_%s" % type_name
+	add_child(batch)
+	_batches[type_name] = batch
+	var cells: Dictionary[Vector2i, PackedInt32Array] = Forest.cells_of(transforms)
+	for key: Vector2i in cells:
+		var members: Array[Transform3D] = []
+		for i: int in cells[key]:
+			members.push_back(transforms[i])
+		var mmi := _batch_mesh(prefab, members)
+		mmi.name = "C%d_%d" % [key.x, key.y]
+		batch.add_child(mmi)
+
+func _batch_mesh(prefab: ObjectPrefab, transforms: Array[Transform3D]) -> MultiMeshInstance3D:
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.mesh = prefab.mesh
@@ -152,12 +187,11 @@ func _add_batch(type_name: String, prefab: ObjectPrefab, transforms: Array[Trans
 	for i: int in transforms.size():
 		mm.set_instance_transform(i, transforms[i])
 	var mmi := MultiMeshInstance3D.new()
-	mmi.name = "Batch_%s" % type_name
 	mmi.multimesh = mm
 	mmi.material_override = prefab.material
 	mmi.cast_shadow = _shadow_setting()
-	add_child(mmi)
-	_batches[type_name] = mmi
+	_batch_meshes.push_back(mmi)
+	return mmi
 
 ## A conifer, bare-tree or shrub type as a [Forest]: the same transforms the
 ## crossed quads would have had, drawn in 3D.
@@ -193,7 +227,7 @@ func set_weather(wind: WindField, snow_grade: int) -> void:
 ## this writes through to every course that uses the same prefab. Harmless: one
 ## course is loaded at a time and every one of them sets this on load.
 func set_ambient(ambient: Vector3) -> void:
-	for mmi: MultiMeshInstance3D in _batches.values():
+	for mmi: MultiMeshInstance3D in _batch_meshes:
 		var mat: ShaderMaterial = mmi.material_override as ShaderMaterial
 		if mat != null:
 			mat.set_shader_parameter("etr_ambient", ambient)
@@ -212,7 +246,7 @@ func set_ambient(ambient: Vector3) -> void:
 func set_casting_shadows(enabled: bool, tree_levels: int = 1 << 16) -> void:
 	_casts_shadows = enabled
 	_tree_shadow_levels = tree_levels
-	for mmi: MultiMeshInstance3D in _batches.values():
+	for mmi: MultiMeshInstance3D in _batch_meshes:
 		mmi.cast_shadow = _shadow_setting()
 	for forest: Forest in _forests:
 		forest.set_shadow_casting(_shadow_setting(), tree_levels)
@@ -232,16 +266,16 @@ func _shadow_setting() -> GeometryInstance3D.ShadowCastingSetting:
 ## flags away while its torches stand in their places. Drawing only: the grids
 ## are untouched, and a type with no batch is left alone.
 func set_type_visible(type_name: String, on: bool) -> void:
-	var mmi: MultiMeshInstance3D = _batches.get(type_name, null)
-	if mmi != null:
-		mmi.visible = on
+	var batch: Node3D = _batches.get(type_name, null)
+	if batch != null:
+		batch.visible = on
 
 ## Hide a collected herring by collapsing its instance transform.
 func hide_item(index: int) -> void:
 	if not _item_instances.has(index):
 		return
 	var entry: Array = _item_instances[index]
-	var mmi: MultiMeshInstance3D = _batches.get(entry[0], null)
+	var mmi := _batches.get(entry[0], null) as MultiMeshInstance3D
 	if mmi == null:
 		return
 	mmi.multimesh.set_instance_transform(entry[1], Transform3D().scaled(Vector3.ZERO))
@@ -258,7 +292,7 @@ func reset_items() -> void:
 	items.reset_collectables()
 	for index: int in _item_transforms:
 		var entry: Array = _item_instances[index]
-		var mmi: MultiMeshInstance3D = _batches.get(entry[0], null)
+		var mmi := _batches.get(entry[0], null) as MultiMeshInstance3D
 		if mmi != null:
 			mmi.multimesh.set_instance_transform(entry[1], _item_transforms[index])
 

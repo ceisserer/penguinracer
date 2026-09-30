@@ -611,11 +611,20 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   shaded fragment does not bound it. The ice mirror's plane belongs to the watched racer; other
   racers need a per-object admission test (`IceReflection.admits`), with the source racer exempt.
   Check such effects against the objects they were *not* derived from.
-- **Every camera that draws the world redraws the sun's shadow cascades.** A `SubViewport` sharing
-  the `World3D` has no switch for it: a 128² cube face cost ~0.9 ms on the iGPU, ~70 % of it
-  shadows, flat in the face size. Budget a probe in renders, not pixels. And **do not save by
-  re-taking a cube only every few metres**: at 3 m it was a sixth of the cost and read as a
-  stutter, the reflection jumping each time the probe caught up — the cube is taken every frame.
+- **Every camera that sees the sun redraws its shadow cascades.** A `SubViewport` sharing the
+  `World3D` has no switch for it, and the cost is flat in the face size: the six 128² probe faces
+  took 67 ms a frame on Forest Trail. But a camera's `cull_mask` culls directional lights too
+  (`RendererSceneCull::_render_scene`), so the sun sits on `IceEnvironment.SUN_LAYER`, which the
+  probe leaves out, and the probe sees a shadowless copy on `PROBE_SUN_LAYER`, which the main
+  camera leaves out (`IceEnvironment.attach_sun`). Any new camera that draws the world has to pick
+  one of the two, or it sees no sun or both. Budget a probe in renders, not pixels. And **do not
+  save by re-taking a cube only every few metres**: at 3 m it was a sixth of the cost and read as
+  a stutter, the reflection jumping each time the probe caught up — the cube is taken every frame.
+- **One `MultiMesh` across a course is never culled**: its AABB is the course, so every view
+  draws every instance. Forest Trail's 1397 stone clusters (~700k triangles) cost 9.6 ms in the
+  probe alone. `CourseRoot` cuts every non-collectable object type into `Forest.CELL_SIZE` cells
+  under a `Batch_<type>` node, which also halved the main view there (17 → 8.6 ms); a
+  collectable type stays one `MultiMeshInstance3D`, since `hide_item` addresses its slots.
 - **The terrain shader is at its last texture unit under Compatibility.** It binds 15 (14 + the
   global `atmo_ridge_map`); `ice_env_atlas` is the 16th and exists only in the variant
   `TerrainRenderer.ice_environment_shader()` builds (`#define ICE_ENV_ATLAS`) while the setting is
@@ -945,7 +954,7 @@ the whole sky to cyan-white, against which no disc can show. The fog
   60 m sphere, in place of the sky ramp; the racers' mirror still goes on top. Racers, spray and
   snowfall are on `NEAR_FIELD_LAYER`, not layer 1, so the probe leaves them out, and its cameras
   clip everything within 5 m (`PROBE_NEAR`, trap list). Runs only with ice
-  within 90 m, all six faces every frame (~5 ms on the iGPU under Mobile, most of it shadows;
+  within 90 m, all six faces every frame (~3 ms on Forest Trail on the iGPU under Mobile, lit by a shadowless copy of the sun;
   the web draws none). On every renderer; under Compatibility it is the terrain's 16th sampler,
   compiled in only while on (trap list). `[display] ice_world_reflections = false` is the ramp and
   the 15-unit shader again; off below the HIGH preset.

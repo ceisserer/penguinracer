@@ -42,13 +42,20 @@
 ## hill. Those live on [constant NEAR_FIELD_LAYER] instead of layer 1, and the
 ## probe's cameras leave that layer out.
 ##
-## [b]Cost.[/b] Every face is a whole scene render, and Godot has no way to
-## spare a viewport the sun's shadow maps, so a face costs its cascades too:
-## about 0.9 ms each on the desktop's iGPU (Renoir, 720p, `tuxway`), ~70 % of
-## it shadows, and flat in the face size. The whole cube is re-taken every
-## frame all the same. Taking it every 3 m instead cost a sixth as much and read
-## as a stutter: the reflection jumped each time the probe caught up. So the
-## only saving is the one that cannot be seen — nothing at all while no ice is
+## [b]Cost, and the probe's own sun.[/b] Every face is a whole scene render,
+## and every render that sees a shadowed sun redraws that sun's cascades — on
+## Forest Trail 67 ms a frame for the six faces on the desktop's iGPU (Renoir,
+## 1600x900), four times the main view, flat in the face size. A viewport has
+## no switch for it, but a camera's `cull_mask` does cull directional lights
+## (`RendererSceneCull::_render_scene`): so the sun moves to
+## [constant SUN_LAYER], which the faces leave out, and the faces see a copy
+## of it on [constant PROBE_SUN_LAYER] with no shadows, which the main camera
+## leaves out ([method attach_sun]). The faces then cost 14 ms, and 4 once
+## [CourseRoot] cut its props into cells. The reflection loses the sun's
+## shadows — a 128² image, broken up and hazed; baked tree shadows stay.
+## The whole cube is still re-taken every frame. Taking it every 3 m instead
+## cost a sixth as much and read as a stutter: the reflection jumped each time
+## the probe caught up. Beyond that, nothing at all is drawn while no ice is
 ## within [constant ACTIVE_RANGE] of the camera. Most courses have none.
 class_name IceEnvironment
 extends Node
@@ -57,6 +64,11 @@ extends Node
 ## The main camera sees every layer; the probe sees every layer but this one and
 ## [constant IceReflection.RACER_VISUAL_LAYER].
 const NEAR_FIELD_LAYER := 1 << 2
+## The layer the real, shadowed sun is moved to, so the probe can leave it out.
+const SUN_LAYER := 1 << 3
+## The layer of the probe's shadowless copy of it, which the main camera leaves
+## out. See [method attach_sun].
+const PROBE_SUN_LAYER := 1 << 4
 
 ## Texels along a face's edge. The reflection is broken up by the ice's
 ## micro-relief and hazed by Fresnel, so a soft image is the right one.
@@ -114,6 +126,8 @@ const FACE_UP: Array[Vector3] = [
 var radius: float = 60.0
 
 var _atlas: SubViewport
+var _sun: DirectionalLight3D
+var _probe_sun: DirectionalLight3D
 var _faces: Array[SubViewport] = []
 var _cameras: Array[Camera3D] = []
 var _origin: Vector3 = Vector3.ZERO
@@ -149,7 +163,7 @@ func _ready() -> void:
 		cam.fov = 90.0
 		cam.keep_aspect = Camera3D.KEEP_HEIGHT
 		cam.near = PROBE_NEAR
-		cam.cull_mask = 0xFFFFF & ~(NEAR_FIELD_LAYER | IceReflection.RACER_VISUAL_LAYER)
+		cam.cull_mask = 0xFFFFF & ~(NEAR_FIELD_LAYER | IceReflection.RACER_VISUAL_LAYER | SUN_LAYER)
 		face.add_child(cam)
 		cam.make_current()
 		_faces.push_back(face)
@@ -187,6 +201,34 @@ func strength() -> float:
 func set_environment(env: Environment) -> void:
 	for cam: Camera3D in _cameras:
 		cam.environment = env
+
+## Light the probe with a shadowless copy of [param sun], and keep [param sun]
+## itself — and its cascades — for [param main_camera] alone. The copy follows
+## the sun in [method update], so a preset, a lightning flash or a night is
+## the same light in both.
+func attach_sun(sun: DirectionalLight3D, main_camera: Camera3D) -> void:
+	_sun = sun
+	sun.layers = SUN_LAYER
+	main_camera.cull_mask &= ~PROBE_SUN_LAYER
+	_probe_sun = DirectionalLight3D.new()
+	_probe_sun.name = "ProbeSun"
+	_probe_sun.layers = PROBE_SUN_LAYER
+	_probe_sun.shadow_enabled = false
+	add_child(_probe_sun)
+	_follow_sun()
+
+func _follow_sun() -> void:
+	if _probe_sun == null or not is_instance_valid(_sun):
+		return
+	_probe_sun.global_transform = _sun.global_transform
+	_probe_sun.visible = _sun.visible
+	_probe_sun.light_color = _sun.light_color
+	_probe_sun.light_energy = _sun.light_energy
+	_probe_sun.light_indirect_energy = _sun.light_indirect_energy
+	_probe_sun.light_specular = _sun.light_specular
+	_probe_sun.light_angular_distance = _sun.light_angular_distance
+	_probe_sun.light_cull_mask = _sun.light_cull_mask
+	_probe_sun.sky_mode = _sun.sky_mode
 
 ## Build the ice map for a course: which parts of it have ice close enough to
 ## the camera to be worth a probe. Once per course load.
@@ -259,6 +301,7 @@ func update(camera: Camera3D, ground: Vector3, delta: float) -> void:
 	if want != _active:
 		_apply_active(want)
 	if _active:
+		_follow_sun()
 		_origin = ground + Vector3.UP * PROBE_HEIGHT
 		for i: int in 6:
 			_cameras[i].global_transform = Transform3D(face_basis(i), _origin)
