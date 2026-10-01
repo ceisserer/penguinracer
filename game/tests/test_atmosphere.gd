@@ -113,7 +113,7 @@ static func _every_light_has_a_look(t: TestCase) -> void:
 	for light: String in LightCondition.ALL_NAMES:
 		t.ok(Atmosphere.LOOKS.has(light), "there is a look for `%s`" % light)
 		var look: Dictionary = Atmosphere.LOOKS.get(light, {})
-		for key: String in ["cover", "disc", "glow", "night", "mist", "ridge_light", "ridge_haze", "blue", "zenith_lift", "lightning", "flare"]:
+		for key: String in ["cover", "disc", "glow", "night", "mist", "ridge_light", "ridge_haze", "blue", "zenith_lift", "lightning", "flare", "shafts"]:
 			t.ok(look.has(key), "`%s` says %s" % [light, key])
 	for id: String in ["etr_sunny", "tuxracer_cloudy", "etr_evening", "tuxracer_night"]:
 		var preset: EnvironmentPreset = _preset(id)
@@ -499,14 +499,16 @@ static func _the_sun_on_the_lens(t: TestCase) -> void:
 	var atmo := Atmosphere.new()
 	atmo.apply(sunny.to_environment(), sunny, null, null, true)
 	t.ok(atmo.flare > 0.0, "a clear sun flares the lens")
+	t.ok(atmo.shafts > 0.0, "and sends rays through the air")
 	t.eq_v(atmo.sun_world_direction, disc, 1e-6, "from the disc, with no course to dip it")
 	for id: String in ["etr_night", "tuxracer_cloudy"]:
 		var other := Atmosphere.new()
 		other.apply(_preset(id).to_environment(), _preset(id), null, null, true)
-		t.ok(other.flare == 0.0, "%s does not" % id)
+		t.ok(other.flare == 0.0 and other.shafts == 0.0, "%s does neither" % id)
 	var etr := Atmosphere.new()
 	etr.apply(sunny.to_environment(), sunny, null, null, false)
-	t.ok(etr.flare == 0.0, "and sky = etr, which draws no disc, does not")
+	t.ok(etr.flare == 0.0 and etr.shafts == 0.0,
+		"and sky = etr, which draws no disc, does neither")
 	t.ok(LensFlare.edge_presence(Vector2(0.8, 0.1), 16.0 / 9.0) == 1.0,
 		"a sun on the canvas flares in full")
 	t.ok(LensFlare.edge_presence(Vector2(1.0 + 1.5 * LensFlare.EDGE_FADE, 0.1), 1.0) == 0.0
@@ -514,6 +516,17 @@ static func _the_sun_on_the_lens(t: TestCase) -> void:
 		"one out of shot not at all")
 	var halfway: float = LensFlare.edge_presence(Vector2(0.5, -LensFlare.EDGE_FADE * 0.5), 1.0)
 	t.ok(halfway > 0.0 and halfway < 1.0, "and one just past the edge fades")
+	t.ok(SunShafts.edge_presence(Vector2(0.8, 0.1), 16.0 / 9.0) == 1.0,
+		"the rays are full with the sun in shot, a tenth below the top")
+	var entering: float = SunShafts.edge_presence(Vector2(1.0 - SunShafts.EDGE_FADE * 0.25, 0.3), 1.0)
+	t.ok(entering > 0.0 and entering < 1.0, "and fade in as it comes into shot")
+	# Riding straight down the fall line the disc stands just past the right
+	# edge — tan 52° over tan 51°, 1.8 % of the width — and the pass costs a
+	# frame ~1.3 ms wherever it draws. None there, then, and the shipped frame
+	# stays the one every reference capture was taken of.
+	var straight: float = 0.5 + 0.5 * tan(deg_to_rad(52.0)) / tan(deg_to_rad(51.0))
+	t.ok(SunShafts.edge_presence(Vector2(straight, 0.1), 16.0 / 9.0) == 0.0,
+		"and there are none with the disc just out of shot, where it rides straight")
 	var probe: float = LensFlare.probe_radius(70.0)
 	t.ok(probe > 0.002 and probe < Atmosphere.SUN_RADIUS / (2.0 * tan(deg_to_rad(35.0))),
 		"the occlusion probe lies inside the disc (%.4f of the height)" % probe)

@@ -99,29 +99,31 @@ const MIST_DENSITY := 0.009
 ## - `lightning`: whether [Lightning] flashes in the clouds, 0 or 1.
 ## - `flare`: how strongly the disc flares the lens ([LensFlare]), 0..1. Only a
 ##   clear sun does: a disc glimpsed through overcast is no light source.
+## - `shafts`: how strongly the air round the disc sends rays past whatever
+##   stands in front of it ([SunShafts]), 0..1. A clear sun again.
 const LOOKS: Dictionary[String, Dictionary] = {
 	"sunny": {"cover": 0.3, "disc": 1.0, "glow": Color(0.95, 0.84, 0.66),
 		"night": 0.0, "mist": 0.35, "ridge_light": 1.5,
 		"ridge_haze": 0.55, "blue": 0.85, "zenith_lift": 1.8, "lightning": 0.0,
-		"flare": 1.0},
+		"flare": 1.0, "shafts": 1.0},
 	"cloudy": {"cover": 0.93, "disc": 0.15, "glow": Color(0.22, 0.22, 0.23),
 		"night": 0.0, "mist": 1.6, "ridge_light": 1.2,
 		"ridge_haze": 1.0, "blue": 0.0, "zenith_lift": 1.0, "lightning": 0.0,
-		"flare": 0.0},
+		"flare": 0.0, "shafts": 0.0},
 	"evening": {"cover": 0.4, "disc": 1.0, "glow": Color(1.0, 0.5, 0.24),
 		"night": 0.0, "mist": 0.8, "ridge_light": 1.5,
 		"ridge_haze": 0.85, "blue": 0.2, "zenith_lift": 1.0, "lightning": 0.0,
-		"flare": 0.8},
+		"flare": 0.8, "shafts": 0.8},
 	"night": {"cover": 0.2, "disc": 0.0, "glow": Color(0.16, 0.19, 0.27),
 		"night": 1.0, "mist": 0.3, "ridge_light": 3.5,
 		"ridge_haze": 0.7, "blue": 0.5, "zenith_lift": 1.0, "lightning": 0.0,
-		"flare": 0.0},
+		"flare": 0.0, "shafts": 0.0},
 	# Solid cloud, no disc, thick mist, ridges barely lit and soon hazed: the
 	# far ranges are dark shapes until a flash throws them against the sky.
 	"thunderstorm": {"cover": 1.0, "disc": 0.0, "glow": Color(0.05, 0.05, 0.06),
 		"night": 0.0, "mist": 1.8, "ridge_light": 0.8,
 		"ridge_haze": 1.1, "blue": 0.0, "zenith_lift": 0.85, "lightning": 1.0,
-		"flare": 0.0},
+		"flare": 0.0, "shafts": 0.0},
 }
 
 ## The hue a clear sky is turned toward, linear, at the zenith and along the
@@ -141,9 +143,12 @@ var atmo_time: float = 0.0
 ## Where the drawn sun is as a world direction — the disc undone out of the
 ## dipped backdrop ([method world_direction]) — and how strongly it flares the
 ## lens: `flare` of the look, 0 at night, under `sky = etr` or with no disc.
-## Both set by [method apply], for [LensFlare].
+## And how strongly the air round it sends rays, `shafts` of the look under the
+## same conditions. All three set by [method apply], for [LensFlare] and
+## [SunShafts].
 var sun_world_direction := SUN_DIRECTION.normalized()
 var flare: float = 0.0
+var shafts: float = 0.0
 var _sky_material: ShaderMaterial
 ## `atmo_ridges` as last applied, and the valley floor its drop is measured
 ## from; the drop is the one part that moves with the camera.
@@ -334,6 +339,7 @@ func apply(env: Environment, preset: EnvironmentPreset, course: CourseData,
 	_ridges = g["atmo_ridges"]
 	sun_world_direction = world_direction(g["atmo_sun_dir"], dip)
 	flare = float(look_for(preset)["flare"]) if procedural else 0.0
+	shafts = float(look_for(preset)["shafts"]) if procedural else 0.0
 	if not procedural:
 		_sky_material = null
 		return

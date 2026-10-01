@@ -51,6 +51,7 @@ static func _defaults(t: TestCase) -> void:
 	t.eq_f(c.render_scale, 1.0, 1e-6, "3D renders at full resolution")
 	t.ok(c.ice_reflections, "and the ice reflects the racers on it")
 	t.ok(c.ice_world_reflections, "and the hill round it, where the renderer can")
+	t.ok(c.sun_shafts, "and a clear sun sends rays through the air")
 	# Wanting shadows is the default; getting them is also up to the renderer
 	# and the sky. See [method RaceScene._shadows_wanted].
 	t.ok(c.shadows, "and the racers and the trees cast a shadow")
@@ -407,7 +408,7 @@ static func _launch_args(t: TestCase) -> void:
 		"--course=bunny_hill", "--character=trixi", "--auto-input=carve",
 		"--camera=above", "--opponents=5", "--difficulty=hard",
 		"--remote-keyboard", "--no-audio", "--no-intro", "--fps", "--wind=2",
-		"--snow=3", "--light=night",
+		"--snow=3", "--light=night", "--sun-shafts=off",
 		"--capture=/tmp/a.png", "--capture-frames=200",
 	]), {})
 	t.ok(cli.course == "bunny_hill", "the course is read")
@@ -427,6 +428,7 @@ static func _launch_args(t: TestCase) -> void:
 	t.ok(cli.light == "night", "and the sky, unparsed like the difficulty")
 	t.ok(LightCondition.parse(cli.light) == LightCondition.Kind.NIGHT,
 		"which parses to the condition it names")
+	t.ok(cli.sun_shafts == "off", "and whether the sun sends rays, for one run")
 	t.ok(cli.capture_path == "/tmp/a.png" and cli.capture_frames == 200,
 		"the capture request is read")
 
@@ -436,7 +438,7 @@ static func _launch_args(t: TestCase) -> void:
 		"course": "bunny_hill", "character": "trixi", "auto-input": "carve",
 		"camera": "above", "opponents": "5", "difficulty": "hard",
 		"remotekeyboard": "", "noaudio": "", "nointro": "", "fps": "", "wind": "2",
-		"snow": "3", "light": "night",
+		"snow": "3", "light": "night", "sun-shafts": "off",
 		"capture": "/tmp/a.png", "capture-frames": "200",
 	})
 	t.ok(url.course == cli.course and url.character == cli.character,
@@ -450,6 +452,7 @@ static func _launch_args(t: TestCase) -> void:
 	t.ok(url.show_fps == cli.show_fps and url.wind == cli.wind
 		and url.snow == cli.snow and url.light == cli.light,
 		"and the same HUD readout and weather")
+	t.ok(url.sun_shafts == cli.sun_shafts, "and the same sun rays")
 	t.ok(url.capture_path == cli.capture_path
 		and url.capture_frames == cli.capture_frames, "and the same capture")
 

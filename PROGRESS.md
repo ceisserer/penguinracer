@@ -3116,3 +3116,51 @@ they meet.
 the splat map the race draws, and that the pile is there and off the trail. The suite shows the
 same three pre-existing failures. Rendered on Mobile with a carve run: at 01:09 the pile is on
 the bank ahead.
+
+### The sun sends rays through the air (2026-10-01) · **done, not seen in a real browser or on a phone**
+
+**What.** Under a clear sun the bright sky round the disc is smeared out along lines from the sun,
+so a trunk, a crest or the penguin in front of it throws a dark gap across the frame and the light
+between reads as shafts (`SunShafts`, `sun_shafts.gdshader`). A setting: `[display] sun_shafts`,
+the *Sun rays* row, on at High and Best, off below (`QualityPreset`); `--sun-shafts=on|off` /
+`?sun-shafts=` and `SHOT_SUN_SHAFTS` for one run. Only under a look with `shafts` (sunny, evening)
+and never under `sky = etr`.
+
+**How.** Screen space, so on both renderers: Forward+'s volumetric fog is the only engine way to
+real ones, and it would lay a second fog over the `FOG` every lit shader writes. One
+`MeshInstance3D` quad whose vertex shader covers the clip square, last in the transparent pass,
+on `NEAR_FIELD_LAYER` so the ice's probe and mirror leave it out. Each pixel walks 20 jittered taps
+toward the disc and integrates the source along the way: open sky (cleared depth — sunlit snow is
+as white as the air by the disc, so brightness alone cannot tell them apart), bright (display
+luminance 0.7–0.96), within a Gaussian 0.18 of the height round the disc. Integrated, not
+averaged — an average made every pixel by the disc pure source and swelled into a second glare —
+then faded by distance (1/e at 0.42 heights). Added in display space: Compatibility blends display
+values, Mobile linear light, so `to_output` takes the step there. A constant +0.1 checked it:
++25.5 levels on Mobile, +23 on Compatibility, flat over any background.
+
+**Two things found on the way** (both in the trap list):
+- **Compatibility's depth is reversed in 4.7 too.** The GLES3 scene clears depth to 0 and tests
+  `GL_GEQUAL`; a `>= 1.0` sky test found no sky at all there and the pass drew nothing.
+- **The pass was running for most of a run.** Riding straight the disc stands ~0.03 of the height
+  past the right edge, and a fade reaching 0.3 past it ran the pass all the time for a beam of
+  ≤ 7 levels in from the corner — and moved Bunny Hill's reference capture. The rays now fade in
+  over the first 0.08 *inside* the edge (`SunShafts.EDGE_FADE`). Bunny Hill / `paddle` at frame
+  250 is byte-identical on and off.
+
+**Cost**, iGPU, Forest Trail with the sun held in frame for the whole run (a temporary sun
+direction, not committed), 1024x576, vsync off, `--fixed-fps 60`, median `--print-fps`, two runs
+each: Mobile 92 → 82 FPS (+1.3 ms), Compatibility 107 → 96 (+1.1 ms). One tap alone is 0.9 ms
+on Mobile — the screen and depth copies and a full-screen pass — so the taps are the smaller part;
+28 taps looked the same as 20 and cost 0.4 ms more. Nothing at all with the disc out of shot,
+which with the sun 52° right of the fall line is most of a run.
+
+**Verified**: `TestAtmosphere` (every look says `shafts`, only a clear procedural sun has them,
+the fade is full in shot and zero just out of it where the racer rides straight), `TestConfig`
+(default on, High still the defaults, every preset round-trips through the file,
+`--sun-shafts=`/`?sun-shafts=`). The suite shows the same three pre-existing failures. Rendered on
+Mobile and Compatibility with the test sun in shot over Forest Trail's trees: rays fan out from
+the disc with gaps behind the crowns, and the two renderers look alike; Compatibility's faint
+tails end sooner (8-bit blending drops increments under a level). With the real sun an AI run
+brings the disc in at the top-right corner on right turns. The settings row loads, reads
+"Sun rays:", and unticking it turns High into Custom. Not looked at in a browser, nor on a phone,
+which starts at Medium and so has them off.

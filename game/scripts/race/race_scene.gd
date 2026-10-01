@@ -175,6 +175,10 @@ var snowfall: SnowFall
 var lens_snow: LensSnow
 ## The sun's glare and ghosts on the lens, under a clear sky — see [LensFlare].
 var lens_flare: LensFlare
+## Rays of sunlight past whatever stands in front of the disc — see
+## [SunShafts]. Always built; [member GameConfig.sun_shafts] off leaves it
+## dark, read when the sky is applied so `--quality=` and `--sun-shafts=` reach it.
+var sun_shafts: SunShafts
 ## The environment this course is lit by, kept because two things outside
 ## [method _apply_environment] need it — the snowfall's `[partcol]` tint, and
 ## anything else that has to be reapplied when the weather changes without the
@@ -391,6 +395,9 @@ func _ready() -> void:
 	lens_flare = LensFlare.new()
 	lens_flare.name = "LensFlare"
 	add_child(lens_flare)
+	sun_shafts = SunShafts.new()
+	sun_shafts.name = "SunShafts"
+	add_child(sun_shafts)
 	ridge_map = RidgeMap.new()
 	add_child(ridge_map)
 	if not requested_course_path.is_empty():
@@ -440,6 +447,8 @@ func _ready() -> void:
 	if not args.tree_shadows.is_empty():
 		Config.tree_shadow_kind = QualityPreset.parse(args.tree_shadows,
 			QualityPreset.TREE_SHADOW_KIND_NAMES, Config.tree_shadow_kind)
+	if not args.sun_shafts.is_empty():
+		Config.sun_shafts = args.sun_shafts.strip_edges().to_lower() != "off"
 	_cli_setup.wind = Config.wind
 	if not args.crosswind.is_empty():
 		_cli_setup.wind = WindField.parse_strength(args.crosswind)
@@ -920,6 +929,7 @@ func _present(delta: float) -> void:
 	snowfall.update(view.position, _racer_wind(), delta)
 	lens_snow.update(camera.global_transform, delta)
 	lens_flare.update(camera)
+	sun_shafts.update(camera)
 	atmosphere.advance(delta, camera.global_position.y, _downwind())
 	lightning.advance(delta, -camera.global_transform.basis.z)
 	if course_lights != null:
@@ -1495,6 +1505,8 @@ func _apply_environment(preset: EnvironmentPreset) -> void:
 		course_root.surface if course_root != null else null, Config.procedural_sky,
 		Config.sky_detail)
 	lens_flare.set_sun(atmosphere.sun_world_direction, atmosphere.flare)
+	sun_shafts.set_sun(atmosphere.sun_world_direction,
+		atmosphere.shafts if Config.sun_shafts else 0.0)
 	if Config.procedural_sky:
 		ridge_map.bake()
 	else:

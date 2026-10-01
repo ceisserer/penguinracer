@@ -39,7 +39,8 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
   scripts/render/         terrain chunks, GPU snow field, spray, SnowFall (falling flakes +
                           far snow, all world-anchored), LensSnow (flakes melting on the camera,
                           out of focus, kept off the middle), LensFlare (the sun's glare and
-                          ghosts, hidden by whatever covers the disc), IceReflection (planar mirror for the ice),
+                          ghosts, hidden by whatever covers the disc), SunShafts (rays of the
+                          sky round the disc past whatever stands in front of it), IceReflection (planar mirror for the ice),
                           IceEnvironment (cube of the hill round the racer, for the ice),
                           ConiferMesh (3 LOD meshes + hemi-octahedral maths), BareTreeMesh
                           (grown leafless tree, 3 LODs + its drawn twig/bark texture),
@@ -78,7 +79,7 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
   shaders/                terrain, etr_skybox, procedural_sky, object_billboard (items), object_cross (shrubs),
                           object_prop (PropMesh's boulders, stones, logs, stumps),
                           conifer + conifer_impostor (all three species; + conifer.gdshaderinc:
-                          LOD fade, sway, snow, twig alpha), conifer_bake, snow_trail, snow_flakes, lens_snow, lens_flare, menu_snow,
+                          LOD fade, sway, snow, twig alpha), conifer_bake, snow_trail, snow_flakes, lens_snow, lens_flare, sun_shafts, menu_snow,
                           s1_displace, torch_flame, etr_illumination.gdshaderinc (ETR's
                           sum-then-clamp, included by everything lit), atmosphere.gdshaderinc
                           (sky gradient, ridges, the `FOG` every lit shader writes, torchlight)
@@ -202,7 +203,7 @@ SHOT_METHOD=gl_compatibility SHOT_RESOLUTION=1024x576 tools/shot.sh /tmp/web-loo
 written with comments on first run; delete it for defaults. The **Configuration** screen edits
 the display rows (window size, frame-rate readout, fog distance), the quality rows
 (render scale, anti-aliasing, sky and sky detail, tree detail distance, shadows, tree shadow
-type, tree shadows, shadow detail, shadow edges, ice reflections, ice reflects the world) and writes the same commented file back. The **quality preset**
+type, tree shadows, shadow detail, shadow edges, ice reflections, ice reflects the world, sun rays) and writes the same commented file back. The **quality preset**
 drop-down (Fastest … Best quality) sets the quality rows together and is *derived*, never stored:
 `QualityPreset.matching` names whichever preset the values are, else "Custom". **High quality is
 the shipped frame and `GameConfig`'s defaults** — `TestConfig` holds them together, so an untouched
@@ -226,7 +227,7 @@ the export fails obscurely. Prerequisites: Godot 4.7.2 on `PATH` as `godot`, web
 templates, and **Vulkan** for the desktop (Mobile renderer).
 
 **Captures**: `SHOT_METHOD` is `mobile` (desktop default), `gl_compatibility` (browser) or
-`forward_plus`; the driver follows it. `SHOT_TREE_SHADOWS=dynamic|baked` picks the trees' shadows. `tools/shot.sh` uses the container's real GPU (Wayland
+`forward_plus`; the driver follows it. `SHOT_TREE_SHADOWS=dynamic|baked` picks the trees' shadows, `SHOT_SUN_SHAFTS=on|off` the sun's rays. `tools/shot.sh` uses the container's real GPU (Wayland
 socket + `/dev/dri/renderD128`, needs `libegl1 libegl-mesa0 libdecor-0-0`; without them Godot
 blames "video card drivers" and silently falls back). ~3 s for 120 frames on the GPU, ~2 min on
 llvmpipe; `SHOT_FORCE_SOFTWARE=1` takes the slow path, worth doing before trusting a small tone
@@ -247,7 +248,7 @@ Detail is in `PROGRESS.md`; this is the summary.
 | 5 — game shell | partial — main menu → Practice / Race the computer / Network multiplayer / Race against ghost / character / Configuration; results screen with named runs; ETR palette theme; course + character catalogs (course list in four parts: Tux Racer, ETR, PenguinRacer's own, added by address); English + German, detected or chosen on the settings screen; audio (`AudioDirector`, ETR's one-voice-per-cue mixer). Missing: cups, medals, profiles (data imported), volume controls, ETR's menu art (licence audit). |
 | 6 — polish/ship | not started. |
 | phones | **done, not raced on hardware** — `Android` preset + `tools/build_android.sh` (Mobile renderer by default, Compatibility selectable in the settings screen from the next launch, whole game in the APK, Medium preset on first run); tilt / tilt-steer / tilt-speed / buttons / off on Android and in a phone's browser (`TouchScheme`, `TouchControls`, `TiltSteering`, `MotionSensor`); back button is Esc. Verified by the suite, desktop renders with `--touch`, and Chromium emulating an Android phone with synthetic `devicemotion`. |
-| sky + atmosphere | **done** (beyond ETR) — procedural sky (sun disc low ahead-right with a lens flare, drifting clouds; stars, moon, aurora at night), three layers of distant ridges, aerial perspective and valley mist in every lit shader's `FOG`, night torches inside the clamp (baked into the terrain). `[display] sky = etr` / `--sky=etr` is the old frame to the level. See the deviations. |
+| sky + atmosphere | **done** (beyond ETR) — procedural sky (sun disc low ahead-right with a lens flare and, as a setting, rays past what stands in front of it, drifting clouds; stars, moon, aurora at night), three layers of distant ridges, aerial perspective and valley mist in every lit shader's `FOG`, night torches inside the clamp (baked into the terrain). `[display] sky = etr` / `--sky=etr` is the old frame to the level. See the deviations. |
 | weather | **snow (0–3), sky (sunny/cloudy/night/thunderstorm) and wind (none/light/strong) done** — `SnowFall` (world-anchored streaking flakes + far snow, deterministic) and `LensSnow` (a few defocused flakes melting on the lens, off the middle), `LightCondition` and `WindField.init_crosswind`, all on the course screen, remembered in `[game] snowfall`/`conditions`/`wind`, carried on a lobby room. The sky moves sun, ambient, fog, skybox, tints, ice, and shadows (`EnvironmentPreset.casts_shadows`). The wind blows from a side rolled per start and moves the trees, the snow, the HUD's rose and a racer in flight. The thunderstorm is ours, not ETR's (`Lightning`, see the deviations). `evening` and ETR's wind grades (`--wind=`) are not offered. |
 | computer opponents | **done** (beyond ETR) — `RaceSetup` 1–9 opponents, each a `SimulatedRacer` + `AIInputSource` scoring nine candidate lines. Skill moves habits, never physics: 30 s on a 22° slope gives easy 231 m, medium 333 m, hard 422 m, a player holding straight 413 m. Deterministic from a seed. Solid via `RacerField`. |
 | multiplayer foundation | **done** — fixed 60 Hz tick with interpolated presentation; `SimulatedRacer`/`PlaybackRacer`; `RacerState` is the only thing drawn and is the ghost and wire format. Ghosts end to end: record, keep from the results screen, race from `GhostMenu`. |
@@ -662,6 +663,18 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   wall at arm's length turned half of `inception`'s floor one flat colour. The probe's cameras clip
   at 5 m (`IceEnvironment.PROBE_NEAR`): nothing that close was ever in the right place in a lookup
   that assumes the world stands 60 m out.
+- **Depth is reversed on both renderers in 4.7, Compatibility included**: its GLES3 scene clears
+  depth to 0 and tests `GL_GEQUAL`, so the far plane — the sky, which writes none — reads 0 from
+  `hint_depth_texture` under either. The textbook `>= 1.0` sky test found no sky at all under
+  Compatibility (`sun_shafts.gdshader`'s `is_sky`). A post pass written as a spatial shader also
+  reads `hint_screen_texture` in display values under Compatibility and in linear under Mobile,
+  and its `blend_add` lands in those units — work in display space and convert per renderer
+  (`to_output`). Compatibility blends into 8 bits, so a ray's faint tail under a level is lost
+  there and kept on Mobile.
+- **Reading the screen or the depth in a spatial shader costs a copy of each, every frame it is
+  drawn.** One full-screen tap of `SunShafts` was 0.9 ms on the iGPU under Mobile, before any
+  ray; the twenty taps added 0.4 more. Hide such a pass (`visible = false`) whenever it has
+  nothing to add, or it pays for the copies anyway.
 - **Compatibility does not decode a viewport texture, whatever the hint.** A `source_color` sampler
   over a `SubViewport`'s texture reads its display-encoded bytes as linear there (a mountain at
   119 came back mirrored at 184); Mobile decodes it. `terrain.gdshader` leaves the hint off under
@@ -1089,6 +1102,21 @@ the whole sky to cyan-white, against which no disc can show. The fog
   is read off the frame, on the GPU**: the shader probes seven taps inside the disc, which is
   white wherever it shows, and scales the flare by the white share — no readback, and a trunk
   or a slope in front of the sun dims it.
+- **The sun sends rays through the air** (`SunShafts`, `sun_shafts.gdshader`), as a setting
+  (`[display] sun_shafts`, the *Sun rays* row, off below HIGH; `--sun-shafts=` for one run).
+  Screen space on every renderer — Forward+'s volumetric fog is Forward+ only and would lay a
+  second fog over every shader's `FOG`. One full-screen quad in the 3D
+  pass (on `NEAR_FIELD_LAYER`, so the ice's probe and mirror leave it out) walks 20 taps toward
+  the disc and integrates the open, bright sky round it (`is_sky`: nothing drawn there, from the
+  depth buffer — snow at the clamp is as white as that sky, so brightness alone would send rays
+  out of every sunlit bank); a trunk, a crest or a racer in front breaks it into rays. Integrated, not averaged,
+  so a ray is as bright far out as near and the middle does not swell into a second glare.
+  Display space, a few levels to ~45 at most. Only under a look with `shafts` (sunny, evening),
+  and only with the disc in shot: they fade in over its first 0.08 of the height inside the edge
+  (`SunShafts.EDGE_FADE`). Riding straight the disc is ~0.03 past the right edge, and a fade
+  reaching out there ran the pass most of a run for a corner beam of ≤ 7 levels — and moved
+  Bunny Hill's reference capture. Hidden, and free, with the disc out of shot; in it ~1.3 ms
+  under Mobile and ~1.1 under Compatibility on the iGPU.
 - **The course screen's wind is a crosswind that pushes only in flight**, not ETR's `wind_id`
   (which drives the air drag everywhere and blows from anywhere — still `--wind=1..3`).
   `WindField.init_crosswind`: within 15° of square to the fall line, from a side rolled per start

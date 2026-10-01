@@ -61,6 +61,13 @@ var ice_reflections: bool = true
 ## terrain shader's 16th texture unit, so this is the switch to reach for if
 ## the course draws wrong in a browser. See [IceEnvironment].
 var ice_world_reflections: bool = true
+## Whether a clear sun sends rays through the air past whatever stands in front
+## of it — trunks, crests, the racers ([SunShafts]).
+##
+## DEVIATION: ETR has no sun to see. One full-screen pass while the disc is in
+## or near the frame (~1.3 ms on the desktop's iGPU under Mobile, ~1.1 ms under
+## Compatibility), nothing otherwise; on every renderer.
+var sun_shafts: bool = true
 ## Whether the racers and the standing course objects cast a shadow on the snow.
 ##
 ## Half migrated, half DEVIATION. `CCharShape::DrawShadow` draws the character's
@@ -368,6 +375,7 @@ func read(cfg: ConfigFile) -> void:
 		ice_reflections))
 	ice_world_reflections = bool(cfg.get_value("display", "ice_world_reflections",
 		ice_world_reflections))
+	sun_shafts = bool(cfg.get_value("display", "sun_shafts", sun_shafts))
 	shadows = bool(cfg.get_value("display", "shadows", shadows))
 	procedural_sky = str(cfg.get_value("display", "sky",
 		"procedural" if procedural_sky else "etr")).strip_edges().to_lower() != "etr"
@@ -480,6 +488,11 @@ ice_reflections = %s
 ; in a browser, turn this off first.
 ice_world_reflections = %s
 
+; Rays of sunlight through the air past the trees, the hills and the racers,
+; while a clear sun is in sight. The original has no sun to see. One extra
+; pass over the screen while the sun is near it, nothing otherwise.
+sun_shafts = %s
+
 ; Whether the racers and the trees cast a shadow on the snow. The original
 ; draws the character's shadow only at its highest detail level and never
 ; draws one for a tree; both are off under a cloudy or a night sky either way.
@@ -503,7 +516,7 @@ show_fps = %s
 [quality]
 
 ; The Configuration screen's quality preset sets these together (and render_scale,
-; ice_reflections, ice_world_reflections, shadows and sky above). The file keeps the values, not the
+; ice_reflections, ice_world_reflections, sun_shafts, shadows and sky above). The file keeps the values, not the
 ; preset: any mix that is no preset's shows there as "Custom".
 
 ; Smoothing of the 3D scene's edges: off, 2x or 4x.
@@ -613,6 +626,7 @@ server = "%s"
 port = %d
 """ % [_resolution_text(), str(fullscreen).to_lower(), render_scale,
 		str(ice_reflections).to_lower(), str(ice_world_reflections).to_lower(),
+		str(sun_shafts).to_lower(),
 		str(shadows).to_lower(),
 		"procedural" if procedural_sky else "etr", str(night_lights).to_lower(),
 		str(show_fps).to_lower(),
