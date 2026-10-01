@@ -1033,7 +1033,8 @@ the whole sky to cyan-white, against which no disc can show. The fog
   **Mountain Forest** (`gen_mountain_forest.gd`): a narrower trail down a gully whose walls climb
   14–30 m, a fall line of chutes (24–31°) and benches (12–14°) eased into each other, two slots
   with a trunk lodged overhead, eight bumps and two kickers, three boulders and four fallen
-  trunks on the trail, and a near, wooded skyline (below).
+  trunks on the trail, a pile of stones beside it halfway down, bare ice on the walls (nothing
+  stands on it), and a near, wooded skyline (below).
 - **Crossed-quad trees are shaded as a cylinder across both planes**, where ETR gives all eight vertices
   normal (0,0,1). Per-face normals would split each tree into bright and dark halves.
   `normal_roundness = 0` in `object_cross.gdshader` is the flat card.

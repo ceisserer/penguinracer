@@ -3094,3 +3094,25 @@ carries snow: full-white patches from a coarse noise (`snow_patch_scale` 0.6 m, 
 Mobile: round logs with a snow cap that breaks along the top; the boulder with a snowed crown; the
 stump white on top. Open: a stone scatter comes out nearly all white, since its tops are flat. A
 lower `snow_cover` on `stones.tres` would fix it, and the Forest Trail generator writes that material.
+
+### Mountain Forest: the walls' ice kept bare, and a pile of stones halfway down (2026-09-30) · **done, not seen in a real browser or on a phone**
+
+**What.** Trees already kept off the walls' stretches of ice, but bushes, stone scatters,
+boulders, stumps and logs were placed without looking, and stood on it. Now nothing does: the
+ice reads as a clean sheet. And a pile of stones now stands beside the trail at 717 m, about
+halfway down: a core boulder, six round it, three smaller ones lifted onto those and one on
+top, with loose stones round its foot. It is on the bank the trail turns away from, so it is in
+view ahead, and its foot is `PLAY_CLEARANCE` off the trail's edge, so it is scenery, not an obstacle.
+
+**How.** `gen_mountain_forest.gd`: `_on_wall_ice(x, z, r)` is `_material`'s wall-ice test, taken at
+a footprint's centre and four points at its radius. The tree line, the wall forest, the shrubs,
+`_scatter` and `_scatter_logs` all skip a spot where it holds. `_pile_stones` places a new type,
+`stone_pile`, drawn with the boulder prefab (`PREFAB_OF`), with the upper stones raised by
+their marker's Y. It starts at `STONE_PILE` (705 m) and steps down until the foot is clear of a
+torch and of the ice. The fallen and lodged trunks still sink their ends into whatever bank
+they meet.
+
+**Verified**: `TestMountainForest` checks that no off-trail marker on a wall sits on ice, read off
+the splat map the race draws, and that the pile is there and off the trail. The suite shows the
+same three pre-existing failures. Rendered on Mobile with a carve run: at 01:09 the pile is on
+the bank ahead.

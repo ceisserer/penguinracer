@@ -121,9 +121,16 @@ const FALLEN_REACH := -0.3
 ## so there is a line round it: the computer picks among nine lines and found
 ## none in a 2.5 m gap.
 const OBSTACLE_ROOM := 1.2
+## Where down the course a pile of stones stands beside the trail, halfway
+## down: a mound of boulders, the upper ones resting on the lower, off the play
+## area. The first place from here on where the pile's foot is clear of a
+## torch and of a wall's ice.
+const STONE_PILE := 705.0
+## The pile's radius at its foot.
+const STONE_PILE_RADIUS := 2.2
 ## The obstacle types drawn with another type's prefab.
 const PREFAB_OF: Dictionary[String, String] = {
-	"trail_boulder": "boulder", "fallen_trunk": "lodged_log",
+	"trail_boulder": "boulder", "fallen_trunk": "lodged_log", "stone_pile": "boulder",
 }
 const STRAIGHT_START := 60.0
 const STRAIGHT_END := 110.0
@@ -590,6 +597,20 @@ func _bare_wall(x: float, z: float) -> bool:
 		return false
 	return _rock_score(x, z) >= _rock_cut or _ice_score(x, z) >= _ice_cut
 
+## Whether a footprint of radius [param r] at (x, z) touches a wall's ice
+## ([method _material]'s test): nothing stands on it — no tree, bush, stone or
+## log — so it reads as a sheet of ice.
+func _on_wall_ice(x: float, z: float, r: float) -> bool:
+	for o: Vector2 in [Vector2.ZERO, Vector2(r, 0.0), Vector2(-r, 0.0), Vector2(0.0, r),
+			Vector2(0.0, -r)]:
+		var px: float = x + o.x
+		var pz: float = z + o.y
+		var d: float = -pz
+		if _on_wall(px, pz, absf(px - centre_x(d)) / lateral_half_width(d)) \
+				and _rock_score(px, pz) < _rock_cut and _ice_score(px, pz) >= _ice_cut:
+			return true
+	return false
+
 ## Sets [member _rock_cut], [member _bare_rock_cut] and [member _ice_cut] so
 ## that [constant WALL_ROCK_SHARE], [constant WALL_BARE_ROCK_SHARE] and
 ## [constant WALL_ICE_SHARE] of the wall cells come out rock, bare rock and
@@ -819,7 +840,7 @@ func _place_objects(course: CourseData) -> Dictionary[String, Array]:
 	rng.seed = SEED + 200
 	var out: Dictionary[String, Array] = {}
 	for t: String in ["start", "finish", "herring", "lodged_log", "trail_boulder",
-			"fallen_trunk", "trunk_collider", "boulder", "stones", "log", "stump", "tree",
+			"fallen_trunk", "trunk_collider", "stone_pile", "boulder", "stones", "log", "stump", "tree",
 			"shrub"]:
 		out[t] = []
 	var taken := CourseGenKit.Occupancy.new()
@@ -845,6 +866,7 @@ func _place_objects(course: CourseData) -> Dictionary[String, Array]:
 	for d_f: float in FALLEN_TRUNKS:
 		_fell_trunk(rng, d_f, -open_side(d_f), out["fallen_trunk"], out["trunk_collider"],
 			taken)
+	_pile_stones(rng, out["stone_pile"], out["stones"], taken)
 
 	# Herring in short lines that drift across the trail; one line runs under
 	# every trunk, as bait.
@@ -895,6 +917,7 @@ func _place_objects(course: CourseData) -> Dictionary[String, Array]:
 			if x > 1.0 and x < WORLD.x - 1.0 \
 					and beyond_edge(x, z) > PLAY_CLEARANCE + diam * 0.5 \
 					and not _bare_wall(x, z) \
+					and not _on_wall_ice(x, z, diam * 0.3) \
 					and taken.is_free(x, z, diam * 0.3):
 				out["tree"].push_back([x, z, Vector3(diam, height, diam), 0.0])
 				taken.add(x, z, diam * 0.3)
@@ -918,6 +941,7 @@ func _place_objects(course: CourseData) -> Dictionary[String, Array]:
 			if rng.randf() < keep \
 					and beyond > PLAY_CLEARANCE + diam * 0.5 \
 					and not _bare_wall(x, z) \
+					and not _on_wall_ice(x, z, diam * 0.3) \
 					and taken.is_free(x, z, diam * 0.3):
 				out["tree"].push_back([x, z, Vector3(diam, height, diam), 0.0])
 				taken.add(x, z, diam * 0.3)
@@ -936,7 +960,8 @@ func _place_objects(course: CourseData) -> Dictionary[String, Array]:
 			var s: Vector3 = shrub_size.call()
 			var x: float = centre_x(d) + side * (lateral_half_width(d)
 				+ s.x * 0.5 + rng.randf_range(0.5, 6.0))
-			if beyond_edge(x, -d) > 0.4 + s.x * 0.5 and taken.is_free(x, -d, s.x * 0.45):
+			if beyond_edge(x, -d) > 0.4 + s.x * 0.5 and not _on_wall_ice(x, -d, s.x * 0.5) \
+					and taken.is_free(x, -d, s.x * 0.45):
 				out["shrub"].push_back([x, -d, s, 0.0])
 				taken.add(x, -d, s.x * 0.45)
 		d += rng.randf_range(4.0, 9.0) / SHRUB_DENSITY
@@ -1037,6 +1062,49 @@ func _fell_trunk(rng: RandomNumberGenerator, d: float, side: float, into: Array,
 		taken.add(at.x, at.z, 0.9)
 		t += 0.5
 
+## The pile of stones at [constant STONE_PILE]: on the bank the trail turns
+## away from, so it is in view ahead, its foot [constant PLAY_CLEARANCE] off
+## the trail's edge. Big boulders round a core, smaller ones lifted onto them,
+## one on top, and loose stones round the foot.
+func _pile_stones(rng: RandomNumberGenerator, into: Array, loose: Array,
+		taken: CourseGenKit.Occupancy) -> void:
+	var r: float = STONE_PILE_RADIUS
+	var d: float = STONE_PILE
+	var x: float = 0.0
+	var z: float = 0.0
+	while d < STONE_PILE + 60.0:
+		var side: float = -open_side(d)
+		x = centre_x(d) + side * (lateral_half_width(d) + PLAY_CLEARANCE + r)
+		z = -d
+		if beyond_edge(x, z) > PLAY_CLEARANCE + r and not _on_wall_ice(x, z, r + 1.0) \
+				and taken.is_free(x, z, r + 1.0):
+			break
+		d += 2.0
+	var boulder := func(bx: float, bz: float, diam: float, lift: float) -> void:
+		into.push_back([bx, bz, Vector3(diam, diam * rng.randf_range(0.6, 0.8), diam),
+			rng.randf() * TAU, lift, 0.0])
+	boulder.call(x, z, 2.4, 0.0)
+	var base: int = 6
+	for i: int in base:
+		var a: float = TAU * (i + rng.randf_range(-0.2, 0.2)) / base
+		var reach: float = r - 0.8 + rng.randf_range(-0.2, 0.2)
+		boulder.call(x + cos(a) * reach, z + sin(a) * reach, rng.randf_range(1.3, 1.8), 0.0)
+	for i: int in 3:
+		var a: float = TAU * (i + 0.5 + rng.randf_range(-0.2, 0.2)) / 3.0
+		boulder.call(x + cos(a) * 0.7, z + sin(a) * 0.7, rng.randf_range(1.0, 1.3),
+			rng.randf_range(0.7, 0.9))
+	boulder.call(x + rng.randf_range(-0.2, 0.2), z + rng.randf_range(-0.2, 0.2),
+		rng.randf_range(0.8, 1.0), 1.4)
+	for i: int in 5:
+		var a: float = rng.randf() * TAU
+		var reach: float = r + rng.randf_range(0.2, 0.9)
+		var diam: float = rng.randf_range(0.8, 1.4)
+		var sx: float = x + cos(a) * reach
+		var sz: float = z + sin(a) * reach
+		if beyond_edge(sx, sz) > PLAY_CLEARANCE:
+			loose.push_back([sx, sz, Vector3(diam, diam, diam), rng.randf() * TAU])
+	taken.add(x, z, r + 1.0)
+
 ## Scatter [param count] tries of a round prop up the walls within [param
 ## spread] m of the trail's edge, kept [param margin] m plus its radius off it.
 func _scatter(rng: RandomNumberGenerator, into: Array, taken: CourseGenKit.Occupancy,
@@ -1051,7 +1119,8 @@ func _scatter(rng: RandomNumberGenerator, into: Array, taken: CourseGenKit.Occup
 		var z: float = -d
 		if x < 1.0 or x > WORLD.x - 1.0:
 			continue
-		if beyond_edge(x, z) > margin + r and taken.is_free(x, z, r):
+		if beyond_edge(x, z) > margin + r and not _on_wall_ice(x, z, r) \
+				and taken.is_free(x, z, r):
 			into.push_back([x, z, s, rng.randf() * TAU])
 			taken.add(x, z, r)
 
@@ -1074,7 +1143,7 @@ func _scatter_logs(rng: RandomNumberGenerator, into: Array, taken: CourseGenKit.
 			var px: float = x + half.x * t
 			var pz: float = z + half.y * t
 			ok = ok and px > 1.0 and px < WORLD.x - 1.0 and beyond_edge(px, pz) > 1.0 \
-				and taken.is_free(px, pz, thick)
+				and not _on_wall_ice(px, pz, thick) and taken.is_free(px, pz, thick)
 		if not ok:
 			continue
 		into.push_back([x, z, Vector3(length, thick, thick), yaw])

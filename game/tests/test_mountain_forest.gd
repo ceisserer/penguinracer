@@ -31,6 +31,7 @@ static func run(t: TestCase) -> void:
 	_the_fall_line_steps(t, gen, surface)
 	_the_trail_runs_in_a_gully(t, gen, surface)
 	_the_markers(t, gen, scene)
+	_nothing_stands_on_wall_ice(t, gen, course, scene)
 	_the_trunks_are_overhead(t, gen, surface, scene)
 	_the_obstacles_leave_a_line(t, gen, scene)
 	_the_bumps(t, gen, surface)
@@ -123,7 +124,8 @@ static func _the_trail_runs_in_a_gully(t: TestCase, gen: GDScript,
 static func _the_markers(t: TestCase, gen: GDScript, scene: PackedScene) -> void:
 	t.begin("mountain forest/markers")
 	var root: Node = scene.instantiate()
-	var off_trail: Array[String] = ["tree", "shrub", "boulder", "stones", "log", "stump"]
+	var off_trail: Array[String] = ["tree", "shrub", "boulder", "stones", "log", "stump",
+		"stone_pile"]
 	var on_trail: Array[String] = ["herring", "start", "finish", "trail_boulder"]
 	var counts: Dictionary[String, int] = {}
 	var misplaced: PackedStringArray = []
@@ -138,8 +140,9 @@ static func _the_markers(t: TestCase, gen: GDScript, scene: PackedScene) -> void
 			if (off_trail.has(type_name) and beyond <= 0.0) \
 					or (on_trail.has(type_name) and beyond > 0.0):
 				misplaced.push_back(marker.name)
-			if marker.position.y != 0.0 or marker.rotation.x != 0.0 \
-					or marker.rotation.z != 0.0:
+			# A pile's upper stones rest on its lower ones.
+			if (marker.position.y != 0.0 and type_name != "stone_pile") \
+					or marker.rotation.x != 0.0 or marker.rotation.z != 0.0:
 				misplaced.push_back("%s (off the ground)" % marker.name)
 	root.free()
 	for type_name: String in off_trail + on_trail:
@@ -152,6 +155,38 @@ static func _the_markers(t: TestCase, gen: GDScript, scene: PackedScene) -> void
 		"every boulder on the trail")
 	t.eq_f(float(counts.get("fallen_trunk", 0)), float(gen.FALLEN_TRUNKS.size()), 0.0,
 		"every fallen trunk")
+	t.ok(counts.get("stone_pile", 0) >= 5, "a pile of stones beside the trail")
+
+## The walls' ice is bare: no tree, bush, stone, stump or log stands on it.
+## Read off the splat map the race draws, not the generator's noise.
+static func _nothing_stands_on_wall_ice(t: TestCase, gen: GDScript, course: CourseData,
+		scene: PackedScene) -> void:
+	t.begin("mountain forest/wall ice is bare")
+	var splat: Image = course.splat_maps[0].get_image()
+	var ice_channel: int = gen.L_ICE
+	var root: Node = scene.instantiate()
+	var on_ice: PackedStringArray = []
+	var checked: int = 0
+	for type_name: String in ["tree", "shrub", "boulder", "stones", "log", "stump",
+			"stone_pile"]:
+		var group: Node = root.get_node_or_null("Objects/%s" % type_name)
+		if group == null:
+			continue
+		for marker: Node3D in group.get_children():
+			var p: Vector3 = marker.position
+			# Only the walls: the trail's own ice patches are not the question.
+			if gen.beyond_edge(p.x, p.z) <= 1.0:
+				continue
+			var px: int = clampi(roundi(p.x / course.world_size.x * (splat.get_width() - 1)),
+				0, splat.get_width() - 1)
+			var py: int = clampi(roundi(-p.z / course.world_size.y * (splat.get_height() - 1)),
+				0, splat.get_height() - 1)
+			checked += 1
+			if splat.get_pixel(px, py)[ice_channel] > 0.5:
+				on_ice.push_back(marker.name)
+	root.free()
+	t.ok(checked > 0, "markers on the walls to check")
+	t.ok(on_ice.is_empty(), "nothing on the walls' ice: %s" % ", ".join(on_ice.slice(0, 8)))
 
 ## Each trunk, built as [CourseRoot] builds it: clear of the snow by
 ## [constant MIN_HEADROOM] everywhere over the trail, and both ends in a bank.
