@@ -703,7 +703,7 @@ func _build_simulation(racer: SimulatedRacer, course: CourseData) -> void:
 	sim.surface = course_root.surface
 	sim.trees = course_root.trees
 	sim.items = course_root.items
-	sim.bounds_polygon = course.effective_play_bounds()
+	sim.bounds_polygon = RaceSetup.bounds_for(racer.input_source, course)
 	sim.play_length = course.play_size.y
 	sim.finish_brake = course.finish_brake
 	# The wind is seeded on every start, not here — see [method _init_wind].
@@ -805,7 +805,8 @@ func restart(with_intro: bool = true) -> void:
 			# and every reference capture with it.
 			var x: float = start.x
 			if sim.start_offset != 0.0:
-				x = RaceSetup.lane_x(x + sim.start_offset, course.effective_play_bounds())
+				x = RaceSetup.lane_x(x + sim.start_offset,
+					RaceSetup.bounds_for(sim.input_source, course))
 			sim.restart(x, start.y, current_course_dir)
 		elif racer is PlaybackRacer:
 			(racer as PlaybackRacer).restart()

@@ -603,7 +603,9 @@ func _preview(index: PackedByteArray) -> Image:
 ## The four prop prefabs. Built here, not by the ETR importer, which knows only
 ## `object_types.lst`. A `foot_drift` overrides how high the snow banks against
 ## the prop's foot (`object_prop.gdshader`): the stones are a hand high, and the
-## default 10 cm buried them.
+## default 10 cm buried them. A log is not collidable itself — the grid's
+## upright cylinder would be as wide as it is long — but a row of
+## `trunk_collider` markers along it is ([method CourseGenKit.log_colliders]).
 const PROPS: Dictionary = {
 	"boulder": {"kind": PropMesh.Kind.BOULDER, "collidable": true, "seed": 11},
 	"stones": {"kind": PropMesh.Kind.STONES, "collidable": false, "seed": 23,
@@ -628,6 +630,8 @@ func _write_prop_prefabs() -> void:
 		prefab.decorative = not spec["collidable"]
 		prefab.ground_aligned = true
 		ResourceSaver.save(prefab, "res://resources/objects/%s.tres" % id)
+	# A log's collision ([method CourseGenKit.log_colliders]).
+	CourseGenKit.write_trunk_collider_prefab()
 
 # ================================================================ resources
 
@@ -666,14 +670,15 @@ func _write_resources() -> void:
 	CourseGenKit.write_scene(DIR, OUT, objects)
 	CourseGenKit.write_listing(DIR, OUT, course)
 
-## What object placement needs of the course — its size and its play area —
-## so the assets stage can plant the forest before `course.tres` exists.
+## What object placement needs of the course — its size, its play area and its
+## trail — so the assets stage can plant the forest before `course.tres` exists.
 func _course_shape() -> CourseData:
 	var course := CourseData.new()
 	course.world_size = WORLD
 	course.play_size = PLAY
 	course.base_angle = ANGLE
-	course.play_bounds = _corridor()
+	course.play_bounds = _corridor(PLAY_MARGIN, WORLD_EDGE_FOREST)
+	course.trail_bounds = _corridor(CORRIDOR_MARGIN, 1.0)
 	return course
 
 ## The needle floor as this course's own [TerrainLayer] ([method
@@ -681,20 +686,38 @@ func _course_shape() -> CourseData:
 func _write_needles_layer() -> void:
 	ResourceSaver.save(CourseGenKit.needles_layer(load(NEEDLES_TEXTURE)), NEEDLES_LAYER)
 
-## How far into the forest the play area reaches either side of the trail.
+## How far into the forest the course's trail reaches either side of the snow
+## ([member CourseData.trail_bounds]): where the computer's opponents are held,
+## and the line the night torches stand along.
 const CORRIDOR_MARGIN := 5.0
+## How far into the forest a racer may go either side of the snow
+## ([member CourseData.play_bounds]) — enough to leave the trail and find a way
+## through the trees, which are as solid there as beside it.
+const PLAY_MARGIN := 18.0
+## The forest always left between the play area and the edge of the world,
+## so nobody rides out to where the hill stops. The trail's snow is at least
+## 28 m from either side, so at [constant PLAY_MARGIN] this cuts nothing; it is
+## the bound that holds if either grows.
+const WORLD_EDGE_FOREST := 8.0
 ## Length of the corridor's straight pieces. At least [constant
-## CourseLights.SPACING], so each piece of edge stands a torch at night.
+## CourseLights.SPACING], so each piece of the trail's edge stands a torch at
+## night.
 const CORRIDOR_STEP := 24.0
 
-## The play area: the trail and [constant CORRIDOR_MARGIN] of forest either
-## side, down its left edge and back up its right. In the fork it spans both
-## branches, the wooded island between them included: a polygon has no holes,
-## and the island's trees are there to hit. [RacePhysics] keeps a racer
-## inside it and [AIInputSource] plans inside it, so the forest's edge is there
-## to crash into but nobody wanders off through the woods — and a computer
-## opponent, which reads no terrain but friction, follows the bends.
-func _corridor() -> PackedVector2Array:
+## The trail and [param margin] of forest either side, down its left edge and
+## back up its right, kept [param inset] inside the world's sides. In the fork it
+## spans both branches, the wooded island between them included: a polygon has
+## no holes, and the island's trees are there to hit.
+##
+## Drawn twice. At [constant PLAY_MARGIN] it is the play area: [RacePhysics]
+## keeps a racer inside it, so there is forest to explore either side, with
+## its edge deep enough in the trees that nobody rides off through the woods.
+## At [constant CORRIDOR_MARGIN] it is the trail: a computer opponent is held
+## inside it and plans inside it ([method RaceSetup.bounds_for]), so it follows
+## the bends — it reads no terrain but friction, and let into the woods it ran
+## wide on them — and [CourseLights] stands the torches along it, beside the
+## snow.
+func _corridor(margin: float, inset: float) -> PackedVector2Array:
 	var left := PackedVector2Array()
 	var right := PackedVector2Array()
 	var d: float = -1.0
@@ -704,11 +727,11 @@ func _corridor() -> PackedVector2Array:
 		var lo: float = INF
 		var hi: float = -INF
 		for b: int in BRANCHES:
-			var reach: float = lateral_half_width(at, b) + CORRIDOR_MARGIN
+			var reach: float = lateral_half_width(at, b) + margin
 			lo = minf(lo, centre_x(at, b) - reach)
 			hi = maxf(hi, centre_x(at, b) + reach)
-		left.push_back(Vector2(clampf(lo, 1.0, WORLD.x - 1.0), -d))
-		right.push_back(Vector2(clampf(hi, 1.0, WORLD.x - 1.0), -d))
+		left.push_back(Vector2(clampf(lo, inset, WORLD.x - inset), -d))
+		right.push_back(Vector2(clampf(hi, inset, WORLD.x - inset), -d))
 		if d >= last:
 			break
 		d = minf(d + CORRIDOR_STEP, last)
@@ -728,13 +751,13 @@ func _place_objects(course: CourseData) -> Dictionary[String, Array]:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = SEED + 200
 	var out: Dictionary[String, Array] = {}
-	for t: String in ["start", "finish", "herring", "boulder", "stones", "log", "stump",
-			"tree", "shrub"]:
+	for t: String in ["start", "finish", "herring", "boulder", "stones", "log",
+			"trunk_collider", "stump", "tree", "shrub"]:
 		out[t] = []
 	var taken := CourseGenKit.Occupancy.new()
 
 	# A clearing where each night torch will stand. [CourseLights] drops a
-	# torch that has a tree within reach, and the corridor's edge runs through
+	# torch that has a tree within reach, and the trail's edge runs through
 	# the forest, so without these the trail would be dark.
 	# Only where they stand matters here, not how high: a flat stand-in for the
 	# ground, so both stages plant the same forest whether or not the
@@ -776,6 +799,9 @@ func _place_objects(course: CourseData) -> Dictionary[String, Array]:
 			var diam: float = rng.randf_range(0.5, 0.95)
 			return Vector3(diam, diam * rng.randf_range(0.6, 1.0), diam))
 	_scatter_logs(rng, out["log"], taken, int(area / 600.0 * LOG_DENSITY))
+	# A log draws only; the ones a racer can reach get a row of colliders.
+	for placed: Array in out["log"]:
+		CourseGenKit.log_colliders(placed, course.play_bounds, out["trunk_collider"])
 
 	# A tree line along both edges of every branch, so the trail runs between
 	# walls of trees rather than across a snowfield with a forest beside it.

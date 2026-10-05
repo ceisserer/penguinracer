@@ -3498,3 +3498,65 @@ Trail's stumps on snow from a camera parked beside them, with their ground snow 
 skirt as reported) and as built (the flare in a drift), on Mobile and Compatibility. Of 483
 stumps, 293 stand on full snow and 72 on none. The suite, the same three pre-existing failures.
 Only `stones.tres` was regenerated; `course.tscn` came back with fresh ids only and was reverted.
+
+### Fallen logs are solid where a racer can reach them (2026-10-05) · **done, not seen in a real browser or on a phone**
+
+**What.** On Forest Trail a racer slid straight through fallen logs at full speed. The `log`
+prefab was decoration (`collidable = false`), on the assumption that logs lie out of reach. They
+do lie off the trail, at least 1 m past its edge at both ends and the middle, but the play area
+reaches 5 m into the forest on each side, so there was a 4 m band where nothing stopped a racer.
+Making the prefab collidable alone would not have worked: the grid knows only upright cylinders,
+and a log's one cylinder would have been as wide as the log is long.
+
+**How.** The same answer as Mountain Forest's fallen trunks. `CourseGenKit.log_colliders` lays a
+`trunk_collider` marker every 0.5 m along a placed log: as wide as the log, as tall as its top
+over the ground (`(LOG_AXIS_Y + 0.5)` × thickness), ends inset by half a thickness. It lays them
+only where a racer can get to (inside the play area, or within half the log's thickness plus
+0.5 m of its edge), so the logs deep in the trees cost nothing. It uses no random draws, so
+nothing else on the course moves. Both generators call it. `write_trunk_collider_prefab` moved
+into the kit so Forest Trail's generator writes the prefab too.
+
+**Verified**: Forest Trail gains 321 colliders; every other marker is identical to before (diffed
+by name and transform). Mountain Forest gains none, because its logs lie outside its 1 m corridor,
+so its `course.tscn` came back with fresh ids only and was reverted. Torches: 131 before and after.
+Headless probe, the AI at all three levels × four seeds against the real grid and play area:
+the same finish times and hits as before, and none on a log. `TestProps` "forest trail's logs are
+solid" covers the collider/log prefabs, that every collider lies along a log, that no log in the
+play area is without one, and that a racer sliding at one hits it. The suite has the same three
+pre-existing failures.
+
+### Forest Trail's woods are open to ride (2026-10-05) · **done, not seen in a real browser or on a phone**
+
+**What.** A racer on Forest Trail met an invisible wall 5 m past the trail's edge, which in most
+places is just behind the tree line. The play area now reaches 18 m into the forest either side
+(`PLAY_MARGIN`), and is kept at least 8 m inside the world's sides (`WORLD_EDGE_FOREST`; the
+trail is at least 28 m from either, so today that cuts nothing).
+
+**How.** `CourseData.trail_bounds` is new: where a course means to be raced, when that is
+narrower than where a racer may go; empty means the play area, which is every course but this
+one, and it is not in the import fingerprint. Forest Trail's is the old 5 m corridor, vertex for
+vertex. Two things read it. The night torches stand along it rather than out at the play area's
+edge, which would have left the trail dark; so their clearings, and with them every tree,
+boulder, shrub and log, stand exactly where they stood. And a computer opponent is held to it by
+the simulation (`RaceSetup.bounds_for`, also used for its start lane). The first try only had
+the planner keep inside the trail: across three levels × four seeds the opponents ran wide on
+bends, up to 13 m into the trees, hard seed 0 hitting 27 trunks instead of 21. Held to the
+trail, they race exactly as before.
+
+What is solid in the new ground: trees, shrubs, boulders and stumps already were. Fallen logs
+get their `trunk_collider` rows wherever the play area reaches (`CourseGenKit.log_colliders`,
+from the entry above), so the wider area took them from 321 to 992. The stones stay
+uncollidable (a hand high), and so do the torches now standing inside the play area: the
+simulation never hears of the sky, so nothing it hits may come and go with the night.
+
+**Verified**: regenerated; every marker but the log colliders identical (diffed by name and
+transform), heightmap, splats, water and occlusion byte-identical; the prop prefabs came back with
+`= null` shader parameters only and were reverted. A headless probe threw a racer sideways off the
+trail at six points on each side: where the wall used to stop it at about 5 m it now went 10–18 m
+into the woods, and elsewhere the tree line stopped it first. `TestProps` "forest trail's forest
+is open to ride": 15 m of forest either side is in the play area, the trail is narrower, the play
+area keeps clear of the world's edge, all 132 torches stand 1.2 m outside the trail and inside the
+play area, a player gets the play area and an opponent the trail, and an imported course's trail
+is its play area. The suite has the same three pre-existing failures. **Not looked at in a
+render**: no capture harness starts a racer off the trail, so how the edge of the world reads
+from 8 m inside it is unchecked.

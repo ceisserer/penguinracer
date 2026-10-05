@@ -19,16 +19,20 @@
 ## [code]atmo_torch_light[/code], which is zero whenever the torches are out.
 ##
 ## Presentation only: a torch has no collision. An edge torch stands a metre
-## outside the play area so no racer ever rides through one; a flag's torch
-## stands where the (equally intangible) flag did. Placed deterministically
+## outside the trail ([method CourseData.effective_trail_bounds]), which on
+## every course but one is the play area, so no racer ever rides through one;
+## a flag's torch stands where the (equally intangible) flag did. Forest
+## Trail's play area reaches into the woods past its torches, and a racer
+## exploring there can ride through one as through a flag: the simulation
+## never hears of the sky, so nothing it hits may come and go with the night. Placed deterministically
 ## from the course, so a capture reproduces. `[display] night_lights = false`
 ## ([member GameConfig.night_lights]) is ETR's dark night, flags and all.
 class_name CourseLights
 extends Node3D
 
-## Metres between torches along an edge of the play area.
+## Metres between torches along an edge of the trail.
 const SPACING := 22.0
-## How far outside the play area a torch stands.
+## How far outside the trail a torch stands.
 const OUTSET := 1.2
 ## How close a tree may stand before a torch gives its place up.
 const TREE_CLEARANCE := 1.6
@@ -138,14 +142,15 @@ static func bake_terrain(from: Array[Vector4], surface: HeightmapSurface,
 	return out
 
 ## Where the torches stand: every [constant SPACING] metres along each edge of
-## the play area, [constant OUTSET] outside it, dropped where a tree or a flag
-## is already standing.
+## the trail ([method CourseData.effective_trail_bounds] — the play area, on
+## every course that names no narrower trail), [constant OUTSET] outside it,
+## dropped where a tree or a flag is already standing.
 static func torch_positions(course: CourseData, surface: SurfaceProvider,
 		trees: ObjectGrid, flags: Array) -> PackedVector3Array:
 	var out := PackedVector3Array()
 	if course == null or surface == null:
 		return out
-	var bounds: PackedVector2Array = course.effective_play_bounds()
+	var bounds: PackedVector2Array = course.effective_trail_bounds()
 	if bounds.size() < 3:
 		return out
 	# Outward from the polygon's winding, not from its middle: a play area that

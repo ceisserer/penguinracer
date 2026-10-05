@@ -19,6 +19,8 @@ static func run(t: TestCase) -> void:
 	_the_course_is_listed(t)
 	_nothing_stands_on_the_trail(t)
 	_the_trail_forks(t)
+	_the_forest_is_open(t)
+	_the_logs_are_solid(t)
 	_the_forest_floor(t)
 
 ## Every face wound so its normal points away from the mesh's middle — the
@@ -144,6 +146,12 @@ static func _nothing_stands_on_the_trail(t: TestCase) -> void:
 		for marker: Node3D in group.get_children():
 			var p: Vector3 = marker.position
 			var beyond: float = gen.beyond_edge(p.x, p.z)
+			# A log's colliders lie under it, off the trail; what is under
+			# them is the log's business (_the_logs_are_solid).
+			if type_name == "trunk_collider":
+				if beyond <= 0.0:
+					misplaced.push_back(marker.name)
+				continue
 			if off_trail.has(type_name):
 				if beyond <= 0.0:
 					misplaced.push_back(marker.name)
@@ -194,6 +202,145 @@ static func _the_trail_forks(t: TestCase) -> void:
 	for x: float in [left, right]:
 		t.ok(Geometry2D.is_point_in_polygon(Vector2(x, -middle), course.effective_play_bounds()),
 			"the branch at x %.1f is in the play area" % x)
+
+## A racer may leave the trail and ride the forest beside it, well past the
+## tree line, but not out to the edge of the world. The trail itself is a
+## narrower polygon of its own: the computer plans inside it and the torches
+## stand along it.
+static func _the_forest_is_open(t: TestCase) -> void:
+	t.begin("props/forest trail's forest is open to ride")
+	var gen: GDScript = load(GENERATOR)
+	var course: CourseData = load("res://courses/%s/course.tres" % COURSE_DIR)
+	var play: PackedVector2Array = course.effective_play_bounds()
+	var trail: PackedVector2Array = course.effective_trail_bounds()
+	t.ok(course.trail_bounds.size() >= 3 and trail != play, "the course names a trail of its own")
+	# Only a player has the woods: an opponent let into them ran wide on the
+	# bends, so the simulation holds it to the trail.
+	t.ok(RaceSetup.bounds_for(LocalInputSource.new(), course) == play,
+		"a player may go anywhere in the play area")
+	t.ok(RaceSetup.bounds_for(AIInputSource.new(), course) == trail,
+		"a computer opponent is held to the trail")
+	var imported: CourseData = load("res://courses/bunny_hill/course.tres")
+	t.ok(imported.effective_trail_bounds() == imported.effective_play_bounds(),
+		"an imported course's trail is its play area")
+	var short: PackedStringArray = []
+	var wide: PackedStringArray = []
+	var d: float = 20.0
+	while d < gen.PLAY.y:
+		for b: int in gen.BRANCHES:
+			var c: float = gen.centre_x(d, b)
+			var edge: float = gen.lateral_half_width(d, b)
+			for side: float in [-1.0, 1.0]:
+				var far := Vector2(c + side * (edge + 15.0), -d)
+				if not Geometry2D.is_point_in_polygon(far, play):
+					short.push_back("%.0f m, x %.1f" % [d, far.x])
+				# Past the trail's own margin is off the trail, but for the
+				# island in the fork, which is inside both.
+				var off := Vector2(c + side * (edge + gen.CORRIDOR_MARGIN + 3.0), -d)
+				if gen.split(d) < 0.01 and Geometry2D.is_point_in_polygon(off, trail):
+					wide.push_back("%.0f m, x %.1f" % [d, off.x])
+		d += 10.0
+	t.ok(short.is_empty(), "the play area reaches 15 m into the forest either side: %s"
+		% ", ".join(short.slice(0, 8)))
+	t.ok(wide.is_empty(), "the trail does not: %s" % ", ".join(wide.slice(0, 8)))
+	var near_edge: int = 0
+	for p: Vector2 in play:
+		if p.x < gen.WORLD_EDGE_FOREST - 1e-3 or p.x > gen.WORLD.x - gen.WORLD_EDGE_FOREST + 1e-3:
+			near_edge += 1
+	t.ok(near_edge == 0, "and keeps forest between it and the world's edge (%d)" % near_edge)
+	# The torches stand along the trail, not out at the play area's edge.
+	var flat := HeightmapSurface.new()
+	flat.build(PackedFloat32Array([0.0, 0.0, 0.0, 0.0]), Vector2i(2, 2), course.world_size, 0.0)
+	var torches: PackedVector3Array = CourseLights.torch_positions(course, flat, null, [])
+	var astray: int = 0
+	for at: Vector3 in torches:
+		var p := Vector2(at.x, at.z)
+		var gap: float = INF
+		for i: int in trail.size():
+			gap = minf(gap, p.distance_to(Geometry2D.get_closest_point_to_segment(p, trail[i],
+				trail[(i + 1) % trail.size()])))
+		if absf(gap - CourseLights.OUTSET) > 0.05 or not Geometry2D.is_point_in_polygon(p, play):
+			astray += 1
+	t.ok(torches.size() > 100 and astray == 0,
+		"the torches line the trail, inside the play area (%d of %d astray)"
+		% [astray, torches.size()])
+
+## A fallen log within a racer's reach of the play area is something to hit,
+## along its whole length: a row of `trunk_collider` cylinders under it, as wide
+## as it and as tall as its top, and a racer sliding at one is turned away. The
+## log prefab itself stays uncollidable — its one cylinder would be as wide as
+## the log is long.
+static func _the_logs_are_solid(t: TestCase) -> void:
+	t.begin("props/forest trail's logs are solid")
+	var log_prefab: ObjectPrefab = load("res://resources/objects/log.tres")
+	var collider: ObjectPrefab = load("res://resources/objects/trunk_collider.tres")
+	t.ok(log_prefab != null and not log_prefab.collidable, "a log draws only")
+	t.ok(collider != null and collider.collidable and collider.mesh == null,
+		"its collider is only something to hit")
+	var packed: PackedScene = load("res://courses/%s/course.tscn" % COURSE_DIR)
+	var root: CourseRoot = packed.instantiate()
+	root.build_runtime()
+	var play: PackedVector2Array = root.course_data.effective_play_bounds()
+	var logs: Array = []
+	for marker: Node3D in root.get_node("Objects/log").get_children():
+		logs.push_back(marker)
+	var cols: Array[Node3D] = []
+	for marker: Node3D in root.get_node("Objects/trunk_collider").get_children():
+		cols.push_back(marker)
+	t.ok(cols.size() > 100, "the logs in reach have colliders (%d)" % cols.size())
+	# Every collider lies along a log, as wide as it and no taller.
+	var stray: PackedStringArray = []
+	for c: Node3D in cols:
+		var on: bool = false
+		for l: Node3D in logs:
+			var axis := Vector2(cos(l.rotation.y), -sin(l.rotation.y))
+			var rel := Vector2(c.position.x - l.position.x, c.position.z - l.position.z)
+			on = on or (absf(rel.dot(axis)) <= l.scale.x * 0.5 + 1e-3
+				and absf(rel.cross(axis)) < 1e-3
+				and is_equal_approx(c.scale.x, l.scale.y)
+				and c.scale.y <= (PropMesh.LOG_AXIS_Y + 0.5) * l.scale.y + 1e-3)
+		if not on:
+			stray.push_back(c.name)
+	t.ok(stray.is_empty(), "every collider lies along a log: %s" % ", ".join(stray.slice(0, 8)))
+	# Every log with its middle in the play area has a collider there.
+	var bare: PackedStringArray = []
+	for l: Node3D in logs:
+		if not Geometry2D.is_point_in_polygon(Vector2(l.position.x, l.position.z), play):
+			continue
+		var found: bool = false
+		for c: Node3D in cols:
+			found = found or Vector2(c.position.x - l.position.x,
+				c.position.z - l.position.z).length() < CourseGenKit.LOG_COLLIDER_STEP
+		if not found:
+			bare.push_back(l.name)
+	t.ok(bare.is_empty(), "no log in the play area without one: %s"
+		% ", ".join(bare.slice(0, 8)))
+	# Slide straight down at a log in the play area: a hit, and turned away.
+	var target: Node3D = null
+	for c: Node3D in cols:
+		if Geometry2D.is_point_in_polygon(Vector2(c.position.x, c.position.z + 6.0), play):
+			target = c
+			break
+	t.ok(target != null, "a log in the play area to slide at")
+	if target != null:
+		var sim := RacePhysics.new()
+		sim.surface = root.surface
+		root.surface.snow_field = SnowField.new()
+		sim.trees = root.trees
+		sim.bounds_polygon = play
+		sim.play_length = root.course_data.play_size.y
+		sim.init_at(target.position.x, target.position.z + 6.0)
+		var hits: Array[Vector3] = []
+		sim.tree_hit.connect(func(pos: Vector3) -> void: hits.push_back(pos))
+		var input := RaceInput.new()
+		for i: int in 180:
+			sim.step(input, 1.0 / 60.0)
+		var on_log: bool = false
+		for h: Vector3 in hits:
+			for c: Node3D in cols:
+				on_log = on_log or Vector2(h.x - c.position.x, h.z - c.position.z).length() < 0.01
+		t.ok(on_log, "a racer sliding at %s hits it (%d hits)" % [target.name, hits.size()])
+	root.free()
 
 ## The floor is the course's own needle layer under the crowns, with snow in
 ## the gaps between them.

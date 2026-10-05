@@ -62,6 +62,13 @@ const NO_WATER := -1.0
 @export var play_bounds: PackedVector2Array = PackedVector2Array()
 ## Fallback rectangle when [member play_bounds] is empty.
 @export var play_size: Vector2 = Vector2(85.0, 470.0)
+## Where the course means to be raced, when that is narrower than where a racer
+## may go: the computer's opponents are held to it ([method RaceSetup.bounds_for])
+## and the night torches line it ([CourseLights]). Empty means the play area itself, which is every
+## course but Forest Trail, whose play area reaches well into the woods beside
+## its trail. Not in [method fingerprint]: no imported course sets it, and
+## hashing it would make all of them look hand-edited.
+@export var trail_bounds: PackedVector2Array = PackedVector2Array()
 @export var environment_preset: Resource
 @export var music_theme: StringName = &"normal"
 ## Deceleration ramp after the finish line.
@@ -141,3 +148,7 @@ func default_play_bounds() -> PackedVector2Array:
 
 func effective_play_bounds() -> PackedVector2Array:
 	return play_bounds if not play_bounds.is_empty() else default_play_bounds()
+
+## [member trail_bounds], or the play area where the course names no trail.
+func effective_trail_bounds() -> PackedVector2Array:
+	return trail_bounds if not trail_bounds.is_empty() else effective_play_bounds()

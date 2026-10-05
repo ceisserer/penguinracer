@@ -67,6 +67,58 @@ class Occupancy:
 						return false
 		return true
 
+# ================================================================ logs
+
+## Spacing of a fallen log's colliders along it.
+const LOG_COLLIDER_STEP := 0.5
+## How far outside the play area a log's collision still matters: a racer's
+## contact radius ([member RacePhysics.character_radius]) and some slack.
+const LOG_REACH := 0.5
+
+## A fallen log's collision, as `trunk_collider` markers pushed onto
+## [param into]. A log prop draws only; the grid knows only upright
+## cylinders, so a log is a row of them every [constant LOG_COLLIDER_STEP],
+## each as wide as the log and as tall as its top stands over the ground — it
+## can be hit or jumped, like Mountain Forest's fallen trunks. Only where a
+## racer can get to: inside [param play] or within reach of its edge. A log
+## deep in the trees needs nothing. [param placed] is a placement,
+## `[x, z, Vector3(length, thick, thick), yaw]`; no random draws, so adding
+## them moves nothing else on the course.
+static func log_colliders(placed: Array, play: PackedVector2Array, into: Array) -> void:
+	var size: Vector3 = placed[2]
+	var thick: float = size.y
+	# The marker's +X, turned by the yaw about +Y; the ends inset by half a
+	# thickness, so the round ends of the row stop where the cut ends do.
+	var dir := Vector2(cos(placed[3]), -sin(placed[3]))
+	var span: float = maxf(size.x - thick, 0.0)
+	var n: int = ceili(span / LOG_COLLIDER_STEP)
+	# [PropMesh]'s log: radius half the thickness, axis at LOG_AXIS_Y of it.
+	var top: float = (PropMesh.LOG_AXIS_Y + 0.5) * thick
+	for i: int in n + 1:
+		var at: Vector2 = Vector2(placed[0], placed[1]) + dir * span * (float(i) / maxi(n, 1) - 0.5)
+		if near_polygon(at, play, thick * 0.5 + LOG_REACH):
+			into.push_back([at.x, at.y, Vector3(thick, top, thick), 0.0])
+
+## Whether [param at] is inside [param polygon] or within [param margin] of
+## its edge.
+static func near_polygon(at: Vector2, polygon: PackedVector2Array, margin: float) -> bool:
+	if Geometry2D.is_point_in_polygon(at, polygon):
+		return true
+	for i: int in polygon.size():
+		var q: Vector2 = Geometry2D.get_closest_point_to_segment(at, polygon[i],
+			polygon[(i + 1) % polygon.size()])
+		if at.distance_squared_to(q) < margin * margin:
+			return true
+	return false
+
+## The prefab every row of log colliders shares: nothing to draw, only
+## something to hit. Overwritten each run like the props.
+static func write_trunk_collider_prefab() -> void:
+	var collider := ObjectPrefab.new()
+	collider.id = &"trunk_collider"
+	collider.collidable = true
+	ResourceSaver.save(collider, "res://resources/objects/trunk_collider.tres")
+
 # ================================================================ needles
 
 ## Tileable conifer litter, [param n]² texels: dark humus, thousands of fallen

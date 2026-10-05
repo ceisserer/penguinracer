@@ -173,6 +173,20 @@ static func lane_x(x: float, bounds: PackedVector2Array) -> float:
 		return (lo + hi) * 0.5
 	return clampf(x, lo + LANE_MARGIN, hi - LANE_MARGIN)
 
+## Where a racer driven by [param source] may go on [param course]: the play
+## area, or for a computer opponent the trail
+## ([method CourseData.effective_trail_bounds]) — the same polygon on every
+## course but Forest Trail, whose play area reaches well into the woods.
+##
+## An opponent reads no slope and no forest floor but its friction, and it
+## looks one straight line ahead: let loose in Forest Trail's woods, it ran
+## wide on the bends at speed, up to 13 m into the trees, and hit more of them.
+## Held to the trail it races exactly as it did before the woods were opened.
+static func bounds_for(source: InputSource, course: CourseData) -> PackedVector2Array:
+	if source is AIInputSource:
+		return course.effective_trail_bounds()
+	return course.effective_play_bounds()
+
 ## One line for the logs and the HUD's opening print.
 func describe() -> String:
 	var weather: String = "" if snowfall <= 0 else ", snow %d" % snowfall

@@ -428,6 +428,14 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   piece**: a 24 m piece drawn from the width at its ends cut across a slot's pinch, and the AI
   raced into the slot's wall. `CourseLights` stands a torch every 22 m
   along its long edges, so pieces shorter than that get none; outward is taken from the winding.
+- **Where a racer may go and where the course is raced can be two polygons.** Forest Trail's
+  play area reaches 18 m into the woods (`PLAY_MARGIN`); its trail (`CourseData.trail_bounds`,
+  the old 5 m corridor) is what the torches line and what a computer opponent is held to
+  (`RaceSetup.bounds_for`). **Hold the opponent in the simulation, not only in the planner**:
+  planning inside the trail but free to leave it, the AI ran wide on bends at speed, up to 13 m
+  into the trees, and hit more of them — the old wall had been steering it round. Every other
+  course names no trail, so both are the play area. A torch inside the play area is still
+  intangible: nothing the simulation hits may come and go with the sky.
 - **A generator's placements share one random stream, so a rejection moves everything after it.**
   `_scatter` draws an object's yaw only once it is placed, and a freed footprint lets a later try
   succeed that used to fail: keeping Mountain Forest's props off its first rock face moved every
@@ -978,7 +986,8 @@ the whole sky to cyan-white, against which no disc can show. The fog
 - **Night courses are lit** (`CourseLights`): a torch in place of every flag (the flag batch is
   hidden while they burn; each shines at `FLAG_SHARE` 0.3 of an edge torch, since at full strength
   the mid-run torches warmed the whole piste) and one every 22 m down the play area's long edges
-  (outside it, clear of trees, no collision). The terrain's pools are **baked** for every torch at load
+  (outside it, clear of trees, no collision) — the trail's edges, where a course names a trail
+  narrower than its play area (Forest Trail). The terrain's pools are **baked** for every torch at load
   (`CourseLights.bake_terrain`, <50 ms) into vertex colour G, stored as a square root, and scaled
   by `atmo_torch_light` — so a flame seen 200 m off has its pool, and the terrain costs one
   multiply per pixel. Trees and objects still read the eight nearest the camera as globals. Both
@@ -1077,13 +1086,17 @@ the whole sky to cyan-white, against which no disc can show. The fog
   ground-aligned, and not collidable. The same trunk also lies fallen from a bank onto the trail,
   and there it is solid: the grid knows only upright cylinders, so a row of `trunk_collider`
   markers (a prefab with no mesh), each as tall as the trunk there, runs along the part over the
-  trail. It can be hit or jumped. Only the two authored courses use props; every imported course
+  trail. It can be hit or jumped. A fallen `log` on the forest floor is solid the same way wherever
+  a racer can reach it — inside the play area or within half a metre of it
+  (`CourseGenKit.log_colliders`); the `log` prefab itself stays uncollidable, since its one
+  cylinder would be as wide as the log is long. Only the two authored courses use props; every imported course
   has Y = 0, no tilt, and is unchanged.
 - **There are courses ETR has not got**, and a fourth heading for them in the course list
   (*PenguinRacer*, `CourseListing.Category.PENGUINRACER`), each from a generator in
   `addons/course_gen/` sharing `CourseGenKit`. **Forest Trail** (`gen_forest_trail.gd`): a narrow
   trail that forks into two branches and rejoins, a drawn conifer-needle floor with snow where the
-  crowns leave gaps (the forest is planted before the ground is painted), the props below, and
+  crowns leave gaps (the forest is planted before the ground is painted), a play area that
+  reaches 18 m into the woods either side so a player can leave the trail, the props below, and
   four puddles of meltwater: two reaching 35–45 % of the way across the trail from one edge
   (235 m, 1395 m), two larger ones in the trees beside it (455 m, 1230 m), each a smooth basin
   0.2–0.3 m deep: earth (`dirt`, which keeps no track and plays `mud_sound`) wherever the water

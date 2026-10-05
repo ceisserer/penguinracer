@@ -828,11 +828,7 @@ func _write_lodged_log_prefab() -> void:
 	prefab.decorative = true
 	prefab.ground_aligned = false
 	ResourceSaver.save(prefab, "res://resources/objects/lodged_log.tres")
-	# Nothing to draw, only something to hit: a fallen trunk's collision.
-	var collider := ObjectPrefab.new()
-	collider.id = &"trunk_collider"
-	collider.collidable = true
-	ResourceSaver.save(collider, "res://resources/objects/trunk_collider.tres")
+	CourseGenKit.write_trunk_collider_prefab()
 
 # ================================================================ resources
 
@@ -993,6 +989,9 @@ func _place_objects(course: CourseData) -> Dictionary[String, Array]:
 			var diam: float = rng.randf_range(0.5, 0.95)
 			return Vector3(diam, diam * rng.randf_range(0.6, 1.0), diam))
 	_scatter_logs(rng, out["log"], taken, int(area / 500.0 * LOG_DENSITY))
+	# A log draws only; the ones a racer can reach get a row of colliders.
+	for placed: Array in out["log"]:
+		CourseGenKit.log_colliders(placed, course.play_bounds, out["trunk_collider"])
 
 	# The tree line along both edges, close: the trail runs between trunks.
 	d = 15.0
