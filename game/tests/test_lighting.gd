@@ -42,7 +42,7 @@ static func run(t: TestCase) -> void:
 	_the_mirror_takes_its_share(t)
 	_the_renderer_rule(t)
 	_the_project_ships_two_renderers(t)
-	_android_picks_its_renderer(t)
+	_the_player_picks_the_renderer(t)
 
 static func _read(path: String) -> String:
 	var f: FileAccess = FileAccess.open(path, FileAccess.READ)
@@ -155,20 +155,25 @@ static func _the_project_ships_two_renderers(t: TestCase) -> void:
 	t.ok(text.contains("directional_shadow/soft_shadow_filter_quality.mobile=3"),
 		"and so does a phone, which would otherwise read the tagged Hard default")
 
-static func _android_picks_its_renderer(t: TestCase) -> void:
-	t.begin("lighting/android picks its renderer")
+static func _the_player_picks_the_renderer(t: TestCase) -> void:
+	t.begin("lighting/android and the desktop pick their renderer")
 	# The engine reads the choice before any script runs, and only through this
 	# setting, so a menu row without it would be a dead knob.
 	var text: String = _read("res://project.godot")
 	t.ok(text.contains('config/project_settings_override.android="%s"'
 		% RenderBackend.CHOICE_PATH),
 		"on Android the engine reads the player's renderer choice at launch")
+	t.ok(text.contains('config/project_settings_override.pc="%s"'
+		% RenderBackend.CHOICE_PATH),
+		"and on a desktop")
 	t.ok(not text.contains("config/project_settings_override="),
-		"and nowhere else, so a desktop or a browser keeps its own renderer")
-	t.ok(not RenderBackend.can_choose(), "so a desktop run does not offer the choice")
+		"and nowhere else, so a browser keeps its own renderer")
+	t.ok(RenderBackend.can_choose(), "so a desktop run offers the choice")
+	t.ok(RenderBackend.choices() == [RenderBackend.FORWARD_PLUS, RenderBackend.MOBILE,
+		RenderBackend.COMPATIBILITY], "between all three renderers")
 
-	# Through the real file, which a desktop never reads; put back whatever a
-	# previous run left there.
+	# Through the real file, which this run has already read; put back
+	# whatever a previous run left there.
 	var kept: PackedByteArray = FileAccess.get_file_as_bytes(RenderBackend.CHOICE_PATH)
 	var had: bool = FileAccess.file_exists(RenderBackend.CHOICE_PATH)
 	t.ok(RenderBackend.choose(RenderBackend.COMPATIBILITY) == OK, "Compatibility can be chosen")
@@ -182,10 +187,14 @@ static func _android_picks_its_renderer(t: TestCase) -> void:
 	# Godot's own `rendering_method.mobile = "mobile"` outranks the plain key on
 	# a phone, which has the `mobile` tag; a file without the tagged key is read
 	# and ignored there, and a desktop run cannot show it.
-	t.ok(ProjectSettings.get_setting("rendering/renderer/rendering_method.mobile") == "mobile",
-		"the engine still ships a tagged Mobile default for phones")
+	# Asked of the engine's default rather than the live value, which a desktop
+	# run has already read from a choice left in the file.
+	t.ok(ProjectSettings.property_get_revert("rendering/renderer/rendering_method.mobile")
+		== "mobile", "the engine still ships a tagged Mobile default for phones")
 	t.ok(file.get_value("rendering", "renderer/rendering_method.mobile", "") == "gl_compatibility",
 		"so the choice overrides the tagged key too")
+	t.ok(RenderBackend.choose(RenderBackend.FORWARD_PLUS) == OK, "Forward+ can be chosen")
+	t.ok(RenderBackend.chosen() == RenderBackend.FORWARD_PLUS, "and is read back")
 	t.ok(RenderBackend.choose(RenderBackend.MOBILE) == OK, "Mobile can be chosen")
 	t.ok(not FileAccess.file_exists(RenderBackend.CHOICE_PATH),
 		"which is the project default, so it leaves no file behind")

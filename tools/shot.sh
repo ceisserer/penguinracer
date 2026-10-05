@@ -13,7 +13,10 @@
 # the same way, so a capture has to say which one it is of. `SHOT_METHOD` picks:
 # `mobile` (the desktop default, Vulkan), `gl_compatibility` (what the web
 # build runs, and what a desktop `--compat` run reproduces), or `forward_plus`.
-# Unset takes the project's own setting for this platform. Compatibility needs
+# Unset is `mobile`, the project's own setting for the desktop, passed
+# explicitly: a renderer picked in the settings screen (`user://renderer.cfg`,
+# RenderBackend) is read by every desktop run, and must not reach a capture
+# that did not ask for it. Compatibility needs
 # the GL driver and the other two need Vulkan, so the driver follows the method
 # rather than being pinned; `SHOT_DRIVER` overrides that if you need a specific
 # pairing.
@@ -62,7 +65,7 @@ esac
 DRIVER="${SHOT_DRIVER:-$DRIVER}"
 
 ARGS=(--path "$ROOT/game")
-[[ -n "$METHOD" ]] && ARGS+=(--rendering-method "$METHOD")
+ARGS+=(--rendering-method "${METHOD:-mobile}")
 [[ -n "$DRIVER" ]] && ARGS+=(--rendering-driver "$DRIVER")
 ARGS+=(--resolution "${SHOT_RESOLUTION:-1280x720}" --fixed-fps 60 --
     --capture="$OUT" --capture-frames="$FRAMES"

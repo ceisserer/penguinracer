@@ -8,8 +8,8 @@
 ## trees keep their detail, shadows, whether the trees' are baked and which
 ## trees cast them, the shadow map
 ## and its edge filter, ice reflections), the HUD's frame-rate readout, the two fog distances, and
-## on a phone how it is raced ([TouchScheme]) and which renderer it runs
-## ([RenderBackend]).
+## on a phone how it is raced ([TouchScheme]), and on a desktop or a phone
+## which renderer it runs ([RenderBackend]).
 ## Nothing else lands here; a value migrated out of `etr-0.8.4/data` belongs on
 ## a resource, not in a settings panel.
 ##
@@ -88,8 +88,16 @@ signal closed()
 @onready var _ok_button: Button = %OkButton
 @onready var _cancel_button: Button = %CancelButton
 
-## What each row of the renderer drop-down asks [RenderBackend] for.
-const _RENDERERS: Array[String] = [RenderBackend.MOBILE, RenderBackend.COMPATIBILITY]
+## The drop-down's label for each renderer [RenderBackend] knows.
+const _RENDERER_LABELS: Dictionary = {
+	RenderBackend.FORWARD_PLUS: "RENDERER_FORWARD_PLUS",
+	RenderBackend.MOBILE: "RENDERER_MOBILE",
+	RenderBackend.COMPATIBILITY: "RENDERER_COMPATIBILITY",
+}
+
+## What each row of the renderer drop-down asks [RenderBackend] for: the ones
+## this platform offers, in its order.
+var _renderers: Array[String] = RenderBackend.choices()
 
 ## True while [method _show_values] is filling the rows, so the rows' own
 ## change signals do not each re-derive the preset half-way through.
@@ -123,9 +131,10 @@ func _ready() -> void:
 	# run with `--touch`. Written back either way, like the shadow rows.
 	_touch_row.visible = TouchScheme.platform_is_mobile() \
 		or not LaunchArgs.current().touch.is_empty()
-	# Only where the engine reads the choice back at launch — Android. Unlike
-	# the rows above, it is not written back while hidden: it is not in
-	# `penguinracer.cfg`, and a desktop has no file to write.
+	# Only where the engine reads the choice back at launch and there are at
+	# least two to choose between — a desktop or Android, not the browser.
+	# Unlike the rows above, it is not written back while hidden: it is not in
+	# `penguinracer.cfg`, and the browser has no file to write.
 	_renderer_row.visible = RenderBackend.can_choose()
 
 	# The drop-downs' rows are the index each key stores, in order — the
@@ -144,8 +153,11 @@ func _ready() -> void:
 	_fill_options(_shadow_filter, ["SHADOW_FILTER_HARD", "OPTION_VERY_LOW", "OPTION_LOW",
 		"OPTION_MEDIUM", "OPTION_HIGH"])
 	_fill_options(_touch, Array(TouchScheme.LABELS, TYPE_STRING, "", null))
-	# Rows in the order of `_RENDERERS`.
-	_fill_options(_renderer, ["RENDERER_MOBILE", "RENDERER_COMPATIBILITY"])
+	# Rows in the order of `_renderers`.
+	var renderer_labels: Array[String] = []
+	for method: String in _renderers:
+		renderer_labels.append(_RENDERER_LABELS[method])
+	_fill_options(_renderer, renderer_labels)
 	# "auto" first, then each language in its own name. The automatic row says
 	# what it currently comes to, so a player on a German phone who sees
 	# "Automatisch (Deutsch)" knows why the menus are German.
@@ -191,7 +203,9 @@ func open() -> void:
 	_show_fps.button_pressed = Config.show_fps
 	_touch.select(Config.touch_scheme)
 	if _renderer_row.visible:
-		_renderer.select(_RENDERERS.find(RenderBackend.chosen()))
+		# A choice this platform does not offer reads as the default.
+		var row: int = _renderers.find(RenderBackend.chosen())
+		_renderer.select(row if row >= 0 else _renderers.find(RenderBackend.MOBILE))
 		_on_renderer_selected(_renderer.selected)
 	_fog_start.value = Config.fog_start_distance
 	_fog_scale.value = Config.fog_distance_scale
@@ -347,9 +361,7 @@ func _on_render_scale_changed(_row: int = -1) -> void:
 ## next launch; say so whenever the row asks for something other than what is
 ## running.
 func _on_renderer_selected(index: int) -> void:
-	var running: String = RenderBackend.COMPATIBILITY if RenderBackend.is_compatibility() \
-		else RenderBackend.MOBILE
-	_renderer_note.visible = _RENDERERS[index] != running
+	_renderer_note.visible = _renderers[index] != RenderBackend.running()
 
 func _on_fog_start_changed(value: float) -> void:
 	_fog_start_value.text = "%d m" % roundi(value)
@@ -376,7 +388,7 @@ func _accept() -> void:
 	Config.fog_start_distance = _fog_start.value
 	Config.fog_distance_scale = _fog_scale.value
 	if _renderer_row.visible:
-		var err: Error = RenderBackend.choose(_RENDERERS[_renderer.selected])
+		var err: Error = RenderBackend.choose(_renderers[_renderer.selected])
 		if err != OK:
 			push_warning("could not save the renderer choice to %s: %s"
 				% [RenderBackend.CHOICE_PATH, error_string(err)])

@@ -51,6 +51,7 @@ SHOW_FPS_LABEL,Show frame rate:,Bildrate anzeigen:
 TOUCH_CONTROLS_LABEL,Touch controls:,Touch-Steuerung:
 RENDERER_LABEL,Renderer:,Renderer:
 RENDERER_RESTART_NOTE,Applies after a restart,Gilt nach einem Neustart
+RENDERER_FORWARD_PLUS,Forward+ (Vulkan),Forward+ (Vulkan)
 RENDERER_MOBILE,Mobile (Vulkan),Mobile (Vulkan)
 RENDERER_COMPATIBILITY,Compatibility (OpenGL),Kompatibilität (OpenGL)
 FOG_START_LABEL,Clear air before fog:,Klare Sicht vor Nebel:

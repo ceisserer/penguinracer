@@ -3433,3 +3433,24 @@ strength; the droplet picture; the wading measure. `water.gdshader` joins `TestL
 shaders and fits `TestShaderBudget`. The suite: the same three pre-existing failures. Rendered
 under Mobile and Compatibility at the 235 m puddle (wading, entering, calm, light and strong
 wind).
+
+### The renderer can be picked on the desktop too (2026-10-05) · **done, not seen on a phone or on Windows/macOS**
+
+The Configuration screen's renderer row, Android-only until now, shows wherever the platform has at
+least two renderers to offer: **Forward+, Mobile and Compatibility** on a desktop, Mobile and
+Compatibility on Android (Godot does not support Forward+ there), and not in a browser, which has
+only Compatibility. `RenderBackend.choices()` lists them; `project.godot` adds
+`config/project_settings_override.pc` beside the `.android` one, so the engine reads
+`user://renderer.cfg` on every desktop at launch. Defaults are unchanged: no file means Mobile, and
+picking Mobile deletes the file. The "applies after a restart" note now compares against the
+running renderer as the server reports it (`RenderBackend.running()`), so a desktop on Forward+ is
+not mistaken for Mobile. Because every desktop run — dev runs included — now reads the file,
+`tools/shot.sh` always passes `--rendering-method` (`mobile` when `SHOT_METHOD` is unset);
+`tree_portrait.sh` and `bake_tree_impostors.sh` already did.
+
+**Verified**: `TestLighting` (the override on both tags and nowhere else, three choices on a
+desktop, Forward+ and Compatibility written and read back, Mobile leaves no file). On this
+machine's GPU: the row lists all three with Mobile selected; a file asking for Forward+ or
+Compatibility starts the game on it (`Vulkan … Forward+`, `OpenGL … Compatibility`) with that row
+selected; `--rendering-method mobile` still beats the file. The suite: the same three pre-existing
+failures.

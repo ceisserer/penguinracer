@@ -71,7 +71,9 @@ The desktop build runs the **Mobile** renderer and so needs Vulkan; the web buil
 **Compatibility**, which is what WebGL2 gives you and the only reason the project carries two.
 The split is not cosmetic — under Compatibility a shadow-casting light is drawn in a second pass
 blended in sRGB, so the desktop gets shadows and the browser does not. See
-`game/scripts/config/render_backend.gd`.
+`game/scripts/config/render_backend.gd`. The settings screen can switch a desktop run to Forward+
+or Compatibility from the next launch (`user://renderer.cfg`; delete it, or pick Mobile, to go
+back); `--rendering-method` on the command line still wins over it.
 
 ```bash
 curl -sLO https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip

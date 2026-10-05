@@ -28,13 +28,15 @@
 ## a test drags the whole class in eagerly, and a script that reaches an
 ## autoload cannot survive that. See the trap list.
 ##
-## [b]On Android the player picks.[/b] The renderer is chosen before a single
-## script runs, so it cannot be switched from the settings screen directly.
-## Instead `project.godot` points `application/config/project_settings_override`
-## at [constant CHOICE_PATH] on Android only, and the engine reads that file at
+## [b]Where there is more than one, the player picks.[/b] The renderer is
+## chosen before a single script runs, so it cannot be switched from the
+## settings screen directly. Instead `project.godot` points
+## `application/config/project_settings_override` at [constant CHOICE_PATH] on
+## Android and on a desktop (the `pc` tag), and the engine reads that file at
 ## the next launch, as if it were part of `project.godot`. [method choose]
-## writes it. Compatibility's driver, OpenGL ES, comes with it: Godot derives
-## the driver from the method.
+## writes it. Compatibility's driver, OpenGL, comes with it: Godot derives the
+## driver from the method. The browser has nothing but Compatibility, so it
+## reads no file and offers no choice.
 class_name RenderBackend
 extends RefCounted
 
@@ -64,6 +66,7 @@ static func supports_light_shadows() -> bool:
 ## Where the player's renderer choice lives: a `project.godot` fragment, not a
 ## [GameConfig] key, because the engine reads it before any autoload exists.
 const CHOICE_PATH := "user://renderer.cfg"
+const FORWARD_PLUS := "forward_plus"
 const MOBILE := "mobile"
 const COMPATIBILITY := "gl_compatibility"
 
@@ -71,45 +74,66 @@ const COMPATIBILITY := "gl_compatibility"
 ## The tagged one is the one that counts on a phone: Godot ships a built-in
 ## `rendering_method.mobile = "mobile"`, Android carries the `mobile` feature
 ## tag, and a tagged key outranks the plain one — so a file that set only the
-## plain key would be read and then ignored. The plain one stays for a platform
-## without the tag.
+## plain key would be read and then ignored. The plain one is what a desktop
+## reads.
 const CHOICE_KEYS: Array[String] = ["renderer/rendering_method",
 	"renderer/rendering_method.mobile"]
 
-## Whether this build reads [constant CHOICE_PATH] at startup: only then is
-## choosing a renderer something the player can do. Android today.
-static func can_choose() -> bool:
-	return ProjectSettings.get_setting_with_override(
-		"application/config/project_settings_override") == CHOICE_PATH
+## The renderers the player can pick from here, in the settings row's order:
+## all three on a desktop, Mobile and Compatibility on a phone — Godot does not
+## support Forward+ there. Empty where the engine does not read
+## [constant CHOICE_PATH] at startup, which is the browser: a choice there
+## would be a dead knob, and WebGL2 offers nothing but Compatibility anyway.
+static func choices() -> Array[String]:
+	if ProjectSettings.get_setting_with_override(
+			"application/config/project_settings_override") != CHOICE_PATH:
+		return []
+	if OS.has_feature("pc"):
+		return [FORWARD_PLUS, MOBILE, COMPATIBILITY]
+	return [MOBILE, COMPATIBILITY]
 
-## The renderer the next launch will ask for: [constant MOBILE] or
-## [constant COMPATIBILITY]. Not necessarily the running one: a choice takes
-## effect on the next launch, and a phone without Vulkan falls back to
-## Compatibility whatever was asked for.
+## Whether choosing a renderer is something the player can do here: only where
+## [method choices] has at least two to choose between.
+static func can_choose() -> bool:
+	return choices().size() >= 2
+
+## The renderer the next launch will ask for: [constant FORWARD_PLUS],
+## [constant MOBILE] or [constant COMPATIBILITY]. Not necessarily the running
+## one: a choice takes effect on the next launch, `--rendering-method` beats
+## it, and a device without Vulkan falls back to Compatibility whatever was
+## asked for.
 static func chosen() -> String:
 	var file := ConfigFile.new()
 	if file.load(CHOICE_PATH) != OK:
 		return MOBILE
-	var method: String = file.get_value("rendering", CHOICE_KEYS[1], MOBILE)
-	return COMPATIBILITY if method == COMPATIBILITY else MOBILE
+	var method: String = file.get_value("rendering", CHOICE_KEYS[0], MOBILE)
+	return method if method in [FORWARD_PLUS, COMPATIBILITY] else MOBILE
 
 ## Ask for [param method] from the next launch on. Mobile is the project's own
-## default, so choosing it deletes the file instead of writing it: nothing is
-## left to go stale.
+## default on every platform that reads the file, so choosing it deletes the
+## file instead of writing it: nothing is left to go stale.
 static func choose(method: String) -> Error:
-	if method != COMPATIBILITY:
+	if method not in [FORWARD_PLUS, COMPATIBILITY]:
 		if not FileAccess.file_exists(CHOICE_PATH):
 			return OK
 		return DirAccess.remove_absolute(CHOICE_PATH)
 	var file := ConfigFile.new()
 	for key: String in CHOICE_KEYS:
-		file.set_value("rendering", key, COMPATIBILITY)
+		file.set_value("rendering", key, method)
 	return file.save(CHOICE_PATH)
+
+## The renderer this run is drawing with, in the terms of [method chosen].
+## Asked of the server, which has already applied the file, the command line
+## and any fallback; `--headless` answers Compatibility, as
+## [method is_compatibility] does.
+static func running() -> String:
+	if is_compatibility():
+		return COMPATIBILITY
+	return RenderingServer.get_current_rendering_method()
 
 ## A short name for the running renderer, for a log line or a capture's
 ## provenance. Not parsed by anything.
 static func describe() -> String:
 	if is_compatibility():
 		return "Compatibility"
-	return str(ProjectSettings.get_setting("rendering/renderer/rendering_method",
-		"forward_plus"))
+	return running()
