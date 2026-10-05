@@ -14,6 +14,7 @@ static func run(t: TestCase) -> void:
 	_lean_still_leans_with_the_pitch(t)
 	_a_jump_does_not_swing_the_camera(t)
 	_the_lens_follows_the_window_shape(t)
+	_motion_blur_reads_the_camera(t)
 
 ## The invariant the fix is: whatever the terrain under the racer is doing, the
 ## height offset stays in the vertical plane the racer is travelling in.
@@ -118,6 +119,43 @@ static func _the_lens_follows_the_window_shape(t: TestCase) -> void:
 	# two on some platforms, and a division by it would put NaN on the lens.
 	t.eq_f(ChaseCamera.fov_for_aspect(design, 0.0), design, 1e-5,
 		"a zero-area window leaves the lens alone rather than making it NaN")
+
+## [MotionBlur]'s CPU half: whether a frame is drawn smeared at all, and
+## whether a jump of the camera is told from a movement of it. The smear itself
+## is the shader's and shows up in a capture.
+static func _motion_blur_reads_the_camera(t: TestCase) -> void:
+	t.begin("motion blur reads the camera's motion, and its cuts")
+	var at := Transform3D(Basis.IDENTITY, Vector3(3.0, 40.0, -120.0))
+	t.ok(MotionBlur.frame_smear(at, at, 60.0, 0.5, 2.5) == 0.0,
+		"a camera that did not move smears nothing, so the pass is hidden")
+	# 25 m/s down the hill at 60 fps.
+	var ridden := Transform3D(Basis.IDENTITY, at.origin + Vector3(0.0, 0.0, -25.0 * DT))
+	var smear: float = MotionBlur.frame_smear(at, ridden, 60.0, 0.5, 2.5)
+	t.ok(smear * 720.0 > 0.5 and smear <= MotionBlur.MAX_SMEAR,
+		"riding at speed smears the frame (%.1f px at 720p), never past the cap" % (smear * 720.0))
+	var turned := Transform3D(Basis(Vector3.UP, deg_to_rad(1.0)), at.origin)
+	t.eq_f(MotionBlur.frame_smear(at, turned, 60.0, 0.5, 2.5), 0.5 / 60.0, 1e-4,
+		"a turn smears its own share of the lens, times its own exposure")
+	# The shutter opens where the camera was, its travel and its turn each
+	# scaled by their own exposure.
+	var both := Transform3D(Basis(Vector3.UP, deg_to_rad(2.0)), ridden.origin)
+	var opened: Transform3D = MotionBlur.exposed(at, both, 0.5, 2.5)
+	t.eq_v(opened.origin, both.origin + (at.origin - both.origin) * 2.5, 1e-5,
+		"the shutter opens two and a half frames of travel back")
+	t.eq_f(rad_to_deg(opened.basis.get_rotation_quaternion().angle_to(
+		both.basis.get_rotation_quaternion())), 1.0, 1e-3,
+		"and half a frame of turn back")
+	t.ok(MotionBlur.exposed(at, both, 1.0, 1.0).is_equal_approx(at),
+		"one frame of each is the last frame's camera")
+	t.ok(not MotionBlur.is_cut(at, ridden) and not MotionBlur.is_cut(at, turned),
+		"riding and turning are not cuts")
+	t.ok(MotionBlur.is_cut(at, Transform3D(Basis.IDENTITY, at.origin + Vector3(0.0, 60.0, 400.0))),
+		"a restart back at the top is")
+	t.ok(MotionBlur.is_cut(at, Transform3D(Basis(Vector3.UP, PI * 0.5), at.origin)),
+		"and so is a quarter turn in one frame")
+	var shader: String = FileAccess.get_file_as_string("res://shaders/motion_blur.gdshader")
+	t.ok(shader.contains("#define MAX_RACERS %d" % MotionBlur.MAX_RACERS),
+		"the shader holds as many racers as the script hands it")
 
 static func _fly(course_dir: String, release_at: float) -> Dictionary:
 	var course: CourseData = load("res://courses/%s/course.tres" % course_dir)

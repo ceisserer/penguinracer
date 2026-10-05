@@ -99,6 +99,9 @@ var tree_shadows: String = ""
 ## frame can be captured with and without the rays. Applied after
 ## [member quality]. Empty means "whatever the settings file says".
 var sun_shafts: String = ""
+## `--motion-blur=on|off` — [member GameConfig.motion_blur] for one run.
+## Applied after [member quality]. Empty means "whatever the settings file says".
+var motion_blur: String = ""
 ## `?autostart` — the browser's way of saying "skip the menu" without naming a
 ## course, since it has no `--auto-input=` either.
 var autostart: bool = false
@@ -211,6 +214,8 @@ func parse(argv: PackedStringArray, query: Dictionary) -> void:
 			tree_shadows = arg.trim_prefix("--tree-shadows=")
 		elif arg.begins_with("--sun-shafts="):
 			sun_shafts = arg.trim_prefix("--sun-shafts=")
+		elif arg.begins_with("--motion-blur="):
+			motion_blur = arg.trim_prefix("--motion-blur=")
 		elif arg.begins_with("--capture="):
 			capture_path = arg.trim_prefix("--capture=")
 		elif arg.begins_with("--capture-frames="):
@@ -259,6 +264,7 @@ func parse(argv: PackedStringArray, query: Dictionary) -> void:
 	quality = _str(query, "quality", quality)
 	tree_shadows = _str(query, "tree-shadows", tree_shadows)
 	sun_shafts = _str(query, "sun-shafts", sun_shafts)
+	motion_blur = _str(query, "motion-blur", motion_blur)
 	autostart = autostart or query.has("autostart")
 	# The lobby, from a link. `?server=` names one and `?lobby` takes the one
 	# the page's own host implies — see [method RaceNetwork.default_address],

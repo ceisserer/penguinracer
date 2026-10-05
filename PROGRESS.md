@@ -3164,3 +3164,72 @@ tails end sooner (8-bit blending drops increments under a level). With the real 
 brings the disc in at the top-right corner on right turns. The settings row loads, reads
 "Sun rays:", and unticking it turns High into Custom. Not looked at in a browser, nor on a phone,
 which starts at Medium and so has them off.
+
+### The camera's motion blurs the frame (2026-10-01) · **done, not seen in a real browser or on a phone**
+
+**What.** While the camera moves, the frame smears along each pixel's motion: the snow at the
+bottom of the frame streaks past, near trees drag, a hard turn blurs the hillside sideways. The
+racers stay sharp, and so do the HUD, the lens snow and flare, the falling snow, the spray and a
+ghost (`MotionBlur`, `motion_blur.gdshader`). A setting: `[display] motion_blur`, the *Motion
+blur* row, on only at Best (`QualityPreset`); `--motion-blur=on|off` / `?motion-blur=` and
+`SHOT_MOTION_BLUR` for one run. Off at High because it changes every frame the camera moves in,
+and High is the shipped frame every reference capture was taken of.
+
+**How.** Camera motion only, because neither renderer hands a spatial shader a velocity buffer.
+One clip-square quad on `NEAR_FIELD_LAYER` (the ice's probe and mirror leave it out), like the
+sun's rays, but *first* in the transparent pass (`RENDER_PRIORITY_MIN`): it reads the screen copy
+taken after the opaque pass and writes the smeared frame back over it, so everything transparent
+is drawn afterwards, sharp. Per pixel: depth → view space (`INV_PROJECTION_MATRIX`; Compatibility's
+NDC depth is `depth * 2 - 1`) → world → last frame's view (`previous_view`, from the script) →
+this frame's projection (the lens only changes on a resize), and ten jittered taps along the
+difference times a 180° shutter (`SHUTTER_SECONDS / delta`, so the smear is the same length at
+any frame rate), capped at 0.035 of the height. Averaged in linear (squared under Compatibility,
+whose copy is display values).
+
+**The penguin.** Camera-only blur treats everything as standing still, and the chase camera
+moves with the racer it watches: the first sketch would have smeared the penguin as hard as the
+snow beside it. So each racer in shot — up to four, nearest first, all alike (the watched one is
+not special-cased) — is a 0.75 m sphere round its body that carries the body's own displacement
+since the last frame, and a tap whose racer share differs from the pixel's is down-weighted, so
+the snow round the penguin does not pick it up and it does not pick up the snow.
+
+**Hidden, and free**, whenever the camera's move this frame would smear under half a pixel, on a
+pause (`RaceScene._process` calls `hold()`, so the first frame after it starts fresh) and on a
+cut (≥ 4 m or 25° in a frame — a restart puts the camera back at the top).
+
+**Sweeping a constant**: forcing a zero-length smear with the pass drawn gives a byte-identical
+frame under Mobile. Under Compatibility it moves the frame by ±1 level (mean 0.23, max 7, in the
+darks) — and so does a bare passthrough, so that is Compatibility's screen-copy path, which the
+sun's rays already pay, not this shader. Compatibility captures are themselves byte-reproducible
+run to run here, which is what made the residual visible. In the trap list.
+
+**Cost**, iGPU, Bunny Hill `paddle`, 1280x720 logical (1600x900 physical), vsync off, no fixed
+fps, mean `--print-fps` frame time, sun's rays off so the copies are charged to the blur:
+Mobile 11.9 → 13.8 ms (+1.9), Compatibility 8.2 → 9.7 ms (+1.5). With the rays in shot the copies
+are shared.
+
+**Verified**: `TestCamera._motion_blur_reads_the_camera` (a still camera draws no pass, riding
+smears under the cap, a turn smears its share of the lens times the shutter, a restart and a
+quarter turn are cuts, the shader holds as many racers as the script hands it), `TestConfig`
+(default off, `--motion-blur=`/`?motion-blur=`). The suite shows the same three pre-existing
+failures. Rendered on Mobile and Compatibility, Bunny Hill `carve` at frame 250 and `paddle` in
+heavy snow at 420: the two renderers smear alike, the penguin, flakes and HUD are sharp, the far
+hill is near enough still. Not looked at in a browser, nor on a phone, which starts at Medium and
+so has it off.
+
+**Follow-up, same day: riding straight showed almost no blur.** At one 180° shutter a straight
+run smeared only the near snow and the frame's edges by a few pixels — forward motion streams
+out of the point ahead, where nothing moves — while a turn swept the whole frame. A five-times
+shutter for everything gave the straight run its speed and turned a carve into a smudge. So
+travel and turn are exposed apart (`TRAVEL_SHUTTER_SECONDS` 5/120 s, `TURN_SHUTTER_SECONDS`
+1/120 s; `MotionBlur.exposed`), the cap is 0.1 of the height, and the shader spends a tap per
+4 px of smear, 4 to 16. That smeared the penguin across a carve: the chase camera holds it still
+by turning and travelling together, and the two no longer cancelled. The racers now open the
+shutter at one exposure for both (`body_view`), with their own displacement, blended in by the
+body share. Rendered on Mobile and Compatibility, Bunny Hill `carve` at 250 and `paddle` in heavy
+snow at 420: the straight run streams the near snow and trees out of the frame, the carve keeps
+the far hill readable, the penguin is sharp in both. Cost on Mobile, as above but measured over
+the race only: 9.4 → 12.4 ms (+3.0, was +1.9 with ten taps over a 0.035 cap). Compatibility not
+re-measured: `--disable-vsync` did not take there, and both runs sat at the display's 145 Hz.
+`TestCamera` checks the two exposures (`exposed`: 2.5 frames of travel and half a frame of turn
+back; one and one is the last frame's camera).

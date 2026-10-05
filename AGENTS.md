@@ -40,7 +40,8 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           far snow, all world-anchored), LensSnow (flakes melting on the camera,
                           out of focus, kept off the middle), LensFlare (the sun's glare and
                           ghosts, hidden by whatever covers the disc), SunShafts (rays of the
-                          sky round the disc past whatever stands in front of it), IceReflection (planar mirror for the ice),
+                          sky round the disc past whatever stands in front of it), MotionBlur (the camera's smear
+                          over the frame, the racers kept sharp), IceReflection (planar mirror for the ice),
                           IceEnvironment (cube of the hill round the racer, for the ice),
                           ConiferMesh (3 LOD meshes + hemi-octahedral maths), BareTreeMesh
                           (grown leafless tree, 3 LODs + its drawn twig/bark texture),
@@ -79,7 +80,7 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
   shaders/                terrain, etr_skybox, procedural_sky, object_billboard (items), object_cross (shrubs),
                           object_prop (PropMesh's boulders, stones, logs, stumps),
                           conifer + conifer_impostor (all three species; + conifer.gdshaderinc:
-                          LOD fade, sway, snow, twig alpha), conifer_bake, snow_trail, snow_flakes, lens_snow, lens_flare, sun_shafts, menu_snow,
+                          LOD fade, sway, snow, twig alpha), conifer_bake, snow_trail, snow_flakes, lens_snow, lens_flare, sun_shafts, motion_blur, menu_snow,
                           s1_displace, torch_flame, etr_illumination.gdshaderinc (ETR's
                           sum-then-clamp, included by everything lit), atmosphere.gdshaderinc
                           (sky gradient, ridges, the `FOG` every lit shader writes, torchlight)
@@ -203,7 +204,7 @@ SHOT_METHOD=gl_compatibility SHOT_RESOLUTION=1024x576 tools/shot.sh /tmp/web-loo
 written with comments on first run; delete it for defaults. The **Configuration** screen edits
 the display rows (window size, frame-rate readout, fog distance), the quality rows
 (render scale, anti-aliasing, sky and sky detail, tree detail distance, shadows, tree shadow
-type, tree shadows, shadow detail, shadow edges, ice reflections, ice reflects the world, sun rays) and writes the same commented file back. The **quality preset**
+type, tree shadows, shadow detail, shadow edges, ice reflections, ice reflects the world, sun rays, motion blur) and writes the same commented file back. The **quality preset**
 drop-down (Fastest … Best quality) sets the quality rows together and is *derived*, never stored:
 `QualityPreset.matching` names whichever preset the values are, else "Custom". **High quality is
 the shipped frame and `GameConfig`'s defaults** — `TestConfig` holds them together, so an untouched
@@ -227,7 +228,7 @@ the export fails obscurely. Prerequisites: Godot 4.7.2 on `PATH` as `godot`, web
 templates, and **Vulkan** for the desktop (Mobile renderer).
 
 **Captures**: `SHOT_METHOD` is `mobile` (desktop default), `gl_compatibility` (browser) or
-`forward_plus`; the driver follows it. `SHOT_TREE_SHADOWS=dynamic|baked` picks the trees' shadows, `SHOT_SUN_SHAFTS=on|off` the sun's rays. `tools/shot.sh` uses the container's real GPU (Wayland
+`forward_plus`; the driver follows it. `SHOT_TREE_SHADOWS=dynamic|baked` picks the trees' shadows, `SHOT_SUN_SHAFTS=on|off` the sun's rays, `SHOT_MOTION_BLUR=on|off` the camera's smear. `tools/shot.sh` uses the container's real GPU (Wayland
 socket + `/dev/dri/renderD128`, needs `libegl1 libegl-mesa0 libdecor-0-0`; without them Godot
 blames "video card drivers" and silently falls back). ~3 s for 120 frames on the GPU, ~2 min on
 llvmpipe; `SHOT_FORCE_SOFTWARE=1` takes the slow path, worth doing before trusting a small tone
@@ -242,7 +243,7 @@ Detail is in `PROGRESS.md`; this is the summary.
 |---|---|
 | 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 4724 assertions, 0 failures, 13 s headless. |
 | 1 — importer + first course | **done** — 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. Plus two authored courses, Forest Trail and Mountain Forest (`addons/course_gen/`), with six prop prefabs of their own (one only a collider). |
-| 2 — rendering | partial — Mobile on the desktop, Compatibility on the web (trap list: *sRGB-blended shadow pass*). ETR's illumination clamp in every lit shader except the character's; desktop-only PSSM shadow, the trees' shadows baked into the terrain's vertex colour on the web and by choice on the desktop (`TreeShadowBake`). Splat PBR, chunked terrain, instanced objects (conifers, bare trees and shrubs are 3D meshes at 3 LODs + an octahedral impostor, dithered hand-overs, wind sway, shader snow — [Forest]; anything else collidable is ETR's two crossed planes with a hashed yaw; items are billboards), ETR's HUD redrawn as primitives ([RaceHUD]), migrated skyboxes. Tone matched on Bunny Hill at both ends in all three channels; no LightmapGI. Snow/ice micro-relief, glint, rock detail texture, Fresnel sky, ice reflecting the racers (`IceReflection`) and, as a setting, the hill round them (`IceEnvironment`), textured carve spray. Heightmap AO baked at import + trench-wall AO; shaded/occluded/carved snow tinted blue (fake SSS). |
+| 2 — rendering | partial — Mobile on the desktop, Compatibility on the web (trap list: *sRGB-blended shadow pass*). ETR's illumination clamp in every lit shader except the character's; desktop-only PSSM shadow, the trees' shadows baked into the terrain's vertex colour on the web and by choice on the desktop (`TreeShadowBake`). Splat PBR, chunked terrain, instanced objects (conifers, bare trees and shrubs are 3D meshes at 3 LODs + an octahedral impostor, dithered hand-overs, wind sway, shader snow — [Forest]; anything else collidable is ETR's two crossed planes with a hashed yaw; items are billboards), ETR's HUD redrawn as primitives ([RaceHUD]), migrated skyboxes. Tone matched on Bunny Hill at both ends in all three channels; no LightmapGI. Snow/ice micro-relief, glint, rock detail texture, Fresnel sky, ice reflecting the racers (`IceReflection`) and, as a setting, the hill round them (`IceEnvironment`), textured carve spray, camera motion blur as a setting (`MotionBlur`, Best only). Heightmap AO baked at import + trench-wall AO; shaded/occluded/carved snow tinted blue (fake SSS). |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror; a carve leaves a shaded trench with a ploughed lip. |
 | 4 — character | **done for all five** — skinned mesh from `shape.lst`, keyframe clips as `AnimationLibrary` + `KeyframePath` root motion, start animation (`CIntro`), finish clips on the results screen (`RaceOutcome.clip`), racing pose layer (`CharacterRig.adjust_joints`, ETR's `AdjustJoints`) driven off `RacerState` alone so ghosts and peers animate. `GameConfig.character` picks one. |
 | 5 — game shell | partial — main menu → Practice / Race the computer / Network multiplayer / Race against ghost / character / Configuration; results screen with named runs; ETR palette theme; course + character catalogs (course list in four parts: Tux Racer, ETR, PenguinRacer's own, added by address); English + German, detected or chosen on the settings screen; audio (`AudioDirector`, ETR's one-voice-per-cue mixer). Missing: cups, medals, profiles (data imported), volume controls, ETR's menu art (licence audit). |
@@ -675,6 +676,13 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   drawn.** One full-screen tap of `SunShafts` was 0.9 ms on the iGPU under Mobile, before any
   ray; the twenty taps added 0.4 more. Hide such a pass (`visible = false`) whenever it has
   nothing to add, or it pays for the copies anyway.
+- **A pass that rewrites the frame from the screen copy goes first in the transparent pass**
+  (`RENDER_PRIORITY_MIN`, `MotionBlur`): the copy is taken after the opaque pass, so whatever
+  transparent was drawn before it is wiped, and whatever comes after (falling snow, spray, a
+  ghost, the sun's rays) lands on top, untouched. Reading the copy and writing it back unchanged
+  round-trips exactly under Mobile; under Compatibility it moves the frame by ±1 level (mean
+  0.23, up to 7 in the darks) — the renderer's copy path, not the shader, since a bare
+  `ALBEDO = texture(screen_tex, SCREEN_UV).rgb` does the same.
 - **Compatibility does not decode a viewport texture, whatever the hint.** A `source_color` sampler
   over a `SubViewport`'s texture reads its display-encoded bytes as linear there (a mountain at
   119 came back mirrored at 184); Mobile decodes it. `terrain.gdshader` leaves the hint off under
@@ -1117,6 +1125,27 @@ the whole sky to cyan-white, against which no disc can show. The fog
   reaching out there ran the pass most of a run for a corner beam of ≤ 7 levels — and moved
   Bunny Hill's reference capture. Hidden, and free, with the disc out of shot; in it ~1.3 ms
   under Mobile and ~1.1 under Compatibility on the iGPU.
+- **The camera's motion blurs the frame** (`MotionBlur`, `motion_blur.gdshader`), as a setting
+  (`[display] motion_blur`, the *Motion blur* row, on only at BEST — it moves every frame the
+  camera moves in, so HIGH, the shipped frame, keeps every reference capture; `--motion-blur=` for
+  one run). ETR draws stills. Camera motion only, on every renderer — neither hands a shader a
+  velocity buffer: each pixel's point is rebuilt from the depth buffer, put through last frame's
+  view (`previous_view`, with this frame's projection — the lens changes only on a resize) and
+  the copy is gathered along the difference, 4–16 jittered taps (one per 4 px), capped at 0.1 of
+  the height. **Travel is exposed five times as long as a turn** (`TRAVEL_SHUTTER_SECONDS` 5/120 s,
+  `TURN_SHUTTER_SECONDS` 1/120 s, each over the frame's `delta`; `MotionBlur.exposed` builds the
+  camera the shutter opened at): riding straight, everything streams out of the point ahead, where
+  nothing moves, and at one 180° shutter that was a few pixels and read as no blur, while one
+  long shutter for both turned a carve into a smudge. **The racers are spheres that move with
+  themselves, under one shutter**: the chase camera holds the one it follows still by turning
+  and travelling together, so exposing those apart smeared the penguin across a carve. A racer's
+  pixels use `body_view` (turn and travel both at the turn's exposure) with the racer's own
+  displacement, blended in by how much of the pixel is body; up to four racers in shot (nearest
+  first, all alike), and a tap across a body's edge does not count, so the snow does not pick up
+  the penguin. First in the transparent pass (trap list), so snowfall, spray and ghosts stay
+  sharp; the HUD, lens snow and flare are canvas layers above it. Hidden while the camera is
+  still, on a pause and on a cut (≥ 4 m or 25° in one frame: a restart). ~3 ms under Mobile on the
+  iGPU at 1600x900 with the sun's rays off (with them on, the copies are shared).
 - **The course screen's wind is a crosswind that pushes only in flight**, not ETR's `wind_id`
   (which drives the air drag everywhere and blows from anywhere — still `--wind=1..3`).
   `WindField.init_crosswind`: within 15° of square to the fall line, from a side rolled per start

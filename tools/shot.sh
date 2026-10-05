@@ -83,6 +83,9 @@ ARGS+=(--resolution "${SHOT_RESOLUTION:-1280x720}" --fixed-fps 60 --
 # SHOT_SUN_SHAFTS is on or off: the rays round a clear sun (SunShafts). Unset
 # takes `[quality] sun_shafts`.
 [[ -n "${SHOT_SUN_SHAFTS:-}" ]] && ARGS+=(--sun-shafts="$SHOT_SUN_SHAFTS")
+# SHOT_MOTION_BLUR is on or off: the camera's smear over the frame (MotionBlur).
+# Unset takes `[display] motion_blur`.
+[[ -n "${SHOT_MOTION_BLUR:-}" ]] && ARGS+=(--motion-blur="$SHOT_MOTION_BLUR")
 
 WL_SOCKET="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/${WAYLAND_DISPLAY:-wayland-0}"
 if [[ -z "${SHOT_FORCE_SOFTWARE:-}" && -S "$WL_SOCKET" && -e /dev/dri/renderD128 ]]; then

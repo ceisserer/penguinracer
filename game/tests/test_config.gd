@@ -52,6 +52,7 @@ static func _defaults(t: TestCase) -> void:
 	t.ok(c.ice_reflections, "and the ice reflects the racers on it")
 	t.ok(c.ice_world_reflections, "and the hill round it, where the renderer can")
 	t.ok(c.sun_shafts, "and a clear sun sends rays through the air")
+	t.ok(not c.motion_blur, "but the frame does not smear with the camera")
 	# Wanting shadows is the default; getting them is also up to the renderer
 	# and the sky. See [method RaceScene._shadows_wanted].
 	t.ok(c.shadows, "and the racers and the trees cast a shadow")
@@ -408,7 +409,7 @@ static func _launch_args(t: TestCase) -> void:
 		"--course=bunny_hill", "--character=trixi", "--auto-input=carve",
 		"--camera=above", "--opponents=5", "--difficulty=hard",
 		"--remote-keyboard", "--no-audio", "--no-intro", "--fps", "--wind=2",
-		"--snow=3", "--light=night", "--sun-shafts=off",
+		"--snow=3", "--light=night", "--sun-shafts=off", "--motion-blur=on",
 		"--capture=/tmp/a.png", "--capture-frames=200",
 	]), {})
 	t.ok(cli.course == "bunny_hill", "the course is read")
@@ -429,6 +430,7 @@ static func _launch_args(t: TestCase) -> void:
 	t.ok(LightCondition.parse(cli.light) == LightCondition.Kind.NIGHT,
 		"which parses to the condition it names")
 	t.ok(cli.sun_shafts == "off", "and whether the sun sends rays, for one run")
+	t.ok(cli.motion_blur == "on", "and whether the frame smears, for one run")
 	t.ok(cli.capture_path == "/tmp/a.png" and cli.capture_frames == 200,
 		"the capture request is read")
 
@@ -438,7 +440,7 @@ static func _launch_args(t: TestCase) -> void:
 		"course": "bunny_hill", "character": "trixi", "auto-input": "carve",
 		"camera": "above", "opponents": "5", "difficulty": "hard",
 		"remotekeyboard": "", "noaudio": "", "nointro": "", "fps": "", "wind": "2",
-		"snow": "3", "light": "night", "sun-shafts": "off",
+		"snow": "3", "light": "night", "sun-shafts": "off", "motion-blur": "on",
 		"capture": "/tmp/a.png", "capture-frames": "200",
 	})
 	t.ok(url.course == cli.course and url.character == cli.character,
@@ -453,6 +455,7 @@ static func _launch_args(t: TestCase) -> void:
 		and url.snow == cli.snow and url.light == cli.light,
 		"and the same HUD readout and weather")
 	t.ok(url.sun_shafts == cli.sun_shafts, "and the same sun rays")
+	t.ok(url.motion_blur == cli.motion_blur, "and the same motion blur")
 	t.ok(url.capture_path == cli.capture_path
 		and url.capture_frames == cli.capture_frames, "and the same capture")
 

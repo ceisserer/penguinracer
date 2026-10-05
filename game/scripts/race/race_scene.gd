@@ -179,6 +179,9 @@ var lens_flare: LensFlare
 ## [SunShafts]. Always built; [member GameConfig.sun_shafts] off leaves it
 ## dark, read when the sky is applied so `--quality=` and `--sun-shafts=` reach it.
 var sun_shafts: SunShafts
+## The camera's motion smeared over the frame, the racers kept sharp — see
+## [MotionBlur]. Always built; [member GameConfig.motion_blur] off hides it.
+var motion_blur: MotionBlur
 ## The environment this course is lit by, kept because two things outside
 ## [method _apply_environment] need it — the snowfall's `[partcol]` tint, and
 ## anything else that has to be reapplied when the weather changes without the
@@ -398,6 +401,9 @@ func _ready() -> void:
 	sun_shafts = SunShafts.new()
 	sun_shafts.name = "SunShafts"
 	add_child(sun_shafts)
+	motion_blur = MotionBlur.new()
+	motion_blur.name = "MotionBlur"
+	add_child(motion_blur)
 	ridge_map = RidgeMap.new()
 	add_child(ridge_map)
 	if not requested_course_path.is_empty():
@@ -449,6 +455,9 @@ func _ready() -> void:
 			QualityPreset.TREE_SHADOW_KIND_NAMES, Config.tree_shadow_kind)
 	if not args.sun_shafts.is_empty():
 		Config.sun_shafts = args.sun_shafts.strip_edges().to_lower() != "off"
+	if not args.motion_blur.is_empty():
+		Config.motion_blur = args.motion_blur.strip_edges().to_lower() != "off"
+	motion_blur.enabled = Config.motion_blur
 	_cli_setup.wind = Config.wind
 	if not args.crosswind.is_empty():
 		_cli_setup.wind = WindField.parse_strength(args.crosswind)
@@ -834,6 +843,9 @@ func _process(delta: float) -> void:
 	if _net_countdown > -GO_FLASH:
 		_advance_countdown(delta)
 	if paused:
+		# A paused frame does not move, and the one after it should not smear
+		# across however long the pause was.
+		motion_blur.hold()
 		return
 	if Input.is_action_just_pressed("reset_race") and not _is_network_race():
 		# The original's Reset state re-enters Racing, not Intro: `r` is for
@@ -940,6 +952,8 @@ func _present(delta: float) -> void:
 		terrain.set_trail_map(snow_gpu.trail_texture(), snow_gpu.window_origin(),
 			snow_gpu.window_extent(), snow_gpu.max_depth)
 	_update_reflection(view, delta)
+	# Last: the camera and every racer are where this frame draws them.
+	motion_blur.update(camera, roster.all, delta)
 
 ## Which way the wind the watched racer feels is blowing, flat, for the clouds.
 ## Zero on a calm day.
