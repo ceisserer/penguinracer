@@ -19,10 +19,12 @@ varying vec3 torch_glow;
 
 // How much of what faces the sky is snowed on, 0..1: the snow lies in whole
 // patches with bark or rock between them, never as a tint. A forest floor
-// keeps less snow than open ground, so the default leaves gaps even on top.
-// (It used to be how much snow was mixed into every upward face, which painted
-// a log's whole top one flat grey.)
-uniform float snow_cover : hint_range(0.0, 1.0) = 0.55;
+// keeps less snow than open ground, so the default leaves gaps even on top:
+// 0.45 covers about 40 % of a level face, 15 % of one tilted 30 degrees and
+// next to nothing on a flank. (It used to be how much snow was mixed into every
+// upward face, which painted a log's whole top one flat grey; and then, with the
+// patch noise too weak to cross the threshold, every level face went wholly white.)
+uniform float snow_cover : hint_range(0.0, 1.0) = 0.45;
 // Metres per snow patch.
 uniform float snow_patch_scale = 0.6;
 uniform vec3 snow_color : source_color = vec3(0.92, 0.95, 1.0);
@@ -109,8 +111,10 @@ void fragment() {
 	// otherwise sit inside one and go wholly white on white.
 	float patch = value_noise(grain_pos / snow_patch_scale) * 0.6
 		+ value_noise(grain_pos / (snow_patch_scale * 0.3)) * 0.4;
-	float lie = world_n.y + (patch - 0.5) * 0.7 + (n - 0.5) * 0.25;
-	float threshold = mix(1.1, 0.25, snow_cover);
+	// The two octaves average out: `patch` has a spread of only ~0.13 round 0.5,
+	// so it needs a large weight to open gaps on a level top at all.
+	float lie = world_n.y + (patch - 0.5) * 1.2 + (n - 0.5) * 0.25;
+	float threshold = mix(1.45, 0.55, snow_cover);
 	float snow = smoothstep(threshold - 0.05, threshold + 0.05, lie);
 	ALBEDO = albedo_out(clamp(mix(base, snow_linear(), snow), 0.0, 1.0));
 	ROUGHNESS = 0.9;
