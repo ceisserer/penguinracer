@@ -21,9 +21,21 @@
 ## and the face's edges, so the face comes up out of the ground where the rock
 ## starts and the heightmap closes over it wherever it ends — no seam to stitch.
 ##
+## What comes out is lean: a quad whose four corners are all buried is left
+## out, since no view can reach it; the attributes are compressed; each piece
+## carries its own simplified levels for distance; and the heightmap quads the
+## rock is shown to cover are named, so the terrain can leave them out rather
+## than shade ground nobody sees ([method build]).
+##
 ## Deterministic: the same callables and seed give the same rock.
 class_name CliffBuilder
 extends RefCounted
+
+## One mesh of a face, and its simplified levels: screen ratio → indices into
+## the same vertices, as [method ArrayMesh.add_surface_from_arrays] takes them.
+class Piece:
+	var mesh: ArrayMesh
+	var lods: Dictionary
 
 ## Metres between vertices, both ways.
 const STEP := 0.25
@@ -41,6 +53,12 @@ const BED_STEP := 0.14
 const PIECE_ROWS := 64
 ## Metres between the samples each row's profile is measured at.
 const PROFILE_STEP := 0.05
+## How far the rock has to stand over the heightmap, everywhere across one of
+## its quads, for that quad to be left out of the terrain.
+const HOLE_CLEARANCE := 0.1
+## The simplifier's normal merge and split angles, in degrees.
+const LOD_MERGE_ANGLE := 25.0
+const LOD_SPLIT_ANGLE := 60.0
 
 ## (x, z) → the ground's world height: the generator's own analytic ground.
 var ground: Callable
@@ -80,13 +98,14 @@ func _init(p_seed: int) -> void:
 	_rough.fractal_octaves = 2
 	_bulge.frequency = 1.0 / 6.0
 
-## The face over [param d_from]..[param d_to] metres down: its meshes, and how
-## far it stands above the heightmap at each grid vertex it covers, added to
-## [param lift] (vertex index → metres, the largest kept). [param grid_height]
-## is (gx, gz) → the heightmap's world height at that vertex and [param cell]
-## the grid's pitch.
+## The face over [param d_from]..[param d_to] metres down, as pieces. Also
+## adds how far it stands above the heightmap at each grid vertex it covers to
+## [param lift] (`Vector2i(gx, gz)` → metres, the largest kept), and the
+## heightmap quads it covers to [param holes] (`Vector2i` of the quad's first
+## corner → true). [param grid_height] is (gx, gz) → the heightmap's world
+## height at that vertex and [param cell] the grid's pitch.
 func build(d_from: float, d_to: float, grid_height: Callable, cell: float,
-		lift: Dictionary) -> Array[ArrayMesh]:
+		lift: Dictionary, holes: Dictionary) -> Array[Piece]:
 	var rows: int = int((d_to - d_from) / STEP) + 1
 	# Each row's profile across the wall, by length along the slope.
 	var profiles: Array = []
@@ -154,11 +173,26 @@ func build(d_from: float, d_to: float, grid_height: Callable, cell: float,
 		for c: int in cols - 1:
 			var a: int = r * cols + c
 			facing += (base[a + 1] - base[a]).cross(base[a + cols] - base[a]).dot(normal0[a])
-	var out: Array[ArrayMesh] = []
+	# A quad is kept if any corner stands out at all; one whose corners are
+	# all at the bottom of the mask lies wholly under the ground.
+	var keep := PackedByteArray()
+	keep.resize(rows * cols)
+	keep.fill(0)
+	for r: int in rows - 1:
+		for c: int in cols - 1:
+			var a: int = r * cols + c
+			if weight[a] > 0.0 or weight[a + 1] > 0.0 or weight[a + cols] > 0.0 \
+					or weight[a + cols + 1] > 0.0:
+				keep[a] = 1
+	var tris: PackedInt32Array = _triangles(keep, rows, cols, 0, rows - 1, facing > 0.0)
+	_add_holes(verts, tris, grid_height, cell, holes)
+	var out: Array[Piece] = []
 	var r0: int = 0
 	while r0 < rows - 1:
 		var r1: int = mini(r0 + PIECE_ROWS, rows - 1)
-		out.push_back(_piece(verts, normals, colors, cols, r0, r1, facing > 0.0))
+		var piece: Piece = _piece(verts, normals, colors, keep, cols, r0, r1, facing > 0.0)
+		if piece != null:
+			out.push_back(piece)
 		r0 = r1
 	return out
 
@@ -195,7 +229,8 @@ func _offset(b: Vector3, n0: Vector3, d: float, m: float) -> Vector3:
 	# Out along the normal: the least the rock stands out, and its roughness.
 	var along: float = STAND_OUT + 0.1 * _rough.get_noise_3dv(b) \
 		+ 0.3 * _bulge.get_noise_3dv(b)
-	var out_n: float = lerpf(-BURY, along, m)
+	# Never back into the wall where it stands: what it covers, it covers.
+	var out_n: float = lerpf(-BURY, maxf(along, HOLE_CLEARANCE), m)
 	if m <= 0.0:
 		return n0 * out_n
 	# Out level: the bedding and the joints, only on a face steep enough to
@@ -291,35 +326,147 @@ static func _add_lift(verts: PackedVector3Array, weight: PackedFloat32Array,
 				if above > float(lift.get(key, 0.0)):
 					lift[key] = above
 
-## Rows [param r0]..[param r1] as one mesh. Wound so the face the wall shows is
-## the front — Godot's front face is clockwise seen from in front — which for
-## a grid whose (column, row) cross product points out of the wall
-## ([param flip]) is the other way round from the order it is laid out in.
-static func _piece(verts: PackedVector3Array, normals: PackedVector3Array,
-		colors: PackedColorArray, cols: int, r0: int, r1: int, flip: bool) -> ArrayMesh:
-	var n: int = (r1 - r0 + 1) * cols
-	var arrays: Array = []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = verts.slice(r0 * cols, r0 * cols + n)
-	arrays[Mesh.ARRAY_NORMAL] = normals.slice(r0 * cols, r0 * cols + n)
-	arrays[Mesh.ARRAY_COLOR] = colors.slice(r0 * cols, r0 * cols + n)
-	var indices := PackedInt32Array()
-	indices.resize((r1 - r0) * (cols - 1) * 6)
-	var k: int = 0
-	for r: int in r1 - r0:
+## The kept quads of rows [param r0]..[param r1], as triangle corners
+## (indices into the whole grid). Wound so the face the wall shows is the front
+## — Godot's front face is clockwise seen from in front — which for a grid
+## whose (column, row) cross product points out of the wall ([param flip]) is
+## the other way round from the order it is laid out in.
+static func _triangles(keep: PackedByteArray, rows: int, cols: int, r0: int, r1: int,
+		flip: bool) -> PackedInt32Array:
+	var out := PackedInt32Array()
+	for r: int in range(r0, r1):
 		for c: int in cols - 1:
 			var a: int = r * cols + c
+			if keep[a] == 0:
+				continue
 			var b: int = a + 1
 			var cc: int = a + cols
 			var dd: int = cc + 1
 			if flip:
-				indices[k] = a; indices[k + 1] = cc; indices[k + 2] = b
-				indices[k + 3] = b; indices[k + 4] = cc; indices[k + 5] = dd
+				out.append_array([a, cc, b, b, cc, dd])
 			else:
-				indices[k] = a; indices[k + 1] = b; indices[k + 2] = cc
-				indices[k + 3] = b; indices[k + 4] = dd; indices[k + 5] = cc
-			k += 6
+				out.append_array([a, b, cc, b, dd, cc])
+	return out
+
+## Rows [param r0]..[param r1] as one piece: only the vertices its kept quads
+## use, compressed, with its simplified levels. Null if none is kept.
+static func _piece(verts: PackedVector3Array, normals: PackedVector3Array,
+		colors: PackedColorArray, keep: PackedByteArray, cols: int, r0: int, r1: int,
+		flip: bool) -> Piece:
+	var grid: PackedInt32Array = _triangles(keep, r1 + 1, cols, r0, r1, flip)
+	if grid.is_empty():
+		return null
+	var remap := PackedInt32Array()
+	remap.resize(verts.size())
+	remap.fill(-1)
+	var pv := PackedVector3Array()
+	var pn := PackedVector3Array()
+	var pt := PackedFloat32Array()
+	var pc := PackedColorArray()
+	var indices := PackedInt32Array()
+	indices.resize(grid.size())
+	for k: int in grid.size():
+		var g: int = grid[k]
+		if remap[g] < 0:
+			remap[g] = pv.size()
+			var n: Vector3 = normals[g]
+			pv.push_back(verts[g])
+			pn.push_back(n)
+			# Compressed attributes take normals only with tangents; nothing
+			# reads them, so any unit vector square to the normal will do.
+			var t: Vector3 = n.cross(Vector3.UP if absf(n.y) < 0.99 else Vector3.RIGHT)
+			t = t.normalized()
+			pt.append_array([t.x, t.y, t.z, 1.0])
+			pc.push_back(colors[g])
+		indices[k] = remap[g]
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = pv
+	arrays[Mesh.ARRAY_NORMAL] = pn
+	arrays[Mesh.ARRAY_TANGENT] = pt
+	arrays[Mesh.ARRAY_COLOR] = pc
 	arrays[Mesh.ARRAY_INDEX] = indices
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	return mesh
+	var simplifier := ImporterMesh.new()
+	simplifier.add_surface(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	simplifier.generate_lods(LOD_MERGE_ANGLE, LOD_SPLIT_ANGLE, [])
+	var piece := Piece.new()
+	piece.lods = {}
+	for l: int in simplifier.get_surface_lod_count(0):
+		piece.lods[simplifier.get_surface_lod_size(0, l)] = \
+			simplifier.get_surface_lod_indices(0, l)
+	piece.mesh = ArrayMesh.new()
+	piece.mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {},
+		Mesh.ARRAY_FLAG_COMPRESS_ATTRIBUTES)
+	return piece
+
+## The heightmap quads the rock hides, into [param holes]. Over each, on a grid
+## of half the heightmap's pitch, the *lowest* surface of the rock above every
+## sample has to stand [constant HOLE_CLEARANCE] over the ground: the space
+## between them is then shut in — rock above, and ground or rock wherever it
+## runs out — so nothing anywhere can see the quad, and it can go.
+static func _add_holes(verts: PackedVector3Array, tris: PackedInt32Array,
+		grid_height: Callable, cell: float, holes: Dictionary) -> void:
+	var h: float = cell * 0.5
+	# Sample (sx, sz) at (sx·h, −sz·h) → the lowest rock over it.
+	var lowest: Dictionary[Vector2i, float] = {}
+	for k: int in range(0, tris.size(), 3):
+		var a: Vector3 = verts[tris[k]]
+		var b: Vector3 = verts[tris[k + 1]]
+		var c: Vector3 = verts[tris[k + 2]]
+		var sx0: int = ceili(minf(a.x, minf(b.x, c.x)) / h)
+		var sx1: int = floori(maxf(a.x, maxf(b.x, c.x)) / h)
+		var sz0: int = ceili(-maxf(a.z, maxf(b.z, c.z)) / h)
+		var sz1: int = floori(-minf(a.z, minf(b.z, c.z)) / h)
+		var det: float = (b.z - c.z) * (a.x - c.x) + (c.x - b.x) * (a.z - c.z)
+		if absf(det) < 1e-9:
+			continue
+		for sz: int in range(sz0, sz1 + 1):
+			for sx: int in range(sx0, sx1 + 1):
+				var px: float = float(sx) * h
+				var pz: float = -float(sz) * h
+				var u: float = ((b.z - c.z) * (px - c.x) + (c.x - b.x) * (pz - c.z)) / det
+				var v: float = ((c.z - a.z) * (px - c.x) + (a.x - c.x) * (pz - c.z)) / det
+				var w: float = 1.0 - u - v
+				if u < -1e-6 or v < -1e-6 or w < -1e-6:
+					continue
+				var y: float = u * a.y + v * b.y + w * c.y
+				var key := Vector2i(sx, sz)
+				if y < float(lowest.get(key, INF)):
+					lowest[key] = y
+	var tried: Dictionary[Vector2i, bool] = {}
+	for key: Vector2i in lowest:
+		var quad := Vector2i(key.x >> 1, key.y >> 1)
+		if tried.has(quad):
+			continue
+		tried[quad] = true
+		var covered: bool = true
+		for oz: int in 3:
+			for ox: int in 3:
+				var s := Vector2i(quad.x * 2 + ox, quad.y * 2 + oz)
+				if not lowest.has(s) or lowest[s] - _ground_at(s, grid_height) < HOLE_CLEARANCE:
+					covered = false
+					break
+			if not covered:
+				break
+		if covered:
+			holes[quad] = true
+
+## The terrain's drawn height at half-pitch sample [param s]: a grid vertex, a
+## point along a quad's edge, or its middle — where the two ways the chunks
+## split a quad into triangles disagree, so the higher one.
+static func _ground_at(s: Vector2i, grid_height: Callable) -> float:
+	var gx: int = s.x >> 1
+	var gz: int = s.y >> 1
+	var odd_x: bool = s.x & 1 == 1
+	var odd_z: bool = s.y & 1 == 1
+	var h00: float = grid_height.call(gx, gz)
+	if not odd_x and not odd_z:
+		return h00
+	if odd_x and not odd_z:
+		return (h00 + float(grid_height.call(gx + 1, gz))) * 0.5
+	if odd_z and not odd_x:
+		return (h00 + float(grid_height.call(gx, gz + 1))) * 0.5
+	var h11: float = grid_height.call(gx + 1, gz + 1)
+	var h10: float = grid_height.call(gx + 1, gz)
+	var h01: float = grid_height.call(gx, gz + 1)
+	return maxf((h00 + h11) * 0.5, (h10 + h01) * 0.5)

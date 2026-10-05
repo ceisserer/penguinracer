@@ -359,6 +359,10 @@ static func _the_rock_faces(t: TestCase, gen: GDScript, course: CourseData,
 	t.ok(standing > 1000 and buried > 100,
 		"they stand out of the wall (%d vertices) and sink under it at the edges (%d)"
 		% [standing, buried])
+	# What lies wholly under the ground is left out: only the edge quads that
+	# carry the rock down under it are buried, not whole strips of grid.
+	t.ok(buried < standing,
+		"no more buried than standing: the quads wholly under the ground are left out")
 	t.ok(in_play == 0, "none of the rock is in the play area (%d vertices)" % in_play)
 	t.ok(nearest_edge > gen.CORRIDOR_MARGIN + 0.5,
 		"the rock keeps %.2f m off the trail's edge" % nearest_edge)
@@ -366,6 +370,8 @@ static func _the_rock_faces(t: TestCase, gen: GDScript, course: CourseData,
 	# heightmap itself bends, which a few centimetres covers.
 	t.ok(worst_lift < 0.15,
 		"the camera's floor is over the rock everywhere (worst %.3f m under it)" % worst_lift)
+	_the_rock_is_lean(t, cliffs)
+	_the_ground_under_the_rock_is_left_out(t, gen, course, surface, cliffs)
 	var root: Node = scene.instantiate()
 	var on_rock: PackedStringArray = []
 	for type_name: String in ["tree", "shrub", "boulder", "stones", "log", "stump",
@@ -379,3 +385,77 @@ static func _the_rock_faces(t: TestCase, gen: GDScript, course: CourseData,
 				on_rock.push_back(marker.name)
 	root.free()
 	t.ok(on_rock.is_empty(), "nothing stands on the rock: %s" % ", ".join(on_rock.slice(0, 8)))
+
+## Each piece compressed, with simplified levels that index its own vertices.
+static func _the_rock_is_lean(t: TestCase, cliffs: CliffSet) -> void:
+	t.ok(cliffs.lods.size() == cliffs.meshes.size(), "every piece has its levels")
+	var compressed: bool = true
+	var levels_ok: bool = true
+	var simpler: bool = true
+	for m: int in cliffs.meshes.size():
+		var mesh: ArrayMesh = cliffs.meshes[m]
+		compressed = compressed and (mesh.surface_get_format(0)
+			& Mesh.ARRAY_FLAG_COMPRESS_ATTRIBUTES) != 0
+		var count: int = mesh.surface_get_array_len(0)
+		var full: int = mesh.surface_get_array_index_len(0)
+		var lods: Dictionary = cliffs.lods[m] if m < cliffs.lods.size() else {}
+		levels_ok = levels_ok and not lods.is_empty()
+		for key: Variant in lods:
+			var indices: PackedInt32Array = lods[key]
+			simpler = simpler and indices.size() < full and indices.size() % 3 == 0
+			for i: int in indices:
+				levels_ok = levels_ok and i >= 0 and i < count
+	t.ok(compressed, "every piece's attributes are compressed")
+	t.ok(levels_ok, "every piece has simplified levels, indexing its own vertices")
+	t.ok(simpler, "and each level has fewer triangles than the piece")
+
+## The heightmap quads left out of the terrain under the rock: some, none in
+## or beside the play area, and the rock standing over every one of them.
+static func _the_ground_under_the_rock_is_left_out(t: TestCase, gen: GDScript,
+		course: CourseData, surface: HeightmapSurface, cliffs: CliffSet) -> void:
+	t.ok(not cliffs.holes.is_empty(), "the ground the rock hides is left out of the terrain")
+	var w: int = course.heightmap_size.x
+	var step := Vector2(course.world_size.x / float(w - 1),
+		course.world_size.y / float(course.heightmap_size.y - 1))
+	var bounds: PackedVector2Array = course.effective_play_bounds()
+	var near_play: int = 0
+	var bare: int = 0
+	for q: int in cliffs.holes:
+		var gx: int = q % w
+		var gz: int = q / w
+		for corner: Vector2i in [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)]:
+			var x: float = float(gx + corner.x) * step.x
+			var z: float = -float(gz + corner.y) * step.y
+			if Geometry2D.is_point_in_polygon(Vector2(x, z), bounds) \
+					or gen.beyond_edge(x, z) < gen.CORRIDOR_MARGIN + 0.5:
+				near_play += 1
+			if cliffs.lift_at(x, z) < CliffBuilder.HOLE_CLEARANCE:
+				bare += 1
+	t.ok(near_play == 0, "no ground is left out in or beside the play area (%d corners)"
+		% near_play)
+	t.ok(bare == 0, "the rock stands over every quad left out (%d corners not)" % bare)
+	# And the terrain does leave them out: the chunk holding the first one has
+	# exactly that many quads fewer, and the rock is drawn.
+	var renderer := TerrainRenderer.new()
+	renderer.setup(course, surface)
+	var span: int = TerrainRenderer.CHUNK_VERTS - 1
+	var first: int = cliffs.holes[0]
+	var key := Vector2i((first % w) / span, (first / w) / span)
+	var inside: int = 0
+	for q: int in cliffs.holes:
+		var gx: int = q % w
+		var gz: int = q / w
+		if gx / span == key.x and gz / span == key.y \
+				and gx < (key.x + 1) * span and gz < (key.y + 1) * span:
+			inside += 1
+	renderer._build_chunk(key)
+	var chunk: MeshInstance3D = renderer._chunks.get(key)
+	var nx: int = mini(TerrainRenderer.CHUNK_VERTS, w - key.x * span)
+	var nz: int = mini(TerrainRenderer.CHUNK_VERTS, course.heightmap_size.y - key.y * span)
+	var drawn: int = chunk.mesh.surface_get_array_index_len(0) / 6 \
+		if chunk != null and chunk.mesh != null else -1
+	t.ok(drawn == (nx - 1) * (nz - 1) - inside,
+		"the chunk under the rock draws %d of its %d quads (%d left out)"
+		% [drawn, (nx - 1) * (nz - 1), inside])
+	t.ok(renderer.cliff_count() == cliffs.meshes.size(), "and every piece of rock is drawn")
+	renderer.free()

@@ -44,6 +44,10 @@ var _chunks: Dictionary[Vector2i, MeshInstance3D] = {}
 ## [member CourseData.cliffs]' faces, one instance per mesh, all built at
 ## [method setup]: a course has a handful and the engine culls each by its box.
 var _cliffs: Array[MeshInstance3D] = []
+## One byte per heightmap vertex, 1 where the quad it is the first corner of is
+## hidden under rock ([member CliffSet.holes]) and left out of its chunk; empty
+## for a course with none.
+var _holes: PackedByteArray = PackedByteArray()
 var _chunk_world: Dictionary[Vector2i, AABB] = {}
 var _chunks_x: int = 0
 var _chunks_z: int = 0
@@ -71,6 +75,13 @@ func setup(p_course: CourseData, p_surface: HeightmapSurface,
 	for cz: int in _chunks_z:
 		for cx: int in _chunks_x:
 			_chunk_world[Vector2i(cx, cz)] = _chunk_bounds(cx, cz)
+	_holes = PackedByteArray()
+	if course.cliffs != null and not course.cliffs.holes.is_empty() \
+			and course.cliffs.grid_size == size:
+		_holes.resize(size.x * size.y)
+		_holes.fill(0)
+		for q: int in course.cliffs.holes:
+			_holes[q] = 1
 	_build_cliffs()
 
 func _build_material() -> ShaderMaterial:
@@ -600,8 +611,12 @@ func _build_chunk(key: Vector2i) -> void:
 	var indices := PackedInt32Array()
 	indices.resize((nx - 1) * (nz - 1) * 6)
 	var k: int = 0
+	var has_holes: bool = not _holes.is_empty()
 	for j: int in nz - 1:
 		for i: int in nx - 1:
+			# Ground the rock covers from every view is not worth shading.
+			if has_holes and _holes[(z_start + j) * w + x_start + i] != 0:
+				continue
 			var a: int = j * nx + i
 			var b: int = a + 1
 			var c: int = a + nx
@@ -615,6 +630,7 @@ func _build_chunk(key: Vector2i) -> void:
 				indices[k] = a; indices[k + 1] = c; indices[k + 2] = d
 				indices[k + 3] = a; indices[k + 4] = d; indices[k + 5] = b
 			k += 6
+	indices.resize(k)
 
 	var arrays: Array = []
 	arrays.resize(Mesh.ARRAY_MAX)
@@ -624,12 +640,14 @@ func _build_chunk(key: Vector2i) -> void:
 	arrays[Mesh.ARRAY_COLOR] = colors
 	arrays[Mesh.ARRAY_INDEX] = indices
 
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-
 	var mi := MeshInstance3D.new()
 	mi.name = "Chunk_%d_%d" % [key.x, key.y]
-	mi.mesh = mesh
+	# A chunk wholly under rock still takes its slot, or it would be queued
+	# again on every rescan.
+	if k > 0:
+		var mesh := ArrayMesh.new()
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		mi.mesh = mesh
 	mi.material_override = _material
 	# Displacement happens in the vertex shader, so pad the culling box by the
 	# deepest trench the trail map can carve.
@@ -647,8 +665,10 @@ func chunk_count() -> int:
 ## of read as one surface. Their vertex colour is the chunks' — the terrain's
 ## baked sky, torchlight and tree shadow, read off the grid vertex nearest each
 ## vertex, the sky times what the rock's own relief leaves — with the ledge
-## weight the mesh carries in A. Rebuilt with the chunks when the tree shadows
-## change.
+## weight the mesh carries in A. Compressed again, with the levels the course
+## generated for it ([member CliffSet.lods]). Rebuilt with the chunks when the
+## tree shadows change. The heightmap quads the rock hides are left out of the
+## chunks ([member _holes]).
 func _build_cliffs() -> void:
 	for mi: MeshInstance3D in _cliffs:
 		mi.queue_free()
@@ -663,8 +683,8 @@ func _build_cliffs() -> void:
 	var has_ao: bool = not _occlusion.is_empty()
 	var has_torches: bool = not _torchlight.is_empty()
 	var has_tree_sun: bool = not _tree_sun.is_empty()
-	for source: ArrayMesh in cliffs.meshes:
-		var arrays: Array = source.surface_get_arrays(0)
+	for m: int in cliffs.meshes.size():
+		var arrays: Array = cliffs.meshes[m].surface_get_arrays(0)
 		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
 		var own: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
 		var colors := PackedColorArray()
@@ -678,8 +698,10 @@ func _build_cliffs() -> void:
 			var sun: float = float(_tree_sun[at]) / 255.0 if has_tree_sun else 1.0
 			colors[i] = Color(sky * own[i].r, torch, sun, own[i].a)
 		arrays[Mesh.ARRAY_COLOR] = colors
+		var lods: Dictionary = cliffs.lods[m] if m < cliffs.lods.size() else {}
 		var mesh := ArrayMesh.new()
-		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], lods,
+			Mesh.ARRAY_FLAG_COMPRESS_ATTRIBUTES)
 		var mi := MeshInstance3D.new()
 		mi.name = "Cliff_%d" % _cliffs.size()
 		mi.mesh = mesh

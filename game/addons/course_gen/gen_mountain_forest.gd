@@ -531,6 +531,7 @@ func _write_cliffs(heights: PackedFloat32Array) -> void:
 	cliffs.grid_size = Vector2i(_w, _h)
 	cliffs.world_size = WORLD
 	var lift: Dictionary = {}
+	var holes: Dictionary = {}
 	var grid_height := func(gx: int, gz: int) -> float:
 		gx = clampi(gx, 0, _w - 1)
 		gz = clampi(gz, 0, _h - 1)
@@ -548,17 +549,26 @@ func _write_cliffs(heights: PackedFloat32Array) -> void:
 		builder.side = c.z
 		builder.reach = CLIFF_REACH
 		builder.x_limits = Vector2(0.5, WORLD.x - 0.5)
-		for mesh: ArrayMesh in builder.build(c.x, c.y, grid_height, CELL, lift):
-			cliffs.meshes.push_back(mesh)
-			vertices += mesh.surface_get_array_len(0)
+		for piece: CliffBuilder.Piece in builder.build(c.x, c.y, grid_height, CELL, lift,
+				holes):
+			cliffs.meshes.push_back(piece.mesh)
+			cliffs.lods.push_back(piece.lods)
+			vertices += piece.mesh.surface_get_array_len(0)
 	var keys: Array = lift.keys()
 	keys.sort()
 	for key: Vector2i in keys:
 		cliffs.lift_index.push_back(key.y * _w + key.x)
 		cliffs.lift.push_back(lift[key])
+	var quads: Array = holes.keys()
+	quads.sort()
+	for q: Vector2i in quads:
+		cliffs.holes.push_back(q.y * _w + q.x)
 	ResourceSaver.save(cliffs, OUT.path_join("cliffs.res"), ResourceSaver.FLAG_COMPRESS)
-	print("  cliffs: %d faces, %d meshes, %d vertices, lift over %d grid vertices"
-		% [CLIFFS.size(), cliffs.meshes.size(), vertices, keys.size()])
+	var levels: int = 0
+	for l: Dictionary in cliffs.lods:
+		levels += l.size()
+	print("  cliffs: %d faces, %d meshes, %d vertices, %d levels, lift over %d grid vertices, %d heightmap quads hidden"
+		% [CLIFFS.size(), cliffs.meshes.size(), vertices, levels, keys.size(), quads.size()])
 
 # ================================================================ assets
 

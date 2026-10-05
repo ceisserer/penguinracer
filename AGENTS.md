@@ -1079,8 +1079,15 @@ the whole sky to cyan-white, against which no disc can show. The fog
   needs no seam. `TerrainRenderer` draws it with the chunks' own material (one splat, photographs,
   light, fog), its other colour channels read off the terrain's grid; the shader lays snow on its
   ledges (`cliff_ledge_snow`). Kept ≥ 2.6 m off the trail's edge, so physics, the AI and the snow
-  never see it; the chase camera reads `CliffSet.lift_at` on top of the heightmap. One face on
-  Mountain Forest so far (140–198 m, right bank): 36k vertices, 1 MB, ~0.9 ms in the same view.
+  never see it; the chase camera reads `CliffSet.lift_at` on top of the heightmap. Kept lean:
+  quads wholly under the ground are left out, attributes compressed (compression takes normals
+  only with tangents, so it writes dummy ones), simplified levels generated with the course and
+  stored beside each mesh (`CliffSet.lods` — the renderer rebuilds the mesh for its colours, and
+  an `ArrayMesh` hands back arrays, not levels), and the heightmap quads the rock provably hides
+  (`CliffSet.holes`: the rock's *lowest* surface ≥ 0.1 m over the ground at every half-cell
+  sample, so the space between is shut in) are left out of the chunks. **Never cut a hole the
+  rock does not close over**: the chunk is the only thing under it. One face on Mountain Forest
+  so far (140–198 m, right bank): 18k vertices, 560 KB, ~0.55 ms in the same view.
 - **Crossed-quad trees are shaded as a cylinder across both planes**, where ETR gives all eight vertices
   normal (0,0,1). Per-face normals would split each tree into bright and dark halves.
   `normal_roundness = 0` in `object_cross.gdshader` is the flat card.

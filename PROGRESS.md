@@ -2066,14 +2066,12 @@ against those); nothing has been checked in a real browser, only under desktop C
 
 ## Known gaps
 
-- **Rock faces are a spike: one face, every vertex kept, no level of detail.** Mountain Forest
-  has one (140–198 m, right bank). 61 % of its 36k vertices are buried under the heightmap and
-  could be trimmed; the heightmap under a face is still drawn and shaded and then covered (no
-  depth prepass on Mobile), which is most of its ~0.9 ms; the mesh is uncompressed (1 MB) and has
-  no LOD. Before laying faces over every rock stretch (~17): trim buried rows and columns, cut
-  the heightmap's quads under full rock out of the chunks, compress the attributes, and generate
-  LODs. The ledge weight lives in vertex alpha and the face in the chunks' material, so none of
-  that touches the shader.
+- **Rock faces: one so far.** Mountain Forest has one (140–198 m, right bank), now trimmed,
+  compressed, with levels and with the ground under it cut out of the terrain (below). What is
+  left of its cost in a view it fills is shading the rock itself (~0.4 ms; its surface is larger
+  than the ground it hides) and its shadow (~0.14 ms). The other ~16 rock stretches are a
+  `CLIFFS` entry each — but look at every one from the chase camera first, and at the slots,
+  where the camera rides close to the walls.
 - **The near-field terrain mesh is too coarse for the trench to read as geometry.** Chunk
   vertices sit ~0.5 m apart; the contact patch is 0.45 m wide. Lighting sells the trench
   (normals are reconstructed per fragment from the trail map) but the silhouette does not move.
@@ -3277,3 +3275,34 @@ project.godot ships`, two `props/forest floor`) and nothing new. Rendered on Mob
 camera (frames 600–700 with the AI driving) and from three pinned viewpoints, and one of those
 under Compatibility: the beds, joints and ledge snow read on both, the rock's colour runs on into
 the ground round it, and the near trail is lit as before.
+
+**Follow-up, same day: the face made lean.** Three things the spike left, done:
+
+- *Buried quads left out.* A quad whose four corners are all at the bottom of the mask lies
+  wholly under the ground and is not written: 36 344 → 18 255 vertices. The edge quads that carry
+  the rock down under the ground stay.
+- *The ground under the rock left out of the terrain.* `CliffBuilder._add_holes` rasterises the
+  face's triangles onto a half-cell grid and keeps the *lowest* rock over each sample; a heightmap
+  quad whose nine samples all have rock ≥ 0.1 m over the drawn ground (the higher of the two ways
+  a quad is split at its middle) is shut in — rock above, ground or rock wherever it runs out —
+  and goes into `CliffSet.holes`, which `_build_chunk` skips. 2454 quads, 613 m². The rock no
+  longer backs into the wall where it stands (`along` is held at ≥ 0.1 m), which is what lets it
+  cover.
+- *Compressed, with levels.* `Mesh.ARRAY_FLAG_COMPRESS_ATTRIBUTES` (with dummy tangents, which it
+  requires), and `ImporterMesh.generate_lods` per piece in the generator: 4–5 levels each, stored
+  beside the mesh in `CliffSet.lods` and handed to `add_surface_from_arrays` when the renderer
+  rebuilds the mesh with its colours. Generated with the course, not at load, so a template
+  without the simplifier still gets them. `cliffs.res` 1 MB → 560 KB.
+
+**Cost**, same pinned view and probe, three runs each: 7.26 ms before this, 6.92 after (−0.34).
+The overdraw was less of the face's 0.85 ms than guessed; of the ~0.55 left, ~0.14 is its
+shadow.
+
+**Verified**: `_the_rock_faces` grows checks for all three — fewer buried vertices than standing,
+every piece compressed with levels indexing its own vertices and each smaller than the piece, no
+quad left out in or beside the play area, rock standing over every corner of every one, and the
+chunk holding the first drawing exactly that many quads fewer. The suite: the same three
+pre-existing failures. Rendered on Mobile from the chase-camera angle, close up, straight down
+from 28 m, from the top of the wall looking down the face, grazing along its foot, and with the
+levels forced coarse (`mesh_lod_threshold` 60); and straight down under Compatibility. No ground
+shows through anywhere.

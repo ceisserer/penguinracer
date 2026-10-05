@@ -25,8 +25,18 @@ class_name CliffSet
 extends Resource
 
 ## The rock, in world coordinates, a piece per few tens of metres so the
-## renderer can cull them.
+## renderer can cull them. Compressed attributes, and only the quads that can
+## be seen.
 @export var meshes: Array[ArrayMesh] = []
+## Each mesh's simplified levels, as [method ArrayMesh.add_surface_from_arrays]
+## takes them: screen ratio → indices. Kept beside the mesh rather than in it
+## because the renderer rebuilds every mesh with its own vertex colour, and an
+## [ArrayMesh] hands back its arrays but not its levels.
+@export var lods: Array[Dictionary] = []
+## The heightmap quads the rock hides from every view, which the terrain
+## leaves out rather than shade: each the row-major index of its first grid
+## vertex (the one at the least X and the least distance down).
+@export var holes: PackedInt32Array = PackedInt32Array()
 ## The heightmap grid the lift is on: [member CourseData.heightmap_size].
 @export var grid_size: Vector2i = Vector2i.ZERO
 ## [member CourseData.world_size].
