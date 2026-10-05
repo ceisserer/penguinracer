@@ -601,10 +601,13 @@ func _preview(index: PackedByteArray) -> Image:
 # ================================================================ props
 
 ## The four prop prefabs. Built here, not by the ETR importer, which knows only
-## `object_types.lst`.
+## `object_types.lst`. A `foot_drift` overrides how high the snow banks against
+## the prop's foot (`object_prop.gdshader`): the stones are a hand high, and the
+## default 10 cm buried them.
 const PROPS: Dictionary = {
 	"boulder": {"kind": PropMesh.Kind.BOULDER, "collidable": true, "seed": 11},
-	"stones": {"kind": PropMesh.Kind.STONES, "collidable": false, "seed": 23},
+	"stones": {"kind": PropMesh.Kind.STONES, "collidable": false, "seed": 23,
+		"foot_drift": 0.05},
 	"log": {"kind": PropMesh.Kind.LOG, "collidable": false, "seed": 37},
 	"stump": {"kind": PropMesh.Kind.STUMP, "collidable": true, "seed": 41},
 }
@@ -618,6 +621,8 @@ func _write_prop_prefabs() -> void:
 		prefab.mesh = PropMesh.build(spec["kind"], spec["seed"])
 		var mat := ShaderMaterial.new()
 		mat.shader = shader
+		if spec.has("foot_drift"):
+			mat.set_shader_parameter("foot_drift", spec["foot_drift"])
 		prefab.material = mat
 		prefab.collidable = spec["collidable"]
 		prefab.decorative = not spec["collidable"]

@@ -3472,3 +3472,29 @@ re-measured.
 `ice1`); `TestMountainForest` (rock faces off the play area, nothing on the walls' ice); the suite,
 the same three pre-existing failures. Rendered on Mobile with the AI driving (frames 650, 900,
 1300).
+
+### Props stand in the snow, not on it: a drift round their foot (2026-10-05) · **done, not seen in a real browser or on a phone**
+
+**What.** On Forest Trail a stump on snow stood on a dark skirt: its root flare (the mesh's lowest
+two rings, a few centimetres high once scaled) faces almost straight up, and painted as bark it
+lay out on the snow with a hard edge. It used to be hidden by accident — `snow_cover` 0.55 put
+snow on nearly every level face — and "bigger snow patches" (0.45, patches with gaps) uncovered it.
+Now every prop laid on the ground has snow banked against its foot, as high as the ground round
+it is snowy: 10 cm on a level face, half that up a flank, its top line ragged by the shader's two
+noises. On needles, dirt or ice there is none, so a stump under the crowns keeps its bark.
+
+**How.** `CourseRoot.ground_snow(p, radius)` is the share of the splat held by the course's snow
+layers (deformable, not ice — the terrain shader's `layer_snowness`), at the marker and four
+points at its radius. `_batch_mesh` hands it to `object_prop.gdshader` as `INSTANCE_CUSTOM.r`,
+for `ground_aligned` prefabs only, so the lodged trunk overhead gets none. The shader measures
+height above the ground plane along the instance's own up (`foot`, one varying) and covers what
+is under `foot_drift` × the ground's snow. `foot_drift` is a material uniform; the stones
+(10–25 cm, partly sunk) take 0.05 from the generator's `PROPS`, which buried them at 0.1.
+**Trap**: under Compatibility a MultiMesh with custom data and no colours gave `COLOR` an instance
+colour of zero and drew every prop black but its snow, so the batch carries white colours too.
+
+**Verified**: a probe with each prop on white ground, ground snow 0 beside 1 (Mobile); Forest
+Trail's stumps on snow from a camera parked beside them, with their ground snow zeroed (the
+skirt as reported) and as built (the flare in a drift), on Mobile and Compatibility. Of 483
+stumps, 293 stand on full snow and 72 on none. The suite, the same three pre-existing failures.
+Only `stones.tres` was regenerated; `course.tscn` came back with fresh ids only and was reverted.

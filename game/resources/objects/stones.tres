@@ -8,9 +8,11 @@ render_priority = 0
 shader = ExtResource("1_br41n")
 shader_parameter/etr_ambient = null
 shader_parameter/snow_cover = null
+shader_parameter/snow_patch_scale = null
 shader_parameter/snow_color = null
 shader_parameter/mottle = null
 shader_parameter/mottle_scale = null
+shader_parameter/foot_drift = 0.05
 
 [sub_resource type="ArrayMesh" id="ArrayMesh_ypm6a"]
 _surfaces = [{

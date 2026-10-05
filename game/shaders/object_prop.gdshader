@@ -32,11 +32,23 @@ uniform vec3 snow_color : source_color = vec3(0.92, 0.95, 1.0);
 uniform float mottle : hint_range(0.0, 1.0) = 0.35;
 // Metres per noise cell, before the instance's scale.
 uniform float mottle_scale = 0.18;
+// How high, in metres, snow lies banked against a prop's foot where the ground
+// round it is all snow — on a level face; half that up a flank. The prop meets
+// the ground's own snow there rather than standing on it: a stump's root flare
+// looks up but stands only a few centimetres high, and painted as bark it was a
+// dark skirt laid out on the snow (Forest Trail, once `snow_cover` dropped from
+// 0.55 to 0.45 and stopped covering every level face).
+uniform float foot_drift = 0.1;
 
 // Where on the mesh, in world metres from the instance's origin — so the noise
 // has the same grain on a boulder and on a pebble, and a different pattern on
 // every instance (the origin is part of the hash).
 varying vec3 grain_pos;
+// x: metres above the ground plane the instance stands on, along its own up.
+// y: how much of the ground there is snow, 0..1 — `INSTANCE_CUSTOM.r`, which
+// [CourseRoot] fills from the course's splat; 0 (no drift) for anything not
+// laid on the ground, and wherever nobody filled it.
+varying vec2 foot;
 
 float hash3(vec3 p) {
 	p = fract(p * 0.3183099 + 0.1);
@@ -93,6 +105,9 @@ vec3 albedo_out(vec3 c) {
 // checkerboard (Mountain Forest's fallen and lodged trunks, 2026-09-30).
 void vertex() {
 	grain_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	vec3 up = MODEL_MATRIX[1].xyz;
+	foot = vec2(dot(grain_pos - MODEL_MATRIX[3].xyz, up) / max(length(up), 1e-4),
+		INSTANCE_CUSTOM.r);
 	mat3 normal_matrix = transpose(inverse(mat3(MODEL_MATRIX)));
 	VERTEX = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	NORMAL = normalize(mat3(VIEW_MATRIX) * (normal_matrix * NORMAL));
@@ -116,6 +131,11 @@ void fragment() {
 	float lie = world_n.y + (patch - 0.5) * 1.2 + (n - 0.5) * 0.25;
 	float threshold = mix(1.45, 0.55, snow_cover);
 	float snow = smoothstep(threshold - 0.05, threshold + 0.05, lie);
+	// The drift round the foot: as high as the ground is snowy, higher on what
+	// faces up, its top line ragged by the same noise.
+	float reach = foot_drift * foot.y * (0.5 + 0.5 * max(world_n.y, 0.0))
+		* (1.0 + (n - 0.5) * 1.2 + (patch - 0.5) * 1.5);
+	snow = max(snow, step(0.001, foot.y) * (1.0 - smoothstep(reach - 0.01, reach + 0.01, foot.x)));
 	ALBEDO = albedo_out(clamp(mix(base, snow_linear(), snow), 0.0, 1.0));
 	ROUGHNESS = 0.9;
 	METALLIC = 0.0;

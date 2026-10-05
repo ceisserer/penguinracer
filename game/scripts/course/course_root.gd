@@ -51,6 +51,10 @@ var tree_lod_scale: float = 1.0
 ## anything else that decorates the course — [CourseLights] stands a torch in
 ## place of every flag at night. Filled by [method build_runtime].
 var object_transforms: Dictionary[String, Array] = {}
+## The course's splat maps as images and which of its layers are snow, read
+## once by [method ground_snow] for the first prop that asks.
+var _splat_images: Array[Image] = []
+var _snow_layers: PackedFloat32Array = PackedFloat32Array()
 
 ## Build the runtime representation. Safe to call once, from the race scene.
 func build_runtime() -> void:
@@ -69,6 +73,9 @@ func build_runtime() -> void:
 		var type_name: String = group.name
 		var prefab: ObjectPrefab = object_prefabs.get(type_name, null)
 		var transforms: Array[Transform3D] = []
+		# A prop laid on the ground gets how snowy the ground under it is, for
+		# the snow it banks against its foot (`object_prop.gdshader`).
+		var snow: PackedFloat32Array = PackedFloat32Array()
 		for marker: Node in group.get_children():
 			if marker is not Node3D:
 				continue
@@ -93,6 +100,8 @@ func build_runtime() -> void:
 			# Z is the diameter again for everything the importer writes; a
 			# log's marker gives its length in X and its thickness in Z.
 			transforms.push_back(xf.scaled_local(Vector3(diam, height, m.scale.z)))
+			if prefab != null and prefab.ground_aligned:
+				snow.push_back(ground_snow(p, 0.5 * maxf(diam, m.scale.z)))
 			if collidable:
 				trees.add(p, diam, height, 0)
 			elif prefab == null or prefab.collectable:
@@ -105,10 +114,44 @@ func build_runtime() -> void:
 				and not Engine.is_editor_hint():
 			_add_forest(type_name, prefab, transforms)
 		elif prefab != null and prefab.mesh != null and not transforms.is_empty():
-			_add_batch(type_name, prefab, transforms)
+			_add_batch(type_name, prefab, transforms, snow)
 
 	trees.build()
 	items.build()
+
+## How much of the ground round [param p] is snow, 0..1: the share of the
+## splat that the course's snow layers hold — deformable and not ice, the
+## terrain shader's `layer_snowness` — averaged over the middle and four points
+## [param radius] out, since a prop's foot is as wide as the prop.
+func ground_snow(p: Vector3, radius: float) -> float:
+	if _snow_layers.is_empty() and _splat_images.is_empty():
+		for layer: TerrainLayer in course_data.terrain_layers:
+			_snow_layers.push_back(1.0 if layer.is_deformable and not layer.is_ice() else 0.0)
+		for tex: Texture2D in course_data.splat_maps:
+			var img: Image = tex.get_image() if tex != null else null
+			if img != null and img.is_compressed():
+				img.decompress()
+			_splat_images.push_back(img)
+	var total: float = 0.0
+	for o: Vector2 in [Vector2.ZERO, Vector2(radius, 0.0), Vector2(-radius, 0.0),
+			Vector2(0.0, radius), Vector2(0.0, -radius)]:
+		var all: float = 0.0
+		var snow: float = 0.0
+		for m: int in _splat_images.size():
+			var img: Image = _splat_images[m]
+			if img == null:
+				continue
+			# A splat map is a vertex grid over the course, like the heightmap.
+			var tx: int = clampi(roundi((p.x + o.x) / course_data.world_size.x
+				* float(img.get_width() - 1)), 0, img.get_width() - 1)
+			var ty: int = clampi(roundi(-(p.z + o.y) / course_data.world_size.y
+				* float(img.get_height() - 1)), 0, img.get_height() - 1)
+			var c: Color = img.get_pixel(tx, ty)
+			for ch: int in mini(4, _snow_layers.size() - m * 4):
+				all += c[ch]
+				snow += c[ch] * _snow_layers[m * 4 + ch]
+		total += snow / all if all > 0.0 else 0.0
+	return total / 5.0
 
 ## The ground's normal at [param p], across a metre either way — as wide as the
 ## props that ask for it, so a boulder settles on the slope and not on a bump.
@@ -159,9 +202,13 @@ static func decorrelating_yaw(p: Vector3) -> float:
 ## could see, so it changes no frame. A collectable type stays one batch: its
 ## instance slots are what [method hide_item] addresses, and it is only ever
 ## billboards.
-func _add_batch(type_name: String, prefab: ObjectPrefab, transforms: Array[Transform3D]) -> void:
+##
+## [param snow], when not empty, is each instance's [method ground_snow], handed
+## to the shader as its custom data.
+func _add_batch(type_name: String, prefab: ObjectPrefab, transforms: Array[Transform3D],
+		snow: PackedFloat32Array = PackedFloat32Array()) -> void:
 	if prefab.collectable:
-		var mmi := _batch_mesh(prefab, transforms)
+		var mmi := _batch_mesh(prefab, transforms, snow)
 		mmi.name = "Batch_%s" % type_name
 		add_child(mmi)
 		_batches[type_name] = mmi
@@ -173,19 +220,32 @@ func _add_batch(type_name: String, prefab: ObjectPrefab, transforms: Array[Trans
 	var cells: Dictionary[Vector2i, PackedInt32Array] = Forest.cells_of(transforms)
 	for key: Vector2i in cells:
 		var members: Array[Transform3D] = []
+		var member_snow := PackedFloat32Array()
 		for i: int in cells[key]:
 			members.push_back(transforms[i])
-		var mmi := _batch_mesh(prefab, members)
+			if not snow.is_empty():
+				member_snow.push_back(snow[i])
+		var mmi := _batch_mesh(prefab, members, member_snow)
 		mmi.name = "C%d_%d" % [key.x, key.y]
 		batch.add_child(mmi)
 
-func _batch_mesh(prefab: ObjectPrefab, transforms: Array[Transform3D]) -> MultiMeshInstance3D:
+func _batch_mesh(prefab: ObjectPrefab, transforms: Array[Transform3D],
+		snow: PackedFloat32Array = PackedFloat32Array()) -> MultiMeshInstance3D:
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
+	# Before the count, which lays the buffer out. Colours come with the custom
+	# data, all white: under Compatibility a MultiMesh with custom data and no
+	# colours hands `COLOR` an instance colour of zero, and every prop's bark
+	# and rock drew black.
+	mm.use_custom_data = not snow.is_empty()
+	mm.use_colors = mm.use_custom_data
 	mm.mesh = prefab.mesh
 	mm.instance_count = transforms.size()
 	for i: int in transforms.size():
 		mm.set_instance_transform(i, transforms[i])
+		if not snow.is_empty():
+			mm.set_instance_custom_data(i, Color(snow[i], 0.0, 0.0, 0.0))
+			mm.set_instance_color(i, Color.WHITE)
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
 	mmi.material_override = prefab.material

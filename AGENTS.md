@@ -723,6 +723,10 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   snows in a checkerboard. Any new shader drawn over stretched instances needs the same. The
   geometry stretches too: anything meant to stay round on a log's surface (its branch stubs) is
   built pre-squashed along X in `PropMesh` (`LOG_STRETCH`, `TRUNK_STRETCH`).
+- **Under Compatibility a MultiMesh with custom data needs colours too.** With `use_custom_data`
+  and no `use_colors`, `COLOR` arrives multiplied by an instance colour of zero: every prop drew
+  black but its snow, while Mobile was right. `CourseRoot._batch_mesh` turns both on and writes
+  white.
 
 ### Characters and animation
 
@@ -1064,7 +1068,8 @@ the whole sky to cyan-white, against which no disc can show. The fog
 - **Courses can carry solid props** — boulders, stone scatters, fallen logs, stumps — where ETR
   has only pictures on quads. `PropMesh` builds them (flat-shaded except a log's bark, colours in
   the vertex colours, nothing from a picture), `object_prop.gdshader` draws them inside ETR's
-  clamp with patches of snow on upward faces, and `ObjectPrefab.ground_aligned` lays them square to the slope. A
+  clamp with patches of snow on upward faces and a drift banked round the foot as deep as the ground there
+  is snowy (`CourseRoot.ground_snow` → `INSTANCE_CUSTOM.r`, `foot_drift`), and `ObjectPrefab.ground_aligned` lays them square to the slope. A
   marker's Z scale is read (it was always X's), so a log is long in X and thin in Y and Z. **A
   marker's Y is a height above the ground and its X/Z rotations are read** (`CourseRoot`), for
   the one prop that is not on the ground: Mountain Forest's `lodged_log`, a long
