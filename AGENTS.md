@@ -1134,7 +1134,7 @@ the whole sky to cyan-white, against which no disc can show. The fog
   (`CliffSet.holes`: the rock's *lowest* surface ≥ 0.1 m over the ground at every half-cell
   sample, so the space between is shut in) are left out of the chunks. **Never cut a hole the
   rock does not close over**: the chunk is the only thing under it. One face on Mountain Forest
-  so far (140–198 m, right bank): 18k vertices, 560 KB, ~0.55 ms in the same view.
+  so far (140–198 m, right bank): 22k vertices, 670 KB (~0.55 ms in the same view at 18k).
 - **Crossed-quad trees are shaded as a cylinder across both planes**, where ETR gives all eight vertices
   normal (0,0,1). Per-face normals would split each tree into bright and dark halves.
   `normal_roundness = 0` in `object_cross.gdshader` is the flat card.

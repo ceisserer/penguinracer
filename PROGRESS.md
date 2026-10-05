@@ -3454,3 +3454,21 @@ machine's GPU: the row lists all three with Mobile selected; a file asking for F
 Compatibility starts the game on it (`Vulkan … Forward+`, `OpenGL … Compatibility`) with that row
 selected; `--rendering-method mobile` still beats the file. The suite: the same three pre-existing
 failures.
+
+### Mountain Forest: twice as much rock on the walls (2026-10-05) · **done, not seen in a real browser or on a phone**
+
+The walls are now 20 % rock where they were 10 %: `WALL_ROCK_SHARE` 0.10 → 0.20 and its bare core
+`WALL_BARE_ROCK_SHARE` 0.04 → 0.08, so the split stays 12 % snowed-on `snowy_rock06` at a stretch's
+fringe and 8 % bare `rock06` at its core. Ice stays at 5 %, taken from what the rock leaves. The
+cut-offs are quantiles (`_wall_thresholds`), so the stretches are the same ones, longer and more of
+them. No tree stands on rock, so the walls' forest thins: 787 → 699 conifers; stones, boulders,
+shrubs and stumps re-scatter round the new stretches. Nothing on the trail moves (herring, start,
+finish, boulders, fallen and lodged trunks, their colliders, the stone pile — markers identical).
+The one rock face (140–198 m, right bank) follows its stretch's rock mask and grew with it:
+18k → 22k vertices, `cliffs.res` 560 → 670 KB, 2998 heightmap quads hidden. Its frame time was not
+re-measured.
+
+**Verified**: the generator's own counts (walls 12.0 % `snowy_rock06`, 8.0 % `rock06`, 5.0 %
+`ice1`); `TestMountainForest` (rock faces off the play area, nothing on the walls' ice); the suite,
+the same three pre-existing failures. Rendered on Mobile with the AI driving (frames 650, 900,
+1300).

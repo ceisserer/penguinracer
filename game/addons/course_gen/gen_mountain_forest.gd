@@ -164,8 +164,8 @@ const L_ROCK := 7
 ## _wall_thresholds] turns them into cut-offs on the scores below, so they
 ## hold whatever the noise does. Bare rock is a stretch's core, snowed-on rock
 ## its fringe.
-const WALL_ROCK_SHARE := 0.10
-const WALL_BARE_ROCK_SHARE := 0.04
+const WALL_ROCK_SHARE := 0.20
+const WALL_BARE_ROCK_SHARE := 0.08
 const WALL_ICE_SHARE := 0.05
 ## Rock faces laid over the walls ([CliffBuilder]), as (from, to, side):
 ## metres down, and the wall, +1 the +X one. Where a stretch of wall is rock
