@@ -3306,3 +3306,62 @@ pre-existing failures. Rendered on Mobile from the chase-camera angle, close up,
 from 28 m, from the top of the wall looking down the face, grazing along its foot, and with the
 levels forced coarse (`mesh_lod_threshold` 60); and straight down under Compatibility. No ground
 shows through anywhere.
+
+### Trees and props shade the ground round them: contact AO (2026-10-05) · **done, not seen in a real browser or on a phone**
+
+The relief occlusion (`TerrainOcclusion`, 2026-09-24) knew nothing of what stands on the hill:
+the snow at a boulder's foot, under a spruce's skirt or along a fallen trunk saw the same sky as
+open piste, so on the web, with no shadow map, everything floated. `ContactOcclusion` bakes it
+in at load and multiplies it into the relief's image before `TerrainRenderer` reads it, so the
+terrain still reads one sky term in `COLOR.r`: no varying, no texture unit, no shader change,
+nothing a frame. This was `editor-plan.md`'s Phase 6 *contact AO*, for the objects there are.
+
+**How.** The same horizon measure as the relief's (cosine-weighted, `sin²` of each azimuth's
+horizon, faded by distance), taken against the objects. Each is a solid of revolution on level
+ground: a tree its species' crown profile (`TreeShadowBake.crown_radius`) at a per-species
+opacity (conifer 0.85, bare 0.3, shrub 0.8); a ground-aligned prop the widest its mesh reaches
+at each height, and a prop over 1.6x longer than wide (a log) a row of round solids each as wide
+as it. A crown that starts above the snow leaves the band under it open: an azimuth loses the
+sky between the solid's lowest and highest points. Being round on the level, a solid's loss is a
+function of the distance from its axis alone, so it is one table per shape and size class
+(`TreeShadowBake`'s 1.12 ratio) and one stamp, `blend_rect`ed into the relief's image. Out to
+6 m past the outline. Left out: the slope (a solid stands on the level), the overhead trunk,
+anything thin (flags, a bare tree's limbs), and the invisible colliders.
+
+**What was found on the way.**
+
+- *A vertex under a stone smeared black.* Inside a solid every azimuth is lost, and the terrain
+  interpolates that vertex's black across the half-metre triangles round it, past the stone's
+  edge. A vertex inside the foot now takes the foot's value; a prop's outline is closed down to
+  the ground (each edge's crossing of y = 0 is sampled, and the bottom levels take the lowest
+  measured one), or a sunk boulder had no foot at all.
+- *The whole course a level darker.* Godot truncates a float to a byte and a half float sits
+  just under most byte values, so the relief round-tripped through `RGBAH` came back a level or
+  two low everywhere (trap list). The map is `RGBAF`, which round-trips every byte.
+- *Slate shadows on the web.* At full strength the baked tree shadows, where the ambient is all
+  there is, went slate grey beside every trunk. 0.6 of the loss is kept (`BOUNCE_KEPT`): the
+  ground at a tree's foot is lit by the sunlit snow beside it, which a sky measure leaves out.
+
+**Cost**, at load on the desktop: Bunny Hill (769 trees) 75 ms, `bronze_set` (8153) 120 ms,
+`the_long_ride` 100 ms, Mountain Forest (2114 solids, 14 shapes) 140 ms, Forest Trail (7052)
+170 ms — most of it the tables in GDScript. It prints one `CONTACT_AO` line per load. Not
+measured in a browser.
+
+**What it looks like.** Sunlit snow sits at ETR's clamp, so in the sun the term barely shows;
+it lives in the shade. Mobile: tree bases and bushes get a soft blue ring, Forest Trail's
+needle floor darkens under the crowns, Mountain Forest's wooded bank darkens. Compatibility: the
+baked tree shadows deepen toward each trunk (`the_long_ride`). Measured A/B, 250 frames carving:
+0.5–1.3 % of the frame moves by more than 8 levels (Bunny Hill 0.76 / 0.99 %, Forest Trail
+0.50 / 0.53 %, Mountain Forest 1.07 / 1.30 %, Mobile / Compatibility), part of it the spray,
+which never reproduces. Every reference capture with a
+tree in shade moves.
+
+**Verified**: `TestContactOcclusion` (27 checks): open ground far from anything is left alone;
+a conifer is darkest under its crown, lighter at its edge and 3 m out, the same all round, and
+a bare crown takes far less; a box-shaped prop is darker at its foot than a metre out and the
+vertex under it carries the foot's value; a log is a row and shades along its length, not as a
+disc; the relief is multiplied, to the byte where nothing stands, and the course's own image is
+left alone; on `bronze_set`, Forest Trail and Mountain Forest it bakes one byte per vertex, never
+lighter than the relief, leaves the overhead trunk and the colliders out, and is quick. The
+suite: the same three pre-existing failures. Rendered A/B on Mobile and Compatibility on Bunny
+Hill, Forest Trail, Mountain Forest and `the_long_ride`.

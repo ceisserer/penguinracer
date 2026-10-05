@@ -637,7 +637,8 @@ func load_course(path: String) -> void:
 	terrain.name = "Terrain"
 	terrain.ice_environment = ice_environment != null
 	add_child(terrain)
-	terrain.setup(course, course_root.surface, course_lights.terrain_light)
+	terrain.setup(course, course_root.surface, course_lights.terrain_light,
+		_contact_occlusion(course))
 	if ice_environment != null:
 		ice_environment.build_ice_map(course_root.surface, course.terrain_layers)
 	await _load_step(LOAD_TERRAIN_READY, streaming)
@@ -1683,6 +1684,20 @@ func _tree_shadows_baked(preset: EnvironmentPreset) -> bool:
 		return false
 	return not RenderBackend.supports_light_shadows() \
 		or Config.tree_shadow_kind == QualityPreset.TREE_SHADOWS_BAKED
+
+## The course's relief occlusion with what its trees and props take from the
+## ground round them taken off it ([ContactOcclusion]), for
+## [method TerrainRenderer.setup]. Once per course, at load, on every renderer
+## and sky: it is an ambient term, and the sun does not move it.
+func _contact_occlusion(course: CourseData) -> Image:
+	var start: int = Time.get_ticks_usec()
+	var casters: Array = ContactOcclusion.casters_of(course_root)
+	var sky: Image = ContactOcclusion.bake(casters[0], casters[1], casters[2],
+		course_root.surface, course.ambient_occlusion)
+	# One line per bake, like TREE_SHADOWS: its cost is at load.
+	print("CONTACT_AO baked %d solids in %.0f ms" % [(casters[0] as PackedVector4Array).size(),
+		float(Time.get_ticks_usec() - start) / 1000.0])
+	return sky
 
 ## Hand the terrain the trees' baked shadows, [param baked] or not.
 ##

@@ -109,6 +109,9 @@ Each phase is small enough for one focused prompt and ends in a headless test.
   pixels agree.
 - **Contact AO:** bake footprints into the terrain's AO vertex colour, as the torches are baked.
   It matters most on the web, which has no shadows and where a house otherwise floats.
+  *Done for trees and ground-aligned props (`ContactOcclusion`, 2026-10-05)*; a prop with a mesh
+  and `ground_aligned` is picked up as it is, as a solid of revolution — a long one as a row.
+  A house wants its own footprint shape (a box), not a round solid.
 - **Snow on roofs:** whiten upward faces by snowfall grade, as the conifer shader does.
 
 ### Phase 7 — distribution

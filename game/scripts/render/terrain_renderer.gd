@@ -31,8 +31,9 @@ var stream_radius: float = 400.0
 var ice_environment: bool = false
 
 var _material: ShaderMaterial
-## [member CourseData.ambient_occlusion]'s bytes, one per heightmap vertex, or
-## empty for a course imported before it existed.
+## [member CourseData.ambient_occlusion]'s bytes, one per heightmap vertex —
+## with the objects' contact occlusion taken off them when [method setup] was
+## handed it — or empty for a course imported before it existed.
 var _occlusion: PackedByteArray = PackedByteArray()
 ## [member CourseLights.terrain_light]'s bytes, one per heightmap vertex, or
 ## empty for a course with no torches.
@@ -58,14 +59,17 @@ var _pending: Array[Vector2i] = []
 
 ## [param torchlight] is [member CourseLights.terrain_light]; the chunks carry
 ## it from the start, so it has to be here before the first one is built.
+## [param occlusion] is the sky term to draw in place of
+## [member CourseData.ambient_occlusion] — the relief's with the objects' taken
+## off it ([method ContactOcclusion.bake]) — or null for the relief's alone.
 func setup(p_course: CourseData, p_surface: HeightmapSurface,
-		torchlight: PackedByteArray = PackedByteArray()) -> void:
+		torchlight: PackedByteArray = PackedByteArray(), occlusion: Image = null) -> void:
 	course = p_course
 	surface = p_surface
 	if torchlight.size() == surface.size.x * surface.size.y:
 		_torchlight = torchlight
 	_material = _build_material()
-	var ao: Image = course.ambient_occlusion
+	var ao: Image = occlusion if occlusion != null else course.ambient_occlusion
 	if ao != null and ao.get_format() == Image.FORMAT_L8 \
 			and ao.get_size() == Vector2i(surface.size.x, surface.size.y):
 		_occlusion = ao.get_data()

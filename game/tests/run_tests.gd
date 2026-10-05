@@ -33,6 +33,7 @@ func _run() -> void:
 	TestProps.run(t)
 	TestMountainForest.run(t)
 	TestTreeShadows.run(t)
+	TestContactOcclusion.run(t)
 	TestCharacter.run(t)
 	TestCamera.run(t)
 	TestReflection.run(t)

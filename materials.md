@@ -339,7 +339,7 @@ Two masks, computed once, and everything material-dependent downstream is gated 
 | Fresnel split (`1 - mirror_share`) | `ice_mask` | takes what the mirror adds back out of the diffuse, so the two sum to the surface rather than past it |
 | trench albedo/roughness/AO/ridge | `snow_mask` | the trail map only affects snow; the AO is the carve's depth and its walls' horizon |
 | scatter tint (`snow_scatter_*`) | `snow_mask` | fake SSS: the ambient goes blue-cyan as the sun leaves, the relief closes over or the carve deepens |
-| relief AO (`terrain_ao_*`) | none | baked from the heightmap at import (`TerrainOcclusion`), vertex colour; every material, ambient + a share of the sun |
+| relief AO (`terrain_ao_*`) | none | baked from the heightmap at import (`TerrainOcclusion`), times what the trees and props take from the ground round them, baked at load (`ContactOcclusion`); vertex colour; every material, ambient + a share of the sun |
 
 Note that roughness reaches the surface twice: through the per-layer table (0.25 for ice) and
 again through `mix(..., ice_roughness, ice_mask)`, which pulls it to 0.12. The table value is what

@@ -51,6 +51,8 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           Atmosphere (the procedural sky's globals: haze, mist, ridges),
                           CourseLights (night torches, flags → torches),
                           TreeShadowBake (the trees' shadows in the terrain, per sun),
+                          ContactOcclusion (the sky trees and props take from the
+                          ground round them, into the terrain's AO, per course),
                           PropMesh (boulder, stones, log, stump: procedural solid props)
   scripts/camera/         chase camera
   scripts/shell/          main/course/settings menus, HUD, LobbyMenu (connect → browse → room,
@@ -244,7 +246,7 @@ Detail is in `PROGRESS.md`; this is the summary.
 |---|---|
 | 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 4724 assertions, 0 failures, 13 s headless. |
 | 1 — importer + first course | **done** — 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. Plus two authored courses, Forest Trail and Mountain Forest (`addons/course_gen/`), with six prop prefabs of their own (one only a collider). |
-| 2 — rendering | partial — Mobile on the desktop, Compatibility on the web (trap list: *sRGB-blended shadow pass*). ETR's illumination clamp in every lit shader except the character's; desktop-only PSSM shadow, the trees' shadows baked into the terrain's vertex colour on the web and by choice on the desktop (`TreeShadowBake`). Splat PBR, chunked terrain, instanced objects (conifers, bare trees and shrubs are 3D meshes at 3 LODs + an octahedral impostor, dithered hand-overs, wind sway, shader snow — [Forest]; anything else collidable is ETR's two crossed planes with a hashed yaw; items are billboards), ETR's HUD redrawn as primitives ([RaceHUD]), migrated skyboxes. Tone matched on Bunny Hill at both ends in all three channels; no LightmapGI. Snow/ice micro-relief, glint, rock detail texture, Fresnel sky, ice reflecting the racers (`IceReflection`) and, as a setting, the hill round them (`IceEnvironment`), textured carve spray, camera motion blur as a setting (`MotionBlur`, Best only). Heightmap AO baked at import + trench-wall AO; shaded/occluded/carved snow tinted blue (fake SSS). |
+| 2 — rendering | partial — Mobile on the desktop, Compatibility on the web (trap list: *sRGB-blended shadow pass*). ETR's illumination clamp in every lit shader except the character's; desktop-only PSSM shadow, the trees' shadows baked into the terrain's vertex colour on the web and by choice on the desktop (`TreeShadowBake`). Splat PBR, chunked terrain, instanced objects (conifers, bare trees and shrubs are 3D meshes at 3 LODs + an octahedral impostor, dithered hand-overs, wind sway, shader snow — [Forest]; anything else collidable is ETR's two crossed planes with a hashed yaw; items are billboards), ETR's HUD redrawn as primitives ([RaceHUD]), migrated skyboxes. Tone matched on Bunny Hill at both ends in all three channels; no LightmapGI. Snow/ice micro-relief, glint, rock detail texture, Fresnel sky, ice reflecting the racers (`IceReflection`) and, as a setting, the hill round them (`IceEnvironment`), textured carve spray, camera motion blur as a setting (`MotionBlur`, Best only). Heightmap AO baked at import, objects' contact AO baked over it at load (`ContactOcclusion`) + trench-wall AO; shaded/occluded/carved snow tinted blue (fake SSS). |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror; a carve leaves a shaded trench with a ploughed lip. |
 | 4 — character | **done for all five** — skinned mesh from `shape.lst`, keyframe clips as `AnimationLibrary` + `KeyframePath` root motion, start animation (`CIntro`), finish clips on the results screen (`RaceOutcome.clip`), racing pose layer (`CharacterRig.adjust_joints`, ETR's `AdjustJoints`) driven off `RacerState` alone so ghosts and peers animate. `GameConfig.character` picks one. |
 | 5 — game shell | partial — main menu → Practice / Race the computer / Network multiplayer / Race against ghost / character / Configuration; results screen with named runs; ETR palette theme; course + character catalogs (course list in four parts: Tux Racer, ETR, PenguinRacer's own, added by address); English + German, detected or chosen on the settings screen; audio (`AudioDirector`, ETR's one-voice-per-cue mixer). Missing: cups, medals, profiles (data imported), volume controls, ETR's menu art (licence audit). |
@@ -549,6 +551,11 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   settings onto a new species' atlases and re-import.
 - **`SurfaceTool.commit()` without `index()` writes no index array** — the mesh draws, but
   `surface_get_arrays()[ARRAY_INDEX]` is null. `ConiferMesh` indexes before committing.
+- **`Image.convert` to an 8-bit format truncates, and a half float sits just under most byte
+  values**, so L8 → `RGBAH` → L8 hands back every value but 0 and 255 a level or two low. An
+  image round-tripped through halves to blend into it (`ContactOcclusion` over the relief AO)
+  darkened the whole course by a level; `RGBAF` round-trips every byte exactly. Starting from
+  white, as `TreeShadowBake` does, only costs blended values under a level.
 - **Vertex colour is 8 bits a channel.** A value under 1/510 comes back 0: the bare tree's
   radius code (`COLOR.b`) rounded to "not a tube" at its twig tips. Code a flag at least 1/255.
 - **A thin cutout vanishes with distance**: a one-texel twig averages to half the alpha a mip down
@@ -1188,7 +1195,13 @@ the whole sky to cyan-white, against which no disc can show. The fog
   marked shiny. Every ETR ice is `[friction] 0.2`, and nothing else goes below 0.3.
 - **The terrain's ambient is occluded and, on snow, tinted blue.** ETR lights every vertex alike.
   `TerrainOcclusion` bakes a horizon AO from the heightmap at import (vertex colour, not a
-  texture — the unit budget), the trench adds its walls at fragment rate, and snow's ambient takes
+  texture — the unit budget), and `ContactOcclusion` multiplies in what the course's objects take
+  at load: the same horizon measure against every tree (its crown profile, times a per-species
+  opacity) and every ground-aligned prop (an outline off its mesh; a log is a row of them), each a
+  solid of revolution on level ground, so one table and one stamp per size, `blend_rect`ed like
+  `TreeShadowBake`'s. Out to 6 m past an outline; 0.6 of the loss kept (`BOUNCE_KEPT`), the rest
+  standing for the sunlit snow round it. ~75–170 ms at load, still `COLOR.r`, nothing a frame.
+  The trench adds its walls at fragment rate, and snow's ambient takes
   `snow_scatter_tint` as the sun leaves it, the relief closes over it or the carve deepens.
   Inside the illumination clamp, so lit snow keeps its fitted tone. `terrain_ao_strength`,
   `terrain_ao_sun`, `trench_wall_ao` and the `snow_scatter_*` gains at 0 restore the old frame.
