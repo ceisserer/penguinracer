@@ -93,12 +93,12 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           sum-then-clamp, included by everything lit), atmosphere.gdshaderinc
                           (sky gradient, ridges, the `FOG` every lit shader writes, torchlight)
   addons/etr_import/      one-way, re-runnable importer from the ETR data tree
-  addons/course_gen/      generators of authored courses (Forest Trail, Mountain Forest) and
-                          CourseGenKit, what they share — the importer's output shape, never
+  addons/course_gen/      generators of authored courses (Forest Trail, Mountain Forest, Snow
+                          Park) and CourseGenKit, what they share — the importer's output shape, never
                           visited by the importer; CliffBuilder (a rock face over a wall)
   courses/<name>/         GENERATED: course.tres, course.tscn, heightmap.res,
                           ambient_occlusion.res, splat_*.png, cliffs.res, water.res (44 by the importer,
-                          forest_trail and mountain_forest by tools/gen_<name>.sh)
+                          forest_trail, mountain_forest and snow_park by tools/gen_<name>.sh)
   resources/  i18n/       GENERATED: layers, prefabs, environments, events, course + character
                           catalogs, five rigs + previews, sound bank, music, 13 translations
   i18n/                   GENERATED penguinracer.csv (ETR's strings × 13) + HAND-WRITTEN ui.csv
@@ -128,8 +128,9 @@ tools/                    import_all.sh; serve.sh (dedicated server + web export
                           server + puppeteer runner); gen_course_export_presets.py +
                           build_web_streamed.sh (streamed web export, S6);
                           build_android.sh (the `Android` preset → build/android/*.apk);
-                          gen_forest_trail.sh, gen_mountain_forest.sh (regenerate an
-                          authored course);
+                          gen_forest_trail.sh, gen_mountain_forest.sh, gen_snow_park.sh
+                          (regenerate an authored course); probe_course.sh (one racer down a
+                          course, headless: speed, flights, herring, hits);
                           gen_course_index.py (courses.json for a folder of course packs)
 ```
 
@@ -182,6 +183,9 @@ godot --headless --path game res://scenes/server.tscn -- --port=27015 \
 ./tools/import_all.sh [--course=bunny_hill] [--force]              # 4-pass importer
 ./tools/gen_forest_trail.sh                                        # the authored course, its props, its catalog row
 ./tools/gen_mountain_forest.sh                                     # ... the other one, and its lodged trunk
+./tools/gen_snow_park.sh                                           # ... the park, and its snowmen, igloo and chairlift
+./tools/probe_course.sh --course=snow_park --driver=hard           # speed, flights, herring and hits down a course, headless
+./tools/probe_course.sh --course=snow_park --follow=-8.75 --from=225 --to=450   # ... holding a line off the middle
 ./tools/bake_tree_impostors.sh [conifer|bare|shrub]                # after any tree mesh change
 ./tools/tree_portrait.sh /tmp/t.png bare --dist=8 [--level=2]      # one species up close, no course
 ./tools/build_android.sh [--release] [--install]                   # Android APK (setup: .devcontainer/setup-android.sh)
@@ -250,7 +254,7 @@ Detail is in `PROGRESS.md`; this is the summary.
 | Area | State |
 |---|---|
 | 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 4724 assertions, 0 failures, 13 s headless. |
-| 1 — importer + first course | **done** — 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. Plus two authored courses, Forest Trail and Mountain Forest (`addons/course_gen/`), with six prop prefabs of their own (one only a collider); Forest Trail has four puddles (`CourseData.water`). |
+| 1 — importer + first course | **done** — 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. Plus three authored courses, Forest Trail, Mountain Forest and Snow Park (`addons/course_gen/`), with twelve prop prefabs of their own (one only a collider); Forest Trail has four puddles (`CourseData.water`). |
 | 2 — rendering | partial — Mobile on the desktop, Compatibility on the web (trap list: *sRGB-blended shadow pass*). ETR's illumination clamp in every lit shader except the character's; desktop-only PSSM shadow, the trees' shadows baked into the terrain's vertex colour on the web and by choice on the desktop (`TreeShadowBake`). Splat PBR, chunked terrain, instanced objects (conifers, bare trees and shrubs are 3D meshes at 3 LODs + an octahedral impostor, dithered hand-overs, wind sway, shader snow — [Forest]; anything else collidable is ETR's two crossed planes with a hashed yaw; items are billboards), ETR's HUD redrawn as primitives ([RaceHUD]), migrated skyboxes. Tone matched on Bunny Hill at both ends in all three channels; no LightmapGI. Snow/ice micro-relief, glint, rock detail texture, Fresnel sky, ice reflecting the racers (`IceReflection`) and, as a setting, the hill round them (`IceEnvironment`), textured carve spray, camera motion blur as a setting (`MotionBlur`, Best only), standing water (`WaterRenderer`: the ice's reflection, the wind's waves, wakes and splash; it drags the racer). Heightmap AO baked at import, objects' contact AO baked over it at load (`ContactOcclusion`) + trench-wall AO; shaded/occluded/carved snow tinted blue (fake SSS). |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror; a carve leaves a shaded trench with a ploughed lip. |
 | 4 — character | **done for all five** — skinned mesh from `shape.lst`, keyframe clips as `AnimationLibrary` + `KeyframePath` root motion, start animation (`CIntro`), finish clips on the results screen (`RaceOutcome.clip`), racing pose layer (`CharacterRig.adjust_joints`, ETR's `AdjustJoints`) driven off `RacerState` alone so ghosts and peers animate. `GameConfig.character` picks one. |
@@ -453,7 +457,15 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   leave open the side the trail turns toward (`open_side`), widen the trail beside them, and sit
   early in a chute: a crash at a chute's foot leaves a racer crawling across the bench below.
   The headless probe that found all of this, the hard AI through the real grid and play area,
-  logging speed by distance, is worth writing again before moving an obstacle.
+  logging speed by distance, is now `tools/probe_course.sh`; run it before moving an obstacle.
+- **Size a feature for the speed racers bring, measured, not assumed.** Nothing goes fast on
+  snow without paddling: no hands, a racer crawls at 3–6 m/s on 20–22° (Mountain Forest too), so
+  a probe has to paddle as the hard driver does (`PhysConst.MAX_PADDLING_SPEED`). Snow Park's
+  table-tops at the 13–14 m/s that then arrive kicked a 17° lip 9 m and landed flat on their own
+  tables; at 25° they clear them onto the landing. And **a slalom swinging less than the run is
+  wide is no slalom**: with 6 m of swing on an 18 m run the hard driver went straight down the
+  middle. It hugs the inside edge of the bends now, held there by the trail, so the gate flags
+  stand just past that edge, where no line cuts them.
 - **`DirAccess` over `res://` finds nothing in an exported build.** Anything the shell enumerates
   needs a generated index (`resources/courses.tres`).
 - **Re-importing for a character change also rewrites object prefabs and every `course.tscn`**, and
@@ -1075,8 +1087,10 @@ the whole sky to cyan-white, against which no disc can show. The fog
   in `COLOR.b`) so far limbs stay lines, and holds more snow on round limbs
   (`snow_facing_offset`). Clearing `bare` on a prefab draws ETR's cross again.
 - **Courses can carry solid props** — boulders, stone scatters, fallen logs, stumps — where ETR
-  has only pictures on quads. `PropMesh` builds them (flat-shaded except a log's bark, colours in
-  the vertex colours, nothing from a picture), `object_prop.gdshader` draws them inside ETR's
+  has only pictures on quads. `PropMesh` builds them (colours in the vertex colours, nothing from a
+  picture; a rock's cuts flat, its weathered surface and all bark smooth — **never a colour or a
+  normal per small face**: that draws a patchwork of triangles close up, which is what the boulders
+  and the log's bark were until 2026-10-05), `object_prop.gdshader` draws them inside ETR's
   clamp with patches of snow on upward faces and a drift banked round the foot as deep as the ground there
   is snowy (`CourseRoot.ground_snow` → `INSTANCE_CUSTOM.r`, `foot_drift`), and `ObjectPrefab.ground_aligned` lays them square to the slope. A
   marker's Z scale is read (it was always X's), so a log is long in X and thin in Y and Z. **A
@@ -1089,8 +1103,10 @@ the whole sky to cyan-white, against which no disc can show. The fog
   trail. It can be hit or jumped. A fallen `log` on the forest floor is solid the same way wherever
   a racer can reach it — inside the play area or within half a metre of it
   (`CourseGenKit.log_colliders`); the `log` prefab itself stays uncollidable, since its one
-  cylinder would be as wide as the log is long. Only the two authored courses use props; every imported course
-  has Y = 0, no tilt, and is unchanged.
+  cylinder would be as wide as the log is long. Snow Park's furniture is the same kind of mesh, built
+  in metres and shrunk into the unit box (`PropMesh.park_size`): snowmen, igloos and a chairlift —
+  towers, cables and chairs held in the air by their markers' Y, two stations. Only the authored
+  courses use props; every imported course has Y = 0, no tilt, and is unchanged.
 - **There are courses ETR has not got**, and a fourth heading for them in the course list
   (*PenguinRacer*, `CourseListing.Category.PENGUINRACER`), each from a generator in
   `addons/course_gen/` sharing `CourseGenKit`. **Forest Trail** (`gen_forest_trail.gd`): a narrow
@@ -1108,6 +1124,15 @@ the whole sky to cyan-white, against which no disc can show. The fog
   with a trunk lodged overhead, eight bumps and two kickers, three boulders and four fallen
   trunks on the trail, a pile of stones beside it halfway down, bare ice on the walls (nothing
   stands on it), and a near, wooded skyline (below).
+  **Snow Park** (`gen_snow_park.gd`): a groomed run down an open slope built as a terrain park,
+  every feature relief in the heightmap — rollers; three table-tops (25° lips) beside a chicken
+  line of fun boxes glazed with `hockey_ice`; a banked slalom of four turns, a berm on the
+  outside of each and a gate flag on the inside; a 180 m half-pipe, walls 4.5 m to an 80° coping;
+  moguls; and a big jump (a 32° inrun, a 12° take-off table, a 3 m lip onto a 37° landing hill)
+  before the finish. Herring hang over the jumps on the flight's arc, so only a racer in the air
+  takes them (collection is a 3D distance). A chairlift climbs beside it and nothing solid stands
+  within reach of the play area; the trail is the run (opponents are held to it), the play area
+  8 m wider.
 - **There is water** (`CourseData.water`, `WaterRenderer`, `water.gdshader`); ETR has none.
   A course carries it as a signed depth per heightmap vertex (FORMAT_RF, `water.res`): metres
   of water over the ground where it is wet, negative where the bank stands over the water's

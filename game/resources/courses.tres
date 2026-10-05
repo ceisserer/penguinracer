@@ -564,6 +564,19 @@ preview_path = "res://courses/mountain_forest/preview.png"
 world_size = Vector2(100, 1500)
 base_angle = 22.04337153965418
 
+[sub_resource type="Resource" id="Resource_gyjxl"]
+script = ExtResource("1_s2u4s")
+dir = "snow_park"
+group = "penguinracer"
+display_name = "Snow Park"
+author = "PenguinRacer"
+description = "A terrain park on a sunny slope. Pop off the rollers, fly the table-tops or slide the boxes, carve the berms of the slalom, ride the walls of the half-pipe, hammer through the moguls and finish off the big jump. Herring hang in the air: catch them in flight."
+scene_path = "res://courses/snow_park/course.tscn"
+course_path = "res://courses/snow_park/course.tres"
+preview_path = "res://courses/snow_park/preview.png"
+world_size = Vector2(140, 1500)
+base_angle = 21.1363956850239
+
 [resource]
 script = ExtResource("2_wa64y")
-entries = Array[ExtResource("1_s2u4s")]([SubResource("Resource_k8xrn"), SubResource("Resource_s2u4s"), SubResource("Resource_1si8u"), SubResource("Resource_2xh36"), SubResource("Resource_ljwux"), SubResource("Resource_nqrw0"), SubResource("Resource_abstp"), SubResource("Resource_h22r6"), SubResource("Resource_5y6py"), SubResource("Resource_tbyfp"), SubResource("Resource_5alkf"), SubResource("Resource_jylk6"), SubResource("Resource_wcg11"), SubResource("Resource_s0adc"), SubResource("Resource_j20tb"), SubResource("Resource_0dp2e"), SubResource("Resource_p32hx"), SubResource("Resource_2wavp"), SubResource("Resource_kwhte"), SubResource("Resource_vlvu8"), SubResource("Resource_o88qk"), SubResource("Resource_r0pkn"), SubResource("Resource_pnmgb"), SubResource("Resource_2cmnn"), SubResource("Resource_vl7sq"), SubResource("Resource_wubfe"), SubResource("Resource_bwudr"), SubResource("Resource_p1rng"), SubResource("Resource_vdjme"), SubResource("Resource_bohym"), SubResource("Resource_532ie"), SubResource("Resource_f01o6"), SubResource("Resource_riq5t"), SubResource("Resource_ghhaf"), SubResource("Resource_h1ii4"), SubResource("Resource_c4vg4"), SubResource("Resource_rutcb"), SubResource("Resource_xttnp"), SubResource("Resource_y2enu"), SubResource("Resource_mo28k"), SubResource("Resource_usmiq"), SubResource("Resource_0o1n8"), SubResource("Resource_6i53w"), SubResource("Resource_1nb3a"), SubResource("Resource_wa64y"), SubResource("Resource_dhyg7")])
+entries = Array[ExtResource("1_s2u4s")]([SubResource("Resource_k8xrn"), SubResource("Resource_s2u4s"), SubResource("Resource_1si8u"), SubResource("Resource_2xh36"), SubResource("Resource_ljwux"), SubResource("Resource_nqrw0"), SubResource("Resource_abstp"), SubResource("Resource_h22r6"), SubResource("Resource_5y6py"), SubResource("Resource_tbyfp"), SubResource("Resource_5alkf"), SubResource("Resource_jylk6"), SubResource("Resource_wcg11"), SubResource("Resource_s0adc"), SubResource("Resource_j20tb"), SubResource("Resource_0dp2e"), SubResource("Resource_p32hx"), SubResource("Resource_2wavp"), SubResource("Resource_kwhte"), SubResource("Resource_vlvu8"), SubResource("Resource_o88qk"), SubResource("Resource_r0pkn"), SubResource("Resource_pnmgb"), SubResource("Resource_2cmnn"), SubResource("Resource_vl7sq"), SubResource("Resource_wubfe"), SubResource("Resource_bwudr"), SubResource("Resource_p1rng"), SubResource("Resource_vdjme"), SubResource("Resource_bohym"), SubResource("Resource_532ie"), SubResource("Resource_f01o6"), SubResource("Resource_riq5t"), SubResource("Resource_ghhaf"), SubResource("Resource_h1ii4"), SubResource("Resource_c4vg4"), SubResource("Resource_rutcb"), SubResource("Resource_xttnp"), SubResource("Resource_y2enu"), SubResource("Resource_mo28k"), SubResource("Resource_usmiq"), SubResource("Resource_0o1n8"), SubResource("Resource_6i53w"), SubResource("Resource_1nb3a"), SubResource("Resource_wa64y"), SubResource("Resource_dhyg7"), SubResource("Resource_gyjxl")])

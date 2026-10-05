@@ -3560,3 +3560,105 @@ play area, a player gets the play area and an opponent the trail, and an importe
 is its play area. The suite has the same three pre-existing failures. **Not looked at in a
 render**: no capture harness starts a racer off the trail, so how the edge of the world reads
 from 8 m inside it is unchecked.
+
+### A third course of our own: Snow Park (2026-10-05) · **done, not seen in a real browser or on a phone**
+
+**What.** **Snow Park** (`courses/snow_park/`), 1410 m to the finish down an open, sunny slope
+built as a terrain park — every feature relief in the heightmap, since that and upright
+cylinders are all the simulation knows, so a racer rides a kicker, a wall or a box exactly as it
+rides the slope. Top to bottom: **rollers** (eight, 1.1 m, 13 m apart: anything over ~8 m/s
+pops off the crests); a **jump line** — three table-tops of 1.3 / 2.0 / 2.8 m down the left half,
+25° lips, landings 12 m + 6 m per metre of height — beside a chicken line of three **fun boxes**
+(0.7 m, 2 m wide, glazed with `hockey_ice`); a **banked slalom**, four turns whose 9 m swing is
+wider than the 14 m run, a berm up to 2.4 m on the outside of each and a gate flag just past the
+inside edge; a **half-pipe**, 180 m, walls of 5.5 m radius to an 80° coping 4.5 m up, deck and
+outer bank, rising out of the run over 25 m; a **mogul field**; and the **big jump** — a 32°
+inrun, a 12° take-off table, the lip turned over 3 m onto a 37° landing hill, the outrun eased
+over 22 m. Herring hang on the flight's arc over every jump (collection is a 3D distance, so
+only a racer in the air takes them), along the boxes' tops, up the half-pipe's walls and on the
+berms. Beside it a **chairlift** climbs from a station below the finish to one beside the start:
+22 towers (taller where the cable would pass under 5 m over the ground), 44 cable spans and 153
+chairs; snowmen at each feature's gate and a big one past the finish, two igloos, 1500 conifers,
+boulders and shrubs, all outside the play area. Run `snow`, features `strike_snow`, `thin_snow`
+under the trees, `dirty_snow` round the lift's stations and towers. Alpine backdrop (1.6 tall,
+some forest, a little near).
+
+**How.** `tools/gen_snow_park.sh` → `addons/course_gen/gen_snow_park.gd`, the two stages of the
+other two. The fall line is sections each eased over its *own* length (Mountain Forest eases
+everything ±14 m, which would have rounded the big jump's lip away), integrated into the relief
+as there; the occlusion bake gets the relief without it. The trail (`CourseData.trail_bounds`)
+is the run, the play area 8 m wider. **`PropMesh` has six new kinds** — `SNOWMAN`, `IGLOO`,
+`LIFT_TOWER`, `LIFT_CABLE`, `LIFT_CHAIR`, `LIFT_STATION` — built in metres at
+`PropMesh.park_size` and shrunk into the unit box (`_to_unit`, normals by the inverse
+transpose), from new box / tube / ball helpers, drawn with `object_prop.gdshader`. The lift's
+parts are not collidable (a solid object takes a hashed yaw, which would twist a tower off its
+cable); cables and chairs stand in the air on their markers' Y and roll. **`tools/probe_course.sh`**
+(`tests/probe_course.gd`) is the headless probe the trap list kept asking for: one racer down a
+real course — the computer at any level, no hands, or a line held off an authored course's
+middle — through the course's grids, the bounds a race hands it, and the race's snow mirror,
+logging speed, flights, herring and hits.
+
+**Found on the way** (the trap list has the rules):
+- *Nothing is fast on snow without paddling* — no hands crawls at 3–6 m/s on 20–22°, Mountain
+  Forest too — and the course started at 19°, under snow's friction angle; it starts at 24° now.
+- *Without the snow mirror the probe raced another race*: packed snow is faster, and the hard
+  driver's 94 s became the capture's 71 s once the probe stamped and decayed a `SnowField` as
+  the race does. Every number here is with it.
+- The table-tops' first 17° lips at the 13–15 m/s racers bring kicked 9 m and landed on their
+  own tables; at 25° they fly 21–25 m, ~2.4 m up, onto the landings.
+- A 6 m slalom swing on an 18 m run let the hard driver go straight down the middle.
+- The piste's grooming ripple (±1.5°) threw a racer 20 m down the inrun at 25 m/s: the big
+  jump is clean from the inrun to the foot of the landing.
+- The run's polygon in 6 m pieces got no torches at all (`CourseLights` stands one per 22 m of
+  edge): it is 22 m pieces now, pulled in wherever one would cut a bend's inside.
+
+**Verified**: the suite — 7016 passed, 3 failed, the same three that fail on HEAD
+(`lighting/what project.godot ships`, `props/forest floor` ×2). `TestSnowPark`: catalog row, run
+narrower than the play area and lit (130 torches); on the real heightmap the fall line never
+climbs, the take-off table ~12°, the landing ~37°, the lip turning > 18° within a few metres,
+every roller, table, box (and its ice), berm (outside > 1.7 m over inside, no straight line
+through the slalom), the half-pipe's walls to the coping all along and gone at the ends, the
+moguls; the furniture's prefabs; every herring on the run, nothing solid within reach of the play
+area, a flag at every turn; ≥ 3 herring out of reach from the ground past every lip; every cable
+span joined to the next on a tower, ≥ 4 m over the ground, every chair hanging from a cable; and
+the hard driver down it with its snow mirror — finished, no hits, a flight > 30 m, herring.
+`TestProps` / `TestObjects` know the new kinds. `tools/probe_course.sh`: easy 132 s, medium 93 s
+(20 m off the big jump), hard 70 s (68 m, 8.6 m up, at 27 m/s), all without a hit; holding the
+table line, every herring of every arc. Renders down the whole course under Mobile (sunny and
+night) and the half-pipe under Compatibility; the preview is a capture of the half-pipe.
+**Not done**: a real browser, a phone, a frame-rate measurement (1500 trees and ~250 furniture
+instances, against Forest Trail's ~1500 trees and 1400 stone clusters), event/cup targets. The
+moguls read flat in a sunny frame; from high over the landing hill the valley mist shows as a
+grey band under the far ridges (the atmosphere's, not this course's).
+
+### Rocks and bark without a patchwork of triangles (2026-10-05) · **done, not seen in a real browser or on a phone**
+
+**What.** Close up, Mountain Forest's boulders were a patchwork of small light, dark and olive
+triangles. The same check over every prop found Forest Trail's fallen `log` drawn as a
+checkerboard of light and dark blocks, and the stump's bark as a set of flat planks.
+
+**Why.** Not the stretched-instance normal from 2026-09-30, which the shader still handles. This
+was the mesh itself. `PropMesh._rock` gave every one of the icosphere's 320 triangles its own
+random shade (×0.85–1.12) and its own random amount of moss, and a flat normal of its own, so each
+triangle drew differently from its neighbours. The log painted each bark patch by `(k + s) % 3`
+times a random shade, and the stump each patch by side times a random shade, with flat normals.
+
+**How.** A rock's colour is now one per corner, a function of where on the rock the corner is (a
+few long waves for the shade and for the moss, moss still heavier toward the ground), so the
+triangles meeting at a corner agree there (`_tri_shaded`). The faces the random cuts sliced flat
+stay flat with a hard edge, since they are what reads as fractured rock. The weathered surface
+between them is shaded smooth (`ROCK_SMOOTH_GROUP`). The log's bark is one colour down each side
+(`_bark_sides`, as the trunk already was), and so is the stump's, which is now shaded smooth
+round its girth like a log's (`BARK_SMOOTH_GROUP`). Its cut top stays flat. Only the meshes in
+`boulder`, `stones`, `log` and `stump.tres` were rebuilt, with their materials kept. The courses
+were not regenerated, and `lodged_log` is unchanged. The stone cluster is laid out differently,
+since the rock builder now draws other random numbers. The trunk, the igloo (a shade per block, on
+purpose), the snowman and the lift were checked and left alone.
+
+**Verified**: a throwaway probe (every prop kind as a stretched MultiMesh under a shadowed sun),
+before and after, Mobile, plus one boulder close up at about a chase camera's distance on Mobile
+and Compatibility: no triangles on the rock, the cut faces as flat planes, the log streaked along
+its length, the stump round. `TestProps._rock_is_not_a_patchwork`: one colour per corner, and
+most corners with one normal, on the boulder and the stones. It fails on the old per-face
+build. The suite: 7020 passed, the same three pre-existing failures. Not raced past in the game
+itself.

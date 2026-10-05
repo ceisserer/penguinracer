@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="ObjectPrefab" format=4]
+
+[ext_resource type="Shader" path="res://shaders/object_prop.gdshader" id="1_ww8kn"]
+[ext_resource type="Script" path="res://scripts/course/object_prefab.gd" id="2_hh32f"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_52v4i"]
+render_priority = 0
+shader = ExtResource("1_ww8kn")
+shader_parameter/etr_ambient = null
+shader_parameter/snow_cover = null
+shader_parameter/snow_patch_scale = null
+shader_parameter/snow_color = null
+shader_parameter/mottle = 0.0
+shader_parameter/mottle_scale = null
+shader_parameter/foot_drift = null
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_c8r1y"]
+_surfaces = [{
+"aabb": AABB(-0.5, -0.4330127, -0.5, 1, 0.8660254, 1),
+"attribute_data": PackedByteArray("BQYH/wUGB/8FBgf/BQYH/wUGB/8FBgf/BQYH/wUGB/8FBgf/BQYH/wUGB/8FBgf/BQYH/wUGB/8="),
+"format": 34359742479,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAAACAAMAAwACAAQAAwAEAAUABQAEAAYABQAGAAcABwAGAAgABwAIAAkACQAIAAoACQAKAAsACwAKAAwACwAMAA0A"),
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 14,
+"vertex_data": PackedByteArray("AAAAvwAAAAAAAAA/AAAAPwAAAAAAAAA/AAAAP9ez3b4AAIA+AAAAv9ez3b4AAIA+AAAAP9ez3b4AAIC+AAAAv9ez3b4AAIC+AAAAPzIxjaQAAAC/AAAAvzIxjaQAAAC/AAAAP9ez3T4AAIC+AAAAv9ez3T4AAIC+AAAAP9ez3T4AAIA+AAAAv9ez3T4AAIA+AAAAPzIxDSUAAAA/AAAAvzIxDSUAAAA//38lUf1CKYv/fyVR/UIpi/9/ZzuyJHaY/3/tIHkKpKvuoAAAtijCuma7AAART6atVusAACR88YtW6///G2jtgWa7//+yJHaY7qD//3kKpKv/fxDftijCuv9/l8QRT6at/3/ZrqppgJ7/f9muqmmAng==")
+}]
+
+[resource]
+script = ExtResource("2_hh32f")
+id = &"lift_cable"
+mesh = SubResource("ArrayMesh_c8r1y")
+material = SubResource("ShaderMaterial_52v4i")
+decorative = true

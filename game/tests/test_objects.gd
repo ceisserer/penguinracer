@@ -61,10 +61,11 @@ static func _load_all(t: TestCase) -> Dictionary[String, ObjectPrefab]:
 		if prefab != null:
 			out[String(prefab.id)] = prefab
 	# ETR's fourteen, plus the four solid props an authored course adds
-	# (`TestProps`) and Mountain Forest's lodged trunk and trunk collider
-	# (`TestMountainForest`).
-	t.ok(out.size() == 14 + TestProps.PROPS.size() + 2,
-		"fourteen object types, the props, the trunk and its collider (%d)" % out.size())
+	# (`TestProps`), Mountain Forest's lodged trunk and trunk collider
+	# (`TestMountainForest`) and Snow Park's furniture (`TestSnowPark`).
+	t.ok(out.size() == 14 + TestProps.PROPS.size() + 2 + TestSnowPark.FURNITURE.size(),
+		"fourteen object types, the props, the trunk and its collider, the park's furniture (%d)"
+		% out.size())
 	return out
 
 static func _trees_are_crossed_quads(t: TestCase,
@@ -75,8 +76,9 @@ static func _trees_are_crossed_quads(t: TestCase,
 		var prefab: ObjectPrefab = prefabs[id]
 		if not prefab.collidable or prefab.mesh == null:
 			continue
-		# A boulder or a stump is a real mesh, not ETR's cross — `TestProps`.
-		if TestProps.PROPS.has(id):
+		# A boulder or a stump is a real mesh, not ETR's cross — `TestProps` —
+		# and so are a snowman and an igloo (`TestSnowPark`).
+		if TestProps.PROPS.has(id) or TestSnowPark.FURNITURE.has(id):
 			continue
 		checked += 1
 		_assert_cross(t, prefab.mesh, id)

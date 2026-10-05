@@ -32,6 +32,7 @@ func _run() -> void:
 	TestForest.run(t)
 	TestProps.run(t)
 	TestMountainForest.run(t)
+	TestSnowPark.run(t)
 	TestTreeShadows.run(t)
 	TestContactOcclusion.run(t)
 	TestWater.run(t)

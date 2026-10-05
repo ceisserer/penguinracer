@@ -13,6 +13,7 @@ const GENERATOR := "res://addons/course_gen/gen_forest_trail.gd"
 
 static func run(t: TestCase) -> void:
 	_meshes_face_out(t)
+	_rock_is_not_a_patchwork(t)
 	_meshes_fill_the_unit_box(t)
 	_prefabs_are_on_disk(t)
 	_the_ground_normal(t)
@@ -25,10 +26,15 @@ static func run(t: TestCase) -> void:
 
 ## Every face wound so its normal points away from the mesh's middle — the
 ## winding is what the renderer culls on, and a rock turned inside out draws
-## only its far side.
+## only its far side. A lift tower, chair or station is an assembly of boxes
+## and tubes, each wound about its own middle ([method PropMesh._tri]), whose
+## faces point every way from the whole's: those are left out.
 static func _meshes_face_out(t: TestCase) -> void:
 	t.begin("props/faces point out")
 	for kind: int in PropMesh.Kind.values():
+		if kind in [PropMesh.Kind.LIFT_TOWER, PropMesh.Kind.LIFT_CHAIR,
+				PropMesh.Kind.LIFT_STATION]:
+			continue
 		var mesh: ArrayMesh = PropMesh.build(kind)
 		var arrays: Array = mesh.surface_get_arrays(0)
 		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
@@ -56,13 +62,63 @@ static func _meshes_face_out(t: TestCase) -> void:
 		t.ok(float(outward) / faces >= wanted,
 			"kind %d: %d of %d faces point away from its middle" % [kind, outward, faces])
 
+## A rock's triangles agree where they meet. Each used to get its own random
+## shade and moss, and its own flat normal, so a boulder close up was a
+## patchwork of small triangles (Mountain Forest, 2026-10-05). Now its colour
+## is one per corner, whatever triangle the corner is in, and only the flat
+## cuts keep a hard edge: most corners have one normal.
+static func _rock_is_not_a_patchwork(t: TestCase) -> void:
+	t.begin("props/rock is not a patchwork")
+	for kind: int in [PropMesh.Kind.BOULDER, PropMesh.Kind.STONES]:
+		var arrays: Array = PropMesh.build(kind).surface_get_arrays(0)
+		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+		var colours: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
+		# Corner position → the colours and normals drawn there.
+		var at: Dictionary = {}
+		for i: int in verts.size():
+			var key: Vector3i = Vector3i((verts[i] * 1e5).round())
+			if not at.has(key):
+				at[key] = [[], []]
+			at[key][0].push_back(colours[i])
+			at[key][1].push_back(normals[i])
+		var mixed_colour: int = 0
+		var one_normal: int = 0
+		for key: Vector3i in at:
+			var cs: Array = at[key][0]
+			for c: Color in cs:
+				if not c.is_equal_approx(cs[0]):
+					mixed_colour += 1
+					break
+			var ns: Array = at[key][1]
+			var same: bool = true
+			for n: Vector3 in ns:
+				same = same and n.dot(ns[0]) > 0.999
+			one_normal += 1 if same else 0
+		t.ok(mixed_colour == 0,
+			"kind %d: %d of %d corners have one colour per triangle" % [kind, mixed_colour, at.size()])
+		t.ok(float(one_normal) / at.size() >= 0.6,
+			"kind %d: %d of %d corners are shaded smooth" % [kind, one_normal, at.size()])
+
 ## Unit-sized, as the marker scale assumes: ±0.5 across and 1 up, and a little
 ## below 0 so it sits in the ground. A stump's roots and a log's branch stubs
-## are allowed past the box, by a fraction of the object.
+## are allowed past the box, by a fraction of the object. Snow Park's
+## furniture is built at its true size and shrunk into the box exactly; a
+## cable is centred on its axis and a chair hangs in the air, so only the rest
+## of it has to reach into the ground.
 static func _meshes_fill_the_unit_box(t: TestCase) -> void:
 	t.begin("props/unit box")
 	for kind: int in PropMesh.Kind.values():
 		var box: AABB = PropMesh.build(kind).get_aabb()
+		if kind >= PropMesh.Kind.SNOWMAN:
+			t.ok(box.position.x >= -0.5 - 1e-3 and box.end.x <= 0.5 + 1e-3
+				and box.position.z >= -0.5 - 1e-3 and box.end.z <= 0.5 + 1e-3
+				and box.end.y <= 1.0 + 1e-3 and box.end.y > 0.4,
+				"kind %d fits the unit box (%s)" % [kind, box])
+			if kind != PropMesh.Kind.LIFT_CABLE and kind != PropMesh.Kind.LIFT_CHAIR:
+				t.ok(box.position.y < 0.0 and box.position.y > -0.1,
+					"kind %d reaches a little into the ground (%s)" % [kind, box])
+			continue
 		t.ok(box.position.x >= -0.7 and box.end.x <= 0.7
 			and box.position.z >= -0.7 and box.end.z <= 0.7,
 			"kind %d is ±0.5 across (%s)" % [kind, box])
