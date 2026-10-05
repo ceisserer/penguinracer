@@ -176,7 +176,7 @@ static func current_physics_signature() -> String:
 		PhysConst.BRAKE_FORCE, PhysConst.MIN_TIME_STEP, PhysConst.MAX_TIME_STEP,
 		PhysConst.MAX_STEP_DIST, PhysConst.MAX_POS_ERR, PhysConst.MAX_VEL_ERR,
 		PhysConst.MAX_ROLL_ANGLE, PhysConst.BRAKING_ROLL_ANGLE, PhysConst.TUX_WIDTH,
-		WindField.FLIGHT_ACCEL_PER_SPEED,
+		WindField.FLIGHT_ACCEL_PER_SPEED, RacePhysics.WATER_DRAG, RacePhysics.WATER_FULL_DEPTH,
 	])
 	var text := PackedStringArray()
 	# `String.num` rather than a `%` format: GDScript's formatter has no `%g`,

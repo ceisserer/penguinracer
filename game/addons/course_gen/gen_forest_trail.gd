@@ -1,7 +1,9 @@
 ## Generates **Forest Trail**, a course authored for this project rather than
 ## imported from ETR: a narrow snowy trail winding down through a conifer
 ## forest, forking in the middle into two branches that run apart through the
-## trees and join again. A few patches of ice lie on it. The forest floor is
+## trees and join again. A few patches of ice lie on it, and four puddles of
+## meltwater: two reaching a third to a half of the way across it, two larger
+## ones in the forest beside it. The forest floor is
 ## conifer litter — a needle texture drawn here — with snow lying wherever the
 ## crowns leave a gap overhead, and boulders, stones, fallen logs and stumps on
 ## it.
@@ -30,7 +32,8 @@
 ## written to `res://resources/objects/` beside the imported prefabs. And the
 ## needle floor is a [TerrainLayer] of this course's own, `conifer_needles`,
 ## kept in the course's directory with its texture: `resources/terrain/` is
-## `terrains.lst`'s, record for record.
+## `terrains.lst`'s, record for record. The puddles are [member CourseData.water]
+## — ETR has no water at all; see [WaterRenderer].
 extends SceneTree
 
 const DIR := "forest_trail"
@@ -112,6 +115,10 @@ var _patch_noise := FastNoiseLite.new()
 var _density_noise := FastNoiseLite.new()
 ## One per ice patch: `{d, branch, u (offset in half-widths), a, b (half-axes)}`.
 var _ice: Array[Dictionary] = []
+## One per puddle: `{d, cx, cd (its centre, as x and distance down), along
+## (unit, in (x, d)), a, b (half-axes), depth, from, to (the rows it reaches)}`.
+## See [method _plan_puddles].
+var _puddles: Array[Dictionary] = []
 
 func _initialize() -> void:
 	var stage: String = "assets"
@@ -122,6 +129,7 @@ func _initialize() -> void:
 	_h = int(round(WORLD.y / CELL)) + 1
 	_setup_noise()
 	_plan_ice()
+	_plan_puddles()
 	DirAccess.make_dir_recursive_absolute(OUT)
 	var start: int = Time.get_ticks_msec()
 	if stage == "assets":
@@ -260,7 +268,196 @@ func _on_ice(x: float, z: float) -> bool:
 			return true
 	return false
 
+## The puddles, `[distance down, side, reach, kind]`. A trail puddle lies
+## against one edge of the trail (side -1 left, +1 right, as a racer facing
+## downhill sees it) and reaches [code]reach[/code] of the way across it — the
+## water's edge, not the basin's, which runs a little further; a forest puddle
+## lies beside the trail on that side, its near shore a metre or two into the
+## trees, larger and deeper. None in the fork, none near a kicker, and each
+## moves down the hill until it is clear of the ice.
+const PUDDLES: Array[Array] = [
+	[235.0, -1, 0.42, "trail"],
+	[455.0, 1, 0.0, "forest"],
+	[1185.0, -1, 0.0, "forest"],
+	[1395.0, 1, 0.4, "trail"],
+]
+## Metres a trail puddle's water runs on past the trail's edge, into the
+## litter and under the first trees.
+const PUDDLE_OVERHANG := 1.2
+## Metres the water's surface lies under the ground round it: the rim a puddle
+## sits in. Also the depth of basin that is still dry.
+const FREEBOARD := 0.03
+## Width of the band round a puddle, in its own radii, over which the ground
+## eases from the basin's rim back to the forest's relief.
+const PUDDLE_RIM := 1.0
+## Steepest a bank cut back to a puddle's rim may stand, rise over run.
+const PUDDLE_BANK := 0.5
+## How far a puddle's rim of ice reaches, in its radii: from the water's edge
+## (about 0.85) to here. Nothing is placed inside it.
+const PUDDLE_ICE := 1.2
+## How ragged a shore is, in radii.
+const SHORE_NOISE := 0.12
+
+func _plan_puddles() -> void:
+	for spec: Array in PUDDLES:
+		var d: float = spec[0]
+		var side: float = float(spec[1])
+		var trail: bool = spec[3] == "trail"
+		var a: float = 5.5 if trail else 7.5
+		var depth: float = 0.2 if trail else 0.3
+		while _ice_near(d, a + 6.0):
+			d += 15.0
+		var heading: float = centre_x(d + 0.5) - centre_x(d - 0.5)
+		var along: Vector2 = Vector2(heading, 1.0).normalized()
+		var across := Vector2(along.y, -along.x)
+		var hw: float = half_width(d)
+		# The water stands where the basin is deeper than FREEBOARD, inside
+		# about 0.85 of its radii. A trail puddle's water runs from
+		# PUDDLE_OVERHANG past the trail's edge to `reach` of the way across;
+		# a forest puddle's near shore is a metre and a half into the trees.
+		var b: float = 4.5
+		var off: float = hw + 1.5 + 0.85 * b
+		if trail:
+			b = (2.0 * hw * float(spec[2]) + PUDDLE_OVERHANG) / (2.0 * 0.85)
+			off = hw + PUDDLE_OVERHANG - 0.85 * b
+		var centre: Vector2 = Vector2(centre_x(d), d) + across * side * off
+		var reach: float = (a + b) * (1.0 + PUDDLE_RIM + SHORE_NOISE) + 1.0
+		_puddles.push_back({"d": d, "cx": centre.x, "cd": centre.y, "along": along,
+			"a": a, "b": b, "depth": depth, "trail": trail,
+			"from": centre.y - reach, "to": centre.y + reach})
+
+## Whether a patch of ice lies within [param margin] of [param d], on any branch.
+func _ice_near(d: float, margin: float) -> bool:
+	for spot: Dictionary in _ice:
+		if absf(float(spot["d"]) - d) < float(spot["a"]) + margin:
+			return true
+	return false
+
+## How far (x, z) is into the nearest puddle, in its radii: under 1 inside its
+## basin, ragged by the shore noise. [param grow] widens every puddle by that
+## many metres, for something with a footprint. INF far from any.
+func _puddle_q(x: float, z: float, grow: float = 0.0) -> float:
+	var d: float = -z
+	var best: float = INF
+	for p: Dictionary in _puddles:
+		if d < float(p["from"]) or d > float(p["to"]):
+			continue
+		var along: Vector2 = p["along"]
+		var off := Vector2(x - float(p["cx"]), d - float(p["cd"]))
+		var ea: float = off.dot(along) / (float(p["a"]) + grow)
+		var eb: float = off.dot(Vector2(along.y, -along.x)) / (float(p["b"]) + grow)
+		var q: float = sqrt(ea * ea + eb * eb) + _edge_noise.get_noise_2d(x * 1.3, z * 1.3) \
+			* SHORE_NOISE
+		best = minf(best, q)
+	return best
+
+## Whether something of radius [param r] standing at (x, z) would stand in a
+## puddle or on its rim of ice.
+func _in_puddle(x: float, z: float, r: float) -> bool:
+	return _puddle_q(x, z, r + 0.5) < PUDDLE_ICE
+
+## The ground and the water at a vertex whose undug relief is [param h].
+## Returns `(ground, signed water depth)` — [constant CourseData.NO_WATER] for
+## the depth away from every puddle, and the ground unchanged.
+##
+## [b]The water's level.[/b] It lies along the fall line, as the course's ice
+## does: the course is a tilted plane ([member CourseData.base_angle]), and a
+## level puddle on 19° would be a terrace cut a metre and a half into the
+## trail. A trail puddle's level follows the ground along its own long axis
+## and is flat across it, so it does not climb the trail's bank; a forest
+## puddle's follows the forest floor's slow swell, without its fine bumps.
+## Either way it stands [constant FREEBOARD] under that ground.
+##
+## [b]The ground.[/b] Inside the basin (`q < 1`) a smooth bowl, the
+## puddle's depth in the middle and easing up to the rim over three-quarters
+## of a radius, so a racer rolls in and out rather than over a step; a hollow
+## that was already lower is kept. Round it, over [constant PUDDLE_RIM] radii,
+## a rim that starts just above the water — the bank cut back to it where the
+## ground stood higher — and eases out to the forest floor. A vertex there is
+## written dry whatever it stands at: the shore is the basin's, and a dip in
+## the forest floor beside a puddle is not a pool.
+func _puddle_ground(x: float, z: float, h: float) -> Vector2:
+	var d: float = -z
+	for p: Dictionary in _puddles:
+		if d < float(p["from"]) or d > float(p["to"]):
+			continue
+		var along: Vector2 = p["along"]
+		var off := Vector2(x - float(p["cx"]), d - float(p["cd"]))
+		var a: float = float(p["a"])
+		var b: float = float(p["b"])
+		var ea: float = off.dot(along) / a
+		var eb: float = off.dot(Vector2(along.y, -along.x)) / b
+		var q: float = sqrt(ea * ea + eb * eb) + _edge_noise.get_noise_2d(x * 1.3, z * 1.3) \
+			* SHORE_NOISE
+		if q >= 1.0 + PUDDLE_RIM:
+			continue
+		var level: float
+		if bool(p["trail"]):
+			var axis: Vector2 = Vector2(float(p["cx"]), float(p["cd"])) + along * off.dot(along)
+			level = _smooth_ground(axis.x, -axis.y) - FREEBOARD
+		else:
+			level = _smooth_ground(x, z) - FREEBOARD
+		var rim: float = level + FREEBOARD
+		if q <= 1.0:
+			var ground: float = minf(h, rim - float(p["depth"]) * (1.0 - smoothstep(0.25, 1.0, q)))
+			return Vector2(ground, level - ground)
+		var t: float = smoothstep(1.0, 1.0 + PUDDLE_RIM, q)
+		var cut: float = minf(h, rim + PUDDLE_BANK * (q - 1.0) * b)
+		var ground: float = lerpf(maxf(cut, rim - 0.005), h, t)
+		return Vector2(ground, minf(level - ground, -0.01))
+	return Vector2(h, CourseData.NO_WATER)
+
 # ================================================================ assets
+
+## What the relief needs of the trail at one distance down, worked out once
+## per heightmap row rather than once per vertex.
+class _Row:
+	var cx := PackedFloat32Array([0.0, 0.0])
+	var hl := PackedFloat32Array([0.0, 0.0])
+	var kick := PackedFloat32Array([0.0, 0.0])
+
+## Fill [param row] for [param d] metres down.
+static func _row_at(row: _Row, d: float) -> void:
+	for b: int in BRANCHES:
+		row.cx[b] = centre_x(d, b)
+		row.hl[b] = lateral_half_width(d, b)
+		row.kick[b] = _kicker(d, b)
+
+## The ground at (x, z) before any puddle is dug into it, as `(height, the
+## forest floor's fine bumps in it, distance from the trail's centre in its
+## half-widths)`. [param row] is [method _row_at] the same distance down.
+func _relief(x: float, z: float, row: _Row) -> Vector3:
+	var e: float = INF
+	var beyond: float = INF
+	var on_trail: float = 0.0
+	var jump: float = 0.0
+	for b: int in BRANCHES:
+		var across: float = absf(x - row.cx[b])
+		var eb: float = across / row.hl[b]
+		e = minf(e, eb)
+		beyond = minf(beyond, across - row.hl[b])
+		var on_b: float = 1.0 - smoothstep(0.8, 1.5, eb)
+		on_trail = maxf(on_trail, on_b)
+		jump = maxf(jump, row.kick[b] * on_b)
+	# The trail runs in a shallow trough, and the forest climbs gently
+	# away from it — its banks are what a racer carves against, and
+	# the island between the branches is a low hill.
+	var h: float = -0.9 * (1.0 - smoothstep(0.6, 1.7, e))
+	h += clampf(beyond * 0.05, 0.0, 2.5)
+	var rolling: float = _relief_noise.get_noise_2d(x, z) * 1.8
+	h += rolling * lerpf(1.0, 0.3, on_trail)
+	var fine: float = _fine_noise.get_noise_2d(x, z) * 0.3 * (1.0 - on_trail)
+	h += fine
+	h += jump
+	return Vector3(h, fine, e)
+
+## The ground at (x, z) without the forest floor's fine bumps: what a puddle's
+## water level follows.
+func _smooth_ground(x: float, z: float) -> float:
+	var row := _Row.new()
+	_row_at(row, -z)
+	var r: Vector3 = _relief(x, z, row)
+	return r.x - r.y
 
 func _write_assets() -> void:
 	var heights := PackedFloat32Array()
@@ -268,44 +465,25 @@ func _write_assets() -> void:
 	# Per vertex: distance from the nearest branch's centre in its half-widths.
 	var trail_e := PackedFloat32Array()
 	trail_e.resize(_w * _h)
-	var cx := PackedFloat32Array([0.0, 0.0])
-	var hl := PackedFloat32Array([0.0, 0.0])
-	var kick := PackedFloat32Array([0.0, 0.0])
+	# Per vertex: the water over the ground, signed — [member CourseData.water].
+	var water := PackedFloat32Array()
+	water.resize(_w * _h)
+	var row := _Row.new()
 	for gy: int in _h:
 		var z: float = -float(gy) * CELL
-		var d: float = -z
-		for b: int in BRANCHES:
-			cx[b] = centre_x(d, b)
-			hl[b] = lateral_half_width(d, b)
-			kick[b] = _kicker(d, b)
+		_row_at(row, -z)
 		for gx: int in _w:
 			var x: float = float(gx) * CELL
-			var e: float = INF
-			var beyond: float = INF
-			var on_trail: float = 0.0
-			var jump: float = 0.0
-			for b: int in BRANCHES:
-				var across: float = absf(x - cx[b])
-				var eb: float = across / hl[b]
-				e = minf(e, eb)
-				beyond = minf(beyond, across - hl[b])
-				var on_b: float = 1.0 - smoothstep(0.8, 1.5, eb)
-				on_trail = maxf(on_trail, on_b)
-				jump = maxf(jump, kick[b] * on_b)
-			# The trail runs in a shallow trough, and the forest climbs gently
-			# away from it — its banks are what a racer carves against, and
-			# the island between the branches is a low hill.
-			var h: float = -0.9 * (1.0 - smoothstep(0.6, 1.7, e))
-			h += clampf(beyond * 0.05, 0.0, 2.5)
-			var rolling: float = _relief_noise.get_noise_2d(x, z) * 1.8
-			h += rolling * lerpf(1.0, 0.3, on_trail)
-			h += _fine_noise.get_noise_2d(x, z) * 0.3 * (1.0 - on_trail)
-			h += jump
-			heights[gy * _w + gx] = h
-			trail_e[gy * _w + gx] = e
+			var r: Vector3 = _relief(x, z, row)
+			var wet: Vector2 = _puddle_ground(x, z, r.x)
+			heights[gy * _w + gx] = wet.x
+			water[gy * _w + gx] = wet.y
+			trail_e[gy * _w + gx] = r.z
 
 	var himg: Image = ETRImport.heights_to_image(heights, _w, _h)
 	ResourceSaver.save(himg, OUT.path_join("heightmap.res"))
+	ResourceSaver.save(ETRImport.heights_to_image(water, _w, _h), OUT.path_join("water.res"),
+		ResourceSaver.FLAG_COMPRESS)
 	var ao: Image = TerrainOcclusion.bake(heights, _w, _h, WORLD, 2)
 	ResourceSaver.save(ao, OUT.path_join("ambient_occlusion.res"), ResourceSaver.FLAG_COMPRESS)
 
@@ -318,7 +496,8 @@ func _write_assets() -> void:
 		var z: float = -float(gy) * CELL
 		for gx: int in _w:
 			var x: float = float(gx) * CELL
-			index[gy * _w + gx] = _material(x, z, trail_e[gy * _w + gx], canopy)
+			index[gy * _w + gx] = _material(x, z, trail_e[gy * _w + gx], water[gy * _w + gx],
+				canopy)
 
 	var share := PackedInt32Array()
 	share.resize(LAYERS.size())
@@ -338,13 +517,22 @@ func _write_assets() -> void:
 	if not FileAccess.file_exists(preview):
 		_preview(index).save_png(preview)
 	_write_prop_prefabs()
-	print("  heightmap %dx%d, %d ice patches" % [_w, _h, _ice.size()])
+	print("  heightmap %dx%d, %d ice patches, %d puddles" % [_w, _h, _ice.size(),
+		_puddles.size()])
 
 ## Which terrain (x, z) is: snow on the trail, snow-dusted litter along its
-## edge, ice in the patches; in the forest, needle litter under the crowns and
+## edge, ice in the patches, earth under the puddles' water and ice round it;
+## in the forest, needle litter
+## under the crowns and
 ## snow in the gaps between them, with a dusting where a crown only half
 ## covers the ground, and here and there bare earth.
-func _material(x: float, z: float, e: float, canopy: _Canopy) -> int:
+func _material(x: float, z: float, e: float, water: float, canopy: _Canopy) -> int:
+	# Under the water, earth; round it, a rim of ice — the meltwater that
+	# froze where it was shallowest.
+	if water > 0.0:
+		return L_DIRT
+	if _puddle_q(x, z) < PUDDLE_ICE:
+		return L_ICE
 	var edge: float = e + _edge_noise.get_noise_2d(x, z) * 0.18
 	if edge < 0.8 and _on_ice(x, z):
 		return L_ICE
@@ -447,6 +635,7 @@ func _write_resources() -> void:
 	course.heightmap_size = Vector2i(_w, _h)
 	course.heightmap = load(OUT.path_join("heightmap.res"))
 	course.ambient_occlusion = load(OUT.path_join("ambient_occlusion.res"))
+	course.water = load(OUT.path_join("water.res"))
 	course.preview = load(OUT.path_join("preview.png"))
 	var layers: Array[TerrainLayer] = []
 	_write_needles_layer()
@@ -527,7 +716,9 @@ func _corridor() -> PackedVector2Array:
 const TORCH_CLEARING := 3.5
 
 ## Everything that stands on the course, as `{type: [[x, z, scale, yaw], …]}`.
-## Props first, so the trees make room for them.
+## Props first, so the trees make room for them. Nothing stands in a puddle:
+## a placement that would is dropped, keeping its footprint and its draws, so
+## the rest of the forest stands where it stood before there were puddles.
 func _place_objects(course: CourseData) -> Dictionary[String, Array]:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = SEED + 200
@@ -599,7 +790,8 @@ func _place_objects(course: CourseData) -> Dictionary[String, Array]:
 				if x > 1.0 and x < WORLD.x - 1.0 \
 						and beyond_edge(x, z) > 0.3 + diam * 0.5 \
 						and taken.is_free(x, z, diam * 0.3):
-					out["tree"].push_back([x, z, Vector3(diam, height, diam), 0.0])
+					if not _in_puddle(x, z, diam * 0.2):
+						out["tree"].push_back([x, z, Vector3(diam, height, diam), 0.0])
 					taken.add(x, z, diam * 0.3)
 		d += rng.randf_range(3.5, 6.0) / TREE_LINE_DENSITY
 
@@ -617,7 +809,8 @@ func _place_objects(course: CourseData) -> Dictionary[String, Array]:
 			if rng.randf() > 0.3 + dense \
 					and beyond_edge(x, z) > 0.3 + diam * 0.5 \
 					and taken.is_free(x, z, diam * 0.3):
-				out["tree"].push_back([x, z, Vector3(diam, height, diam), 0.0])
+				if not _in_puddle(x, z, diam * 0.2):
+					out["tree"].push_back([x, z, Vector3(diam, height, diam), 0.0])
 				taken.add(x, z, diam * 0.3)
 			gx += tree_step
 		gz += tree_step
@@ -632,7 +825,8 @@ func _place_objects(course: CourseData) -> Dictionary[String, Array]:
 		var z: float = -rng.randf_range(1.0, WORLD.y - 1.0)
 		var s: Vector3 = shrub_size.call()
 		if beyond_edge(x, z) > 0.4 + s.x * 0.5 and taken.is_free(x, z, s.x * 0.45):
-			out["shrub"].push_back([x, z, s, 0.0])
+			if not _in_puddle(x, z, s.x * 0.4):
+				out["shrub"].push_back([x, z, s, 0.0])
 			taken.add(x, z, s.x * 0.45)
 	d = 30.0
 	while SHRUB_DENSITY > 0.0 and d < WORLD.y - 10.0:
@@ -644,7 +838,8 @@ func _place_objects(course: CourseData) -> Dictionary[String, Array]:
 			var x: float = centre_x(d, b) + side * (lateral_half_width(d, b)
 				+ s.x * 0.5 + rng.randf_range(0.6, 2.5))
 			if beyond_edge(x, -d) > 0.4 + s.x * 0.5 and taken.is_free(x, -d, s.x * 0.45):
-				out["shrub"].push_back([x, -d, s, 0.0])
+				if not _in_puddle(x, -d, s.x * 0.4):
+					out["shrub"].push_back([x, -d, s, 0.0])
 				taken.add(x, -d, s.x * 0.45)
 		d += rng.randf_range(5.0, 11.0) / SHRUB_DENSITY
 	for t: String in out:
@@ -671,7 +866,12 @@ func _scatter(rng: RandomNumberGenerator, into: Array, taken: CourseGenKit.Occup
 		if x < 1.0 or x > WORLD.x - 1.0:
 			continue
 		if beyond_edge(x, z) > margin + r and taken.is_free(x, z, r):
-			into.push_back([x, z, s, rng.randf() * TAU])
+			# Refused for a puddle as a placement is everywhere here: the yaw
+			# is still drawn and the footprint kept, so nothing else moves
+			# (the trap list's shared random stream).
+			var yaw: float = rng.randf() * TAU
+			if not _in_puddle(x, z, r):
+				into.push_back([x, z, s, yaw])
 			taken.add(x, z, r)
 
 ## Fallen logs, lying roughly across the fall line; both ends and the middle
@@ -702,6 +902,10 @@ func _scatter_logs(rng: RandomNumberGenerator, into: Array, taken: CourseGenKit.
 				and taken.is_free(px, pz, thick)
 		if not ok:
 			continue
-		into.push_back([x, z, Vector3(length, thick, thick), yaw])
+		var dry: bool = true
+		for t: float in [-1.0, -0.5, 0.0, 0.5, 1.0]:
+			dry = dry and not _in_puddle(x + half.x * t, z + half.y * t, thick)
+		if dry:
+			into.push_back([x, z, Vector3(length, thick, thick), yaw])
 		for t: float in [-1.0, -0.5, 0.0, 0.5, 1.0]:
 			taken.add(x + half.x * t, z + half.y * t, thick)

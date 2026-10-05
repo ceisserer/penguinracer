@@ -182,6 +182,18 @@ const FIN_AIR_BRAKE := 20.0
 ## exit gave it for free.
 const FINISH_STOP_SPEED := 3.0
 
+# --- water (DEVIATION; see calc_water_force) ---
+
+## Per metre: the share of its speed a racer wading at full depth loses for
+## every metre of water it ploughs through, before gravity gives any back. The
+## drag is quadratic, `a = WATER_DRAG · v²`, which makes the loss over a
+## distance independent of speed — 0.04 is a quarter of it across seven metres
+## of puddle, at any speed: a puddle is a thing to steer round, not a wall.
+const WATER_DRAG := 0.04
+## Metres of water at which the drag is whole. A penguin's belly is about this
+## deep, so shallower water drags in proportion and deeper water no harder.
+const WATER_FULL_DEPTH := 0.12
+
 # ====================================================================
 #                              setup
 # ====================================================================
@@ -452,9 +464,27 @@ func calc_net_force(p: Vector3, v: Vector3) -> Vector3:
 	var airforce: Vector3 = calc_air_force()
 	var paddleforce: Vector3 = calc_paddle_force(speed)
 	var windforce: Vector3 = calc_flight_wind_force()
+	var waterforce: Vector3 = calc_water_force(p, v, speed)
 
 	return jumpforce + gravforce + nmlforce + frictforce + airforce + brakeforce + paddleforce \
-		+ windforce
+		+ windforce + waterforce
+
+## DEVIATION: ETR has no water. A racer ploughing through a puddle is slowed by
+## a drag quadratic in its speed and in proportion to how deep it is wading
+## ([constant WATER_DRAG], [constant WATER_FULL_DEPTH]): the point mass's depth
+## under the water's surface, which is the ground plus [member
+## SurfaceSample.water_depth]. So a racer that jumps a puddle, or flies over
+## it, loses nothing. Zero — and the sum above bit-identical to ETR's — on
+## every course without water.
+func calc_water_force(p: Vector3, v: Vector3, speed: float) -> Vector3:
+	if _sample.water_depth <= 0.0 or speed < 1e-9:
+		return Vector3.ZERO
+	var immersion: float = clampf(_sample.height + _sample.water_depth - p.y, 0.0,
+		_sample.water_depth)
+	var wade: float = minf(immersion / WATER_FULL_DEPTH, 1.0)
+	if wade <= 0.0:
+		return Vector3.ZERO
+	return -(PhysConst.TUX_MASS * WATER_DRAG * wade * speed) * v
 
 ## DEVIATION: the course screen's crosswind pushes a racer only while airborne
 ## — see [method WindField.flight_force]. ETR's wind goes through

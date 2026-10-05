@@ -53,7 +53,10 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           TreeShadowBake (the trees' shadows in the terrain, per sun),
                           ContactOcclusion (the sky trees and props take from the
                           ground round them, into the terrain's AO, per course),
-                          PropMesh (boulder, stones, log, stump: procedural solid props)
+                          PropMesh (boulder, stones, log, stump: procedural solid props),
+                          WaterRenderer (a course's puddles: their surface, the wind's
+                          waves, the racers' wakes) + WaterSplash (what a wading racer
+                          throws up)
   scripts/camera/         chase camera
   scripts/shell/          main/course/settings menus, HUD, LobbyMenu (connect → browse → room,
                           own CourseMenu instance), LoadingScreen (shared by menu and race),
@@ -84,7 +87,7 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           object_prop (PropMesh's boulders, stones, logs, stumps),
                           conifer + conifer_impostor (all three species; + conifer.gdshaderinc:
                           LOD fade, sway, snow, twig alpha), conifer_bake, snow_trail, snow_flakes, lens_snow, lens_flare, sun_shafts, motion_blur, menu_snow,
-                          s1_displace, torch_flame, etr_illumination.gdshaderinc (ETR's
+                          s1_displace, torch_flame, water (the puddles), etr_illumination.gdshaderinc (ETR's
                           sum-then-clamp, included by everything lit), atmosphere.gdshaderinc
                           (sky gradient, ridges, the `FOG` every lit shader writes, torchlight)
   addons/etr_import/      one-way, re-runnable importer from the ETR data tree
@@ -92,7 +95,7 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           CourseGenKit, what they share — the importer's output shape, never
                           visited by the importer; CliffBuilder (a rock face over a wall)
   courses/<name>/         GENERATED: course.tres, course.tscn, heightmap.res,
-                          ambient_occlusion.res, splat_*.png, cliffs.res (44 by the importer,
+                          ambient_occlusion.res, splat_*.png, cliffs.res, water.res (44 by the importer,
                           forest_trail and mountain_forest by tools/gen_<name>.sh)
   resources/  i18n/       GENERATED: layers, prefabs, environments, events, course + character
                           catalogs, five rigs + previews, sound bank, music, 13 translations
@@ -245,8 +248,8 @@ Detail is in `PROGRESS.md`; this is the summary.
 | Area | State |
 |---|---|
 | 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 4724 assertions, 0 failures, 13 s headless. |
-| 1 — importer + first course | **done** — 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. Plus two authored courses, Forest Trail and Mountain Forest (`addons/course_gen/`), with six prop prefabs of their own (one only a collider). |
-| 2 — rendering | partial — Mobile on the desktop, Compatibility on the web (trap list: *sRGB-blended shadow pass*). ETR's illumination clamp in every lit shader except the character's; desktop-only PSSM shadow, the trees' shadows baked into the terrain's vertex colour on the web and by choice on the desktop (`TreeShadowBake`). Splat PBR, chunked terrain, instanced objects (conifers, bare trees and shrubs are 3D meshes at 3 LODs + an octahedral impostor, dithered hand-overs, wind sway, shader snow — [Forest]; anything else collidable is ETR's two crossed planes with a hashed yaw; items are billboards), ETR's HUD redrawn as primitives ([RaceHUD]), migrated skyboxes. Tone matched on Bunny Hill at both ends in all three channels; no LightmapGI. Snow/ice micro-relief, glint, rock detail texture, Fresnel sky, ice reflecting the racers (`IceReflection`) and, as a setting, the hill round them (`IceEnvironment`), textured carve spray, camera motion blur as a setting (`MotionBlur`, Best only). Heightmap AO baked at import, objects' contact AO baked over it at load (`ContactOcclusion`) + trench-wall AO; shaded/occluded/carved snow tinted blue (fake SSS). |
+| 1 — importer + first course | **done** — 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. Plus two authored courses, Forest Trail and Mountain Forest (`addons/course_gen/`), with six prop prefabs of their own (one only a collider); Forest Trail has four puddles (`CourseData.water`). |
+| 2 — rendering | partial — Mobile on the desktop, Compatibility on the web (trap list: *sRGB-blended shadow pass*). ETR's illumination clamp in every lit shader except the character's; desktop-only PSSM shadow, the trees' shadows baked into the terrain's vertex colour on the web and by choice on the desktop (`TreeShadowBake`). Splat PBR, chunked terrain, instanced objects (conifers, bare trees and shrubs are 3D meshes at 3 LODs + an octahedral impostor, dithered hand-overs, wind sway, shader snow — [Forest]; anything else collidable is ETR's two crossed planes with a hashed yaw; items are billboards), ETR's HUD redrawn as primitives ([RaceHUD]), migrated skyboxes. Tone matched on Bunny Hill at both ends in all three channels; no LightmapGI. Snow/ice micro-relief, glint, rock detail texture, Fresnel sky, ice reflecting the racers (`IceReflection`) and, as a setting, the hill round them (`IceEnvironment`), textured carve spray, camera motion blur as a setting (`MotionBlur`, Best only), standing water (`WaterRenderer`: the ice's reflection, the wind's waves, wakes and splash; it drags the racer). Heightmap AO baked at import, objects' contact AO baked over it at load (`ContactOcclusion`) + trench-wall AO; shaded/occluded/carved snow tinted blue (fake SSS). |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror; a carve leaves a shaded trench with a ploughed lip. |
 | 4 — character | **done for all five** — skinned mesh from `shape.lst`, keyframe clips as `AnimationLibrary` + `KeyframePath` root motion, start animation (`CIntro`), finish clips on the results screen (`RaceOutcome.clip`), racing pose layer (`CharacterRig.adjust_joints`, ETR's `AdjustJoints`) driven off `RacerState` alone so ghosts and peers animate. `GameConfig.character` picks one. |
 | 5 — game shell | partial — main menu → Practice / Race the computer / Network multiplayer / Race against ghost / character / Configuration; results screen with named runs; ETR palette theme; course + character catalogs (course list in four parts: Tux Racer, ETR, PenguinRacer's own, added by address); English + German, detected or chosen on the settings screen; audio (`AudioDirector`, ETR's one-voice-per-cue mixer). Missing: cups, medals, profiles (data imported), volume controls, ETR's menu art (licence audit). |
@@ -874,6 +877,9 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   `TestCamera._fly` measures over the airborne window.
 - **Don't slerp the chase camera's orientation** — interpolate position and aim point, rebuild the
   basis against world up.
+- **A 20° slope at friction 0.35 is at its friction equilibrium** (tan 20° = 0.36):
+  `SlopeFixture.flat_slope(20.0)` with no input creeps at 2.8 m/s for ever. Test anything that
+  depends on speed (`TestWater`'s drag) on 25° or more.
 - **`RacePhysics` ignores an analogue stick under 0.2**, silently falling through to the digital
   flags. `AIInputSource.stick_for` maps corrections into [`MIN_EFFECTIVE_STICK`, 1.0]. (history §21)
 - **A velocity-only contact settles inside the contact distance** (0.57 of 0.6 m). Assert
@@ -1066,12 +1072,40 @@ the whole sky to cyan-white, against which no disc can show. The fog
   (*PenguinRacer*, `CourseListing.Category.PENGUINRACER`), each from a generator in
   `addons/course_gen/` sharing `CourseGenKit`. **Forest Trail** (`gen_forest_trail.gd`): a narrow
   trail that forks into two branches and rejoins, a drawn conifer-needle floor with snow where the
-  crowns leave gaps (the forest is planted before the ground is painted), and the props below.
+  crowns leave gaps (the forest is planted before the ground is painted), the props below, and
+  four puddles of meltwater: two reaching 35–45 % of the way across the trail from one edge
+  (235 m, 1395 m), two larger ones in the trees beside it (455 m, 1230 m), each a smooth basin
+  0.2–0.3 m deep: earth (`dirt`, which keeps no track and plays `mud_sound`) wherever the water
+  covers it and a rim of ice (`ice1`) round it, out to 1.2 of its radii. Nothing is placed in a
+  puddle or on its rim; a refused placement keeps its draws and footprint, so the rest of the forest stands
+  where it stood.
   **Mountain Forest** (`gen_mountain_forest.gd`): a narrower trail down a gully whose walls climb
   14–30 m, a fall line of chutes (24–31°) and benches (12–14°) eased into each other, two slots
   with a trunk lodged overhead, eight bumps and two kickers, three boulders and four fallen
   trunks on the trail, a pile of stones beside it halfway down, bare ice on the walls (nothing
   stands on it), and a near, wooded skyline (below).
+- **There is water** (`CourseData.water`, `WaterRenderer`, `water.gdshader`); ETR has none.
+  A course carries it as a signed depth per heightmap vertex (FORMAT_RF, `water.res`): metres
+  of water over the ground where it is wet, negative where the bank stands over the water's
+  level, `CourseData.NO_WATER` away from any puddle. **The shoreline is where the bilinear value
+  crosses zero, and everybody reads the same grid**: the physics (`HeightmapSurface.water_depth_at`,
+  `SurfaceSample.water_depth`), the AI, the torches (none stands in a puddle) and the mesh. The
+  surface is the cells the water touches cut 3×3 (17 cm), stood at ground + signed depth — under
+  the bank where it is dry, so the depth test cuts the shore — in 16 m tiles, built at load
+  (~85 ms on Forest Trail, 22 700 triangles). **It lies along the fall line**, as the course's
+  ice does: the course is a tilted plane, and a level puddle on 19° would be a terrace cut a metre
+  and a half into the trail. Shaded as the ice is — the same sky ramp, world probe
+  (`IceEnvironment` now runs for water too) and mirrored racers, from the same uniforms, which
+  `TerrainRenderer`'s setters hand both materials — with Fresnel a *split* of the light between
+  the mirror and the murk, transparent (`blend_mix`, the water's share divided by α so the ground
+  shows through by depth, every divided term ≤ 1 so an 8-bit target loses nothing). Moving: five
+  wave trains by `WindField` (none: a mirror; light: millimetres; strong: up to ~1.5 cm, patchy),
+  a ring per drop laid every 0.3–1.5 m behind every wading racer (32 in a ring buffer), and a
+  trough and bow wave under up to four bodies; all of it from `RacerState`s, so a ghost and a
+  peer wade too. `WaterSplash`: two rate-driven sheets of drawn droplets and a crown of the
+  spray's puffs, per racer that has been in water; the snow spray and the trench stop in it.
+  **Drawn after `MotionBlur`**, as everything transparent is (trap list), so a puddle stays sharp
+  under the smear.
 - **Steep faces are textured from the side** (`terrain.gdshader`'s `Steep_Mapping` group), where
   ETR projects every photograph straight down — 2.4x stretched down a 65° bank, 3.2x down a slot's
   72° wall. Past |n.y| 0.85 (~32°) a non-snow layer is also read on the ZY and XY planes, weighted
@@ -1218,6 +1252,11 @@ the whole sky to cyan-white, against which no disc can show. The fog
   accepted step). Both of these bought the S2 headroom — keep them.
 - **Packed snow lowers friction** (ice 0.2 fast … rock 0.7 slow), so a trench is faster and lines
   matter. Both coefficients are exported.
+- **Water drags** (`RacePhysics.calc_water_force`): `a = WATER_DRAG · v²` (0.04 /m) times how
+  deep the point mass is under the water's surface over `WATER_FULL_DEPTH` (0.12 m), so a puddle
+  takes the same share of speed at any speed — a quarter over seven metres — and a racer flying
+  over one loses nothing. Zero, and the force sum bit-identical, on every course without water.
+  Both constants are in the recording's physics signature.
 - **The finish keeps real gravity** instead of the flat 500 N hack, with ETR's `speed < 3` exit
   ported as `RacePhysics.FINISH_STOP_SPEED` (trap list).
 - **The simulation runs on a fixed 60 Hz tick**; ETR steps with frame time. Ghosts and peers need
@@ -1234,6 +1273,9 @@ the whole sky to cyan-white, against which no disc can show. The fog
 - **There are computer opponents**; ETR races the clock. Skill (`AISkill`) moves habits only —
   lookahead, reaction, nerve, paddling, tree clearance, weave — never the 20 kg point mass or the
   §4.1 forces.
+- **An opponent steers round water**: five taps along a candidate line, `WATER_COST` per metre of
+  depth times `line_greed` — a hard opponent avoids a puddle, an easy one ploughs through. Only on
+  a course that has water, so every other course plans exactly as before.
 - **An opponent is told where the other racers are**, via the same `RacerField` the simulation
   bounces off. The racer penalty is soft and much weaker than a tree's.
 - **Racers collide, each resolving it for itself**: `RacePhysics._adjust_racer_collision` is the

@@ -31,6 +31,10 @@ var stream_radius: float = 400.0
 var ice_environment: bool = false
 
 var _material: ShaderMaterial
+## The course's standing water, or null on a dry course — every imported one.
+## Built by [method setup]; everything the ice is told below it is told too,
+## since it reflects the same sky, world and racers.
+var water: WaterRenderer
 ## [member CourseData.ambient_occlusion]'s bytes, one per heightmap vertex —
 ## with the objects' contact occlusion taken off them when [method setup] was
 ## handed it — or empty for a course imported before it existed.
@@ -87,6 +91,11 @@ func setup(p_course: CourseData, p_surface: HeightmapSurface,
 		for q: int in course.cliffs.holes:
 			_holes[q] = 1
 	_build_cliffs()
+	if surface.has_water():
+		water = WaterRenderer.new()
+		water.name = "Water"
+		add_child(water)
+		water.setup(course, surface)
 
 func _build_material() -> ShaderMaterial:
 	var mat := ShaderMaterial.new()
@@ -222,9 +231,10 @@ static func _set_layer_table(mat: ShaderMaterial, name: String, v: Array) -> voi
 func set_sky_tint(zenith: Color, horizon: Color, distant: Color) -> void:
 	if _material == null:
 		return
-	_material.set_shader_parameter("sky_zenith", zenith)
-	_material.set_shader_parameter("sky_horizon", horizon)
-	_material.set_shader_parameter("ice_distant_tint", distant)
+	for mat: ShaderMaterial in _materials():
+		mat.set_shader_parameter("sky_zenith", zenith)
+		mat.set_shader_parameter("sky_horizon", horizon)
+		mat.set_shader_parameter("ice_distant_tint", distant)
 
 ## Hand the terrain the environment's ambient, in the linear units the shader
 ## works in.
@@ -240,7 +250,15 @@ func set_sky_tint(zenith: Color, horizon: Color, distant: Color) -> void:
 func set_ambient(ambient: Vector3) -> void:
 	if _material == null:
 		return
-	_material.set_shader_parameter("etr_ambient", ambient)
+	for mat: ShaderMaterial in _materials():
+		mat.set_shader_parameter("etr_ambient", ambient)
+
+## The terrain's material and the water's, which share the ice's uniforms.
+func _materials() -> Array[ShaderMaterial]:
+	var out: Array[ShaderMaterial] = [_material]
+	if water != null and water.material != null:
+		out.push_back(water.material)
+	return out
 
 ## Point the ice at the mirror [IceReflection] just rendered, and tell it which
 ## plane that mirror is only true on.
@@ -259,14 +277,15 @@ func set_character_reflection(tex: Texture2D, plane_point: Vector3,
 		attachment: float = 1.0) -> void:
 	if _material == null:
 		return
-	_material.set_shader_parameter("character_reflection_enabled", tex != null)
-	_material.set_shader_parameter("character_reflection", tex)
-	if tex == null:
-		return
-	_material.set_shader_parameter("reflection_plane_point", plane_point)
-	_material.set_shader_parameter("reflection_plane_normal", plane_normal)
-	_material.set_shader_parameter("reflection_fade_distance", fade_distance)
-	_material.set_shader_parameter("character_reflection_attachment", attachment)
+	for mat: ShaderMaterial in _materials():
+		mat.set_shader_parameter("character_reflection_enabled", tex != null)
+		mat.set_shader_parameter("character_reflection", tex)
+		if tex == null:
+			continue
+		mat.set_shader_parameter("reflection_plane_point", plane_point)
+		mat.set_shader_parameter("reflection_plane_normal", plane_normal)
+		mat.set_shader_parameter("reflection_fade_distance", fade_distance)
+		mat.set_shader_parameter("character_reflection_attachment", attachment)
 
 const SHADER_PATH := "res://shaders/terrain.gdshader"
 static var _ice_env_shader: Shader
@@ -298,13 +317,14 @@ func set_ice_environment(atlas: Texture2D, origin: Vector3, radius: float,
 	if _material == null:
 		return
 	var on: bool = atlas != null and strength > 0.0
-	_material.set_shader_parameter("ice_env_strength", strength if on else 0.0)
-	if not on:
-		return
-	_material.set_shader_parameter("ice_env_atlas", atlas)
-	_material.set_shader_parameter("ice_env_origin", origin)
-	_material.set_shader_parameter("ice_env_radius", radius)
-	_material.set_shader_parameter("ice_env_face_size", float(IceEnvironment.FACE_SIZE))
+	for mat: ShaderMaterial in _materials():
+		mat.set_shader_parameter("ice_env_strength", strength if on else 0.0)
+		if not on:
+			continue
+		mat.set_shader_parameter("ice_env_atlas", atlas)
+		mat.set_shader_parameter("ice_env_origin", origin)
+		mat.set_shader_parameter("ice_env_radius", radius)
+		mat.set_shader_parameter("ice_env_face_size", float(IceEnvironment.FACE_SIZE))
 
 # ------------------------------------------------------------------
 #                        procedural noise bakes

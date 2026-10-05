@@ -19,6 +19,9 @@ var emits_particles: bool = true
 ## Whether the dominant layer holds a trench. ETR `[trackmarks]`, which is a
 ## separate flag from `[part]`: `strike_snow` sprays but keeps no track.
 var takes_trackmarks: bool = true
+## Metres of water standing over the ground here, 0 where it is dry — see
+## [member CourseData.water]. DEVIATION: ETR has no water.
+var water_depth: float = 0.0
 
 func copy_from(other: SurfaceSample) -> void:
 	height = other.height
@@ -28,3 +31,4 @@ func copy_from(other: SurfaceSample) -> void:
 	terrain_id = other.terrain_id
 	emits_particles = other.emits_particles
 	takes_trackmarks = other.takes_trackmarks
+	water_depth = other.water_depth

@@ -239,7 +239,9 @@ func build_ice_map(surface: HeightmapSurface, layers: Array[TerrainLayer]) -> vo
 		return
 	var ice_layer := PackedByteArray()
 	ice_layer.resize(layers.size())
-	var any: bool = false
+	# Standing water mirrors the hill the same way ([WaterRenderer] reads the
+	# same atlas), so a puddle wants the probe as much as a lake of ice.
+	var any: bool = surface.has_water()
 	for l: int in layers.size():
 		ice_layer[l] = 1 if layers[l] != null and layers[l].is_ice() else 0
 		any = any or ice_layer[l] == 1
@@ -258,7 +260,8 @@ func build_ice_map(surface: HeightmapSurface, layers: Array[TerrainLayer]) -> vo
 			var x: float = (float(sx) + 0.5) * ICE_SAMPLE
 			var z: float = -(float(sz) + 0.5) * ICE_SAMPLE
 			surface.sample_into(x, z, sample)
-			if sample.terrain_id < ice_layer.size() and ice_layer[sample.terrain_id] == 1:
+			if (sample.terrain_id < ice_layer.size() and ice_layer[sample.terrain_id] == 1) \
+					or sample.water_depth > 0.0:
 				var cx: int = mini(int(x / ICE_CELL), cells.x - 1)
 				var cz: int = mini(int(-z / ICE_CELL), cells.y - 1)
 				has_ice[cz * cells.x + cx] = 1

@@ -785,6 +785,8 @@ func restart(with_intro: bool = true) -> void:
 		reflection.reset()
 	if ice_environment != null:
 		ice_environment.reset()
+	if terrain.water != null:
+		terrain.water.reset()
 	# The herring are back. `hide_item` collapsed their instance transforms and
 	# `collectable` was cleared on the shared grid; a restart that skipped this
 	# left the course stripped of everything the last run picked up, which a
@@ -954,6 +956,10 @@ func _present(delta: float) -> void:
 		terrain.set_trail_map(snow_gpu.trail_texture(), snow_gpu.window_origin(),
 			snow_gpu.window_extent(), snow_gpu.max_depth)
 	_update_reflection(view, delta)
+	if terrain.water != null:
+		# The puddles' waves, every wading racer's wake and splash. After the
+		# racers are presented, so the splash leaves from the drawn body.
+		terrain.water.update(roster.all, _racer_wind(), camera.global_position, delta)
 	# Last: the camera and every racer are where this frame draws them.
 	motion_blur.update(camera, roster.all, delta)
 
@@ -1556,6 +1562,8 @@ func _apply_environment(preset: EnvironmentPreset) -> void:
 	for racer: Racer in roster.all:
 		if racer is SimulatedRacer:
 			(racer as SimulatedRacer).spray.particle_color = preset.particle_color
+	if terrain != null and terrain.water != null:
+		terrain.water.particle_color = preset.particle_color
 	if terrain != null:
 		# The ambient the terrain clamps the sun against — see
 		# [method TerrainRenderer.set_ambient]. The same two fields the

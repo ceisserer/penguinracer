@@ -2066,6 +2066,13 @@ against those); nothing has been checked in a real browser, only under desktop C
 
 ## Known gaps
 
+- **Water: not measured for frame time, not seen in a real browser or on a phone.** The water
+  shader loops over 32 ripple drops, four bodies and five wave trains per fragment, only on the
+  puddles' pixels; Compatibility was rendered through Mesa on the desktop, not in a browser.
+  A puddle is drawn after `MotionBlur` and so stays sharp under the smear (Best only). The
+  water has no sound of its own: the slide plays the puddle floor's, `dirt`'s `mud_sound`. The
+  ice rim is ETR's `ice1`: faster than the snow round it, and the AI's line likes it.
+
 - **Rock faces: one so far.** Mountain Forest has one (140–198 m, right bank), now trimmed,
   compressed, with levels and with the ground under it cut out of the terrain (below). What is
   left of its cost in a view it fills is shading the rock itself (~0.4 ms; its surface is larger
@@ -3365,3 +3372,64 @@ left alone; on `bronze_set`, Forest Trail and Mountain Forest it bakes one byte 
 lighter than the relief, leaves the overhead trunk and the colliders out, and is quick. The
 suite: the same three pre-existing failures. Rendered A/B on Mobile and Compatibility on Bunny
 Hill, Forest Trail, Mountain Forest and `the_long_ride`.
+
+### Puddles: standing water, and four of them on Forest Trail (2026-10-05) · **done, not measured for frame time, not seen in a real browser or on a phone**
+
+ETR has no water. A course may now carry some (`CourseData.water`): a FORMAT_RF grid beside the
+heightmap, one signed depth per vertex — metres of water over the ground where it is wet,
+negative where the bank stands over the water's level, `NO_WATER` (−1) away from any puddle. The
+shoreline is wherever the bilinear value crosses zero, and the physics, the AI, the torches and
+the picture all read the same grid, so the water a racer is slowed in is the water on screen.
+
+**What it does to a racer.** `RacePhysics.calc_water_force`: a drag `WATER_DRAG · v²` against
+the velocity, times how deep the point mass is under the water's surface over
+`WATER_FULL_DEPTH` (0.12 m). Quadratic in speed, so a puddle takes the same share at any speed:
+measured on a 28° fixture, seven metres of 0.2 m water take 15–35 % (the test's band); on Forest
+Trail, a paddling racer through the 1395 m puddle enters at 12 m/s and leaves at 9 (−25 %), one
+through the 235 m puddle 9.8 → 7.6 (−22 %). Over the water — a jump — nothing. On a dry course
+the force is zero and a run is bit-identical (asserted). The two constants are in the recording's
+physics signature, so traces recorded before this are no longer re-simulatable (ghosts still play
+back as poses). The snow spray and the trench stop in water. An opponent scores five taps of
+depth along each candidate line (`AIInputSource.WATER_COST`, times `line_greed`): hard steers
+round, easy ploughs through; on a dry course nothing is sampled.
+
+**What it looks like** (`WaterRenderer`, `water.gdshader`, `WaterSplash`). The cells the water
+touches, cut 3×3 and stood at ground + signed depth — under the bank where it is dry, so the
+depth test cuts the shore — in 16 m tiles: 8 tiles, 22 700 triangles, ~85 ms at load on Forest
+Trail (scanning the grid by vertex: by cell, four reads each, it was 106 ms on its own). Shaded
+as the ice: the sky ramp, the world probe (`IceEnvironment` now switches on near water too, so
+the trees stand in the puddles on HIGH and up) and the mirrored racers, from the same uniforms,
+which `TerrainRenderer`'s setters now hand both materials; Fresnel splits the light between the
+mirror and a murk lit inside ETR's clamp. Transparent: the floor shows through by depth (red
+first), the water's own share divided by α so the blend leaves the floor what it should — every
+divided term stays ≤ 1, so nothing clips on the web's 8-bit target. It moves: five wave trains
+from `WindField` (none: a mirror; light: a few millimetres; strong: up to ~1.5 cm, in patches
+that drift downwind — four regular trains read as a woven grid), a ring of ripples laid every
+0.3–1.5 m behind each wading racer (32 drops in a ring buffer, a harder one where it hits the
+water), and a trough and bow wave under up to four bodies. `WaterSplash`: two sheets of drawn
+droplets off the body's sides and a crown of the spray's puffs at the bow, as strong as the
+racer is fast and deep, per racer that has been in water — read from `RacerState`, so a ghost and
+a peer splash too.
+
+**Forest Trail** (`gen_forest_trail.gd`, `PUDDLES`): two puddles against an edge of the trail
+reaching 35–45 % of the way across at their widest (235 m left, 1395 m right) and two larger ones
+in the trees beside it (455 m right, 1230 m left — moved down from 1185 m, clear of the ice), each
+a smooth basin 0.2–0.3 m deep: earth (`dirt`) only where the water covers it — read off the
+signed grid, so the earth stops at the shoreline — and a rim of ice (`ice1`) round it out to 1.2
+of its radii (`PUDDLE_ICE`), where nothing is placed either. The water lies along the fall
+line, as the course's ice does; a trail puddle's level follows the ground along its own axis and
+is flat across it, or it climbed the trail's bank. Round the basin the bank is cut back to the
+rim and eased out to the forest floor, and every vertex there is written dry. Nothing is placed in
+a puddle; a refused placement keeps its random draws and its footprint, so the rest of the forest
+is where it was (11 objects went, all at the forest puddles). Re-run `tools/gen_forest_trail.sh`.
+
+**Verified**: `TestWater` (86 checks): the surface reads the grid and the shore falls between a
+wet and a dry vertex; earth under the water and ice on the shore beside it; a dry course is dry and its runs bit-identical; the drag's size, direction,
+square law and depth law, and none in flight; the AI prefers the dry line; Forest Trail's four
+puddles found by walking the grid — two on the trail at 30–50 %, two wholly beside it and larger,
+shallow, clear of the kickers and the fork; no tree, prop or torch in water; the surface is built,
+stands its depth over the ground, faces up and runs on under the bank; the wind's steepness by
+strength; the droplet picture; the wading measure. `water.gdshader` joins `TestLighting`'s lit
+shaders and fits `TestShaderBudget`. The suite: the same three pre-existing failures. Rendered
+under Mobile and Compatibility at the 235 m puddle (wading, entering, calm, light and strong
+wind).

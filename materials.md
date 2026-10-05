@@ -391,6 +391,14 @@ They resolve through `SurfaceSample.terrain_id`, the dominant layer at the conta
   and is a render target rather than anything a layer could carry: the mirror is per frame and per
   camera, not per material. The plane it is true on arrives with it, because a planar reflection
   is only correct on its own plane and the terrain is a heightmap.
+- **Water is not a material.** A puddle needs a level and a depth, and a splat weight is
+  neither: blended across a shore it would be "40 % water", which no surface is. It is per-course
+  data beside the heightmap (`CourseData.water`, a signed depth per vertex), drawn by its own
+  mesh (`WaterRenderer`) and read by the physics as a drag of its own
+  (`RacePhysics.calc_water_force`), on top of the friction of whatever layer the floor is painted
+  — Forest Trail's is `dirt` under the water and `ice1` on the rim round it. It reflects through the ice's uniforms (`sky_zenith`,
+  `sky_horizon`, the character mirror, the world probe), which `TerrainRenderer` hands both
+  materials.
 - **`shiny`** has no independent effect; its only reader is `is_ice()`.
 - **`[starttex]`, `[tracktex]`, `[stoptex]`** — ETR's per-terrain track-mark decal textures — are
   not migrated at all. The trench here is geometry plus a shader, not a decal atlas.

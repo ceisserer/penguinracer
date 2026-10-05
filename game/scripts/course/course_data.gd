@@ -18,6 +18,10 @@ extends Resource
 @export var description: String = ""
 @export var preview: Texture2D
 
+## What [member water] holds wherever no puddle is near: low enough that the
+## bilinear value between it and a wet vertex crosses zero inside the cell.
+const NO_WATER := -1.0
+
 @export_group("Terrain")
 ## FORMAT_RF float32 local relief in metres. Decoupled from the splat and
 ## object-placement resolutions, which the original locked together at ~1 m.
@@ -41,6 +45,14 @@ extends Resource
 ## Rock faces standing out of the walls, drawn over the heightmap; null for
 ## none, which is every imported course. See [CliffSet].
 @export var cliffs: CliffSet
+## Shallow water standing in the hollows: FORMAT_RF, one float per heightmap
+## vertex, the metres the water's surface stands above the ground there —
+## positive where it is wet, negative where the bank rises above the water's
+## level, so the shoreline is wherever the bilinear value crosses zero, the
+## same line for the physics ([HeightmapSurface]) and the picture
+## ([WaterRenderer]). [constant NO_WATER] or below is "no puddle near here".
+## Null for none, which is every imported course: ETR has no water.
+@export var water: Image
 
 @export_group("Gameplay")
 @export var start_position: Vector2 = Vector2(45.0, 3.5)

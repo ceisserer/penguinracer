@@ -172,6 +172,10 @@ static func torch_positions(course: CourseData, surface: SurfaceProvider,
 			var at: Vector2 = a + edge * (float(k) - 0.5) / float(count) + outward * OUTSET
 			if not _clear_of(at, trees, near, flags):
 				continue
+			# Nor in a puddle, where the bank it would stand on is under water.
+			if surface is HeightmapSurface \
+					and (surface as HeightmapSurface).water_depth_at(at.x, at.y) > 0.0:
+				continue
 			out.push_back(Vector3(at.x, surface.height_at(at.x, at.y), at.y))
 	return out
 

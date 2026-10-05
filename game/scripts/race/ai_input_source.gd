@@ -99,6 +99,17 @@ const HERRING_BONUS := 8.0
 ## that matters is ice at 0.2 against snow at 0.35 — about nine points of score
 ## at full [member AISkill.line_greed], i.e. worth a nine-metre detour.
 const FRICTION_COST := 60.0
+## Per metre of water depth sampled on the candidate line, at full
+## [member AISkill.line_greed], summed over five taps. A line through the
+## middle of a 0.2 m puddle reads three of them wet, about the score of a
+## twenty-metre swerve: a puddle costs a quarter of the speed
+## ([constant RacePhysics.WATER_DRAG]), so a greedy opponent steers round
+## one, and a careless one ploughs on. DEVIATION: ETR has no water.
+const WATER_COST := 40.0
+## Where along a candidate line, as fractions of it, the water is looked for
+## besides the midpoint the friction is read at.
+const WATER_TAPS: Array[float] = [0.15, 0.3, 0.7, 0.85]
+
 ## The smallest stick reading the simulation will act on at all.
 ##
 ## [method RacePhysics._calc_steering_controls] ignores an analogue stick under
@@ -365,8 +376,22 @@ func _score(physics: RacePhysics, pos: Vector3, x: float, target_z: float,
 		# the aim point cannot use.
 		physics.surface.sample_into((pos.x + x) * 0.5, (pos.z + target_z) * 0.5, _sample)
 		score -= skill.line_greed * FRICTION_COST * _sample.friction
+		# Water is worth more taps than friction: a puddle is a few metres
+		# long and a line through one end of it misses the midpoint. Only on a
+		# course that has any, so every other course plans exactly as before.
+		if _has_water(physics):
+			var wet: float = _sample.water_depth
+			for f: float in WATER_TAPS:
+				physics.surface.sample_into(lerpf(pos.x, x, f), lerpf(pos.z, target_z, f),
+					_sample)
+				wet += _sample.water_depth
+			score -= skill.line_greed * WATER_COST * wet
 
 	return score
+
+static func _has_water(physics: RacePhysics) -> bool:
+	var ground := physics.surface as HeightmapSurface
+	return ground != null and ground.has_water()
 
 ## Collect the trees and herring in the corridor ahead into flat arrays, so that
 ## scoring nine candidates against them is nine passes over a packed array

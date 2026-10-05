@@ -35,6 +35,9 @@ var _depth: PackedFloat32Array = PackedFloat32Array()
 var _dominant: PackedByteArray = PackedByteArray()
 var _particles: PackedByteArray = PackedByteArray()
 var _trackmarks: PackedByteArray = PackedByteArray()
+## [member CourseData.water], signed, per texel; empty on a dry course, which
+## is every course but the ones that have puddles, and costs those nothing.
+var _water: PackedFloat32Array = PackedFloat32Array()
 var _dx: float = 1.0
 var _dz: float = 1.0
 
@@ -81,6 +84,41 @@ func set_uniform_terrain(friction: float, depth: float, terrain_id: int, particl
 		_dominant[i] = terrain_id
 		_particles[i] = 1 if particles else 0
 		_trackmarks[i] = 1 if trackmarks else 0
+
+## Water standing on the course: [param signed_depth] is
+## [member CourseData.water]'s floats, one per texel. Anything of the wrong
+## size is a course without water rather than an error.
+func set_water(signed_depth: PackedFloat32Array) -> void:
+	_water = signed_depth if signed_depth.size() == size.x * size.y \
+		else PackedFloat32Array()
+
+## Whether any water stands on this course at all. Lets a reader that would
+## pay per query for it — the AI's line, a torch — skip the question.
+func has_water() -> bool:
+	return not _water.is_empty()
+
+## Metres of water over the ground at world (x, z), 0 where it is dry. The
+## bilinear value of the signed grid, clamped: see [member CourseData.water]
+## for why that puts the shoreline in the same place for everyone.
+func water_depth_at(x: float, z: float) -> float:
+	if _water.is_empty():
+		return 0.0
+	var g: Vector2 = _grid_coords(x, z)
+	var w: int = size.x
+	var x0: int = clampi(int(floor(g.x)), 0, w - 1)
+	var y0: int = clampi(int(floor(g.y)), 0, size.y - 1)
+	var x1: int = mini(x0 + 1, w - 1)
+	var y1: int = mini(y0 + 1, size.y - 1)
+	var fx: float = clampf(g.x - float(x0), 0.0, 1.0)
+	var fy: float = clampf(g.y - float(y0), 0.0, 1.0)
+	return maxf(0.0, lerpf(
+		lerpf(_water[y0 * w + x0], _water[y0 * w + x1], fx),
+		lerpf(_water[y1 * w + x0], _water[y1 * w + x1], fx), fy))
+
+## The signed water grid as stored, for the renderer that builds the water's
+## surface on the same vertices. Empty on a dry course.
+func water_grid() -> PackedFloat32Array:
+	return _water
 
 ## Pre-blend the per-texel gameplay scalars from splat weights.
 ##
@@ -233,6 +271,11 @@ func sample_into(x: float, z: float, out: SurfaceSample) -> void:
 	out.terrain_id = _dominant[nearest]
 	out.emits_particles = _particles[nearest] == 1
 	out.takes_trackmarks = _trackmarks[nearest] == 1
+	out.water_depth = 0.0
+	if not _water.is_empty():
+		out.water_depth = maxf(0.0, lerpf(
+			lerpf(_water[i00], _water[i10], fx),
+			lerpf(_water[i01], _water[i11], fx), fy))
 
 	if snow_field != null:
 		snow_field.apply_to_sample(x, z, out)
@@ -253,6 +296,9 @@ static func from_course(course: CourseData) -> HeightmapSurface:
 		var target := Vector2i(img.get_width(), img.get_height())
 		s.set_splat(_decode_splat(course, target), course.terrain_layers,
 			course.splat_maps.size() * 4)
+	if course.water != null and course.water.get_format() == Image.FORMAT_RF \
+			and course.water.get_size() == img.get_size():
+		s.set_water(course.water.get_data().to_float32_array())
 	return s
 
 ## Resample the splat textures onto the heightmap grid, four weights per map per

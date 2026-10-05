@@ -39,6 +39,9 @@ const MAX_PARTICLE_ANGLE_SPEED := 50.0
 const PARTICLE_SPEED_MULTIPLIER := 0.3
 const MAX_PARTICLE_SPEED := 2.0
 const VARIANCE_FACTOR := 0.8
+## Metres of water under which the snow still sprays: a puddle's wet rim is
+## mostly the ground showing through.
+const WATER_SHALLOWS := 0.02
 
 ## ETR `particles.cpp`: a particle is born this small,
 const NEW_PART_SIZE := 0.035
@@ -241,7 +244,10 @@ func emit_for_substep(physics: RacePhysics, dt: float, pos: Vector3, speed: floa
 	if sample == null:
 		return
 	# Only when the terrain throws spray and the player is actually in the snow.
-	if not sample.emits_particles or pos.y >= sample.height:
+	# Not in a puddle, either: what flies up there is water, and [WaterSplash]
+	# throws it.
+	if not sample.emits_particles or pos.y >= sample.height \
+			or sample.water_depth > WATER_SHALLOWS:
 		return
 
 	var xvec: Vector3 = physics.direction.cross(physics.plane_nml)

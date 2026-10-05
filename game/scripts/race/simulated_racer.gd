@@ -155,6 +155,10 @@ func _on_substep(h: float, pos: Vector3, speed: float) -> void:
 	# is the terrain where they disagree — it sprays but holds no track.
 	if not _sample.takes_trackmarks:
 		return
+	# Nor under water, whatever the ground beneath it is: a puddle keeps no
+	# track, and the stamp would dig one under its floor.
+	if _sample.water_depth > 0.0:
+		return
 	# How deep the belly is riding, capped by the terrain's own compression.
 	var sink: float = clampf(_sample.height - pos.y, 0.0, _sample.compression_depth * 2.0)
 	var amount: float = maxf(sink, 0.01) * minf(1.0, speed / 6.0)
