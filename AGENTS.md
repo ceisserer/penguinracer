@@ -32,6 +32,7 @@ the plan go in `godot-port-plan.md`, dated.
 game/                     Godot project (mobile on the desktop, gl_compatibility on the web)
   scripts/physics/        RacePhysics + surface + snow — plain RefCounted, zero node deps
   scripts/course/         CourseData, TerrainLayer, TerrainOcclusion (heightmap AO bake),
+                          CliffSet (rock faces laid over a course's walls + the camera's lift),
                           prefabs, events, environments, CourseCatalog/Listing (the menu's
                           index + category), ExternalCourses (courses added by address)
                           (EnvironmentPreset + LightCondition: a course names a place,
@@ -87,9 +88,9 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
   addons/etr_import/      one-way, re-runnable importer from the ETR data tree
   addons/course_gen/      generators of authored courses (Forest Trail, Mountain Forest) and
                           CourseGenKit, what they share — the importer's output shape, never
-                          visited by the importer
+                          visited by the importer; CliffBuilder (a rock face over a wall)
   courses/<name>/         GENERATED: course.tres, course.tscn, heightmap.res,
-                          ambient_occlusion.res, splat_*.png (44 by the importer,
+                          ambient_occlusion.res, splat_*.png, cliffs.res (44 by the importer,
                           forest_trail and mountain_forest by tools/gen_<name>.sh)
   resources/  i18n/       GENERATED: layers, prefabs, environments, events, course + character
                           catalogs, five rigs + previews, sound bank, music, 13 translations
@@ -420,6 +421,12 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   piece**: a 24 m piece drawn from the width at its ends cut across a slot's pinch, and the AI
   raced into the slot's wall. `CourseLights` stands a torch every 22 m
   along its long edges, so pieces shorter than that get none; outward is taken from the winding.
+- **A generator's placements share one random stream, so a rejection moves everything after it.**
+  `_scatter` draws an object's yaw only once it is placed, and a freed footprint lets a later try
+  succeed that used to fail: keeping Mountain Forest's props off its first rock face moved every
+  log, shrub and tree down the course. A placement newly refused (`_on_cliff`) still spends its
+  draw and keeps its footprint, which left the rest of the course exactly where it was.
+  Diff the markers by type and position after a generator change, not the file.
 - **A conifer's collision cylinder is as wide as its crown** (the marker's X scale), so a tree
   whose trunk stands off the trail can still reach into the play area. Keep every collidable
   object's whole cylinder out of the play area plus slack (`PLAY_CLEARANCE` in
@@ -498,10 +505,12 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
 - **A mesh without a colour array reads `COLOR` as white**, which is what lets a course imported
   before `ambient_occlusion.res` draw unoccluded. `TerrainRenderer` drops an occlusion image whose
   size is not the heightmap's without a word; `TestOcclusion` checks every course's.
-- **The terrain's vertex stage has one spare varying component**, `v_bake_lip.y`. `splat_uv` is
-  worked out in `fragment()` from `world_pos` (`splat_uv_of`) — a linear function of it, so the same
-  value — to make room for the baked tree shadow. Vertex colour is R sky, G torchlight, B tree sun:
-  a new per-vertex bake has A left, and then nothing.
+- **The terrain's vertex stage has no spare varying component left.** `splat_uv` is worked out
+  in `fragment()` from `world_pos` (`splat_uv_of`) — a linear function of it, so the same value —
+  to make room for the baked tree shadow, and `v_bake_lip.y`, the last one free, carries a rock
+  face's ledge snow. Vertex colour is R sky, G torchlight, B tree sun, A one minus the ledge
+  weight (1 on every chunk): the next per-vertex term needs a new varying (the phone's slot
+  budget, below) or a packing.
 - **A varying costs a whole slot, and a phone has 28.** Godot's Mobile renderer charges one slot per
   declaration (a `float` is a `vec4`) on top of 15 of its own; the limit is the GPU's
   `maxFragmentInputComponents / 4` — 32 on the desktop's Radeon, 28 on an Adreno 650. Over it, the
@@ -1056,6 +1065,22 @@ the whole sky to cyan-white, against which no disc can show. The fog
   with a trunk lodged overhead, eight bumps and two kickers, three boulders and four fallen
   trunks on the trail, a pile of stones beside it halfway down, bare ice on the walls (nothing
   stands on it), and a near, wooded skyline (below).
+- **Steep faces are textured from the side** (`terrain.gdshader`'s `Steep_Mapping` group), where
+  ETR projects every photograph straight down — 2.4x stretched down a 65° bank, 3.2x down a slot's
+  72° wall. Past |n.y| 0.85 (~32°) a non-snow layer is also read on the ZY and XY planes, weighted
+  by the face's normal, taking over by 0.55 (~57°); gentler ground is the top projection alone.
+  Same array, no unit, no varying. ~0.27 ms on the iGPU with a steep wall filling half the frame.
+  `steep_mapping = 0` is ETR's projection.
+- **Walls can carry real rock** (`CliffSet`, `CourseData.cliffs`), where ETR has only the
+  heightmap. `CliffBuilder` lays a grid on the wall itself (0.25 m along the course and *along the
+  slope*), pushes it out into beds that step back at level, snow-catching ledges, joints and
+  roughness, bakes a cavity AO into R and a ledge weight into A, and sinks it 0.5 m under the
+  heightmap wherever its mask is 0 — so the face comes up out of the ground where the rock is and
+  needs no seam. `TerrainRenderer` draws it with the chunks' own material (one splat, photographs,
+  light, fog), its other colour channels read off the terrain's grid; the shader lays snow on its
+  ledges (`cliff_ledge_snow`). Kept ≥ 2.6 m off the trail's edge, so physics, the AI and the snow
+  never see it; the chase camera reads `CliffSet.lift_at` on top of the heightmap. One face on
+  Mountain Forest so far (140–198 m, right bank): 36k vertices, 1 MB, ~0.9 ms in the same view.
 - **Crossed-quad trees are shaded as a cylinder across both planes**, where ETR gives all eight vertices
   normal (0,0,1). Per-face normals would split each tree into bright and dark halves.
   `normal_roundness = 0` in `object_cross.gdshader` is the flat card.

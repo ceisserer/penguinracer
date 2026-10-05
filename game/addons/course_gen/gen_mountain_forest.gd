@@ -167,6 +167,20 @@ const L_ROCK := 7
 const WALL_ROCK_SHARE := 0.10
 const WALL_BARE_ROCK_SHARE := 0.04
 const WALL_ICE_SHARE := 0.05
+## Rock faces laid over the walls ([CliffBuilder]), as (from, to, side):
+## metres down, and the wall, +1 the +X one. Where a stretch of wall is rock
+## the heightmap draws it as a smooth sheet; a face stands real beds, ledges
+## and joints out of it. One so far — the long stretch on the right bank by the
+## first bumps, in view as the trail bends toward it.
+const CLIFFS: Array[Vector3] = [Vector3(140.0, 198.0, 1.0)]
+## Metres past the trail's edge where a face's rows start, where it starts to
+## come up out of the wall, and how far across X it runs. The play area
+## reaches [constant CORRIDOR_MARGIN] up the bank, so the rock — which leans
+## out toward the trail by up to a metre and a half — stays clear of anything
+## that races.
+const CLIFF_FOOT := 1.3
+const CLIFF_RISE := 2.2
+const CLIFF_REACH := 30.0
 const NEEDLES_LAYER := "res://courses/mountain_forest/conifer_needles.tres"
 const NEEDLES_TEXTURE := "res://courses/mountain_forest/conifer_needles.png"
 const NEEDLES_SIZE := 512
@@ -481,6 +495,71 @@ func _walls(x: float, z: float) -> float:
 func _ground(x: float, z: float) -> float:
 	return _walls(x, z) + _profile(-z) + _base_tan * z
 
+# ================================================================ the rock faces
+
+## How much a rock face stands out at (x, z), 0..1: on a [constant CLIFFS]
+## stretch's wall, where the wall is rock, coming up from [constant
+## CLIFF_RISE] past the trail's edge and going back under short of the far
+## end of its rows.
+func _cliff_mask(x: float, z: float) -> float:
+	var d: float = -z
+	var best: float = 0.0
+	for c: Vector3 in CLIFFS:
+		if d < c.x or d > c.y or signf(x - centre_x(d)) != c.z:
+			continue
+		var beyond: float = beyond_edge(x, z)
+		var foot: float = smoothstep(CLIFF_RISE, CLIFF_RISE + 2.5, beyond)
+		var top: float = 1.0 - smoothstep(CLIFF_REACH - 6.0, CLIFF_REACH - 1.0, beyond)
+		var rock: float = smoothstep(_rock_cut - 0.02, _rock_cut + 0.08, _rock_score(x, z))
+		best = maxf(best, foot * top * rock)
+	return best
+
+## Whether a footprint of radius [param r] at (x, z) is on a rock face, which
+## would stand through anything placed there.
+func _on_cliff(x: float, z: float, r: float) -> bool:
+	for o: Vector2 in [Vector2.ZERO, Vector2(r, 0.0), Vector2(-r, 0.0), Vector2(0.0, r),
+			Vector2(0.0, -r)]:
+		if _cliff_mask(x + o.x, z + o.y) > 0.0:
+			return true
+	return false
+
+## Lay the [constant CLIFFS] faces and save them as the course's [CliffSet].
+## [param heights] is the heightmap's relief, for how far the rock stands over
+## it.
+func _write_cliffs(heights: PackedFloat32Array) -> void:
+	var cliffs := CliffSet.new()
+	cliffs.grid_size = Vector2i(_w, _h)
+	cliffs.world_size = WORLD
+	var lift: Dictionary = {}
+	var grid_height := func(gx: int, gz: int) -> float:
+		gx = clampi(gx, 0, _w - 1)
+		gz = clampi(gz, 0, _h - 1)
+		return heights[gz * _w + gx] - _base_tan * float(gz) * CELL
+	var vertices: int = 0
+	for i: int in CLIFFS.size():
+		var c: Vector3 = CLIFFS[i]
+		var builder := CliffBuilder.new(SEED + 500 + 10 * i)
+		builder.ground = _ground
+		builder.mask = _cliff_mask
+		builder.floor_y = func(d: float) -> float:
+			return _profile(d) - _base_tan * d - 0.6
+		builder.foot_x = func(d: float) -> float:
+			return centre_x(d) + c.z * (lateral_half_width(d) + CLIFF_FOOT)
+		builder.side = c.z
+		builder.reach = CLIFF_REACH
+		builder.x_limits = Vector2(0.5, WORLD.x - 0.5)
+		for mesh: ArrayMesh in builder.build(c.x, c.y, grid_height, CELL, lift):
+			cliffs.meshes.push_back(mesh)
+			vertices += mesh.surface_get_array_len(0)
+	var keys: Array = lift.keys()
+	keys.sort()
+	for key: Vector2i in keys:
+		cliffs.lift_index.push_back(key.y * _w + key.x)
+		cliffs.lift.push_back(lift[key])
+	ResourceSaver.save(cliffs, OUT.path_join("cliffs.res"), ResourceSaver.FLAG_COMPRESS)
+	print("  cliffs: %d faces, %d meshes, %d vertices, lift over %d grid vertices"
+		% [CLIFFS.size(), cliffs.meshes.size(), vertices, keys.size()])
+
 # ================================================================ assets
 
 func _write_assets() -> void:
@@ -508,6 +587,7 @@ func _write_assets() -> void:
 	# From the walls alone — see the notes at the top.
 	var ao: Image = TerrainOcclusion.bake(walls, _w, _h, WORLD, 2)
 	ResourceSaver.save(ao, OUT.path_join("ambient_occlusion.res"), ResourceSaver.FLAG_COMPRESS)
+	_write_cliffs(heights)
 
 	_row_gradient.resize(_h)
 	for gy: int in _h:
@@ -767,6 +847,7 @@ func _write_resources() -> void:
 		splats.push_back(load(OUT.path_join("splat_%d.png" % m)))
 	course.splat_maps = splats
 	course.splat_size = Vector2i(_w, _h)
+	course.cliffs = load(OUT.path_join("cliffs.res"))
 	course.start_position = Vector2(centre_x(3.5), 3.5)
 	course.finish_line_z = -PLAY.y
 	course.environment_preset = load("res://resources/environments/etr_sunny.tres")
@@ -962,7 +1043,9 @@ func _place_objects(course: CourseData) -> Dictionary[String, Array]:
 				+ s.x * 0.5 + rng.randf_range(0.5, 6.0))
 			if beyond_edge(x, -d) > 0.4 + s.x * 0.5 and not _on_wall_ice(x, -d, s.x * 0.5) \
 					and taken.is_free(x, -d, s.x * 0.45):
-				out["shrub"].push_back([x, -d, s, 0.0])
+				# On a rock face, not planted but its footprint kept — see _scatter.
+				if not _on_cliff(x, -d, s.x * 0.5):
+					out["shrub"].push_back([x, -d, s, 0.0])
 				taken.add(x, -d, s.x * 0.45)
 		d += rng.randf_range(4.0, 9.0) / SHRUB_DENSITY
 	for t: String in out:
@@ -1077,7 +1160,7 @@ func _pile_stones(rng: RandomNumberGenerator, into: Array, loose: Array,
 		x = centre_x(d) + side * (lateral_half_width(d) + PLAY_CLEARANCE + r)
 		z = -d
 		if beyond_edge(x, z) > PLAY_CLEARANCE + r and not _on_wall_ice(x, z, r + 1.0) \
-				and taken.is_free(x, z, r + 1.0):
+				and not _on_cliff(x, z, r + 1.0) and taken.is_free(x, z, r + 1.0):
 			break
 		d += 2.0
 	var boulder := func(bx: float, bz: float, diam: float, lift: float) -> void:
@@ -1121,6 +1204,14 @@ func _scatter(rng: RandomNumberGenerator, into: Array, taken: CourseGenKit.Occup
 			continue
 		if beyond_edge(x, z) > margin + r and not _on_wall_ice(x, z, r) \
 				and taken.is_free(x, z, r):
+			if _on_cliff(x, z, r):
+				# Not placed, but its draw spent and its footprint kept, so
+				# everything placed after it lands where it did before the
+				# face was there: a rock face on one wall must not reshuffle
+				# the whole course.
+				rng.randf()
+				taken.add(x, z, r)
+				continue
 			into.push_back([x, z, s, rng.randf() * TAU])
 			taken.add(x, z, r)
 
@@ -1146,6 +1237,11 @@ func _scatter_logs(rng: RandomNumberGenerator, into: Array, taken: CourseGenKit.
 				and not _on_wall_ice(px, pz, thick) and taken.is_free(px, pz, thick)
 		if not ok:
 			continue
-		into.push_back([x, z, Vector3(length, thick, thick), yaw])
+		# On a rock face, not laid but its footprint kept — see _scatter.
+		var on_rock: bool = false
+		for t: float in [-1.0, -0.5, 0.0, 0.5, 1.0]:
+			on_rock = on_rock or _on_cliff(x + half.x * t, z + half.y * t, thick)
+		if not on_rock:
+			into.push_back([x, z, Vector3(length, thick, thick), yaw])
 		for t: float in [-1.0, -0.5, 0.0, 0.5, 1.0]:
 			taken.add(x + half.x * t, z + half.y * t, thick)

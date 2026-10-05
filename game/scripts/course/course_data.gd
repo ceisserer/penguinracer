@@ -38,6 +38,9 @@ extends Resource
 @export var splat_maps: Array[Texture2D] = []
 @export var splat_size: Vector2i = Vector2i.ZERO
 @export var terrain_layers: Array[TerrainLayer] = []
+## Rock faces standing out of the walls, drawn over the heightmap; null for
+## none, which is every imported course. See [CliffSet].
+@export var cliffs: CliffSet
 
 @export_group("Gameplay")
 @export var start_position: Vector2 = Vector2(45.0, 3.5)

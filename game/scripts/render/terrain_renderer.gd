@@ -41,6 +41,9 @@ var _torchlight: PackedByteArray = PackedByteArray()
 ## for no baked tree shadows — see [method set_tree_shadows].
 var _tree_sun: PackedByteArray = PackedByteArray()
 var _chunks: Dictionary[Vector2i, MeshInstance3D] = {}
+## [member CourseData.cliffs]' faces, one instance per mesh, all built at
+## [method setup]: a course has a handful and the engine culls each by its box.
+var _cliffs: Array[MeshInstance3D] = []
 var _chunk_world: Dictionary[Vector2i, AABB] = {}
 var _chunks_x: int = 0
 var _chunks_z: int = 0
@@ -68,6 +71,7 @@ func setup(p_course: CourseData, p_surface: HeightmapSurface,
 	for cz: int in _chunks_z:
 		for cx: int in _chunks_x:
 			_chunk_world[Vector2i(cx, cz)] = _chunk_bounds(cx, cz)
+	_build_cliffs()
 
 func _build_material() -> ShaderMaterial:
 	var mat := ShaderMaterial.new()
@@ -114,6 +118,12 @@ func _build_material() -> ShaderMaterial:
 	_set_layer_table(mat, "layer_iceness", iceness)
 	_set_layer_table(mat, "layer_uv_scale", uv_scales)
 	_set_layer_table(mat, "layer_detail", detail)
+	# The cliffs' ledge snow is the course's first snow layer.
+	for i: int in mini(layers.size(), 8):
+		if layers[i].is_deformable and not layers[i].is_ice():
+			mat.set_shader_parameter("cliff_snow_layer", float(i))
+			mat.set_shader_parameter("cliff_snow_repeat", layers[i].uv_scale)
+			break
 	mat.set_shader_parameter("sparkle_noise", _sparkle_texture())
 	mat.set_shader_parameter("detail_map", _detail_texture())
 	mat.set_shader_parameter("detail_gradient_scale", _detail_gradient_scale)
@@ -432,6 +442,7 @@ func set_tree_shadows(sun: PackedByteArray, strength: float) -> void:
 	for key: Vector2i in _chunks:
 		_chunks[key].queue_free()
 	_chunks.clear()
+	_build_cliffs()
 	if _last_center.is_finite():
 		update_streaming(_last_center, true)
 
@@ -630,3 +641,51 @@ func _build_chunk(key: Vector2i) -> void:
 
 func chunk_count() -> int:
 	return _chunks.size()
+
+## The course's rock faces ([CliffSet]), in the chunks' material: the same
+## splat, photographs, light and fog, so the rock and the ground it stands out
+## of read as one surface. Their vertex colour is the chunks' — the terrain's
+## baked sky, torchlight and tree shadow, read off the grid vertex nearest each
+## vertex, the sky times what the rock's own relief leaves — with the ledge
+## weight the mesh carries in A. Rebuilt with the chunks when the tree shadows
+## change.
+func _build_cliffs() -> void:
+	for mi: MeshInstance3D in _cliffs:
+		mi.queue_free()
+	_cliffs.clear()
+	var cliffs: CliffSet = course.cliffs
+	if cliffs == null:
+		return
+	var w: int = surface.size.x
+	var h: int = surface.size.y
+	var inv_dx: float = float(w - 1) / course.world_size.x
+	var inv_dz: float = float(h - 1) / course.world_size.y
+	var has_ao: bool = not _occlusion.is_empty()
+	var has_torches: bool = not _torchlight.is_empty()
+	var has_tree_sun: bool = not _tree_sun.is_empty()
+	for source: ArrayMesh in cliffs.meshes:
+		var arrays: Array = source.surface_get_arrays(0)
+		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var own: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
+		var colors := PackedColorArray()
+		colors.resize(verts.size())
+		for i: int in verts.size():
+			var v: Vector3 = verts[i]
+			var at: int = clampi(roundi(-v.z * inv_dz), 0, h - 1) * w \
+				+ clampi(roundi(v.x * inv_dx), 0, w - 1)
+			var sky: float = float(_occlusion[at]) / 255.0 if has_ao else 1.0
+			var torch: float = float(_torchlight[at]) / 255.0 if has_torches else 0.0
+			var sun: float = float(_tree_sun[at]) / 255.0 if has_tree_sun else 1.0
+			colors[i] = Color(sky * own[i].r, torch, sun, own[i].a)
+		arrays[Mesh.ARRAY_COLOR] = colors
+		var mesh := ArrayMesh.new()
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		var mi := MeshInstance3D.new()
+		mi.name = "Cliff_%d" % _cliffs.size()
+		mi.mesh = mesh
+		mi.material_override = _material
+		add_child(mi)
+		_cliffs.push_back(mi)
+
+func cliff_count() -> int:
+	return _cliffs.size()

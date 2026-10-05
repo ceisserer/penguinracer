@@ -36,6 +36,7 @@ static func run(t: TestCase) -> void:
 	_the_obstacles_leave_a_line(t, gen, scene)
 	_the_bumps(t, gen, surface)
 	_a_marker_can_stand_off_the_ground(t, course, surface)
+	_the_rock_faces(t, gen, course, surface, scene)
 
 static func _the_course_is_listed(t: TestCase, course: CourseData) -> void:
 	t.begin("mountain forest/catalog")
@@ -321,3 +322,60 @@ static func _a_marker_can_stand_off_the_ground(t: TestCase, course: CourseData,
 	t.eq_f(asin(along.y), 0.1, 1e-3, "leaning by its roll")
 	t.eq_f(xf.basis.x.length(), 10.0, 1e-3, "as long as its X scale")
 	root.free()
+
+## The rock faces laid over the walls ([CliffSet]): out of reach of anything
+## that races, under the heightmap wherever they are not standing out of it,
+## under the camera's floor wherever they are, and with nothing placed on them.
+static func _the_rock_faces(t: TestCase, gen: GDScript, course: CourseData,
+		surface: HeightmapSurface, scene: PackedScene) -> void:
+	t.begin("mountain forest/rock faces")
+	var cliffs: CliffSet = course.cliffs
+	t.ok(cliffs != null and not cliffs.meshes.is_empty(), "the course has rock faces")
+	if cliffs == null or cliffs.meshes.is_empty():
+		return
+	t.ok(cliffs.grid_size == course.heightmap_size and cliffs.world_size == course.world_size,
+		"their camera lift is on the heightmap's grid")
+	var bounds: PackedVector2Array = course.effective_play_bounds()
+	var standing: int = 0
+	var buried: int = 0
+	var in_play: int = 0
+	var nearest_edge: float = INF
+	var worst_lift: float = 0.0
+	# Where the rock stands, on a 1 m grid, for the markers below.
+	var rock_cells: Dictionary[Vector2i, bool] = {}
+	for mesh: ArrayMesh in cliffs.meshes:
+		var verts: PackedVector3Array = mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+		for v: Vector3 in verts:
+			var ground: float = surface.height_at(v.x, v.z)
+			if v.y <= ground:
+				buried += 1
+				continue
+			standing += 1
+			if Geometry2D.is_point_in_polygon(Vector2(v.x, v.z), bounds):
+				in_play += 1
+			nearest_edge = minf(nearest_edge, gen.beyond_edge(v.x, v.z))
+			worst_lift = maxf(worst_lift, v.y - (ground + cliffs.lift_at(v.x, v.z)))
+			rock_cells[Vector2i(floori(v.x), floori(v.z))] = true
+	t.ok(standing > 1000 and buried > 100,
+		"they stand out of the wall (%d vertices) and sink under it at the edges (%d)"
+		% [standing, buried])
+	t.ok(in_play == 0, "none of the rock is in the play area (%d vertices)" % in_play)
+	t.ok(nearest_edge > gen.CORRIDOR_MARGIN + 0.5,
+		"the rock keeps %.2f m off the trail's edge" % nearest_edge)
+	# The lift is read off grid vertices round a point; between them the
+	# heightmap itself bends, which a few centimetres covers.
+	t.ok(worst_lift < 0.15,
+		"the camera's floor is over the rock everywhere (worst %.3f m under it)" % worst_lift)
+	var root: Node = scene.instantiate()
+	var on_rock: PackedStringArray = []
+	for type_name: String in ["tree", "shrub", "boulder", "stones", "log", "stump",
+			"stone_pile"]:
+		var group: Node = root.get_node_or_null("Objects/%s" % type_name)
+		if group == null:
+			continue
+		for marker: Node3D in group.get_children():
+			var p: Vector3 = marker.position
+			if rock_cells.has(Vector2i(floori(p.x), floori(p.z))):
+				on_rock.push_back(marker.name)
+	root.free()
+	t.ok(on_rock.is_empty(), "nothing stands on the rock: %s" % ", ".join(on_rock.slice(0, 8)))

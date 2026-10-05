@@ -42,6 +42,9 @@ const DESIGN_ASPECT := 1280.0 / 720.0
 @export var look_ahead: float = 0.3
 
 var surface: SurfaceProvider
+## The course's rock faces, which stand proud of the heightmap [member surface]
+## reads; null for none. See [method CliffSet.lift_at].
+var cliffs: CliffSet
 
 ## Lagged camera position and aim point. Both are interpolated as vectors and
 ## the basis is rebuilt against world up every frame.
@@ -155,6 +158,8 @@ func track(player_pos: Vector3, player_vel: Vector3, surface_normal: Vector3,
 	# Never let the camera sink into the hill.
 	if surface != null:
 		var ground: float = surface.height_at(_position.x, _position.z)
+		if cliffs != null:
+			ground += cliffs.lift_at(_position.x, _position.z)
 		_position.y = maxf(_position.y, ground + MIN_CAMERA_HEIGHT)
 
 	# Clamp pitch: staring straight down a steep course hides the very thing the

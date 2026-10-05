@@ -643,6 +643,7 @@ func load_course(path: String) -> void:
 	await _load_step(LOAD_TERRAIN_READY, streaming)
 
 	camera.surface = course_root.surface
+	camera.cliffs = course.cliffs
 	camera.reset()
 
 	# The course names a place and the shell names a time of day — see

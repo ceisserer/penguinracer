@@ -1,42 +1,44 @@
 [gd_resource type="Resource" script_class="CourseData" format=3]
 
-[ext_resource type="Image" path="res://courses/mountain_forest/ambient_occlusion.res" id="1_l3og5"]
-[ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="2_7qkbf"]
-[ext_resource type="Image" path="res://courses/mountain_forest/heightmap.res" id="3_uanvj"]
-[ext_resource type="Texture2D" path="res://courses/mountain_forest/preview.png" id="4_1a5n2"]
-[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="5_p1i0y"]
-[ext_resource type="Texture2D" path="res://courses/mountain_forest/splat_0.png" id="6_g57mq"]
-[ext_resource type="Texture2D" path="res://courses/mountain_forest/splat_1.png" id="7_uf5nx"]
-[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="8_43ywe"]
-[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="9_m6s61"]
-[ext_resource type="Resource" path="res://resources/terrain/icy_forest_floor.tres" id="10_0kch8"]
-[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="11_plxso"]
-[ext_resource type="Resource" path="res://resources/terrain/thin_snow.tres" id="12_iunrl"]
-[ext_resource type="Resource" path="res://courses/mountain_forest/conifer_needles.tres" id="13_lhh08"]
-[ext_resource type="Resource" path="res://resources/terrain/dirt.tres" id="14_nb3xu"]
-[ext_resource type="Resource" path="res://resources/terrain/snowy_rock06.tres" id="15_bm3ut"]
-[ext_resource type="Resource" path="res://resources/terrain/rock06.tres" id="16_fcxlr"]
+[ext_resource type="Image" path="res://courses/mountain_forest/ambient_occlusion.res" id="1_7qkbf"]
+[ext_resource type="Resource" path="res://courses/mountain_forest/cliffs.res" id="2_uanvj"]
+[ext_resource type="Resource" path="res://resources/environments/etr_sunny.tres" id="3_1a5n2"]
+[ext_resource type="Image" path="res://courses/mountain_forest/heightmap.res" id="4_p1i0y"]
+[ext_resource type="Texture2D" path="res://courses/mountain_forest/preview.png" id="5_g57mq"]
+[ext_resource type="Script" path="res://scripts/course/course_data.gd" id="6_uf5nx"]
+[ext_resource type="Texture2D" path="res://courses/mountain_forest/splat_0.png" id="7_43ywe"]
+[ext_resource type="Texture2D" path="res://courses/mountain_forest/splat_1.png" id="8_m6s61"]
+[ext_resource type="Script" path="res://scripts/course/terrain_layer.gd" id="9_0kch8"]
+[ext_resource type="Resource" path="res://resources/terrain/snow.tres" id="10_plxso"]
+[ext_resource type="Resource" path="res://resources/terrain/icy_forest_floor.tres" id="11_iunrl"]
+[ext_resource type="Resource" path="res://resources/terrain/ice1.tres" id="12_lhh08"]
+[ext_resource type="Resource" path="res://resources/terrain/thin_snow.tres" id="13_nb3xu"]
+[ext_resource type="Resource" path="res://courses/mountain_forest/conifer_needles.tres" id="14_bm3ut"]
+[ext_resource type="Resource" path="res://resources/terrain/dirt.tres" id="15_fcxlr"]
+[ext_resource type="Resource" path="res://resources/terrain/snowy_rock06.tres" id="16_e0c2n"]
+[ext_resource type="Resource" path="res://resources/terrain/rock06.tres" id="17_f4tp6"]
 
 [resource]
-script = ExtResource("5_p1i0y")
+script = ExtResource("6_uf5nx")
 display_name = "Mountain Forest"
 author = "PenguinRacer"
 description = "Down the floor of a steep wooded gully. Short steep chutes drop onto quiet benches, bumps throw you into the air, and boulders and fallen trees lie on the trail: steer round them or jump. Twice the gully narrows to a slot under a dead tree wedged across it overhead."
-preview = ExtResource("4_1a5n2")
-heightmap = ExtResource("3_uanvj")
+preview = ExtResource("5_g57mq")
+heightmap = ExtResource("4_p1i0y")
 heightmap_size = Vector2i(201, 3001)
-ambient_occlusion = ExtResource("1_l3og5")
+ambient_occlusion = ExtResource("1_7qkbf")
 world_size = Vector2(100, 1500)
 height_scale = 6.0
 base_angle = 22.04337153965418
-splat_maps = Array[Texture2D]([ExtResource("6_g57mq"), ExtResource("7_uf5nx")])
+splat_maps = Array[Texture2D]([ExtResource("7_43ywe"), ExtResource("8_m6s61")])
 splat_size = Vector2i(201, 3001)
-terrain_layers = Array[ExtResource("8_43ywe")]([ExtResource("9_m6s61"), ExtResource("10_0kch8"), ExtResource("11_plxso"), ExtResource("12_iunrl"), ExtResource("13_lhh08"), ExtResource("14_nb3xu"), ExtResource("15_bm3ut"), ExtResource("16_fcxlr")])
+terrain_layers = Array[ExtResource("9_0kch8")]([ExtResource("10_plxso"), ExtResource("11_iunrl"), ExtResource("12_lhh08"), ExtResource("13_nb3xu"), ExtResource("14_bm3ut"), ExtResource("15_fcxlr"), ExtResource("16_e0c2n"), ExtResource("17_f4tp6")])
+cliffs = ExtResource("2_uanvj")
 start_position = Vector2(50, 3.5)
 finish_line_z = -1420.0
 play_bounds = PackedVector2Array(40, 1, 44.631577, -23, 50.790802, -47, 54.21071, -71, 54.462585, -95, 55.36469, -119, 52.61539, -143, 39.854572, -167, 32.287857, -191, 29.9428, -215, 32.66272, -239, 42.86325, -263, 44.532455, -287, 45.61067, -311, 48.43675, -335, 50.796024, -359, 60.197548, -383, 61.83462, -407, 56.328472, -431, 49.36753, -455, 38.700535, -479, 37.25109, -503, 39.236954, -527, 37.97631, -551, 38.766468, -575, 34.327484, -599, 35.975864, -623, 46.28068, -647, 53.715755, -671, 61.52713, -695, 60.81263, -719, 53.027668, -743, 50.83893, -767, 46.24033, -791, 46.308266, -815, 44.18951, -839, 34.016315, -863, 31.104063, -887, 30.655863, -911, 37.047897, -935, 49.772167, -959, 52.962257, -983, 54.664383, -1007, 53.166565, -1031, 51.577396, -1055, 57.285664, -1079, 57.031845, -1103, 51.281437, -1127, 43.26248, -1151, 31.591236, -1175, 31.656824, -1199, 35.91963, -1223, 38.482853, -1247, 44.14058, -1271, 42.084194, -1295, 44.86851, -1319, 53.475178, -1343, 55.24581, -1367, 47.460068, -1391, 40.401043, -1415, 40, -1439, 40, -1463, 40, -1487, 40, -1499, 60, -1499, 60, -1487, 60, -1463, 60, -1439, 59.598957, -1415, 55.577267, -1391, 62.451817, -1367, 60.681187, -1343, 53.59706, -1319, 51.29502, -1295, 53.35484, -1271, 48.463295, -1247, 43.66059, -1223, 39.39779, -1199, 39.367104, -1175, 50.452503, -1151, 58.47146, -1127, 64.65449, -1103, 66.616844, -1079, 60.908573, -1055, 62.17927, -1031, 61.825733, -1007, 60.056393, -983, 56.866302, -959, 45.141644, -935, 38.749607, -911, 39.197807, -887, 43.44599, -863, 53.00503, -839, 55.123787, -815, 55.123505, -791, 57.77839, -767, 59.96713, -743, 67.976395, -719, 70.595955, -695, 62.920757, -671, 55.602283, -647, 45.39682, -623, 43.500965, -599, 46.612144, -575, 45.172718, -551, 46.326572, -527, 44.34071, -503, 46.898827, -479, 58.88907, -455, 65.85001, -431, 70.95317, -407, 67.79067, -383, 58.348236, -359, 55.98896, -335, 53.222763, -311, 52.14455, -287, 50.667545, -263, 41.944714, -239, 39.147583, -215, 41.492645, -191, 47.527725, -167, 59.624344, -143, 62.373642, -119, 62.88142, -95, 62.609573, -71, 59.18967, -47, 57.18427, -23, 60, 1)
 play_size = Vector2(90, 1420)
-environment_preset = ExtResource("2_7qkbf")
+environment_preset = ExtResource("3_1a5n2")
 backdrop_height = 2.3
 backdrop_forest = 1.0
 backdrop_near = 1.0

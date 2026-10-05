@@ -2066,6 +2066,14 @@ against those); nothing has been checked in a real browser, only under desktop C
 
 ## Known gaps
 
+- **Rock faces are a spike: one face, every vertex kept, no level of detail.** Mountain Forest
+  has one (140–198 m, right bank). 61 % of its 36k vertices are buried under the heightmap and
+  could be trimmed; the heightmap under a face is still drawn and shaded and then covered (no
+  depth prepass on Mobile), which is most of its ~0.9 ms; the mesh is uncompressed (1 MB) and has
+  no LOD. Before laying faces over every rock stretch (~17): trim buried rows and columns, cut
+  the heightmap's quads under full rock out of the chunks, compress the attributes, and generate
+  LODs. The ledge weight lives in vertex alpha and the face in the chunks' material, so none of
+  that touches the shader.
 - **The near-field terrain mesh is too coarse for the trench to read as geometry.** Chunk
   vertices sit ~0.5 m apart; the contact patch is 0.45 m wide. Lighting sells the trench
   (normals are reconstructed per fragment from the trail map) but the silhouette does not move.
@@ -3233,3 +3241,39 @@ the race only: 9.4 → 12.4 ms (+3.0, was +1.9 with ten taps over a 0.035 cap). 
 re-measured: `--disable-vsync` did not take there, and both runs sat at the display's 145 Hz.
 `TestCamera` checks the two exposures (`exposed`: 2.5 frames of travel and half a frame of turn
 back; one and one is the last frame's camera).
+
+### Steep faces textured from the side, and real rock on Mountain Forest's walls (2026-10-05) · **done as a spike, not seen in a real browser or on a phone**
+
+**Why.** On Mountain Forest's walls the heightmap is at its worst: one height per point every
+half metre across X and Z is a vertex every 1.5 m up a 72° face, and the photographs were
+projected straight down, so the rock was a smooth sheet streaked 2.4–3.2x down its fall. The
+props on it (stones, a shrub) read as stuck on. Normal maps were not the answer — sunlit rock sits
+at the illumination clamp (*Rock has grain*, above) — so what survives is geometry: silhouette,
+cast shadow, occlusion, and the ledges' snow.
+
+**Steep mapping** (`terrain.gdshader`, `Steep_Mapping`): past |n.y| 0.85 every non-snow layer is
+also read on the ZY and XY planes, by the face's normal, and the side reads take over by 0.55.
+No texture unit, no varying; gentler ground is the top projection exactly. `DEVIATION`.
+`steep_mapping = 0` restores ETR's projection. It applies to every course, so the walls of the
+imported ones change too.
+
+**Rock faces** (`CliffSet`, `CliffBuilder`, `CourseData.cliffs`): see the deviation in AGENTS.md.
+The face is generated with the course (`tools/gen_mountain_forest.sh` writes `cliffs.res`), drawn
+by `TerrainRenderer` in the chunks' material, and read by the chase camera as a lift over the
+heightmap. Props that would have stood on it are not placed, but spend their random draw and keep
+their footprint, so the rest of the course is where it was: the regenerated course differs from
+the committed one by one boulder, one shrub and three stones, all on the rock, and its splat maps
+are byte-identical.
+
+**Cost**, iGPU, Mobile, 1280x720, the camera pinned across the trail with the face filling half
+the frame, GPU time over 400 frames: 6.12 ms bare; +0.24 steep mapping; +0.85 the face; 7.26
+both.
+
+**Verified**: `TestMountainForest._the_rock_faces` — 14k vertices stand out of the wall and 22k
+are buried, none is in the play area, the nearest stands 2.69 m off the trail's edge (the play
+area reaches 1 m), the camera's lift is over every standing vertex (worst 0.000 m under), and no
+marker stands on the rock. The suite shows the three pre-existing failures (`lighting/what
+project.godot ships`, two `props/forest floor`) and nothing new. Rendered on Mobile at the chase
+camera (frames 600–700 with the AI driving) and from three pinned viewpoints, and one of those
+under Compatibility: the beds, joints and ledge snow read on both, the rock's colour runs on into
+the ground round it, and the near trail is lit as before.

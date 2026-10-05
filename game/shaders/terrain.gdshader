@@ -126,6 +126,36 @@ uniform float detail_texture_ratio : hint_range(1.0, 16.0) = 4.7;
 uniform float detail_texture_turn = 0.63;
 uniform float detail_texture_fade = 30.0;
 
+group_uniforms Steep_Mapping;
+// DEVIATION: ETR projects every photograph straight down, at world XZ, and so
+// did this shader. On a bank of 65° that draws the picture out 2.4 times down
+// the face and on a slot's 72° wall 3.2 times — streaks running down the fall
+// of the rock, which read as a smooth smeared surface whatever the mesh under
+// them is doing. Past `steep_mapping_from` (|n.y|, about 32°) a layer is also
+// read on the two vertical planes, weighted by how squarely the face looks
+// along each, and by `steep_mapping_to` (about 57°) the side reads have taken
+// over. Snow is left on the top projection: its photograph is a white sheet
+// from any side, and the reads would buy nothing.
+//
+// The same `albedos` array (no texture unit) and the geometric normal the
+// fragment already has (no varying); the side taps run only where a layer has
+// weight on a steep face. A slope gentler than `steep_mapping_from` is the
+// top projection alone, exactly as before. 0 is ETR's projection everywhere.
+uniform float steep_mapping : hint_range(0.0, 1.0) = 1.0;
+uniform float steep_mapping_from : hint_range(0.0, 1.0) = 0.85;
+uniform float steep_mapping_to : hint_range(0.0, 1.0) = 0.55;
+
+group_uniforms Cliff;
+// Snow lying on a cliff's ledges. A [CliffSet] mesh carries in its vertex
+// colour's alpha how much a vertex is a ledge — a face turned up from the wall
+// it stands out of — as `1 - a`, so the terrain chunks, whose alpha is 1, and a
+// mesh with no colours at all, which reads white, hold none. The snow is
+// `cliff_snow_layer`'s photograph (−1 for none: a course with no snow layer),
+// drawn at its own repeat and lying in patches.
+uniform float cliff_snow_layer = -1.0;
+uniform float cliff_snow_repeat = 6.0;
+uniform float cliff_ledge_snow : hint_range(0.0, 1.0) = 1.0;
+
 group_uniforms Course;
 // World extent of the course in metres, for splat UV lookup.
 uniform vec2 world_size = vec2(90.0, 520.0);
@@ -455,15 +485,19 @@ uniform float ice_env_face_size = 128.0;
 
 // The packed varyings (see the top of the file). A varying belongs to the one
 // stage that writes it, so the packing is by stage: two written in vertex(),
-// four written in fragment() for light(). `v_bake_lip.y` is free.
+// four written in fragment() for light(). Every component is spoken for:
+// `v_bake_lip.y`, the last one free, carries a cliff's ledge snow.
 varying vec4 v_world_sky;  // vertex: world_pos, terrain_sky
-varying vec4 v_bake_lip;   // vertex: tree_sun, -, terrain_torch, ridge_lip
+varying vec4 v_bake_lip;   // vertex: tree_sun, ledge_snow, terrain_torch, ridge_lip
 varying vec4 v_torch_snow; // fragment: torch_glow, snow_mask
 varying vec4 v_glint;      // fragment: glint_normal, sparkle
 varying vec4 v_ice;        // fragment: ice_sky, ice_fresnel
 varying vec4 v_ambient;    // fragment: ambient_occlusion, scatter_base, ice_mask
 
 #define world_pos v_world_sky.xyz
+// How much of a ledge this is, from a [CliffSet] mesh's vertex alpha; 0 on
+// the terrain chunks. See `cliff_ledge_snow`.
+#define ledge_snow v_bake_lip.y
 #define snow_mask v_torch_snow.a
 #define ice_mask v_ambient.z
 // Schlick weight for the ice terms, shared by the sky reflection in fragment
@@ -578,7 +612,7 @@ void vertex() {
 	terrain_sky = COLOR.r;
 	terrain_torch = COLOR.g;
 	tree_sun = mix(1.0, COLOR.b, tree_shadow_strength);
-	v_bake_lip.y = 0.0;
+	ledge_snow = 1.0 - COLOR.a;
 
 	ridge_lip = 0.0;
 	if (trail_enabled) {
@@ -634,20 +668,43 @@ vec4 layer_albedo(float layer, vec2 p, float repeat_m, float weight,
 	return c;
 }
 
-// `p` is the world XZ position; each layer divides it by its own repeat length.
-vec4 sample_layers(vec2 p, vec4 w0, vec4 w1, float near) {
+// One layer at world position `p`: from above, and on a steep face from the
+// side as well — `side` of it, split between the ZY and XY planes by `planes`.
+// See `steep_mapping`. The side taps are skipped where they would be weighted
+// by nothing, and every weight reaches zero continuously at the skip's edge.
+vec4 layer_steep(float layer, vec3 p, vec2 planes, float side, float repeat_m,
+		float weight, float strength, float near) {
+	vec4 c = layer_albedo(layer, p.xz, repeat_m, weight, strength, near);
+	if (side > 0.0 && weight > 0.0) {
+		vec4 s = vec4(0.0);
+		if (planes.x > 0.0) {
+			s += layer_albedo(layer, p.zy, repeat_m, weight, strength, near) * planes.x;
+		}
+		if (planes.y > 0.0) {
+			s += layer_albedo(layer, p.xy, repeat_m, weight, strength, near) * planes.y;
+		}
+		c = mix(c, s, side);
+	}
+	return c;
+}
+
+// Every layer at world position `p`, each at its own repeat length, blended by
+// the splat weights. `side0`/`side1` are how much of each layer is read from
+// the side (zero on a gentle slope, which is then the top projection alone).
+vec4 sample_layers(vec3 p, vec4 w0, vec4 w1, float near, vec2 planes,
+		vec4 side0, vec4 side1) {
 	vec4 s0 = max(layer_uv_scale, vec4(0.001));
 	vec4 s1 = max(layer_uv_scale_hi, vec4(0.001));
 	vec4 d0 = layer_detail;
 	vec4 d1 = layer_detail_hi;
-	vec4 c = layer_albedo(0.0, p, s0.r, w0.r, d0.r, near) * w0.r;
-	if (layer_count > 1) { c += layer_albedo(1.0, p, s0.g, w0.g, d0.g, near) * w0.g; }
-	if (layer_count > 2) { c += layer_albedo(2.0, p, s0.b, w0.b, d0.b, near) * w0.b; }
-	if (layer_count > 3) { c += layer_albedo(3.0, p, s0.a, w0.a, d0.a, near) * w0.a; }
-	if (layer_count > 4) { c += layer_albedo(4.0, p, s1.r, w1.r, d1.r, near) * w1.r; }
-	if (layer_count > 5) { c += layer_albedo(5.0, p, s1.g, w1.g, d1.g, near) * w1.g; }
-	if (layer_count > 6) { c += layer_albedo(6.0, p, s1.b, w1.b, d1.b, near) * w1.b; }
-	if (layer_count > 7) { c += layer_albedo(7.0, p, s1.a, w1.a, d1.a, near) * w1.a; }
+	vec4 c = layer_steep(0.0, p, planes, side0.r, s0.r, w0.r, d0.r, near) * w0.r;
+	if (layer_count > 1) { c += layer_steep(1.0, p, planes, side0.g, s0.g, w0.g, d0.g, near) * w0.g; }
+	if (layer_count > 2) { c += layer_steep(2.0, p, planes, side0.b, s0.b, w0.b, d0.b, near) * w0.b; }
+	if (layer_count > 3) { c += layer_steep(3.0, p, planes, side0.a, s0.a, w0.a, d0.a, near) * w0.a; }
+	if (layer_count > 4) { c += layer_steep(4.0, p, planes, side1.r, s1.r, w1.r, d1.r, near) * w1.r; }
+	if (layer_count > 5) { c += layer_steep(5.0, p, planes, side1.g, s1.g, w1.g, d1.g, near) * w1.g; }
+	if (layer_count > 6) { c += layer_steep(6.0, p, planes, side1.b, s1.b, w1.b, d1.b, near) * w1.b; }
+	if (layer_count > 7) { c += layer_steep(7.0, p, planes, side1.a, s1.a, w1.a, d1.a, near) * w1.a; }
 	return c;
 }
 
@@ -676,9 +733,26 @@ void fragment() {
 	w0 /= max(total, 0.001);
 	w1 /= max(total, 0.001);
 
+	// The geometric normal in world space. Everything further down perturbs
+	// this one vector and normalizes once; the steep mapping reads it as it
+	// comes off the mesh.
+	vec3 n_world = mat3(INV_VIEW_MATRIX) * NORMAL;
+
 	float view_dist = length(VERTEX);
 	float detail_near = 1.0 - smoothstep(0.0, detail_texture_fade, view_dist);
-	ALBEDO = sample_layers(world_pos.xz, w0, w1, detail_near).rgb;
+	vec3 n_face = normalize(n_world);
+	float side = steep_mapping
+		* (1.0 - smoothstep(steep_mapping_to, steep_mapping_from, abs(n_face.y)));
+	// Which of the two vertical planes the face looks along: squared twice so
+	// a wall square to one of them reads that one alone, and the cut keeps the
+	// other from costing taps where it would add nothing.
+	// `.x` weights the ZY plane, which a face turned along X looks squarely at.
+	vec2 planes = pow(abs(n_face.xz), vec2(4.0));
+	planes /= max(planes.x + planes.y, 1e-6);
+	planes = max(planes - 0.04, vec2(0.0));
+	planes /= max(planes.x + planes.y, 1e-6);
+	ALBEDO = sample_layers(world_pos, w0, w1, detail_near, planes,
+		side * (vec4(1.0) - layer_snowness), side * (vec4(1.0) - layer_snowness_hi)).rgb;
 	METALLIC = 0.0;
 	// The relief's occlusion, eased in by `terrain_ao_strength` and never past
 	// black. Squared at strength 2 rather than scaled linearly, so a strong
@@ -692,6 +766,20 @@ void fragment() {
 	float rough = dot(layer_roughness, w0) + dot(layer_roughness_hi, w1);
 	ROUGHNESS = mix(rough, ice_roughness, ice_mask);
 
+	// --- snow on a cliff's ledges -------------------------------------------
+	// Lying in patches (the detail map's height, 2.7 m a repeat), fullest where
+	// the mesh says the ledge is widest; and snow from there on, so it takes
+	// the snow's wrap, relief, glint and blue shade like any other.
+	if (ledge_snow > 0.0 && cliff_snow_layer >= 0.0) {
+		float patch = texture(detail_map, world_pos.xz / 2.7).b;
+		float lying = clamp(ledge_snow * cliff_ledge_snow
+			* smoothstep(0.2, 0.55, patch + 0.4 * ledge_snow - 0.2), 0.0, 1.0);
+		vec3 snow = layer_albedo(cliff_snow_layer, world_pos.xz,
+			max(cliff_snow_repeat, 0.001), 1.0, 0.0, 0.0).rgb;
+		ALBEDO = mix(ALBEDO, snow, lying);
+		snow_mask = max(snow_mask, lying);
+	}
+
 	// The geometric normal, before anything below bends it. Kept because the
 	// ice reflection shears its lookup by how far the perturbation moved it,
 	// and by the time that is wanted NORMAL is the perturbed one.
@@ -704,8 +792,7 @@ void fragment() {
 	// normal: a reconstructed normal is (0, 1, 0) wherever the field is flat,
 	// which for the trail map is almost everywhere, and mixing toward it
 	// flattened the entire hill into a fake horizontal plane the first time
-	// this was written.
-	vec3 n_world = mat3(INV_VIEW_MATRIX) * NORMAL;
+	// this was written. `n_world` is declared at the top of the function.
 
 	// --- procedural micro-relief -------------------------------------------
 	// A splat-blended photograph of snow carries no relief at all: it is one
