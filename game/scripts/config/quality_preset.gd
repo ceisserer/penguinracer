@@ -65,7 +65,7 @@ const TREE_DETAIL_MAX := 1.5
 const KEYS: PackedStringArray = ["render_scale", "antialiasing", "procedural_sky",
 	"sky_detail", "tree_detail", "shadows", "tree_shadow_kind", "tree_shadows",
 	"shadow_detail", "shadow_filter", "ice_reflections", "ice_world_reflections",
-	"sun_shafts", "motion_blur"]
+	"sun_shafts", "motion_blur", "prop_textures"]
 
 ## One row per [enum Kind]. HIGH must stay [GameConfig]'s defaults.
 ##
@@ -107,6 +107,10 @@ const KEYS: PackedStringArray = ["render_scale", "antialiasing", "procedural_sky
 ## frame, stays the one every reference capture was taken of: the pass smears
 ## every frame the camera moves in. It costs the same copies as the rays plus
 ## ten taps a pixel while the camera moves, which is all of a run.
+##
+## The props' photographs ([member GameConfig.prop_textures]) are off at FAST
+## and FASTEST: ~10 MB of GPU memory and, on the web, a download of their own,
+## for what is mostly seen up close. MEDIUM, a phone's first run, keeps them.
 const VALUES: Array[Dictionary] = [
 	{ # FASTEST
 		"render_scale": 0.5, "antialiasing": 0, "procedural_sky": false,
@@ -114,7 +118,7 @@ const VALUES: Array[Dictionary] = [
 		"tree_shadow_kind": TREE_SHADOWS_DYNAMIC, "tree_shadows": 0,
 		"shadow_detail": 0, "shadow_filter": 0, "ice_reflections": false,
 		"ice_world_reflections": false,
-		"sun_shafts": false, "motion_blur": false,
+		"sun_shafts": false, "motion_blur": false, "prop_textures": false,
 	},
 	{ # FAST
 		"render_scale": 0.75, "antialiasing": 0, "procedural_sky": true,
@@ -122,7 +126,7 @@ const VALUES: Array[Dictionary] = [
 		"tree_shadow_kind": TREE_SHADOWS_BAKED, "tree_shadows": 0,
 		"shadow_detail": 0, "shadow_filter": 2, "ice_reflections": false,
 		"ice_world_reflections": false,
-		"sun_shafts": false, "motion_blur": false,
+		"sun_shafts": false, "motion_blur": false, "prop_textures": false,
 	},
 	{ # MEDIUM
 		"render_scale": 1.0, "antialiasing": 1, "procedural_sky": true,
@@ -130,7 +134,7 @@ const VALUES: Array[Dictionary] = [
 		"tree_shadow_kind": TREE_SHADOWS_DYNAMIC, "tree_shadows": 1,
 		"shadow_detail": 1, "shadow_filter": 3, "ice_reflections": true,
 		"ice_world_reflections": false,
-		"sun_shafts": false, "motion_blur": false,
+		"sun_shafts": false, "motion_blur": false, "prop_textures": true,
 	},
 	{ # HIGH — the shipped frame
 		"render_scale": 1.0, "antialiasing": 1, "procedural_sky": true,
@@ -138,7 +142,7 @@ const VALUES: Array[Dictionary] = [
 		"tree_shadow_kind": TREE_SHADOWS_DYNAMIC, "tree_shadows": 2,
 		"shadow_detail": 2, "shadow_filter": 3, "ice_reflections": true,
 		"ice_world_reflections": true,
-		"sun_shafts": true, "motion_blur": false,
+		"sun_shafts": true, "motion_blur": false, "prop_textures": true,
 	},
 	{ # BEST
 		"render_scale": 1.0, "antialiasing": 2, "procedural_sky": true,
@@ -146,7 +150,7 @@ const VALUES: Array[Dictionary] = [
 		"tree_shadow_kind": TREE_SHADOWS_DYNAMIC, "tree_shadows": 2,
 		"shadow_detail": 2, "shadow_filter": 3, "ice_reflections": true,
 		"ice_world_reflections": true,
-		"sun_shafts": true, "motion_blur": true,
+		"sun_shafts": true, "motion_blur": true, "prop_textures": true,
 	},
 ]
 

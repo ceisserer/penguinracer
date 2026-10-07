@@ -46,6 +46,7 @@ SHADOW_FILTER_HARD,Hard,Hart
 ICE_REFLECTIONS_LABEL,Ice reflections:,Spiegelungen auf Eis:
 ICE_WORLD_REFLECTIONS_LABEL,Ice reflects the world:,Eis spiegelt die Umgebung:
 SUN_SHAFTS_LABEL,Sun rays:,Sonnenstrahlen:
+PROP_TEXTURES_LABEL,Photo textures:,Fototexturen:
 MOTION_BLUR_LABEL,Motion blur:,Bewegungsunschärfe:
 SHOW_FPS_LABEL,Show frame rate:,Bildrate anzeigen:
 TOUCH_CONTROLS_LABEL,Touch controls:,Touch-Steuerung:

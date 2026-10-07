@@ -2,8 +2,10 @@
 ## stones, a fallen log and a tree stump. Drawn with `object_prop.gdshader`.
 ##
 ## ETR has no such objects, and nothing here is drawn from a picture — every
-## colour is painted into the vertex colours by the builder, so nothing new has
-## to pass the licence audit.
+## colour is painted into the vertex colours by the builder. What a face is
+## made of ([enum Surface]) is tagged on it, for the shader to draw either
+## procedurally or from the CC0 photographs in `assets/materials/` (which only
+## add grain, relief and roughness over the painted colour).
 ##
 ## Unit-sized like every other prefab mesh — ±0.5 across, 0 to 1 up — so the
 ## course's per-instance marker scale sizes them. A log lies along X: its
@@ -124,9 +126,12 @@ const NET_HEIGHT := 1.8
 ## [code]PLAIN[/code], the vertex colour alone (everything else). Handed over in
 ## `UV2.x`, with the face's own coordinates in metres in `UV` ([method
 ## _tri_shaded]): along the wall and up it, or across a level face. Only the
-## kinds in [method _surfaced] carry either, so every other prop's mesh is as
-## it was.
-enum Surface { PLAIN, LOGS, BOARDS, STONE, PLASTER, SHINGLES, CONCRETE }
+## kinds in [member _surfaced] carry either, so every other prop's mesh is as
+## it was. [code]ROCK[/code] and [code]BARK[/code] — a boulder's and a stone's
+## faces, the bark of a log, trunk and stump — are drawn plain unless the shader
+## has the photographed materials, which lay them out by themselves (no face to
+## follow); `UV2.y` is the axis the bark's grain runs along ([member _grain]).
+enum Surface { PLAIN, LOGS, BOARDS, STONE, PLASTER, SHINGLES, CONCRETE, ROCK, BARK }
 ## The height of one course of logs, metres: the seams between them stand on
 ## its multiples, and the shader rounds each log between two of them.
 const LOG_COURSE := 0.34
@@ -135,6 +140,9 @@ const LOG_COURSE := 0.34
 ## whether the mesh being built carries surfaces at all.
 static var _surface: Surface = Surface.PLAIN
 static var _surfaced: bool = false
+## The axis bark's grain runs along on the mesh being built: 0 X (a log lying
+## along it), 1 Y (a stump standing).
+static var _grain: int = 0
 
 static func build(kind: Kind, seed_value: int = 1) -> ArrayMesh:
 	var rng := RandomNumberGenerator.new()
@@ -142,8 +150,9 @@ static func build(kind: Kind, seed_value: int = 1) -> ArrayMesh:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	_surface = Surface.PLAIN
-	_surfaced = kind in [Kind.LIFT_TOWER, Kind.LIFT_STATION, Kind.CHALET, Kind.MOUNTAIN_HUT,
-		Kind.SHED]
+	_surfaced = kind in [Kind.BOULDER, Kind.STONES, Kind.LOG, Kind.STUMP, Kind.TRUNK,
+		Kind.LIFT_TOWER, Kind.LIFT_STATION, Kind.CHALET, Kind.MOUNTAIN_HUT, Kind.SHED]
+	_grain = 1 if kind == Kind.STUMP else 0
 	match kind:
 		Kind.BOULDER:
 			_rock(st, rng, Vector3(0.0, -0.15, 0.0), Vector3(0.5, 1.15, 0.5), 2)
@@ -267,6 +276,7 @@ static func _rock(st: SurfaceTool, rng: RandomNumberGenerator, base: Vector3,
 		var low: float = clampf(1.0 - (shaped[i].y - base.y) / (radii.y * 0.5), 0.0, 1.0)
 		colours.push_back((tint * (1.0 + 0.12 * shade)).lerp(MOSS,
 			low * clampf(0.3 + 0.5 * moss, 0.0, 0.6)))
+	_surface = Surface.ROCK
 	for f: int in range(0, tris.size(), 3):
 		var i0: int = tris[f]
 		var i1: int = tris[f + 1]
@@ -279,6 +289,7 @@ static func _rock(st: SurfaceTool, rng: RandomNumberGenerator, base: Vector3,
 		var group: int = 0xFFFFFFFF if flat else ROCK_SMOOTH_GROUP
 		_tri_shaded(st, shaped[i0], shaped[i1], shaped[i2], colours[i0], colours[i1],
 			colours[i2], inside, group)
+	_surface = Surface.PLAIN
 
 static func _stones(st: SurfaceTool, rng: RandomNumberGenerator) -> void:
 	for i: int in rng.randi_range(5, 8):
@@ -312,11 +323,13 @@ static func _log(st: SurfaceTool, rng: RandomNumberGenerator) -> void:
 	# One colour down each side, so the bark is streaked along the log — a
 	# colour per patch drew it as a checkerboard of light and dark blocks.
 	var side_col: Array[Color] = _bark_sides(rng, LOG_SIDES)
+	_surface = Surface.BARK
 	for s: int in LOG_SEGMENTS:
 		for k: int in LOG_SIDES:
 			var k1: int = (k + 1) % LOG_SIDES
 			_quad(st, rings[s][k], rings[s + 1][k], rings[s + 1][k1], rings[s][k1], side_col[k],
 				axis, BARK_SMOOTH_GROUP)
+	_surface = Surface.PLAIN
 	_end_cap(st, rng, rings[0], axis)
 	_end_cap(st, rng, rings[LOG_SEGMENTS], axis)
 	for i: int in rng.randi_range(2, 4):
@@ -348,11 +361,13 @@ static func _trunk(st: SurfaceTool, rng: RandomNumberGenerator) -> void:
 				sin(ang) * r))
 		rings.push_back(ring)
 	var axis := Vector3(0.0, LOG_AXIS_Y, 0.0)
+	_surface = Surface.BARK
 	for s: int in TRUNK_SEGMENTS:
 		for k: int in TRUNK_SIDES:
 			var k1: int = (k + 1) % TRUNK_SIDES
 			_quad(st, rings[s][k], rings[s + 1][k], rings[s + 1][k1], rings[s][k1],
 				side_col[k] * rng.randf_range(0.95, 1.05), axis, BARK_SMOOTH_GROUP)
+	_surface = Surface.PLAIN
 	_end_cap(st, rng, rings[0], axis)
 	_end_cap(st, rng, rings[TRUNK_SEGMENTS], axis)
 	# Up and to the sides only — the ones underneath broke off in the fall —
@@ -421,12 +436,14 @@ static func _stump(st: SurfaceTool, rng: RandomNumberGenerator) -> void:
 	# The bark shaded smooth and streaked up the stump, as on a log: flat, with a
 	# shade per patch, its nine sides read as a patchwork of planks.
 	var side_col: Array[Color] = _bark_sides(rng, STUMP_SIDES)
+	_surface = Surface.BARK
 	for l: int in STUMP_LEVELS.size() - 1:
 		var inside := Vector3(0.0, (STUMP_LEVELS[l] + STUMP_LEVELS[l + 1]) * 0.5, 0.0)
 		for k: int in STUMP_SIDES:
 			var k1: int = (k + 1) % STUMP_SIDES
 			_quad(st, rings[l][k], rings[l + 1][k], rings[l + 1][k1], rings[l][k1], side_col[k],
 				inside, BARK_SMOOTH_GROUP)
+	_surface = Surface.PLAIN
 	_end_cap(st, rng, rings[STUMP_LEVELS.size() - 1], Vector3(0.0, 0.5, 0.0))
 
 # ---------------------------------------------------------------- park
@@ -975,8 +992,10 @@ static func _stub(st: SurfaceTool, root: Vector3, dir: Vector3, r0: float, r1: f
 	for k: int in SIDES:
 		var o0: Vector3 = side * cos(TAU * k / SIDES) + other * sin(TAU * k / SIDES)
 		var o1: Vector3 = side * cos(TAU * (k + 1) / SIDES) + other * sin(TAU * (k + 1) / SIDES)
+		_surface = Surface.BARK
 		_quad(st, squash.call(root + o0 * r0), squash.call(tip + o0 * r1),
 			squash.call(tip + o1 * r1), squash.call(root + o1 * r0), BARK, squash.call(inside))
+		_surface = Surface.PLAIN
 		_tri(st, squash.call(tip), squash.call(tip + o0 * r1), squash.call(tip + o1 * r1),
 			HEARTWOOD, squash.call(inside))
 
@@ -1016,7 +1035,7 @@ static func _tri_shaded(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, ca:
 				st.set_uv(Vector2(p.z, p.y))
 			else:
 				st.set_uv(Vector2(p.x, p.y))
-			st.set_uv2(Vector2(float(_surface), 0.0))
+			st.set_uv2(Vector2(float(_surface), float(_grain)))
 		st.add_vertex(corner[0])
 
 static func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3,

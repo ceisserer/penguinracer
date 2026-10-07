@@ -431,6 +431,23 @@ custom_minimum_size = Vector2(0, 38)
 layout_mode = 2
 size_flags_horizontal = 0
 
+[node name="PropTexturesRow" type="HBoxContainer" parent="Frame/Panel/Body/Scroll/Rows"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="PropTexturesLabel" type="Label" parent="Frame/Panel/Body/Scroll/Rows/PropTexturesRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(230, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "PROP_TEXTURES_LABEL"
+
+[node name="PropTexturesCheck" type="CheckBox" parent="Frame/Panel/Body/Scroll/Rows/PropTexturesRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+size_flags_horizontal = 0
+
 [node name="ShowFpsRow" type="HBoxContainer" parent="Frame/Panel/Body/Scroll/Rows"]
 layout_mode = 2
 theme_override_constants/separation = 14

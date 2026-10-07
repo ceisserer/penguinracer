@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Regenerates the per-course + music export presets in game/export_presets.cfg.
+"""Regenerates the per-course, music and materials export presets in game/export_presets.cfg.
 
-One `.pck` per game/courses/<dir> plus one for assets/music/, built via
+One `.pck` per game/courses/<dir>, one for assets/music/ and one for
+assets/materials/ (the props' photographs), built via
 `godot --export-pack "<preset name>" <out.pck>` (tools/build_web_streamed.sh
 drives this). export_presets.cfg is otherwise hand-maintained (`Web`,
 `WebSpike`, `Server`, `Android`) — this script owns every preset named
-`Course_*` or `MusicPack`, written as one block between the marker comments
+`Course_*`, `MusicPack` or `MaterialsPack`, written as one block between the marker comments
 below, and rewrites it from the current game/courses/ listing. Re-runnable;
 run it whenever a course is added, removed or renamed, and after saving
 export presets in the editor (which drops the markers).
@@ -95,7 +96,8 @@ def course_preset(index: int, dirs: list[str], this_dir: str) -> str:
 def music_preset(index: int, dirs: list[str]) -> str:
     exclude = ", ".join(
         SHARED_EXCLUDES
-        + ["assets/env/*", "assets/objects/*", "assets/sounds/*", "assets/terrain/*"]
+        + ["assets/env/*", "assets/materials/*", "assets/objects/*", "assets/sounds/*",
+           "assets/terrain/*", "assets/trees/*"]
         + [f"courses/{d}/*" for d in dirs]
     )
     return PRESET_TEMPLATE.format(
@@ -104,10 +106,26 @@ def music_preset(index: int, dirs: list[str]) -> str:
     )
 
 
+def materials_preset(index: int, dirs: list[str]) -> str:
+    """The props' photographs (CourseRoot.PROP_ALBEDO_PATH), fetched by the race
+    for the first course with props and only when `[quality] prop_textures` is on."""
+    exclude = ", ".join(
+        SHARED_EXCLUDES
+        + ["assets/env/*", "assets/music/*", "assets/objects/*", "assets/sounds/*",
+           "assets/terrain/*", "assets/trees/*"]
+        + [f"courses/{d}/*" for d in dirs]
+    )
+    return PRESET_TEMPLATE.format(
+        index=index, name="MaterialsPack", exclude_filter=exclude,
+        export_path="../build/web/materials.pck",
+    )
+
+
 def generate_block(start_index: int) -> str:
     dirs = course_dirs()
     parts = [course_preset(start_index + i, dirs, d) for i, d in enumerate(dirs)]
     parts.append(music_preset(start_index + len(dirs), dirs))
+    parts.append(materials_preset(start_index + len(dirs) + 1, dirs))
     return "\n".join(parts)
 
 
@@ -117,7 +135,7 @@ PRESET_HEADER = re.compile(r"^\[preset\.(\d+)(\.options)?\]$", re.MULTILINE)
 def is_generated(block: str) -> bool:
     name = re.search(r'^name="([^"]*)"$', block, re.MULTILINE)
     return name is not None and (name.group(1).startswith("Course_")
-                                 or name.group(1) == "MusicPack")
+                                 or name.group(1) in ("MusicPack", "MaterialsPack"))
 
 
 def split_presets(text: str) -> tuple[str, list[str]]:
@@ -150,7 +168,7 @@ def main() -> None:
     body = "\n".join(kept)
     PRESETS_PATH.write_text(f"{head.rstrip()}\n\n{body}\n{BEGIN}\n{block}\n{END}\n")
     print(f"kept {len(kept)} hand-maintained presets; wrote {len(course_dirs())} "
-          f"course presets + MusicPack starting at preset.{len(kept)}")
+          f"course presets + MusicPack + MaterialsPack starting at preset.{len(kept)}")
 
 
 if __name__ == "__main__":

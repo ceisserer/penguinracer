@@ -457,6 +457,8 @@ func _ready() -> void:
 		Config.sun_shafts = args.sun_shafts.strip_edges().to_lower() != "off"
 	if not args.motion_blur.is_empty():
 		Config.motion_blur = args.motion_blur.strip_edges().to_lower() != "off"
+	if not args.prop_textures.is_empty():
+		Config.prop_textures = args.prop_textures.strip_edges().to_lower() != "off"
 	motion_blur.enabled = Config.motion_blur
 	_cli_setup.wind = Config.wind
 	if not args.crosswind.is_empty():
@@ -612,6 +614,15 @@ func load_course(path: String) -> void:
 	var packed: PackedScene = load(path)
 	course_root = packed.instantiate()
 	course_root.tree_lod_scale = Config.tree_detail
+	course_root.prop_textures = Config.prop_textures
+	# The props' photographs come in a pack of their own on the web, fetched for
+	# the first course that has props. Without it they are drawn procedurally,
+	# so a failed fetch costs the look and nothing else. A no-op natively.
+	if Config.prop_textures and course_root.has_props() \
+			and PackStream.is_streamed(CourseRoot.PROP_ALBEDO_PATH):
+		if await PackStream.ensure(CourseRoot.PROP_ALBEDO_PATH, "materials.pck",
+				_on_pack_progress) != OK:
+			push_warning("materials.pck did not load — props drawn procedurally")
 	add_child(course_root)
 	await _load_step(LOAD_INSTANTIATED, streaming)
 	course_root.build_runtime()

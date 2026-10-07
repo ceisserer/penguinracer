@@ -485,6 +485,7 @@ SHOT_WIND=strong tools/shot.sh /tmp/windy.png        # ... in a strong crosswind
 SHOT_SKY=etr tools/shot.sh /tmp/etr-sky.png          # ... under ETR's skybox and flat fog
 SHOT_TREE_SHADOWS=baked tools/shot.sh /tmp/baked.png # ... with the trees' shadows baked, not mapped
 SHOT_SUN_SHAFTS=off tools/shot.sh /tmp/no-rays.png   # ... without the sun's rays (SunShafts)
+SHOT_PROP_TEXTURES=off tools/shot.sh /tmp/plain.png  # ... props drawn procedurally, not photographed
 SHOT_MOTION_BLUR=on tools/shot.sh /tmp/blurred.png    # ... with the camera's motion blur (MotionBlur)
 ```
 
@@ -541,6 +542,30 @@ tools/tree_portrait.sh /tmp/far.png bare --dist=110 --fov=7.5       # a far leve
 limb widening; a narrow `--fov` at the real distance shows the level as a race draws it. Real GPU
 only (Mobile by default, `SHOT_METHOD` as for `shot.sh`), 1280x720 back, ~3 s a frame.
 
+## Prop materials
+
+The props and buildings are drawn from six CC0 photographs at MEDIUM and up
+(`[display] prop_textures`), procedurally below. The packed arrays are committed in
+`game/assets/materials/`, with every source and its licence in `CREDITS.md`. To fetch the 1k maps
+again (into `build/prop_materials_src/`, not committed) and re-pack them:
+
+```bash
+tools/pack_prop_materials.sh
+```
+
+The `.import` sidecars (Basis Universal, mipmapped, six vertical slices) are written on the first
+pack only, then left alone. To look at one prop without a course, with or without the
+photographs:
+
+```bash
+tools/prop_portrait.sh /tmp/hut.png mountain_hut --dist=16 --orbit=30      # any prefab in resources/objects
+tools/prop_portrait.sh /tmp/shed.png shed --dist=5 --orbit=-35 --textures=0
+tools/prop_portrait.sh /tmp/log.png log --dist=1.6 --orbit=-70 --eye=0.9 --size=4.5,0.5,0.5
+```
+
+It needs the real GPU, like `tree_portrait.sh`. If the GPU hangs, run the same script under
+xvfb with `LIBGL_ALWAYS_SOFTWARE=1` and `--rendering-method gl_compatibility` (see the trap list).
+
 ## Android
 
 ```bash
@@ -593,7 +618,8 @@ harness wait on `RACE_READY`. `?autostart` does the same for the default course,
 skips the start animation, and `?character=<dir>` races as one of the other four.
 
 Export presets: `Web` (the streamed base), one generated `Course_<dir>` per course plus
-`MusicPack` (owned by `tools/gen_course_export_presets.py`, which finds them by name — re-run it
+`MusicPack` and `MaterialsPack` (the props' photographs, fetched only for a course with props;
+owned by `tools/gen_course_export_presets.py`, which finds them by name — re-run it
 whenever a course is added, removed or renamed, and after saving presets in the editor, which
 drops its marker comments; `tools/build_web_streamed.sh` does this automatically), `WebSpike` (the
 S1 render-target spike), `Server` and `Android`.

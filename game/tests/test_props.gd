@@ -16,6 +16,7 @@ static func run(t: TestCase) -> void:
 	_rock_is_not_a_patchwork(t)
 	_meshes_fill_the_unit_box(t)
 	_buildings_carry_their_surfaces(t)
+	_props_can_be_photographed(t)
 	_prefabs_are_on_disk(t)
 	_the_ground_normal(t)
 	_the_course_is_listed(t)
@@ -133,7 +134,9 @@ static func _meshes_fill_the_unit_box(t: TestCase) -> void:
 
 ## A building's faces are tagged with what they are made of (`UV2.x`), over
 ## their own coordinates in metres (`UV`), for `object_prop.gdshader` to draw;
-## every other prop carries neither, so its mesh is as it was.
+## so are a rock's and a log's or stump's bark, which the photographs lay out
+## by themselves, with the bark's grain along the log and up the stump
+## (`UV2.y`). Every other prop carries neither, so its mesh is as it was.
 static func _buildings_carry_their_surfaces(t: TestCase) -> void:
 	t.begin("props/building surfaces")
 	var wanted: Dictionary = {
@@ -156,11 +159,63 @@ static func _buildings_carry_their_surfaces(t: TestCase) -> void:
 			t.ok(found.has(s), "kind %d has surface %d" % [kind, s])
 		t.ok(found.has(PropMesh.Surface.PLAIN) or kind == PropMesh.Kind.LIFT_TOWER,
 			"kind %d keeps its plain faces too" % kind)
-	for kind: int in [PropMesh.Kind.BOULDER, PropMesh.Kind.LOG, PropMesh.Kind.SNOWMAN,
-			PropMesh.Kind.FENCE_RAIL]:
+	var natural: Dictionary = {
+		PropMesh.Kind.BOULDER: [PropMesh.Surface.ROCK, 0],
+		PropMesh.Kind.STONES: [PropMesh.Surface.ROCK, 0],
+		PropMesh.Kind.LOG: [PropMesh.Surface.BARK, 0],
+		PropMesh.Kind.TRUNK: [PropMesh.Surface.BARK, 0],
+		PropMesh.Kind.STUMP: [PropMesh.Surface.BARK, 1],
+	}
+	for kind: int in natural:
+		var arrays: Array = PropMesh.build(kind).surface_get_arrays(0)
+		var uv2: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV2] \
+			if arrays[Mesh.ARRAY_TEX_UV2] != null else PackedVector2Array()
+		var grains: Dictionary = {}
+		var found: Dictionary = {}
+		for v: Vector2 in uv2:
+			found[roundi(v.x)] = true
+			if roundi(v.x) == natural[kind][0]:
+				grains[roundi(v.y)] = true
+		t.ok(found.has(natural[kind][0]), "kind %d has surface %d" % [kind, natural[kind][0]])
+		t.ok(grains.keys() == [natural[kind][1]],
+			"kind %d's grain runs along axis %d (%s)" % [kind, natural[kind][1], grains.keys()])
+		# The cut ends keep their painted rings; a rock is all rock.
+		t.ok(found.has(PropMesh.Surface.PLAIN) == (natural[kind][0] == PropMesh.Surface.BARK),
+			"kind %d keeps plain faces only where it is cut" % kind)
+	for kind: int in [PropMesh.Kind.SNOWMAN, PropMesh.Kind.FENCE_RAIL]:
 		var arrays: Array = PropMesh.build(kind).surface_get_arrays(0)
 		t.ok(arrays[Mesh.ARRAY_TEX_UV] == null and arrays[Mesh.ARRAY_TEX_UV2] == null,
 			"kind %d carries no surfaces" % kind)
+
+## The photographed variant of the props' shader is the plain one with
+## `PROP_TEXTURES` defined, so only it declares the two arrays (a declared
+## sampler is bound whether or not it is read). The arrays are on disk, one
+## layer per photographed [enum PropMesh.Surface], and a prop's material copied
+## onto the variant keeps every parameter it had.
+static func _props_can_be_photographed(t: TestCase) -> void:
+	t.begin("props/photographed materials")
+	var plain: Shader = load(CourseRoot.PROP_SHADER_PATH)
+	var textured: Shader = CourseRoot.prop_shader()
+	var names := func(shader: Shader) -> Array:
+		return shader.get_shader_uniform_list().map(func(u: Dictionary) -> String: return u["name"])
+	t.ok(not names.call(plain).has("prop_albedo"), "the plain shader declares no photograph")
+	t.ok(names.call(textured).has("prop_albedo") and names.call(textured).has("prop_normal"),
+		"the photographed one declares both arrays")
+	for pair: Array in [[CourseRoot.PROP_ALBEDO_PATH, 1024], [CourseRoot.PROP_NORMAL_PATH, 512]]:
+		var path: String = pair[0]
+		var array: TextureLayered = load(path) as TextureLayered
+		t.ok(array != null and array.get_layers() == 6 and array.get_width() == pair[1],
+			"%s holds six %d² layers" % [path, pair[1]])
+		t.ok(array != null and array.has_mipmaps(),
+			"%s is mipmapped (its last mip is each material's mean)" % path)
+	var prefab: ObjectPrefab = load("res://resources/objects/mountain_hut.tres")
+	var mat: ShaderMaterial = CourseRoot.textured_prop_material(prefab.material as ShaderMaterial)
+	t.ok(mat != null and mat.shader == textured, "a prop's material moves onto the variant")
+	t.ok(mat != null and is_equal_approx(float(mat.get_shader_parameter("mottle")),
+		float((prefab.material as ShaderMaterial).get_shader_parameter("mottle"))),
+		"keeping its own parameters")
+	t.ok(mat != null and mat.get_shader_parameter("prop_albedo") != null,
+		"and given the photographs")
 
 static func _prefabs_are_on_disk(t: TestCase) -> void:
 	t.begin("props/prefabs")

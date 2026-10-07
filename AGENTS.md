@@ -55,7 +55,8 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           TreeShadowBake (the trees' shadows in the terrain, per sun),
                           ContactOcclusion (the sky trees and props take from the
                           ground round them, into the terrain's AO, per course),
-                          PropMesh (boulder, stones, log, stump: procedural solid props),
+                          PropMesh (boulder, stones, log, stump, the resort's furniture:
+                          procedural solid props, faces tagged with what they are made of),
                           WaterRenderer (a course's puddles: their surface, the wind's
                           waves, the racers' wakes) + WaterSplash (what a wading racer
                           throws up)
@@ -86,7 +87,7 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           TouchScheme (buttons | tilt_steer | tilt_speed | tilt | off, and "is this a phone")
   scripts/debug/          DebugCapture autoload (headless screenshots / scripted input), key_log
   shaders/                terrain, etr_skybox, procedural_sky, object_billboard (items), object_cross (shrubs),
-                          object_prop (PropMesh's boulders, stones, logs, stumps),
+                          object_prop (PropMesh's props; `PROP_TEXTURES` adds the photographs),
                           conifer + conifer_impostor (all three species; + conifer.gdshaderinc:
                           LOD fade, sway, snow, twig alpha), conifer_bake, snow_trail, snow_flakes, lens_snow, lens_flare, sun_shafts, motion_blur, menu_snow,
                           s1_displace, torch_flame, water (the puddles), etr_illumination.gdshaderinc (ETR's
@@ -105,6 +106,8 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           (everything ETR has no string for, en + de) — see Language
   assets/sounds|music/    GENERATED: 10 effects, 10 pieces, copied verbatim
   assets/trees/           BAKED: conifer, bare-tree + shrub impostor atlases (tools/bake_tree_impostors.sh)
+  assets/materials/       PACKED: the props' CC0 photographs, two texture arrays + CREDITS.md
+                          (tools/pack_prop_materials.sh); on the web their own materials.pck
   scenes/                 main_menu.tscn (main scene), course/character/settings/ghost/lobby/
                           results menus, race.tscn, loading_screen.tscn, key_log.tscn,
                           server.tscn (the same project headless, no course)
@@ -114,7 +117,8 @@ game/                     Godot project (mobile on the desktop, gl_compatibility
                           packs are re-fetched per session into user://cache/external/)
   themes/                 etr_menu.tres — ETR's `common.cpp` palette + checkbox icons
   tests/                  headless suite + ODE benchmark + tone_report.gd,
-                          bake_tree_impostors.gd and tree_portrait.gd (not tests)
+                          bake_tree_impostors.gd, tree_portrait.gd, prop_portrait.gd and
+                          pack_prop_materials.gd (not tests)
   spikes/s1_pingpong/     ping-pong render-target spike (S1)
   spikes/s7_reflection/   planar reflection spike (S7)
 etr-0.8.4/                original source + data — READ-ONLY, never write here
@@ -123,6 +127,8 @@ tools/                    import_all.sh; serve.sh (dedicated server + web export
                           shot.sh (deterministic screenshot, real GPU when present);
                           bake_tree_impostors.sh (re-bake after changing a tree's mesh);
                           tree_portrait.sh (one species up close, any level, no course);
+                          prop_portrait.sh (one prop up close, photographed or procedural);
+                          pack_prop_materials.sh (fetch + pack the props' CC0 photographs);
                           png.py, regionstats.py, linstats.py (slow pure-Python capture stats —
                           tests/tone_report.gd does the same in a second); webtest/ (COOP/COEP
                           server + puppeteer runner); gen_course_export_presets.py +
@@ -164,6 +170,7 @@ godot --path game -- --light=night                                 # ... under a
 godot --path game -- --sky=etr                                     # ... with ETR's skybox and flat fog (procedural|etr)
 godot --path game -- --quality=fast                                # ... at a quality preset (fastest|fast|medium|high|best)
 godot --path game -- --tree-shadows=baked                          # ... trees' shadows baked, not mapped (dynamic|baked)
+godot --path game -- --prop-textures=off                           # ... props drawn procedurally, not from photographs
 godot --path game -- --server=penguin.example                      # ... lobby on that server
 godot --path game -- --lobby                                       # ... lobby on the configured one
 godot --path game res://scenes/key_log.tscn                        # what the link does to the keyboard
@@ -188,6 +195,8 @@ godot --headless --path game res://scenes/server.tscn -- --port=27015 \
 ./tools/probe_course.sh --course=snow_park --follow=-8.75 --from=225 --to=450   # ... holding a line off the middle
 ./tools/bake_tree_impostors.sh [conifer|bare|shrub]                # after any tree mesh change
 ./tools/tree_portrait.sh /tmp/t.png bare --dist=8 [--level=2]      # one species up close, no course
+./tools/prop_portrait.sh /tmp/p.png mountain_hut --dist=7 [--textures=0]   # one prop up close, no course
+./tools/pack_prop_materials.sh                                      # re-fetch + re-pack the props' photographs
 ./tools/build_android.sh [--release] [--install]                   # Android APK (setup: .devcontainer/setup-android.sh)
 
 # headless verification
@@ -216,7 +225,7 @@ SHOT_METHOD=gl_compatibility SHOT_RESOLUTION=1024x576 tools/shot.sh /tmp/web-loo
 written with comments on first run; delete it for defaults. The **Configuration** screen edits
 the display rows (window size, frame-rate readout, fog distance), the quality rows
 (render scale, anti-aliasing, sky and sky detail, tree detail distance, shadows, tree shadow
-type, tree shadows, shadow detail, shadow edges, ice reflections, ice reflects the world, sun rays, motion blur) and writes the same commented file back. The **quality preset**
+type, tree shadows, shadow detail, shadow edges, ice reflections, ice reflects the world, sun rays, motion blur, photo textures) and writes the same commented file back. The **quality preset**
 drop-down (Fastest … Best quality) sets the quality rows together and is *derived*, never stored:
 `QualityPreset.matching` names whichever preset the values are, else "Custom". **High quality is
 the shipped frame and `GameConfig`'s defaults** — `TestConfig` holds them together, so an untouched
@@ -232,7 +241,7 @@ baked tree shadows. A ghost is not a setting: it is whichever
 saved run the player picks from **Race against ghost**, or none.
 
 **Export presets**: `Web` (streamed base — engine, shell, all 45 previews), one generated
-`Course_<dir>` per course, `MusicPack`, `WebSpike`, `Server` (Linux dedicated server), `Android`
+`Course_<dir>` per course, `MusicPack`, `MaterialsPack` (the props' photographs), `WebSpike`, `Server` (Linux dedicated server), `Android`
 (whole game in one APK, arm64, prebuilt template). The generated presets belong to
 `tools/gen_course_export_presets.py`, which finds them by name — re-run it when a course is
 added, removed or renamed, **and after saving presets in the editor**, which drops its markers. The test server must set COOP/COEP and `.wasm`/`.pck` MIME types or
@@ -240,7 +249,7 @@ the export fails obscurely. Prerequisites: Godot 4.7.2 on `PATH` as `godot`, web
 templates, and **Vulkan** for the desktop (Mobile renderer).
 
 **Captures**: `SHOT_METHOD` is `mobile` (desktop default), `gl_compatibility` (browser) or
-`forward_plus`; the driver follows it. `SHOT_TREE_SHADOWS=dynamic|baked` picks the trees' shadows, `SHOT_SUN_SHAFTS=on|off` the sun's rays, `SHOT_MOTION_BLUR=on|off` the camera's smear. `tools/shot.sh` uses the container's real GPU (Wayland
+`forward_plus`; the driver follows it. `SHOT_TREE_SHADOWS=dynamic|baked` picks the trees' shadows, `SHOT_SUN_SHAFTS=on|off` the sun's rays, `SHOT_MOTION_BLUR=on|off` the camera's smear, `SHOT_PROP_TEXTURES=on|off` the props' photographs. `tools/shot.sh` uses the container's real GPU (Wayland
 socket + `/dev/dri/renderD128`, needs `libegl1 libegl-mesa0 libdecor-0-0`; without them Godot
 blames "video card drivers" and silently falls back). ~3 s for 120 frames on the GPU, ~2 min on
 llvmpipe; `SHOT_FORCE_SOFTWARE=1` takes the slow path, worth doing before trusting a small tone
@@ -255,7 +264,7 @@ Detail is in `PROGRESS.md`; this is the summary.
 |---|---|
 | 0 — physics core | **done** — every §4.1 force, ODE23 adaptive, spatial grids. 4724 assertions, 0 failures, 13 s headless. |
 | 1 — importer + first course | **done** — 44 courses, 43 layers, 14 prefabs, 8 environments, 5 characters, events, 111 strings × 13 languages. Plus three authored courses, Forest Trail, Mountain Forest and Snow Park (`addons/course_gen/`), with twelve prop prefabs of their own (one only a collider); Forest Trail has four puddles (`CourseData.water`). |
-| 2 — rendering | partial — Mobile on the desktop, Compatibility on the web (trap list: *sRGB-blended shadow pass*). ETR's illumination clamp in every lit shader except the character's; desktop-only PSSM shadow, the trees' shadows baked into the terrain's vertex colour on the web and by choice on the desktop (`TreeShadowBake`). Splat PBR, chunked terrain, instanced objects (conifers, bare trees and shrubs are 3D meshes at 3 LODs + an octahedral impostor, dithered hand-overs, wind sway, shader snow — [Forest]; anything else collidable is ETR's two crossed planes with a hashed yaw; items are billboards), ETR's HUD redrawn as primitives ([RaceHUD]), migrated skyboxes. Tone matched on Bunny Hill at both ends in all three channels; no LightmapGI. Snow/ice micro-relief, glint, rock detail texture, Fresnel sky, ice reflecting the racers (`IceReflection`) and, as a setting, the hill round them (`IceEnvironment`), textured carve spray, camera motion blur as a setting (`MotionBlur`, Best only), standing water (`WaterRenderer`: the ice's reflection, the wind's waves, wakes and splash; it drags the racer). Heightmap AO baked at import, objects' contact AO baked over it at load (`ContactOcclusion`) + trench-wall AO; shaded/occluded/carved snow tinted blue (fake SSS). |
+| 2 — rendering | partial — Mobile on the desktop, Compatibility on the web (trap list: *sRGB-blended shadow pass*). ETR's illumination clamp in every lit shader except the character's; desktop-only PSSM shadow, the trees' shadows baked into the terrain's vertex colour on the web and by choice on the desktop (`TreeShadowBake`). Splat PBR, chunked terrain, instanced objects (conifers, bare trees and shrubs are 3D meshes at 3 LODs + an octahedral impostor, dithered hand-overs, wind sway, shader snow — [Forest]; anything else collidable is ETR's two crossed planes with a hashed yaw; items are billboards), ETR's HUD redrawn as primitives ([RaceHUD]), migrated skyboxes. Tone matched on Bunny Hill at both ends in all three channels; no LightmapGI. Snow/ice micro-relief, glint, rock detail texture, Fresnel sky, ice reflecting the racers (`IceReflection`) and, as a setting, the hill round them (`IceEnvironment`), textured carve spray, camera motion blur as a setting (`MotionBlur`, Best only), standing water (`WaterRenderer`: the ice's reflection, the wind's waves, wakes and splash; it drags the racer). Heightmap AO baked at import, objects' contact AO baked over it at load (`ContactOcclusion`) + trench-wall AO; shaded/occluded/carved snow tinted blue (fake SSS). Props and buildings drawn from six CC0 photographs (colour ratio, relief, roughness) at MEDIUM and up, procedurally below. |
 | 3 — snow | mechanism proven, integration partial — GPU trail map + CPU mirror; a carve leaves a shaded trench with a ploughed lip. |
 | 4 — character | **done for all five** — skinned mesh from `shape.lst`, keyframe clips as `AnimationLibrary` + `KeyframePath` root motion, start animation (`CIntro`), finish clips on the results screen (`RaceOutcome.clip`), racing pose layer (`CharacterRig.adjust_joints`, ETR's `AdjustJoints`) driven off `RacerState` alone so ghosts and peers animate. `GameConfig.character` picks one. |
 | 5 — game shell | partial — main menu → Practice / Race the computer / Network multiplayer / Race against ghost / character / Configuration; results screen with named runs; ETR palette theme; course + character catalogs (course list in four parts: Tux Racer, ETR, PenguinRacer's own, added by address); English + German, detected or chosen on the settings screen; audio (`AudioDirector`, ETR's one-voice-per-cue mixer). Missing: cups, medals, profiles (data imported), volume controls, ETR's menu art (licence audit). |
@@ -273,7 +282,8 @@ Detail is in `PROGRESS.md`; this is the summary.
 - **S2** GDScript ODE loop — **PASS**: 0.045 ms/frame native, 0.073 ms in-browser. **Do not build
   the godot-rust GDExtension contingency.**
 - **S6** web cold-load size — **done**: slim base (~65 MB, was 161 MB) + one `.pck` per course
-  (268 KB–9.2 MB) + music (14 MB), mounted by `PackStream` on demand. `LoadingScreen` is in both
+  (268 KB–9.2 MB) + music (14 MB) + the props' photographs (8.9 MB, only for a course with props
+  and the setting on), mounted by `PackStream` on demand. `LoadingScreen` is in both
   `main_menu.tscn` and `race.tscn`, so it survives the scene swap and stays up until the hill is built.
 - **S7** planar character reflection under Compatibility — **PASS** native; settled the design
   (see the ice-reflection deviation). **Web untested** — the one open risk on the feature.
@@ -354,6 +364,12 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   x 450–700, y 250–520 out of a Bunny Hill `carve` capture; everything else reproduces to the byte.
   Captures off the real GPU are not byte-reproducible run to run at all — measure the frame, not
   the md5.
+- **The real GPU can stop drawing for every run at once.** On 2026-10-07 every `shot.sh`,
+  `tree_portrait.sh` and `prop_portrait.sh` run hung until killed, on both renderers and with
+  unchanged code too, minutes after the same commands had worked. The xvfb software path drew
+  fine. The likely cause is the Wayland compositor sending no frames (a locked or sleeping
+  session), but that is not confirmed. If a known-good command hangs as well, take the software
+  path (`SHOT_FORCE_SOFTWARE=1`, Compatibility only) rather than bisecting the change.
 - **A run on the real GPU can hang at random, so give every one a timeout.** A Mobile capture
   (`--light=night --snow=2`) sat for minutes on ~2 s of CPU and never wrote its PNG; the same
   command then passed on its own and again inside a loop, with no shader or code change in between.
@@ -409,6 +425,12 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   can see an Inspector edit. `import_fingerprint` hashes what the importer wrote and
   `edited_since_import()` recomputes it; hash rather than diff, or every importer change makes all
   layers look hand-edited.
+- **A layered texture imports as `CompressedTexture2DArray`, which is not a `Texture2DArray`**
+  (both are `TextureLayered`), so `load(path) as Texture2DArray` is null. Cast to
+  `TextureLayered`. **And VRAM compression ships a copy per GPU family**: a `Web` pack carries the
+  desktop's and the phone's side by side (25 MB for the props' photographs). Basis Universal is
+  one copy transcoded at load (8.9 MB with the normals halved); a Basis normal map costs more
+  than its colour, so halve it first.
 - **An exported field nothing reads is an invitation.** Per-layer `normal`/`roughness` texture
   slots were dropped rather than left as silent no-ops, when the terrain's eight albedos were eight
   samplers; a per-layer map would now be a second `Texture2DArray` (trap list, texture units). Do
@@ -1093,8 +1115,8 @@ the whole sky to cyan-white, against which no disc can show. The fog
   in `COLOR.b`) so far limbs stay lines, and holds more snow on round limbs
   (`snow_facing_offset`). Clearing `bare` on a prefab draws ETR's cross again.
 - **Courses can carry solid props** — boulders, stone scatters, fallen logs, stumps — where ETR
-  has only pictures on quads. `PropMesh` builds them (colours in the vertex colours, nothing from a
-  picture; a rock's cuts flat, its weathered surface and all bark smooth — **never a colour or a
+  has only pictures on quads. `PropMesh` builds them (colours in the vertex colours — a photograph,
+  where one is drawn, only modulates them; a rock's cuts flat, its weathered surface and all bark smooth — **never a colour or a
   normal per small face**: that draws a patchwork of triangles close up, which is what the boulders
   and the log's bark were until 2026-10-05), `object_prop.gdshader` draws them inside ETR's
   clamp with patches of snow on upward faces and a drift banked round the foot as deep as the ground there
@@ -1116,10 +1138,16 @@ the whole sky to cyan-white, against which no disc can show. The fog
   between them as a cable is between towers (markers with a height and a roll, `_span`). A building stands on a **pad levelled into the heightmap** under its footprint
   (`PropMesh.footprint`), never on the slope, so it is built with only a shallow plinth. A
   building's faces are **drawn as what they are made of** — log courses, boards, rubble stone,
-  plaster, shingles, concrete — by `object_prop.gdshader`, procedurally (no picture to audit):
-  `PropMesh` tags each face (`Surface`, in `UV2.x`) over its own coordinates in metres (`UV`).
-  Both are built-ins in `fragment()`, so it costs no varying; a mesh without them is plain, and
-  only the buildings and the lift's tower and station carry them. The log seams are the
+  plaster, shingles, concrete — by `object_prop.gdshader`: `PropMesh` tags each face (`Surface`,
+  in `UV2.x`) over its own coordinates in metres (`UV`); a rock's faces and a log's or stump's bark
+  are tagged too (`ROCK`, `BARK`, the bark's grain axis in `UV2.y`). Both are built-ins in
+  `fragment()`, so it costs no varying; a mesh without them is plain. **Drawn procedurally or
+  from photographs** (`[display] prop_textures`, MEDIUM and up): six CC0 materials (Poly Haven,
+  ambientCG, `assets/materials/CREDITS.md`) in two Basis-compressed texture arrays, compiled in
+  only under `PROP_TEXTURES` (`CourseRoot.prop_shader`). A photograph is divided by its own mean
+  (its last mip) and multiplied into the painted colour, so it adds grain, relief and roughness
+  but never a colour; plaster and concrete stay procedural. On the web the arrays are
+  `materials.pck`, fetched for the first course with props; without them, procedural. The log seams are the
   shader's, on multiples of `LOG_COURSE`: drawn as boxes proud of the wall, each caught a line of
   snow on its top. Only the authored
   courses use props; every imported course has Y = 0, no tilt, and is unchanged.

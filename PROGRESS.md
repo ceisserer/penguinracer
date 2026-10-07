@@ -3718,3 +3718,65 @@ its length, the stump round. `TestProps._rock_is_not_a_patchwork`: one colour pe
 most corners with one normal, on the boulder and the stones. It fails on the old per-face
 build. The suite: 7020 passed, the same three pre-existing failures. Not raced past in the game
 itself.
+
+### Props and buildings drawn from CC0 photographs (2026-10-07) · **done, seen in headless Chromium, not on a phone**
+
+**What.** The solid props can be drawn from photographed materials instead of procedurally: the
+resort's log walls, boards, rubble stone and shingles, and the rock of the boulders and stones
+and the bark of the logs, trunks and stumps. Plaster and concrete stay procedural. It is a
+setting (`[display] prop_textures`, the *Photo textures* row, `--prop-textures=` /
+`SHOT_PROP_TEXTURES` for one run), on at MEDIUM and up and off at FAST and FASTEST, which keep the
+procedural look as the fallback. A phone starts at MEDIUM, so it gets them.
+
+**Why.** Up close the procedural wood and stone looked like a game, the restaurant passed at
+15 m/s most of all, and only the logs faked any relief. A normal map gives stone, bark and boards
+depth under the sun, which colour cannot. Terrain (ETR's photographs already) and trees (baked
+impostors) are left alone.
+
+**Sources.** Six CC0 materials, five from Poly Haven and one from ambientCG, each listed with its
+URL in `game/assets/materials/CREDITS.md`. They are not ETR's, so the licence audit is not
+involved. `tools/pack_prop_materials.sh` fetches the 1k maps into `build/` and packs them
+(`tests/pack_prop_materials.gd`) into two layered textures. `props_albedo.png` holds colour, with
+roughness in alpha, as 1024² layers; `props_normal.png` holds normals as 512² layers. That is two
+samplers for all six materials (the texture-unit trap), both in **Basis Universal**. VRAM
+compression shipped a desktop copy and a phone copy side by side, a 25 MB web pack; Basis ships one
+copy, transcoded at load, and is 8.9 MB with the normals at 512². In GPU memory that is ~10 MB.
+
+**How.** `object_prop.gdshader` compiles the photographs in only under `PROP_TEXTURES`, as the
+variant `CourseRoot.prop_shader()` builds, so the plain shader binds no new sampler.
+`CourseRoot._prop_material` swaps each prop prefab's material for a copy on the variant while
+`prop_textures` is on and the arrays load. **A photograph brings no colour of its own**: it is
+divided by its mean (its last mip) and multiplied into the painted colour, as the terrain's rock
+detail is. So a boulder keeps its grey and moss, a shutter its paint, and the photograph adds
+grain, relief and roughness. The snow lies over it unchanged, and the relief is dropped under
+snow. The building faces use the projection `PropMesh` built their UV with, worked out from the
+instance's own frame in metres. The picture's logs are turned along the wall and its boards up
+it, and the shingles run in rows down from the ridge. The log wall's seams were fitted to its
+normal map (a sawtooth across each log, jumping at 0.135 of the tile) and land on the 0.34 m
+courses, with the procedural round-face darkening kept: alone, the photograph's logs read as
+streaks. Rock and bark have no face to follow, so they are blended triplanar in the instance's own
+frame. Bark's furrows turn along the grain axis `PropMesh` tags in `UV2.y` (X for a log or trunk,
+Y for a stump). `PropMesh.Surface` gained `ROCK` and `BARK`; the cut ends keep their painted rings.
+Pine bark's red under-layer read as rust on a dead log, so only 40 % of its hue variation is
+kept. The three authored courses were regenerated for the new tags. Only the prop meshes changed;
+the markers did not move.
+
+**Web.** `materials.pck` is a pack of its own (`MaterialsPack`, `tools/gen_course_export_presets.py`,
+`build_web_streamed.sh`), kept out of the base, the music pack and the server.
+`RaceScene.load_course` fetches it after instantiating a course that `CourseRoot.has_props()`, and
+only with the setting on. If the fetch fails the props are drawn procedurally. Natively the fetch
+is a no-op and costs no frame, so no reference capture moves. The music pack no longer carries the
+tree atlases either: it had been exporting `assets/trees/` all along.
+
+**Verified**: the suite, 7163 passed and 3 failed, the same three that fail on HEAD
+(`lighting/what project.godot ships`, `props/forest floor` ×2).
+`TestProps._props_can_be_photographed` checks that only the variant declares the arrays, the
+arrays' layers and mips, and that a prop's material keeps its parameters on the variant. The props
+test also checks the rock and bark tags and the grain axes, and `TestConfig` checks the default
+and the launch arguments. Portraits (`tools/prop_portrait.sh`, new) of the restaurant, shed,
+chalet, boulder, log and stump, with and without the photographs, under Mobile and (software)
+Compatibility. Snow Park's start under Compatibility, with and without them: the restaurant region
+agrees to half a level, so nothing went through the sRGB conversion twice. Snow Park in headless
+Chromium from the streamed build: `materials.pck` fetched, and the restaurant drawn photographed.
+**Not done**: a phone, a frame-rate measurement (rock and bark cost six texture reads and the
+mean one more, buildings two and one), and a Windows browser.

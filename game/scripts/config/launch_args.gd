@@ -102,6 +102,10 @@ var sun_shafts: String = ""
 ## `--motion-blur=on|off` — [member GameConfig.motion_blur] for one run.
 ## Applied after [member quality]. Empty means "whatever the settings file says".
 var motion_blur: String = ""
+## `--prop-textures=on|off` — [member GameConfig.prop_textures] for one run, so
+## a prop can be captured photographed and procedural. Applied after
+## [member quality]. Empty means "whatever the settings file says".
+var prop_textures: String = ""
 ## `?autostart` — the browser's way of saying "skip the menu" without naming a
 ## course, since it has no `--auto-input=` either.
 var autostart: bool = false
@@ -216,6 +220,8 @@ func parse(argv: PackedStringArray, query: Dictionary) -> void:
 			sun_shafts = arg.trim_prefix("--sun-shafts=")
 		elif arg.begins_with("--motion-blur="):
 			motion_blur = arg.trim_prefix("--motion-blur=")
+		elif arg.begins_with("--prop-textures="):
+			prop_textures = arg.trim_prefix("--prop-textures=")
 		elif arg.begins_with("--capture="):
 			capture_path = arg.trim_prefix("--capture=")
 		elif arg.begins_with("--capture-frames="):
@@ -265,6 +271,7 @@ func parse(argv: PackedStringArray, query: Dictionary) -> void:
 	tree_shadows = _str(query, "tree-shadows", tree_shadows)
 	sun_shafts = _str(query, "sun-shafts", sun_shafts)
 	motion_blur = _str(query, "motion-blur", motion_blur)
+	prop_textures = _str(query, "prop-textures", prop_textures)
 	autostart = autostart or query.has("autostart")
 	# The lobby, from a link. `?server=` names one and `?lobby` takes the one
 	# the page's own host implies — see [method RaceNetwork.default_address],

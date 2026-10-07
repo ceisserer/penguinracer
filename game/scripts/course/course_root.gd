@@ -46,6 +46,14 @@ var _tree_shadow_levels: int = 1 << 16
 ## the player's `[quality] tree_detail` before [method build_runtime]; this node
 ## is also the editor's, which has no settings file to ask.
 var tree_lod_scale: float = 1.0
+## Whether the solid props draw from the photographed materials (`object_prop.gdshader`
+## with `PROP_TEXTURES`, [method prop_shader]) — the player's
+## `[quality] prop_textures`, set by the race before [method build_runtime]
+## like [member tree_lod_scale]. Off, or with the arrays missing (a web build
+## that could not fetch `materials.pck`), they are drawn procedurally.
+var prop_textures: bool = false
+## Each prop prefab's material with the photographs in, made once per course.
+var _textured_materials: Dictionary[Material, ShaderMaterial] = {}
 ## Where every object of each type stands, as the instance transform it was
 ## drawn with (origin on the surface, basis scaled to diameter and height), for
 ## anything else that decorates the course — [CourseLights] stands a torch in
@@ -55,6 +63,69 @@ var object_transforms: Dictionary[String, Array] = {}
 ## once by [method ground_snow] for the first prop that asks.
 var _splat_images: Array[Image] = []
 var _snow_layers: PackedFloat32Array = PackedFloat32Array()
+
+## The props' shader, and the two layered textures its photographed variant
+## reads (`tools/pack_prop_materials.sh`). Not in the web build's base: they
+## come in `materials.pck`, fetched only for a course with props.
+const PROP_SHADER_PATH := "res://shaders/object_prop.gdshader"
+const PROP_ALBEDO_PATH := "res://assets/materials/props_albedo.png"
+const PROP_NORMAL_PATH := "res://assets/materials/props_normal.png"
+static var _prop_shader: Shader
+
+## `object_prop.gdshader` with `PROP_TEXTURES` defined — which is what declares
+## its two samplers, so the plain shader binds none (a declared sampler is
+## bound whether or not it is read; see the trap list on texture units).
+static func prop_shader() -> Shader:
+	if _prop_shader != null:
+		return _prop_shader
+	var code: String = (load(PROP_SHADER_PATH) as Shader).code
+	var at: int = code.find("shader_type spatial;")
+	assert(at >= 0, "object_prop.gdshader has no shader_type line")
+	at += "shader_type spatial;".length()
+	_prop_shader = Shader.new()
+	_prop_shader.code = code.substr(0, at) + "\n#define PROP_TEXTURES\n" + code.substr(at)
+	return _prop_shader
+
+## Whether this course stands any solid prop ([PropMesh]) — what decides
+## whether a race fetches the photographed materials at all. Reads the
+## markers, so it answers before [method build_runtime].
+func has_props() -> bool:
+	var objects_root: Node = get_node_or_null("Objects")
+	if objects_root == null:
+		return false
+	for group: Node in objects_root.get_children():
+		var prefab: ObjectPrefab = object_prefabs.get(String(group.name), null)
+		if prefab != null and _is_prop_material(prefab.material) and group.get_child_count() > 0:
+			return true
+	return false
+
+static func _is_prop_material(material: Material) -> bool:
+	var mat := material as ShaderMaterial
+	return mat != null and mat.shader != null and mat.shader.resource_path == PROP_SHADER_PATH
+
+## [param material], or — for a prop, with [member prop_textures] on and the
+## arrays there to load — its copy drawing the photographs.
+func _prop_material(material: Material) -> Material:
+	if not prop_textures or not _is_prop_material(material):
+		return material
+	if _textured_materials.has(material):
+		return _textured_materials[material]
+	var textured: ShaderMaterial = textured_prop_material(material as ShaderMaterial)
+	if textured == null:
+		return material
+	_textured_materials[material] = textured
+	return textured
+
+## A copy of the prop material [param material] drawing the photographs, or
+## null where the arrays are not there to load.
+static func textured_prop_material(material: ShaderMaterial) -> ShaderMaterial:
+	if not ResourceLoader.exists(PROP_ALBEDO_PATH) or not ResourceLoader.exists(PROP_NORMAL_PATH):
+		return null
+	var textured := material.duplicate() as ShaderMaterial
+	textured.shader = prop_shader()
+	textured.set_shader_parameter("prop_albedo", load(PROP_ALBEDO_PATH))
+	textured.set_shader_parameter("prop_normal", load(PROP_NORMAL_PATH))
+	return textured
 
 ## Build the runtime representation. Safe to call once, from the race scene.
 func build_runtime() -> void:
@@ -248,7 +319,7 @@ func _batch_mesh(prefab: ObjectPrefab, transforms: Array[Transform3D],
 			mm.set_instance_color(i, Color.WHITE)
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
-	mmi.material_override = prefab.material
+	mmi.material_override = _prop_material(prefab.material)
 	mmi.cast_shadow = _shadow_setting()
 	_batch_meshes.push_back(mmi)
 	return mmi

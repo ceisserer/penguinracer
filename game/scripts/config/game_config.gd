@@ -75,6 +75,15 @@ var sun_shafts: bool = true
 ## camera moves, on every renderer; off by default, since it moves every
 ## reference capture and not every player wants it — on only at BEST.
 var motion_blur: bool = false
+## Whether the solid props — boulders, logs, stumps, the resort's buildings —
+## are drawn from photographed materials (grain, relief under the sun,
+## roughness) or procedurally ([method CourseRoot.prop_shader]).
+##
+## DEVIATION, like the props themselves. Six CC0 materials in two texture
+## arrays, ~10 MB of GPU memory; on the web a pack of their own, fetched for
+## the first course with props. Off is the procedural look, which costs nothing
+## to download — FAST and FASTEST.
+var prop_textures: bool = true
 ## Whether the racers and the standing course objects cast a shadow on the snow.
 ##
 ## Half migrated, half DEVIATION. `CCharShape::DrawShadow` draws the character's
@@ -384,6 +393,7 @@ func read(cfg: ConfigFile) -> void:
 		ice_world_reflections))
 	sun_shafts = bool(cfg.get_value("display", "sun_shafts", sun_shafts))
 	motion_blur = bool(cfg.get_value("display", "motion_blur", motion_blur))
+	prop_textures = bool(cfg.get_value("display", "prop_textures", prop_textures))
 	shadows = bool(cfg.get_value("display", "shadows", shadows))
 	procedural_sky = str(cfg.get_value("display", "sky",
 		"procedural" if procedural_sky else "etr")).strip_edges().to_lower() != "etr"
@@ -507,6 +517,11 @@ sun_shafts = %s
 ; screen while the camera moves.
 motion_blur = %s
 
+; Whether the boulders, logs, stumps and buildings are drawn from photographs of
+; real wood and stone (grain, relief under the sun) or from patterns worked out
+; as they are drawn. The photographs are a download of their own in a browser.
+prop_textures = %s
+
 ; Whether the racers and the trees cast a shadow on the snow. The original
 ; draws the character's shadow only at its highest detail level and never
 ; draws one for a tree; both are off under a cloudy or a night sky either way.
@@ -530,7 +545,8 @@ show_fps = %s
 [quality]
 
 ; The Configuration screen's quality preset sets these together (and render_scale,
-; ice_reflections, ice_world_reflections, sun_shafts, motion_blur, shadows and sky
+; ice_reflections, ice_world_reflections, sun_shafts, motion_blur, prop_textures,
+; shadows and sky
 ; above). The file keeps the values, not the preset: any mix that is no preset's shows there as "Custom".
 
 ; Smoothing of the 3D scene's edges: off, 2x or 4x.
@@ -641,6 +657,7 @@ port = %d
 """ % [_resolution_text(), str(fullscreen).to_lower(), render_scale,
 		str(ice_reflections).to_lower(), str(ice_world_reflections).to_lower(),
 		str(sun_shafts).to_lower(), str(motion_blur).to_lower(),
+		str(prop_textures).to_lower(),
 		str(shadows).to_lower(),
 		"procedural" if procedural_sky else "etr", str(night_lights).to_lower(),
 		str(show_fps).to_lower(),

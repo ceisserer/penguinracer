@@ -53,6 +53,7 @@ static func _defaults(t: TestCase) -> void:
 	t.ok(c.ice_world_reflections, "and the hill round it, where the renderer can")
 	t.ok(c.sun_shafts, "and a clear sun sends rays through the air")
 	t.ok(not c.motion_blur, "but the frame does not smear with the camera")
+	t.ok(c.prop_textures, "and the props are drawn from their photographs")
 	# Wanting shadows is the default; getting them is also up to the renderer
 	# and the sky. See [method RaceScene._shadows_wanted].
 	t.ok(c.shadows, "and the racers and the trees cast a shadow")
@@ -410,7 +411,7 @@ static func _launch_args(t: TestCase) -> void:
 		"--camera=above", "--opponents=5", "--difficulty=hard",
 		"--remote-keyboard", "--no-audio", "--no-intro", "--fps", "--wind=2",
 		"--snow=3", "--light=night", "--sun-shafts=off", "--motion-blur=on",
-		"--capture=/tmp/a.png", "--capture-frames=200",
+		"--prop-textures=off", "--capture=/tmp/a.png", "--capture-frames=200",
 	]), {})
 	t.ok(cli.course == "bunny_hill", "the course is read")
 	t.ok(cli.course_scene_path() == "res://courses/bunny_hill/course.tscn",
@@ -431,6 +432,7 @@ static func _launch_args(t: TestCase) -> void:
 		"which parses to the condition it names")
 	t.ok(cli.sun_shafts == "off", "and whether the sun sends rays, for one run")
 	t.ok(cli.motion_blur == "on", "and whether the frame smears, for one run")
+	t.ok(cli.prop_textures == "off", "and whether the props are photographed, for one run")
 	t.ok(cli.capture_path == "/tmp/a.png" and cli.capture_frames == 200,
 		"the capture request is read")
 
@@ -441,7 +443,7 @@ static func _launch_args(t: TestCase) -> void:
 		"camera": "above", "opponents": "5", "difficulty": "hard",
 		"remotekeyboard": "", "noaudio": "", "nointro": "", "fps": "", "wind": "2",
 		"snow": "3", "light": "night", "sun-shafts": "off", "motion-blur": "on",
-		"capture": "/tmp/a.png", "capture-frames": "200",
+		"prop-textures": "off", "capture": "/tmp/a.png", "capture-frames": "200",
 	})
 	t.ok(url.course == cli.course and url.character == cli.character,
 		"a URL names the same course and character")
@@ -456,6 +458,7 @@ static func _launch_args(t: TestCase) -> void:
 		"and the same HUD readout and weather")
 	t.ok(url.sun_shafts == cli.sun_shafts, "and the same sun rays")
 	t.ok(url.motion_blur == cli.motion_blur, "and the same motion blur")
+	t.ok(url.prop_textures == cli.prop_textures, "and the same props")
 	t.ok(url.capture_path == cli.capture_path
 		and url.capture_frames == cli.capture_frames, "and the same capture")
 

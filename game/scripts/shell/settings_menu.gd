@@ -59,6 +59,7 @@ signal closed()
 @onready var _ice_world_reflection: CheckBox = %IceWorldReflectionCheck
 @onready var _sun_shafts: CheckBox = %SunShaftsCheck
 @onready var _motion_blur: CheckBox = %MotionBlurCheck
+@onready var _prop_textures: CheckBox = %PropTexturesCheck
 @onready var _shadows_row: Control = %ShadowsRow
 @onready var _shadows: CheckBox = %ShadowsCheck
 @onready var _quality: OptionButton = %QualityOption
@@ -182,6 +183,7 @@ func _ready() -> void:
 	_ice_world_reflection.toggled.connect(_on_quality_row_changed)
 	_sun_shafts.toggled.connect(_on_quality_row_changed)
 	_motion_blur.toggled.connect(_on_quality_row_changed)
+	_prop_textures.toggled.connect(_on_quality_row_changed)
 
 	_render_scale.item_selected.connect(_on_render_scale_changed)
 	_fog_start.value_changed.connect(_on_fog_start_changed)
@@ -253,6 +255,7 @@ func _show_values(values: Dictionary) -> void:
 	_ice_world_reflection.button_pressed = values["ice_world_reflections"]
 	_sun_shafts.button_pressed = values["sun_shafts"]
 	_motion_blur.button_pressed = values["motion_blur"]
+	_prop_textures.button_pressed = values["prop_textures"]
 	_filling = false
 	_on_quality_row_changed()
 
@@ -273,6 +276,7 @@ func _row_values() -> Dictionary:
 		"ice_world_reflections": _ice_world_reflection.button_pressed,
 		"sun_shafts": _sun_shafts.button_pressed,
 		"motion_blur": _motion_blur.button_pressed,
+		"prop_textures": _prop_textures.button_pressed,
 	}
 
 func _custom_index() -> int:

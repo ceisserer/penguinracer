@@ -296,6 +296,12 @@ copied, and the menus reproduce ETR's colour palette rather than its art.
 If you intend to redistribute a build, or to reuse an individual asset outside the GPL context it
 arrived in, check that asset's authorship yourself. Contributions to the audit are welcome.
 
+New assets that are not ETR's are a different, easier case. The photographs the props and
+buildings are drawn with (wood, stone, rock, bark, shingles) are **CC0** — public domain, no
+share-alike, no conflict with the GPL — from Poly Haven and ambientCG, each listed with its source
+URL in [`game/assets/materials/CREDITS.md`](./game/assets/materials/CREDITS.md). Anything added
+alongside them is held to the same rule: CC0 or CC-BY, recorded there.
+
 ### Names
 
 "Tux Racer" has a commercial history — the name went to a closed-source release after the original
@@ -330,6 +336,9 @@ Daniel Poeira and K. Picon (Papercuts font).
 Philipp Kloke (de), Jonatan Nyberg (sv), Viliam Bur (eo), Rogonow (nl), Andrei Ionel (ro),
 Jorge Maldonado Ventura (es), João Frade (pt), and the translators before 0.6.0 whose names were
 not recorded.
+
+**Prop materials** — Amal Kumar, Dimitrios Savva, Rico Cilliers and Charlotte Baglioni (Poly
+Haven), and ambientCG; CC0, see [`game/assets/materials/CREDITS.md`](./game/assets/materials/CREDITS.md).
 
 **And** Larry Ewing for Tux, Ulrich Thatcher for the quadtree algorithm ETR used, and everyone
 thanked in `etr-0.8.4/data/credits.lst`.

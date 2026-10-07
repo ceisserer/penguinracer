@@ -26,6 +26,9 @@ done
 echo "==> music pack"
 "$GODOT" --headless --path "$PROJECT" --export-pack "MusicPack" "$OUT/music.pck"
 
+echo "==> materials pack (the props' photographs)"
+"$GODOT" --headless --path "$PROJECT" --export-pack "MaterialsPack" "$OUT/materials.pck"
+
 echo "==> done"
 du -sh "$OUT/index.html" "$OUT"/*.wasm "$OUT"/*.pck 2>/dev/null || true
 echo "courses: $(find "$OUT/courses" -name '*.pck' | wc -l) packs, $(du -ch "$OUT"/courses/*.pck 2>/dev/null | tail -1 | cut -f1) total"
