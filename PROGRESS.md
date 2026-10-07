@@ -3561,6 +3561,62 @@ is its play area. The suite has the same three pre-existing failures. **Not look
 render**: no capture harness starts a racer off the trail, so how the edge of the world reads
 from 8 m inside it is unchecked.
 
+### Wood, stone and concrete on the resort's buildings (2026-10-07) · **done, not seen in a real browser or on a phone**
+
+**What.** The chalets, restaurants, shed and lift stations were flat vertex colours. Their faces
+are now drawn as what they are made of: **log courses** (each log rounded between its seams,
+lit as round by a tilted normal, its own shade, streaks, rings and knots), **boards** (16 cm,
+dark gaps, grain; walls, shutters, balconies, deck, eaves), **rubble stone** (stones in courses,
+warm and cool greys, pale mortar; plinths, the restaurant's ground floor, terrace, chimneys),
+**plaster** (trowelled, grey splash above the plinth), **shingles** (rows staggered from the
+ridge) and **concrete** (shuttering lifts, clouding, pores; the lift's tower footings and a new
+pad under each station's bullwheel).
+
+**How.** `PropMesh.Surface`, set while building (`_surface`) and written per vertex in
+`_tri_shaded`: `UV2.x` the surface, `UV` the face's coordinates in metres, chosen by its
+dominant axis. Only the kinds that use them carry either (`_surfaced`), so no other prop's mesh
+changed. `object_prop.gdshader`'s `building_surface` draws them, and reads both from the
+built-in UVs: no new varying. The log seam boxes are gone (they snowed); the shader draws the
+seams on multiples of `LOG_COURSE`.
+
+**Verified**: the suite (7118 + the new `props/building surfaces`; the same three pre-existing
+failures); throwaway close-ups of each building under Mobile and of the restaurant under
+Compatibility; the race captures unchanged at a distance.
+
+### Snow Park as a ski resort (2026-10-07) · **done, not seen in a real browser or on a phone**
+
+**What.** Snow Park is now a resort's mountain, after a real one's piste map: 1835 m to the
+finish (was 1410), world 140 × 1925 m. Top to bottom: the start beside a **mountain restaurant**
+and the lift's top station; a 31° face, 48 m wide, above the **treeline**; the rollers; a **narrow
+catwalk** (9 m) through thick forest, one S-bend, **fenced** either side; a steep pitch out of the
+trees; the jump line; a narrow, 14° path past the **mid-mountain restaurant** and its sun
+terrace; a steep pitch; the slalom; a wide 15° **meadow** with the igloos; the half-pipe; a narrow
+30° **chute**, fenced; a 15° run-out; the moguls; the big jump, its landing lined with **orange
+safety nets**; and the outrun into a **village** of chalets round the finish, fenced, with the
+lift's bottom station. Width and gradient both alternate: wide/narrow and steep/flat are tested
+on the real heightmap.
+
+**How.** `gen_snow_park.gd`: `SECTIONS`/`WIDTHS` re-laid with every feature moved down the
+course; `FENCED` stretches where `play_margin(d)` drops from 8 m to 2 m; the fences walk the
+play area's own edges (`_edges`, `_along_edge`) 0.6 m outside them, posts every 2.4 m, rails
+strung post to post with `_span` (the lift's cables now use it too); nets the same at 4 m.
+Buildings (`HOUSES`) stand just past the play area facing the run, each on a **pad** levelled in
+`_relief` (`_plan_pads`, also under both lift stations, which used to stand on the slope),
+with a clearing round it. `PropMesh` has seven new kinds: `CHALET` (plastered or timber by seed,
+balcony, shutters, chimney, a slab of snow on the roof), `MOUNTAIN_HUT` (stone and timber,
+terrace with parasols and a flag), `SHED`, `FENCE_POST`, `FENCE_RAIL`, `NET_POLE`, `NET_PANEL`.
+`CourseGenKit.is_inside` replaces Godot's point-in-polygon in the kit (trap list).
+
+**Verified**: the suite — 7118 passed, 3 failed, the same three as before. `TestSnowPark` adds
+wide/narrow and steep/flat alternation, the play area hugging each narrow way, every post and
+pole just outside the play area with no gap over 6 m along each fenced stretch, every rail and
+net hanging from two posts, every building clear of the play area on level ground.
+`tools/probe_course.sh`: hard 92 s (82 m off the big jump, onto its landing), medium 124 s,
+easy 181 s (8–10 m/s along the catwalk), no hits. Mobile captures down the course (start,
+catwalk, restaurant, chute, nets, village). **Not done**: Compatibility, a real browser, a phone,
+a frame-rate measurement (~2000 trees, ~1700 furniture instances); the preview is still the old
+half-pipe capture.
+
 ### A third course of our own: Snow Park (2026-10-05) · **done, not seen in a real browser or on a phone**
 
 **What.** **Snow Park** (`courses/snow_park/`), 1410 m to the finish down an open, sunny slope

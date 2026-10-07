@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="ObjectPrefab" format=4]
+
+[ext_resource type="Shader" path="res://shaders/object_prop.gdshader" id="1_60vvr"]
+[ext_resource type="Script" path="res://scripts/course/object_prefab.gd" id="2_wx6bk"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_ir3pn"]
+render_priority = 0
+shader = ExtResource("1_60vvr")
+shader_parameter/etr_ambient = null
+shader_parameter/snow_cover = null
+shader_parameter/snow_patch_scale = null
+shader_parameter/snow_color = null
+shader_parameter/mottle = 0.25
+shader_parameter/mottle_scale = null
+shader_parameter/foot_drift = null
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_wy8uf"]
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"attribute_data": PackedByteArray("KR4T/ykeE/8pHhP/KR4T/ykeE/8pHhP/KR4T/ykeE/8pHhP/KR4T/ykeE/8pHhP/KR4T/ykeE/8pHhP/KR4T/ykeE/8pHhP/KR4T/ykeE/8pHhP/KR4T/ykeE/8pHhP/KR4T/ykeE/8pHhP/KR4T/ykeE/8pHhP/"),
+"format": 34359742479,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAwAEAAUABgAHAAgABgAJAAcACgALAAwADQAOAA8AEAARABIAEAASABMAFAAVABYAFwAYABkAGgAbABwAGgAcAB0A"),
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 30,
+"vertex_data": PackedByteArray("AAAAvwAAAL8AAAC/AAAAPwAAAL8AAAC/AAAAPwAAAD8AAAC/AAAAvwAAAL8AAAC/AAAAPwAAAD8AAAC/AAAAvwAAAD8AAAC/AAAAvwAAAL8AAAA/AAAAPwAAAD8AAAA/AAAAPwAAAL8AAAA/AAAAvwAAAD8AAAA/AAAAvwAAAL8AAAC/AAAAvwAAAD8AAAA/AAAAvwAAAL8AAAA/AAAAvwAAAL8AAAC/AAAAvwAAAD8AAAC/AAAAvwAAAD8AAAA/AAAAPwAAAL8AAAC/AAAAPwAAAL8AAAA/AAAAPwAAAD8AAAA/AAAAPwAAAD8AAAC/AAAAvwAAAL8AAAC/AAAAPwAAAL8AAAA/AAAAPwAAAL8AAAC/AAAAvwAAAL8AAAC/AAAAvwAAAL8AAAA/AAAAPwAAAL8AAAA/AAAAvwAAAD8AAAC/AAAAPwAAAD8AAAC/AAAAPwAAAD8AAAA/AAAAvwAAAD8AAAA///////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA/3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AIAAAACA/3//vwAAAID/f/+/AAAAgP9//78AAACA/3//vwAAAID/f/+/AAAAgP9//7///wCA/3//v///AID/f/+///8AgP9//7///wCA/3//vwCAAAAAAP+/AIAAAAAA/78AgAAAAAD/vwCAAAAAAP+/AIAAAAAA/78AgAAAAAD/vwCA//8AAP+/AID//wAA/78AgP//AAD/vwCA//8AAP+/")
+}]
+
+[resource]
+script = ExtResource("2_wx6bk")
+id = &"fence_rail"
+mesh = SubResource("ArrayMesh_wy8uf")
+material = SubResource("ShaderMaterial_ir3pn")
+decorative = true

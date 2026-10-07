@@ -570,12 +570,12 @@ dir = "snow_park"
 group = "penguinracer"
 display_name = "Snow Park"
 author = "PenguinRacer"
-description = "A terrain park on a sunny slope. Pop off the rollers, fly the table-tops or slide the boxes, carve the berms of the slalom, ride the walls of the half-pipe, hammer through the moguls and finish off the big jump. Herring hang in the air: catch them in flight."
+description = "A ski resort on a sunny mountain, from the summit restaurant to the village. Drop the open face, squeeze down the catwalks through the woods, fly the table-tops or slide the boxes, carve the berms of the slalom, ride the half-pipe, plunge down the chute, hammer through the moguls and finish off the big jump. Herring hang in the air: catch them in flight."
 scene_path = "res://courses/snow_park/course.tscn"
 course_path = "res://courses/snow_park/course.tres"
 preview_path = "res://courses/snow_park/preview.png"
-world_size = Vector2(140, 1500)
-base_angle = 21.1363956850239
+world_size = Vector2(140, 1925)
+base_angle = 21.403620135964236
 
 [resource]
 script = ExtResource("2_wa64y")

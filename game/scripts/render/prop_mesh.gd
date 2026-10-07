@@ -24,10 +24,15 @@ extends RefCounted
 ## [code]TRUNK[/code] is a log for long spans — a dead tree lodged across a
 ## gully, ten to twenty times as long as it is thick (Mountain Forest). The
 ## rest are Snow Park's furniture ([method park_size]): a snowman, an igloo,
-## and a chairlift's parts — a tower, a length of cable, a chair and the
-## station at either end.
+## a chairlift's parts — a tower, a length of cable, a chair and the station
+## at either end —, the resort's buildings — a chalet, a mountain restaurant
+## and a shed — and its fences: a wooden post and rail, and the orange safety
+## net's pole and a length of net. A rail and a length of net are strung
+## between two posts as a cable is between two towers: a unit length centred on
+## its marker, which gives its span.
 enum Kind { BOULDER, STONES, LOG, STUMP, TRUNK, SNOWMAN, IGLOO, LIFT_TOWER, LIFT_CABLE,
-	LIFT_CHAIR, LIFT_STATION }
+	LIFT_CHAIR, LIFT_STATION, CHALET, MOUNTAIN_HUT, SHED, FENCE_POST, FENCE_RAIL, NET_POLE,
+	NET_PANEL }
 
 ## Rock greys, sRGB; a boulder picks its own tint between them.
 const ROCK_LIGHT := Color(0.56, 0.55, 0.52)
@@ -92,11 +97,53 @@ const TOWER_CABLE_SHARE := 0.94
 const CHAIR_HANG := 2.62
 const STATION_WHEEL := Vector3(0.0, 4.75, 3.0)
 
+## The resort's buildings and fences, sRGB.
+const PLASTER := Color(0.90, 0.88, 0.82)
+const STONE := Color(0.52, 0.51, 0.48)
+const LOG_WALL := Color(0.45, 0.29, 0.16)
+const SHINGLE := Color(0.32, 0.25, 0.21)
+const SHUTTER_COLOURS: Array[Color] = [Color(0.17, 0.38, 0.22), Color(0.58, 0.13, 0.10),
+	Color(0.36, 0.22, 0.12)]
+const WEATHERED := Color(0.44, 0.38, 0.31)
+const NET_ORANGE := Color(1.0, 0.42, 0.04)
+const PARASOL := Color(0.80, 0.12, 0.10)
+## How far round a building the ground has to be level, in metres from its
+## middle — what the course levels a pad for ([method park_size] covers the
+## overhanging roof, which needs no ground under it).
+const CHALET_FOOTPRINT := Vector2(4.1, 5.1)
+const HUT_FOOTPRINT := Vector2(7.6, 9.1)
+const SHED_FOOTPRINT := Vector2(2.1, 1.7)
+## The heights a fence's rails and a net's middle stand over the ground, and a
+## net's height.
+const RAIL_HEIGHTS: Array[float] = [0.5, 1.0]
+const NET_MIDDLE := 1.1
+const NET_HEIGHT := 1.8
+
+## What a building's face is made of, for `object_prop.gdshader` to draw on it:
+## courses of logs, boards, rubble stone, plaster, shingles, concrete — or
+## [code]PLAIN[/code], the vertex colour alone (everything else). Handed over in
+## `UV2.x`, with the face's own coordinates in metres in `UV` ([method
+## _tri_shaded]): along the wall and up it, or across a level face. Only the
+## kinds in [method _surfaced] carry either, so every other prop's mesh is as
+## it was.
+enum Surface { PLAIN, LOGS, BOARDS, STONE, PLASTER, SHINGLES, CONCRETE }
+## The height of one course of logs, metres: the seams between them stand on
+## its multiples, and the shader rounds each log between two of them.
+const LOG_COURSE := 0.34
+
+## The surface whatever is built next is made of ([enum Surface]), and
+## whether the mesh being built carries surfaces at all.
+static var _surface: Surface = Surface.PLAIN
+static var _surfaced: bool = false
+
 static func build(kind: Kind, seed_value: int = 1) -> ArrayMesh:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_surface = Surface.PLAIN
+	_surfaced = kind in [Kind.LIFT_TOWER, Kind.LIFT_STATION, Kind.CHALET, Kind.MOUNTAIN_HUT,
+		Kind.SHED]
 	match kind:
 		Kind.BOULDER:
 			_rock(st, rng, Vector3(0.0, -0.15, 0.0), Vector3(0.5, 1.15, 0.5), 2)
@@ -121,6 +168,27 @@ static func build(kind: Kind, seed_value: int = 1) -> ArrayMesh:
 			_lift_chair(st)
 		Kind.LIFT_STATION:
 			_lift_station(st)
+		Kind.CHALET:
+			_chalet(st, rng, seed_value % 2 == 1)
+		Kind.MOUNTAIN_HUT:
+			_mountain_hut(st, rng)
+		Kind.SHED:
+			_house(st, rng, SHED_FOOTPRINT - Vector2(0.1, 0.1), 0.0, 0.45, 2.4, 30.0, 0.4, 0.45,
+				LOG_WALL, false, false)
+		Kind.FENCE_POST:
+			_tube(st, Vector3(0.0, -0.05, 0.0), Vector3(0.0, 1.2, 0.0), 0.075, 0.065, 6, WEATHERED,
+				true, false)
+			_tube(st, Vector3(0.0, 1.2, 0.0), Vector3(0.0, 1.3, 0.0), 0.065, 0.02, 6, WEATHERED,
+				false, true)
+		Kind.FENCE_RAIL:
+			_box(st, Vector3.ZERO, Vector3.ONE, WEATHERED)
+		Kind.NET_POLE:
+			_tube(st, Vector3(0.0, -0.05, 0.0), Vector3(0.0, 2.0, 0.0), 0.05, 0.045, 6, PARASOL,
+				true, false)
+			_tube(st, Vector3(0.0, 2.0, 0.0), Vector3(0.0, 2.3, 0.0), 0.045, 0.04, 6, PLASTER,
+				true, true)
+		Kind.NET_PANEL:
+			_net_panel(st)
 	# Normals first, from the unshared flat faces; indexing after merges only
 	# the vertices that already agree.
 	st.generate_normals()
@@ -379,7 +447,29 @@ static func park_size(kind: Kind) -> Vector3:
 			return Vector3(2.0, 2.7, 2.0)
 		Kind.LIFT_STATION:
 			return Vector3(7.0, 5.0, 11.0)
+		Kind.CHALET:
+			return Vector3(10.0, 8.2, 13.2)
+		Kind.MOUNTAIN_HUT:
+			return Vector3(16.4, 9.0, 18.4)
+		Kind.SHED:
+			return Vector3(5.0, 4.2, 4.4)
+		Kind.FENCE_POST:
+			return Vector3(0.16, 1.3, 0.16)
+		Kind.NET_POLE:
+			return Vector3(0.1, 2.3, 0.1)
 	return Vector3.ONE
+
+## How far round a building's middle the ground under it must be level, as
+## half-extents across its own X and Z; zero for anything else.
+static func footprint(kind: Kind) -> Vector2:
+	match kind:
+		Kind.CHALET:
+			return CHALET_FOOTPRINT
+		Kind.MOUNTAIN_HUT:
+			return HUT_FOOTPRINT
+		Kind.SHED:
+			return SHED_FOOTPRINT
+	return Vector2.ZERO
 
 ## Three balls of packed snow, a coal face and buttons, a carrot, stick arms, a
 ## scarf and a hat. Faces +Z.
@@ -478,7 +568,9 @@ static func _igloo(st: SurfaceTool, rng: RandomNumberGenerator) -> void:
 ## A chairlift tower: a concrete footing, a tapered steel column, a painted
 ## crossarm with a sheave train under either end, where the cable runs.
 static func _lift_tower(st: SurfaceTool) -> void:
+	_surface = Surface.CONCRETE
 	_box(st, Vector3(0.0, -0.05, 0.0), Vector3(1.6, 0.5, 1.6), CONCRETE)
+	_surface = Surface.PLAIN
 	_tube(st, Vector3(0.0, 0.2, 0.0), Vector3(0.0, 9.57, 0.0), 0.42, 0.3, 8, STEEL, true, true)
 	_box(st, Vector3(0.0, 9.75, 0.0), Vector3(5.6, 0.36, 0.4), LIFT_PAINT)
 	_tube(st, Vector3(0.0, 9.93, 0.0), Vector3(0.0, 10.0, 0.0), 0.08, 0.04, 6, MACHINE_DARK,
@@ -525,13 +617,16 @@ static func _lift_station(st: SurfaceTool) -> void:
 	const FRONT := 1.0
 	const EAVE := 3.0
 	const RIDGE := 4.4
+	_surface = Surface.BOARDS
 	_box(st, Vector3(0.0, (EAVE - 0.1) * 0.5, (BACK + FRONT) * 0.5),
 		Vector3(W * 2.0, EAVE + 0.1, FRONT - BACK), PLANKS)
+	_surface = Surface.PLAIN
 	_box(st, Vector3(0.0, 1.9, FRONT + 0.02), Vector3(4.0, 0.9, 0.06), WINDOW)
 	for side: float in [-1.0, 1.0]:
 		_box(st, Vector3(side * (W + 0.02), 1.9, -1.5), Vector3(0.06, 0.9, 3.4), WINDOW)
 	# The gable ends, then the roof's two pitches, overhanging all round.
 	var inside := Vector3(0.0, EAVE, (BACK + FRONT) * 0.5)
+	_surface = Surface.BOARDS
 	for z: float in [BACK, FRONT]:
 		_tri(st, Vector3(-W, EAVE, z), Vector3(W, EAVE, z), Vector3(0.0, RIDGE, z), PLANKS,
 			inside)
@@ -541,11 +636,16 @@ static func _lift_station(st: SurfaceTool) -> void:
 		var top := Vector3(0.0, RIDGE, 0.0)
 		var z0 := Vector3(0.0, 0.0, BACK - OVER)
 		var z1 := Vector3(0.0, 0.0, FRONT + OVER)
+		_surface = Surface.PLAIN
 		_quad(st, eave + z0, top + z0, top + z1, eave + z1, ROOF, inside)
 		# The underside, so the roof is not a sheet seen from below.
 		var under := Vector3(0.0, -0.12, 0.0)
+		_surface = Surface.BOARDS
 		_quad(st, eave + z0 + under, top + z0 + under, top + z1 + under, eave + z1 + under,
 			PLANKS * 0.7, inside + Vector3(0.0, 4.0, 0.0))
+	_surface = Surface.CONCRETE
+	_box(st, Vector3(0.0, -0.15, STATION_WHEEL.z), Vector3(1.4, 0.4, 1.4), CONCRETE)
+	_surface = Surface.PLAIN
 	var wheel: Vector3 = STATION_WHEEL
 	_tube(st, Vector3(0.0, -0.1, wheel.z), Vector3(0.0, wheel.y - 0.15, wheel.z), 0.32, 0.26, 8,
 		STEEL, true, true)
@@ -555,6 +655,239 @@ static func _lift_station(st: SurfaceTool) -> void:
 		LIFT_LINE_OFFSET + 0.05, LIFT_LINE_OFFSET + 0.05, 24, MACHINE_DARK, false, true)
 	_tube(st, wheel + Vector3(0.0, 0.13, 0.0), wheel + Vector3(0.0, 0.25, 0.0), 0.5, 0.4, 10,
 		LIFT_PAINT, false, true)
+
+## A two-storey chalet: plaster or timber below, timber above, a balcony of
+## boarded railing across its front gable (+Z) and the door under it, a roof
+## of shingles under snow. [param plaster] picks the ground floor's wall.
+static func _chalet(st: SurfaceTool, rng: RandomNumberGenerator, plaster: bool) -> void:
+	_house(st, rng, CHALET_FOOTPRINT - Vector2(0.1, 0.1), 0.0, 3.0, 5.6, 26.0, 0.9, 1.5,
+		PLASTER if plaster else LOG_WALL, true, true)
+
+## A mountain restaurant: a stone ground floor under a timber storey and a low
+## roof, and a sun terrace out in front (+Z) — a stone platform with a railing,
+## tables under three parasols, and a flag on a pole at its corner.
+static func _mountain_hut(st: SurfaceTool, rng: RandomNumberGenerator) -> void:
+	const ZC := -2.4
+	const HALF := Vector2(7.0, 5.5)
+	_house(st, rng, HALF, ZC, 3.2, 5.8, 20.0, 1.1, 1.2, STONE, true, false)
+	var z0: float = ZC + HALF.y
+	const DEPTH := 6.0
+	const DECK := 0.54
+	const W := 7.5
+	var zm: float = z0 + DEPTH * 0.5
+	_surface = Surface.STONE
+	_box(st, Vector3(0.0, (0.5 - 0.35) * 0.5, zm), Vector3(W * 2.0, 0.85, DEPTH), STONE)
+	# Boards everywhere from the deck to the tables; the parasols and the flag
+	# are cloth and paint.
+	_surface = Surface.BOARDS
+	_box(st, Vector3(0.0, 0.52, zm), Vector3(W * 2.0 - 0.1, 0.04, DEPTH - 0.1), PLANKS)
+	# The railing round its three open sides: posts, a hand rail and a mid rail.
+	var front: float = z0 + DEPTH - 0.05
+	for y: float in [DECK + 0.95, DECK + 0.5]:
+		_box(st, Vector3(0.0, y, front), Vector3(W * 2.0, 0.07, 0.06), PLANKS)
+		for side: float in [-1.0, 1.0]:
+			_box(st, Vector3(side * (W - 0.05), y, zm), Vector3(0.06, 0.07, DEPTH), PLANKS)
+	var x: float = -W + 0.05
+	while x <= W:
+		_box(st, Vector3(x, DECK + 0.5, front), Vector3(0.09, 1.0, 0.09), PLANKS)
+		x += 1.5
+	for side: float in [-1.0, 1.0]:
+		var z: float = z0 + 1.0
+		while z < front:
+			_box(st, Vector3(side * (W - 0.05), DECK + 0.5, z), Vector3(0.09, 1.0, 0.09), PLANKS)
+			z += 1.5
+	# Three tables, each under a parasol of red and white panels.
+	const SEGMENTS := 8
+	for px: float in [-4.2, 0.0, 4.2]:
+		var at := Vector3(px, DECK, zm + 0.5)
+		_box(st, at + Vector3(0.0, 0.72, 0.0), Vector3(1.0, 0.05, 1.0), PLANKS)
+		_box(st, at + Vector3(0.0, 0.36, 0.0), Vector3(0.1, 0.72, 0.1), PLANKS * 0.7)
+		for bench: float in [-0.8, 0.8]:
+			_box(st, at + Vector3(0.0, 0.42, bench), Vector3(1.3, 0.06, 0.32), PLANKS)
+		_surface = Surface.PLAIN
+		_tube(st, at, at + Vector3(0.0, 2.3, 0.0), 0.035, 0.035, 6, STEEL, true, false)
+		var apex: Vector3 = at + Vector3(0.0, 2.3, 0.0)
+		for s: int in SEGMENTS:
+			var a0: float = TAU * s / SEGMENTS
+			var a1: float = TAU * (s + 1) / SEGMENTS
+			var r0: Vector3 = at + Vector3(cos(a0) * 1.5, 1.9, sin(a0) * 1.5)
+			var r1: Vector3 = at + Vector3(cos(a1) * 1.5, 1.9, sin(a1) * 1.5)
+			var col: Color = PARASOL if s % 2 == 0 else PLASTER
+			_tri(st, apex, r0, r1, col, at + Vector3(0.0, 1.0, 0.0))
+			_tri(st, apex - Vector3(0.0, 0.02, 0.0), r0, r1, col * 0.8, at + Vector3(0.0, 4.0, 0.0))
+		_surface = Surface.BOARDS
+	# The flag: a white pole at the terrace's corner, red-white-red.
+	_surface = Surface.PLAIN
+	var pole := Vector3(-W + 0.4, DECK, front - 0.4)
+	_tube(st, pole, pole + Vector3(0.0, 6.6, 0.0), 0.05, 0.04, 6, PLASTER, true, true)
+	for k: int in 3:
+		var y: float = 6.35 - k * 0.3
+		_box(st, Vector3(pole.x + 0.75, DECK + y, pole.z), Vector3(1.4, 0.3, 0.03),
+			PARASOL if k != 1 else PLASTER)
+
+## A house of [param half] (half its width across X, half its depth along Z)
+## round (0, [param zc]): a stone plinth into the ground, a ground floor of
+## [param ground] up to [param first], a log storey above it to [param eave]
+## (none when [param first] is the plinth's top), gables at ±Z under a roof
+## pitched [param pitch]° that overhangs by [param over_side] along the eaves
+## and [param over_gable] at the gables, with a slab of snow lying on it.
+## Shuttered windows on every wall, a door in the front (+Z) gable, and if
+## asked a chimney and a balcony across the front at the upper floor.
+static func _house(st: SurfaceTool, rng: RandomNumberGenerator, half: Vector2, zc: float,
+		first: float, eave: float, pitch: float, over_side: float, over_gable: float,
+		ground: Color, chimney: bool, balcony: bool) -> void:
+	const PLINTH := 0.5
+	const ROOF := 0.22
+	const SNOW := 0.3
+	var hx: float = half.x
+	var hz: float = half.y
+	var slope: float = tan(deg_to_rad(pitch))
+	var ridge: float = eave + hx * slope
+	var middle := Vector3(0.0, eave * 0.5, zc)
+	var shutter: Color = SHUTTER_COLOURS[rng.randi() % SHUTTER_COLOURS.size()]
+	var ground_surface: Surface = Surface.LOGS if ground == LOG_WALL \
+		else (Surface.PLASTER if ground == PLASTER else Surface.STONE)
+	_surface = Surface.STONE
+	_box(st, Vector3(0.0, (PLINTH - 0.35) * 0.5, zc),
+		Vector3(hx * 2.0 + 0.16, PLINTH + 0.35, hz * 2.0 + 0.16), STONE)
+	var storeys: bool = first > PLINTH + 0.01
+	if storeys:
+		_surface = ground_surface
+		_box(st, Vector3(0.0, (PLINTH + first) * 0.5, zc), Vector3(hx * 2.0, first - PLINTH,
+			hz * 2.0), ground)
+	var timber: float = first if storeys else PLINTH
+	_surface = Surface.LOGS
+	_box(st, Vector3(0.0, (timber + eave) * 0.5, zc), Vector3(hx * 2.0, eave - timber, hz * 2.0),
+		LOG_WALL)
+	# The logs' ends crossing at each corner. The seams between the logs are
+	# the shader's, on multiples of LOG_COURSE: drawn as boxes standing proud
+	# of the wall, every one of them caught a line of snow on its top.
+	var from: float = PLINTH if ground == LOG_WALL else timber
+	_surface = Surface.LOGS
+	for sx: float in [-1.0, 1.0]:
+		for sz: float in [-1.0, 1.0]:
+			_box(st, Vector3(sx * hx, (from + eave) * 0.5, zc + sz * hz),
+				Vector3(0.34, eave - from, 0.34), LOG_WALL * 0.82)
+	# The gables, under the roof.
+	for sz: float in [-1.0, 1.0]:
+		var z: float = zc + sz * hz
+		_tri(st, Vector3(-hx, eave, z), Vector3(hx, eave, z), Vector3(0.0, ridge, z), LOG_WALL,
+			middle)
+	# Windows: a row on each storey of each wall, the front's door between.
+	_surface = Surface.PLAIN
+	var rows: Array[Vector2] = []
+	if storeys:
+		rows.push_back(Vector2(PLINTH + (first - PLINTH) * 0.55, minf(1.1, (first - PLINTH) * 0.5)))
+	rows.push_back(Vector2(timber + (eave - timber) * 0.52, minf(1.1, (eave - timber) * 0.5)))
+	for r: int in rows.size():
+		var row: Vector2 = rows[r]
+		for side: float in [-1.0, 1.0]:
+			var n: int = maxi(1, int(hz * 2.0 / 3.0))
+			for k: int in n:
+				var z: float = zc - hz + (k + 0.5) * hz * 2.0 / n
+				_window(st, Vector3(side * hx, row.x, z), Vector3(side, 0.0, 0.0), 0.9, row.y,
+					shutter)
+		if hx >= 2.5:
+			for sz: float in [-1.0, 1.0]:
+				for sx: float in [-1.0, 1.0]:
+					_window(st, Vector3(sx * hx * 0.55, row.x, zc + sz * hz),
+						Vector3(0.0, 0.0, sz), 0.9, row.y, shutter)
+		elif r == rows.size() - 1:
+			_window(st, Vector3(0.0, row.x, zc - hz), Vector3(0.0, 0.0, -1.0), 0.8, row.y, shutter)
+	_surface = Surface.BOARDS
+	_box(st, Vector3(0.0, PLINTH + 1.0, zc + hz + 0.03), Vector3(1.0, 2.0, 0.06), PLANKS * 0.6)
+	if balcony:
+		var front: float = zc + hz + 1.3
+		_box(st, Vector3(0.0, first - 0.05, zc + hz + 0.65), Vector3(hx * 2.0 - 0.2, 0.15, 1.3),
+			PLANKS)
+		# A glazed door out onto it, then its railing of boards.
+		_surface = Surface.PLAIN
+		_box(st, Vector3(0.0, first + 1.0, zc + hz + 0.03), Vector3(1.0, 1.9, 0.06), WINDOW)
+		_surface = Surface.BOARDS
+		_box(st, Vector3(0.0, first + 1.0, front - 0.03), Vector3(hx * 2.0 - 0.2, 0.08, 0.1),
+			PLANKS)
+		var bx: float = -hx + 0.2
+		while bx <= hx - 0.2:
+			_box(st, Vector3(bx, first + 0.5, front - 0.03), Vector3(0.12, 0.95, 0.03), PLANKS)
+			bx += 0.2
+		for side: float in [-1.0, 1.0]:
+			_box(st, Vector3(side * (hx - 0.13), first + 1.0, zc + hz + 0.65),
+				Vector3(0.08, 0.08, 1.3), PLANKS)
+			var bz: float = zc + hz + 0.15
+			while bz < front - 0.1:
+				_box(st, Vector3(side * (hx - 0.13), first + 0.5, bz), Vector3(0.03, 0.95, 0.12),
+					PLANKS)
+				bz += 0.2
+	# The roof: each pitch a slab with its eave's fascia and verge boards, a
+	# slab of snow on top of it, set back a little from the edges.
+	var z0: float = zc - hz - over_gable
+	var z1: float = zc + hz + over_gable
+	var below := Vector3(0.0, eave - 3.0, zc)
+	var above := Vector3(0.0, ridge + 4.0, zc)
+	var up := Vector3(0.0, ROOF, 0.0)
+	for side: float in [-1.0, 1.0]:
+		var e := Vector3(side * (hx + over_side), eave - over_side * slope, 0.0)
+		var r := Vector3(0.0, ridge, 0.0)
+		var a := Vector3(0.0, 0.0, z0)
+		var b := Vector3(0.0, 0.0, z1)
+		_surface = Surface.SHINGLES
+		_quad(st, e + up + a, r + up + a, r + up + b, e + up + b, SHINGLE, below)
+		_surface = Surface.BOARDS
+		_quad(st, e + a, r + a, r + b, e + b, PLANKS * 0.7, above)
+		_quad(st, e + a, e + up + a, e + up + b, e + b, PLANKS, middle)
+		for z: Vector3 in [a, b]:
+			_quad(st, e + z, e + up + z, r + up + z, r + z, PLANKS, middle)
+		_surface = Surface.PLAIN
+		var inset: float = 0.12
+		var se := Vector3(side * (hx + over_side - inset), eave - (over_side - inset) * slope, 0.0) \
+			+ up
+		var sr: Vector3 = r + up
+		var s := Vector3(0.0, SNOW, 0.0)
+		var sa := Vector3(0.0, 0.0, z0 + 0.15)
+		var sb := Vector3(0.0, 0.0, z1 - 0.15)
+		_quad(st, se + s + sa, sr + s + sa, sr + s + sb, se + s + sb, PACKED_SNOW, below)
+		_quad(st, se + sa, se + s + sa, se + s + sb, se + sb, PACKED_SNOW, middle)
+		for z: Vector3 in [sa, sb]:
+			_quad(st, se + z, se + s + z, sr + s + z, sr + z, PACKED_SNOW, middle)
+	if chimney:
+		var cx: float = hx * 0.45
+		var cz: float = zc - hz * 0.35
+		var top: float = ridge - cx * slope + 0.95
+		_surface = Surface.STONE
+		_box(st, Vector3(cx, (eave - 0.5 + top) * 0.5, cz), Vector3(0.6, top - eave + 0.5, 0.6),
+			STONE)
+		_surface = Surface.PLAIN
+		_box(st, Vector3(cx, top, cz), Vector3(0.8, 0.1, 0.8), MACHINE_DARK)
+	_surface = Surface.PLAIN
+
+## A window in a wall whose outside is [param outward] (±X or ±Z), its middle
+## at [param at] on the wall: the glass standing a little proud of it, a
+## shutter folded back either side and a sill under it.
+static func _window(st: SurfaceTool, at: Vector3, outward: Vector3, width: float, height: float,
+		shutter: Color) -> void:
+	var along: Vector3 = Vector3(absf(outward.z), 0.0, absf(outward.x))
+	var sized := func(w: float, h: float, depth: float) -> Vector3:
+		return along * w + Vector3(0.0, h, 0.0) + Vector3(absf(outward.x), 0.0, absf(outward.z)) \
+			* depth
+	var was: Surface = _surface
+	_surface = Surface.PLAIN
+	_box(st, at + outward * 0.03, sized.call(width, height, 0.06), WINDOW)
+	_surface = Surface.BOARDS
+	for s: float in [-1.0, 1.0]:
+		_box(st, at + along * s * (width * 0.5 + 0.24) + outward * 0.04,
+			sized.call(0.46, height, 0.05), shutter)
+	_box(st, at + Vector3(0.0, -height * 0.5 - 0.04, 0.0) + outward * 0.07,
+		sized.call(width + 0.2, 0.06, 0.15), PLANKS)
+	_surface = was
+
+## A length of the orange safety net, centred on its marker in the unit box:
+## five bands of netting with gaps between, a dark rope along the top and the
+## foot. Its marker gives its span, height and (thin) thickness.
+static func _net_panel(st: SurfaceTool) -> void:
+	for b: int in 5:
+		_box(st, Vector3(0.0, -0.38 + b * 0.18, 0.0), Vector3(1.0, 0.12, 1.0), NET_ORANGE)
+	for y: float in [-0.485, 0.485]:
+		_box(st, Vector3(0.0, y, 0.0), Vector3(1.0, 0.03, 1.0), MACHINE_DARK)
 
 ## Shrink a mesh built in metres at [param size] into the unit box: positions
 ## divided by it, normals multiplied by it (the inverse transpose of the
@@ -668,10 +1001,22 @@ static func _tri_shaded(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, ca:
 		cc = swap_colour
 	# 0xFFFFFFFF (the default): this face's own normal, shared with no neighbour.
 	st.set_smooth_group(smooth_group)
+	# The face's own coordinates, in metres as built: across a level face,
+	# else along the wall it is most nearly and up it.
+	var n: Vector3 = ((b - a).cross(c - a)).abs()
 	for corner: Array in [[a, ca], [b, cb], [c, cc]]:
 		var lin: Color = (corner[1] as Color).srgb_to_linear()
 		lin.a = 1.0
 		st.set_color(lin)
+		if _surfaced:
+			var p: Vector3 = corner[0]
+			if n.y >= n.x and n.y >= n.z:
+				st.set_uv(Vector2(p.x, p.z))
+			elif n.x >= n.z:
+				st.set_uv(Vector2(p.z, p.y))
+			else:
+				st.set_uv(Vector2(p.x, p.y))
+			st.set_uv2(Vector2(float(_surface), 0.0))
 		st.add_vertex(corner[0])
 
 static func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3,

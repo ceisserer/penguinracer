@@ -15,6 +15,7 @@ static func run(t: TestCase) -> void:
 	_meshes_face_out(t)
 	_rock_is_not_a_patchwork(t)
 	_meshes_fill_the_unit_box(t)
+	_buildings_carry_their_surfaces(t)
 	_prefabs_are_on_disk(t)
 	_the_ground_normal(t)
 	_the_course_is_listed(t)
@@ -28,12 +29,14 @@ static func run(t: TestCase) -> void:
 ## winding is what the renderer culls on, and a rock turned inside out draws
 ## only its far side. A lift tower, chair or station is an assembly of boxes
 ## and tubes, each wound about its own middle ([method PropMesh._tri]), whose
-## faces point every way from the whole's: those are left out.
+## faces point every way from the whole's: those are left out, and so are the
+## buildings and a length of net, assemblies too.
 static func _meshes_face_out(t: TestCase) -> void:
 	t.begin("props/faces point out")
 	for kind: int in PropMesh.Kind.values():
 		if kind in [PropMesh.Kind.LIFT_TOWER, PropMesh.Kind.LIFT_CHAIR,
-				PropMesh.Kind.LIFT_STATION]:
+				PropMesh.Kind.LIFT_STATION, PropMesh.Kind.CHALET, PropMesh.Kind.MOUNTAIN_HUT,
+				PropMesh.Kind.SHED, PropMesh.Kind.NET_PANEL]:
 			continue
 		var mesh: ArrayMesh = PropMesh.build(kind)
 		var arrays: Array = mesh.surface_get_arrays(0)
@@ -104,8 +107,9 @@ static func _rock_is_not_a_patchwork(t: TestCase) -> void:
 ## below 0 so it sits in the ground. A stump's roots and a log's branch stubs
 ## are allowed past the box, by a fraction of the object. Snow Park's
 ## furniture is built at its true size and shrunk into the box exactly; a
-## cable is centred on its axis and a chair hangs in the air, so only the rest
-## of it has to reach into the ground.
+## cable, a fence's rail and a length of net are centred on their markers and
+## a chair hangs in the air, so only the rest of it has to reach into the
+## ground.
 static func _meshes_fill_the_unit_box(t: TestCase) -> void:
 	t.begin("props/unit box")
 	for kind: int in PropMesh.Kind.values():
@@ -115,7 +119,8 @@ static func _meshes_fill_the_unit_box(t: TestCase) -> void:
 				and box.position.z >= -0.5 - 1e-3 and box.end.z <= 0.5 + 1e-3
 				and box.end.y <= 1.0 + 1e-3 and box.end.y > 0.4,
 				"kind %d fits the unit box (%s)" % [kind, box])
-			if kind != PropMesh.Kind.LIFT_CABLE and kind != PropMesh.Kind.LIFT_CHAIR:
+			if kind not in [PropMesh.Kind.LIFT_CABLE, PropMesh.Kind.LIFT_CHAIR,
+					PropMesh.Kind.FENCE_RAIL, PropMesh.Kind.NET_PANEL]:
 				t.ok(box.position.y < 0.0 and box.position.y > -0.1,
 					"kind %d reaches a little into the ground (%s)" % [kind, box])
 			continue
@@ -125,6 +130,37 @@ static func _meshes_fill_the_unit_box(t: TestCase) -> void:
 		t.ok(box.end.y <= 1.25 and box.end.y > 0.1, "kind %d is about 1 tall (%s)" % [kind, box])
 		t.ok(box.position.y < 0.0 and box.position.y > -0.3,
 			"kind %d reaches a little into the ground (%s)" % [kind, box])
+
+## A building's faces are tagged with what they are made of (`UV2.x`), over
+## their own coordinates in metres (`UV`), for `object_prop.gdshader` to draw;
+## every other prop carries neither, so its mesh is as it was.
+static func _buildings_carry_their_surfaces(t: TestCase) -> void:
+	t.begin("props/building surfaces")
+	var wanted: Dictionary = {
+		PropMesh.Kind.CHALET: [PropMesh.Surface.LOGS, PropMesh.Surface.BOARDS,
+			PropMesh.Surface.STONE, PropMesh.Surface.PLASTER, PropMesh.Surface.SHINGLES],
+		PropMesh.Kind.MOUNTAIN_HUT: [PropMesh.Surface.LOGS, PropMesh.Surface.BOARDS,
+			PropMesh.Surface.STONE, PropMesh.Surface.SHINGLES],
+		PropMesh.Kind.LIFT_TOWER: [PropMesh.Surface.CONCRETE],
+		PropMesh.Kind.LIFT_STATION: [PropMesh.Surface.BOARDS, PropMesh.Surface.CONCRETE],
+	}
+	for kind: int in wanted:
+		# Seed 89, odd: the chalet with a plastered ground floor.
+		var arrays: Array = PropMesh.build(kind, 89).surface_get_arrays(0)
+		var uv2: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV2] \
+			if arrays[Mesh.ARRAY_TEX_UV2] != null else PackedVector2Array()
+		var found: Dictionary = {}
+		for v: Vector2 in uv2:
+			found[roundi(v.x)] = true
+		for s: int in wanted[kind]:
+			t.ok(found.has(s), "kind %d has surface %d" % [kind, s])
+		t.ok(found.has(PropMesh.Surface.PLAIN) or kind == PropMesh.Kind.LIFT_TOWER,
+			"kind %d keeps its plain faces too" % kind)
+	for kind: int in [PropMesh.Kind.BOULDER, PropMesh.Kind.LOG, PropMesh.Kind.SNOWMAN,
+			PropMesh.Kind.FENCE_RAIL]:
+		var arrays: Array = PropMesh.build(kind).surface_get_arrays(0)
+		t.ok(arrays[Mesh.ARRAY_TEX_UV] == null and arrays[Mesh.ARRAY_TEX_UV2] == null,
+			"kind %d carries no surfaces" % kind)
 
 static func _prefabs_are_on_disk(t: TestCase) -> void:
 	t.begin("props/prefabs")

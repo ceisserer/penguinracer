@@ -183,7 +183,7 @@ godot --headless --path game res://scenes/server.tscn -- --port=27015 \
 ./tools/import_all.sh [--course=bunny_hill] [--force]              # 4-pass importer
 ./tools/gen_forest_trail.sh                                        # the authored course, its props, its catalog row
 ./tools/gen_mountain_forest.sh                                     # ... the other one, and its lodged trunk
-./tools/gen_snow_park.sh                                           # ... the park, and its snowmen, igloo and chairlift
+./tools/gen_snow_park.sh                                           # ... the resort, its buildings, fences, snowmen and chairlift
 ./tools/probe_course.sh --course=snow_park --driver=hard           # speed, flights, herring and hits down a course, headless
 ./tools/probe_course.sh --course=snow_park --follow=-8.75 --from=225 --to=450   # ... holding a line off the middle
 ./tools/bake_tree_impostors.sh [conifer|bare|shrub]                # after any tree mesh change
@@ -432,6 +432,12 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   piece**: a 24 m piece drawn from the width at its ends cut across a slot's pinch, and the AI
   raced into the slot's wall. `CourseLights` stands a torch every 22 m
   along its long edges, so pieces shorter than that get none; outward is taken from the winding.
+- **`Geometry2D.is_point_in_polygon` miscounts a vertex its ray grazes.** It casts toward a corner
+  beyond the polygon's bounds, and a cast passing 0.08 mm from one of Snow Park's 644 play-area
+  vertices read a boulder 20 m outside as inside. Generators and tests use
+  `CourseGenKit.is_inside` (even-odd across +X, edges half-open). `RacePhysics._apply_bounds`
+  still calls Godot's, so a racer could in principle be snapped to the edge from the middle of the
+  run; never seen, not fixed.
 - **Where a racer may go and where the course is raced can be two polygons.** Forest Trail's
   play area reaches 18 m into the woods (`PLAY_MARGIN`); its trail (`CourseData.trail_bounds`,
   the old 5 m corridor) is what the torches line and what a computer opponent is held to
@@ -1104,8 +1110,18 @@ the whole sky to cyan-white, against which no disc can show. The fog
   a racer can reach it — inside the play area or within half a metre of it
   (`CourseGenKit.log_colliders`); the `log` prefab itself stays uncollidable, since its one
   cylinder would be as wide as the log is long. Snow Park's furniture is the same kind of mesh, built
-  in metres and shrunk into the unit box (`PropMesh.park_size`): snowmen, igloos and a chairlift —
-  towers, cables and chairs held in the air by their markers' Y, two stations. Only the authored
+  in metres and shrunk into the unit box (`PropMesh.park_size`): snowmen, igloos, a chairlift —
+  towers, cables and chairs held in the air by their markers' Y, two stations —, chalets, a
+  mountain restaurant, a shed, and fences: posts, and rails and lengths of orange net strung
+  between them as a cable is between towers (markers with a height and a roll, `_span`). A building stands on a **pad levelled into the heightmap** under its footprint
+  (`PropMesh.footprint`), never on the slope, so it is built with only a shallow plinth. A
+  building's faces are **drawn as what they are made of** — log courses, boards, rubble stone,
+  plaster, shingles, concrete — by `object_prop.gdshader`, procedurally (no picture to audit):
+  `PropMesh` tags each face (`Surface`, in `UV2.x`) over its own coordinates in metres (`UV`).
+  Both are built-ins in `fragment()`, so it costs no varying; a mesh without them is plain, and
+  only the buildings and the lift's tower and station carry them. The log seams are the
+  shader's, on multiples of `LOG_COURSE`: drawn as boxes proud of the wall, each caught a line of
+  snow on its top. Only the authored
   courses use props; every imported course has Y = 0, no tilt, and is unchanged.
 - **There are courses ETR has not got**, and a fourth heading for them in the course list
   (*PenguinRacer*, `CourseListing.Category.PENGUINRACER`), each from a generator in
@@ -1124,15 +1140,20 @@ the whole sky to cyan-white, against which no disc can show. The fog
   with a trunk lodged overhead, eight bumps and two kickers, three boulders and four fallen
   trunks on the trail, a pile of stones beside it halfway down, bare ice on the walls (nothing
   stands on it), and a near, wooded skyline (below).
-  **Snow Park** (`gen_snow_park.gd`): a groomed run down an open slope built as a terrain park,
-  every feature relief in the heightmap — rollers; three table-tops (25° lips) beside a chicken
+  **Snow Park** (`gen_snow_park.gd`): a ski resort's mountain, 1835 m from the summit
+  restaurant to the village, with a terrain park built into the piste. It goes as a real piste
+  does: wide open faces and narrow ways through the woods take turns (`WIDTHS`, `FENCED`), and
+  so do steep pitches (27–32°) and flats (14–17°) (`SECTIONS`). Along a narrow way the play area
+  hugs the run (`FENCE_MARGIN`, 2 m) and a wooden fence stands just outside it, so the fence is
+  where a racer stops; orange nets line the big jump, a fence the finish. No trees above the
+  treeline, thick ones along the catwalks. Every feature is relief in the heightmap — rollers; three table-tops (25° lips) beside a chicken
   line of fun boxes glazed with `hockey_ice`; a banked slalom of four turns, a berm on the
   outside of each and a gate flag on the inside; a 180 m half-pipe, walls 4.5 m to an 80° coping;
   moguls; and a big jump (a 32° inrun, a 12° take-off table, a 3 m lip onto a 37° landing hill)
   before the finish. Herring hang over the jumps on the flight's arc, so only a racer in the air
-  takes them (collection is a 3D distance). A chairlift climbs beside it and nothing solid stands
-  within reach of the play area; the trail is the run (opponents are held to it), the play area
-  8 m wider.
+  takes them (collection is a 3D distance). A chairlift climbs beside it from the village to the
+  summit and nothing solid stands within reach of the play area; the trail is the run (opponents
+  are held to it), the play area 8 m wider on the open slopes.
 - **There is water** (`CourseData.water`, `WaterRenderer`, `water.gdshader`); ETR has none.
   A course carries it as a signed depth per heightmap vertex (FORMAT_RF, `water.res`): metres
   of water over the ground where it is wet, negative where the bank stands over the water's

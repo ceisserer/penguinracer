@@ -1,7 +1,9 @@
 ## The third authored course, Snow Park (`addons/course_gen/gen_snow_park.gd`):
-## a terrain park down an open slope — rollers, table-tops and fun boxes, a
-## banked slalom, a half-pipe, moguls and a big jump — with herring in the air
-## over the jumps and a chairlift beside it all.
+## a ski resort's mountain with a terrain park built into its piste — rollers,
+## table-tops and fun boxes, a banked slalom, a half-pipe, moguls and a big
+## jump — wide faces and fenced catwalks, steep pitches and flats after each
+## other, herring in the air over the jumps, buildings on levelled pads, and a
+## chairlift beside it all.
 ##
 ## Headless, so every check is on what the race is handed — the heightmap as
 ## [HeightmapSurface] reads it, the markers, the course's fields, one run of
@@ -14,7 +16,10 @@ const GENERATOR := "res://addons/course_gen/gen_snow_park.gd"
 const DT := 1.0 / 60.0
 ## The park's prefabs, each a [PropMesh] kind of its own.
 const FURNITURE: Array[String] = ["snowman", "igloo", "lift_tower", "lift_cable", "lift_chair",
-	"lift_station"]
+	"lift_station", "chalet", "chalet_b", "mountain_hut", "shed", "fence_post", "fence_rail",
+	"net_pole", "net_panel"]
+## The buildings among them.
+const HOUSES: Array[String] = ["chalet", "chalet_b", "mountain_hut", "shed"]
 
 static func run(t: TestCase) -> void:
 	var gen: GDScript = load(GENERATOR)
@@ -27,6 +32,8 @@ static func run(t: TestCase) -> void:
 		return
 	var surface: HeightmapSurface = HeightmapSurface.from_course(course)
 	_the_course_is_listed(t, course)
+	_wide_and_narrow(t, gen, course)
+	_steep_and_flat(t, gen, surface)
 	_the_big_jump(t, gen, surface)
 	_the_rollers(t, gen, surface)
 	_the_table_tops(t, gen, surface)
@@ -40,6 +47,8 @@ static func run(t: TestCase) -> void:
 	_the_markers(t, gen, course, root)
 	_herring_in_the_air(t, gen, root)
 	_the_lift(t, root)
+	_the_fences(t, gen, course, root)
+	_the_houses(t, gen, course, root)
 	_a_race_down_it(t, course, root)
 	root.free()
 
@@ -61,6 +70,68 @@ static func _the_course_is_listed(t: TestCase, course: CourseData) -> void:
 	for layer: TerrainLayer in course.terrain_layers:
 		t.ok(layer != null and layer.resource_path.begins_with("res://resources/terrain/"),
 			"its layers are ETR's own (%s)" % (layer.id if layer != null else &"<null>"))
+
+## Stretches of [param classes] (one value a sample, "" for neither) at least
+## [param least] samples long, in order, with what was between them dropped.
+static func _stretches(classes: PackedStringArray, least: int) -> PackedStringArray:
+	var out := PackedStringArray()
+	var run: int = 0
+	for i: int in classes.size():
+		run = run + 1 if i > 0 and classes[i] == classes[i - 1] else 1
+		if classes[i] != "" and run == least and (out.is_empty() or out[-1] != classes[i]):
+			out.push_back(classes[i])
+	return out
+
+## The run goes as a resort's does: open and wide, narrow, wide again — at
+## least three narrow ways between four wide stretches, taking turns; and
+## along each narrow way the play area hugs it, so its fence is where a racer
+## stops.
+static func _wide_and_narrow(t: TestCase, gen: GDScript, course: CourseData) -> void:
+	t.begin("snow park/wide and narrow")
+	var classes := PackedStringArray()
+	var d: float = 0.0
+	while d < gen.PLAY.y:
+		var w: float = gen.half_width(d)
+		classes.push_back("narrow" if w <= 6.5 else ("wide" if w >= 15.0 else ""))
+		d += 2.0
+	var seq: PackedStringArray = _stretches(classes, 15)
+	t.ok(seq.count("narrow") >= 3 and seq.count("wide") >= 4,
+		"narrow and wide stretches, 30 m or more each: %s" % " ".join(seq))
+	t.ok(seq.size() >= 7, "they take turns (%d stretches)" % seq.size())
+	var play: PackedVector2Array = course.effective_play_bounds()
+	for r: Vector2 in gen.FENCED:
+		var mid: float = (r.x + r.y) * 0.5
+		var across: float = _width_at(play, -mid)
+		var run: float = 2.0 * gen.lateral_half_width(mid)
+		t.between(across - run, 2.0 * gen.FENCE_MARGIN - 0.5, 2.0 * gen.FENCE_MARGIN + 0.5,
+			"at %.0f m the play area hugs the run (%.1f m either side)" % [mid, (across - run) * 0.5])
+
+## How wide [param polygon] is across X at [param z].
+static func _width_at(polygon: PackedVector2Array, z: float) -> float:
+	var hits: Array[float] = []
+	for i: int in polygon.size():
+		var a: Vector2 = polygon[i]
+		var b: Vector2 = polygon[(i + 1) % polygon.size()]
+		if (a.y - z) * (b.y - z) <= 0.0 and absf(b.y - a.y) > 1e-6:
+			hits.push_back(lerpf(a.x, b.x, (z - a.y) / (b.y - a.y)))
+	if hits.size() < 2:
+		return 0.0
+	return hits.max() - hits.min()
+
+## Down the run's middle on the heightmap the race reads, steep pitches (26°
+## and more) and flats (17.5° and less) take turns — at least four of each,
+## 20 m or more.
+static func _steep_and_flat(t: TestCase, gen: GDScript, surface: HeightmapSurface) -> void:
+	t.begin("snow park/steep and flat")
+	var classes := PackedStringArray()
+	var d: float = 6.0
+	while d < gen.PLAY.y - 6.0:
+		var a: float = _angle(gen, surface, d, 5.0)
+		classes.push_back("steep" if a >= 26.0 else ("flat" if a <= 17.5 else ""))
+		d += 2.0
+	var seq: PackedStringArray = _stretches(classes, 10)
+	t.ok(seq.count("steep") >= 4 and seq.count("flat") >= 4,
+		"steep pitches and flats: %s" % " ".join(seq))
 
 ## The angle down the run's middle over [param span] metres either side of
 ## [param d], on the heightmap the race reads.
@@ -232,7 +303,7 @@ static func _the_markers(t: TestCase, gen: GDScript, course: CourseData,
 			var at := Vector2(xf.origin.x, xf.origin.z)
 			match type_name:
 				"herring":
-					if not Geometry2D.is_point_in_polygon(at, trail):
+					if not CourseGenKit.is_inside(at, trail):
 						misplaced.push_back("herring at %.0f m" % -at.y)
 				"start", "finish", "flag":
 					pass
@@ -242,7 +313,9 @@ static func _the_markers(t: TestCase, gen: GDScript, course: CourseData,
 					if CourseGenKit.near_polygon(at, play, reach) and type_name != "lift_cable":
 						misplaced.push_back("%s at %.0f m" % [type_name, -at.y])
 	for type_name: String in ["tree", "shrub", "boulder", "snowman", "igloo", "herring",
-			"flag", "lift_tower", "lift_cable", "lift_chair", "lift_station"]:
+			"flag", "lift_tower", "lift_cable", "lift_chair", "lift_station", "chalet",
+			"chalet_b", "mountain_hut", "shed", "fence_post", "fence_rail", "net_pole",
+			"net_panel"]:
 		t.ok(counts.get(type_name, 0) > 0, "the course has %s (%d)"
 			% [type_name, counts.get(type_name, 0)])
 	t.ok(misplaced.is_empty(), "every marker where it belongs: %s"
@@ -322,6 +395,93 @@ static func _the_lift(t: TestCase, root: CourseRoot) -> void:
 				break
 	t.ok(chairs.size() > 50 and hanging == chairs.size(),
 		"every chair hangs from a cable (%d of %d)" % [hanging, chairs.size()])
+
+## A wooden fence either side all along every narrow way, and the orange nets
+## either side of the big jump: every post and pole just outside the play
+## area — the fence is where a racer stops —, none further apart than a span,
+## and every rail and length of net strung between two of them.
+static func _the_fences(t: TestCase, gen: GDScript, course: CourseData,
+		root: CourseRoot) -> void:
+	t.begin("snow park/fences")
+	var play: PackedVector2Array = course.effective_play_bounds()
+	for pair: Array in [["fence_post", "fence_rail", gen.POST_SPACING],
+			["net_pole", "net_panel", gen.POLE_SPACING]]:
+		var posts: Array = root.object_transforms.get(pair[0], [])
+		var astray: int = 0
+		for xf: Transform3D in posts:
+			var at := Vector2(xf.origin.x, xf.origin.z)
+			if CourseGenKit.is_inside(at, play) \
+					or not CourseGenKit.near_polygon(at, play, gen.FENCE_OUTSET + 0.3):
+				astray += 1
+		t.ok(posts.size() > 50 and astray == 0,
+			"%d of %d %ss stand just outside the play area" % [posts.size() - astray, posts.size(),
+				pair[0]])
+		var spans: Array = root.object_transforms.get(pair[1], [])
+		var loose: int = 0
+		for xf: Transform3D in spans:
+			for end: float in [-0.5, 0.5]:
+				var e: Vector3 = xf.origin + xf.basis.x * end
+				var best: float = INF
+				for p: Transform3D in posts:
+					best = minf(best, Vector2(e.x - p.origin.x, e.z - p.origin.z).length())
+				loose += 1 if best > 0.05 else 0
+		t.ok(spans.size() > posts.size() * 0.5 and loose == 0,
+			"every %s hangs between two %ss (%d loose ends of %d)" % [pair[1], pair[0], loose,
+				spans.size() * 2])
+	var stretches: Array[Vector2] = gen.FENCED.duplicate()
+	stretches.push_back(gen.NETS)
+	for r: Vector2 in stretches:
+		var kind: String = "net_pole" if r == gen.NETS else "fence_post"
+		for side: float in [-1.0, 1.0]:
+			var ds: Array[float] = []
+			for xf: Transform3D in root.object_transforms.get(kind, []):
+				var d: float = -xf.origin.z
+				if d >= r.x and d <= r.y and signf(xf.origin.x - gen.centre_x(d)) == side:
+					ds.push_back(d)
+			ds.sort()
+			var gap: float = 0.0
+			if ds.is_empty():
+				gap = INF
+			else:
+				gap = maxf(ds[0] - r.x, r.y - ds[-1])
+				for i: int in ds.size() - 1:
+					gap = maxf(gap, ds[i + 1] - ds[i])
+			t.ok(gap < 6.0, "%s from %.0f to %.0f m on the %s: widest gap %.1f m"
+				% [kind, r.x, r.y, "left" if side < 0.0 else "right", gap])
+
+## Every building stands clear of the play area, roof and all, on a pad
+## levelled under its footprint.
+static func _the_houses(t: TestCase, gen: GDScript, course: CourseData,
+		root: CourseRoot) -> void:
+	t.begin("snow park/houses")
+	var play: PackedVector2Array = course.effective_play_bounds()
+	var count: int = 0
+	for id: String in HOUSES:
+		for xf: Transform3D in root.object_transforms.get(id, []):
+			count += 1
+			var at: Vector3 = xf.origin
+			var half: Vector3 = xf.basis.get_scale() * 0.5
+			var inside: bool = false
+			for sx: float in [-1.0, 0.0, 1.0]:
+				for sz: float in [-1.0, 0.0, 1.0]:
+					var c: Vector3 = at + xf.basis.x.normalized() * half.x * sx \
+						+ xf.basis.z.normalized() * half.z * sz
+					inside = inside or CourseGenKit.near_polygon(Vector2(c.x, c.z), play, 1.0)
+			t.ok(not inside, "the %s at %.0f m stands clear of the play area" % [id, -at.z])
+			var scale: float = half.x * 2.0 / PropMesh.park_size(gen.FURNITURE[id]["kind"]).x
+			var foot: Vector2 = PropMesh.footprint(gen.FURNITURE[id]["kind"]) * scale
+			var lo: float = INF
+			var hi: float = -INF
+			for i: int in 5:
+				for j: int in 5:
+					var c: Vector3 = at + xf.basis.x.normalized() * foot.x * (i / 2.0 - 1.0) \
+						+ xf.basis.z.normalized() * foot.y * (j / 2.0 - 1.0)
+					var h: float = root.surface.height_at(c.x, c.z)
+					lo = minf(lo, h)
+					hi = maxf(hi, h)
+			t.ok(hi - lo < 0.4, "on level ground (%.2f m from its lowest corner to its highest)"
+				% (hi - lo))
+	t.ok(count >= 10, "%d buildings: the summit, the restaurant, the village" % count)
 
 ## The hard computer opponent, through the course's own grids and the run it is
 ## held to, gets down without hitting anything, flies the big jump and catches
