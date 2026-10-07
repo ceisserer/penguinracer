@@ -5,6 +5,9 @@
 ## `?capture=` and `?capture-frames=` say the same thing in a browser; see
 ## [LaunchArgs].
 ##
+## `--minimized` opens the window minimized (the capture tools pass it by
+## default), so a run does not take over a screen somebody is working at.
+##
 ## Inert unless `--capture=` is passed, so it costs nothing in a shipped build.
 ## Used to verify the renderer from a headless container and, with the same
 ## flags, from a browser-driven web export.
@@ -17,6 +20,8 @@ var _armed: bool = false
 
 func _ready() -> void:
 	var args: LaunchArgs = LaunchArgs.current()
+	if args.minimized:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
 	_path = args.capture_path
 	_frames = args.capture_frames
 	_armed = not _path.is_empty()

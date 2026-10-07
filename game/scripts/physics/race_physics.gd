@@ -41,7 +41,12 @@ var play_max_x: float = INF
 var play_length: float = INF
 ## Optional non-rectangular play area in world XZ. Empty means use the rectangle.
 ## New in v2 — the original could only ever describe an axis-aligned box.
-var bounds_polygon: PackedVector2Array = PackedVector2Array()
+var bounds_polygon: PackedVector2Array = PackedVector2Array():
+	set(value):
+		bounds_polygon = value
+		bounds_area = PlayArea.new(value) if not value.is_empty() else null
+## [member bounds_polygon], indexed for the per-tick test; null with the rectangle.
+var bounds_area: PlayArea = null
 
 ## Effective collision radius of the character, replacing ETR's sphere-hierarchy
 ## vs. polyhedron narrowphase (see godot-port-plan.md §3.3).
@@ -867,8 +872,8 @@ func _apply_bounds(speed: float) -> void:
 		pos.x = clampf(pos.x, play_min_x, play_max_x)
 	else:
 		var p2: Vector2 = Vector2(pos.x, pos.z)
-		if not Geometry2D.is_point_in_polygon(p2, bounds_polygon):
-			var nearest: Vector2 = _closest_point_on_polygon(p2)
+		if not bounds_area.contains(p2):
+			var nearest: Vector2 = bounds_area.closest_point(p2)
 			pos.x = nearest.x
 			pos.z = nearest.y
 	if pos.z > 0.0:
@@ -877,20 +882,6 @@ func _apply_bounds(speed: float) -> void:
 		finished = true
 		_finish_speed = speed
 		race_finished.emit()
-
-func _closest_point_on_polygon(p: Vector2) -> Vector2:
-	var best: Vector2 = bounds_polygon[0]
-	var best_d: float = INF
-	var n: int = bounds_polygon.size()
-	for i: int in n:
-		var a: Vector2 = bounds_polygon[i]
-		var b: Vector2 = bounds_polygon[(i + 1) % n]
-		var c: Vector2 = Geometry2D.get_closest_point_to_segment(p, a, b)
-		var d: float = c.distance_squared_to(p)
-		if d < best_d:
-			best_d = d
-			best = c
-	return best
 
 ## Body orientation from velocity, surface normal and the roll factor.
 ## Replaces ETR `CCharShape::AdjustOrientation`, which mixed the maths with

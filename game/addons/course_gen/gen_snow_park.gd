@@ -48,9 +48,11 @@
 ## cylinders are all the simulation knows: a racer rides a kicker, a wall or a
 ## box exactly as it rides the slope. Nothing solid stands on the run. The
 ## resort's furniture is [PropMesh]'s (`snowman`, `igloo`, `lift_*`, the
-## buildings, the fences and the nets), all of it outside the play area. The
-## play area hugs the run along the catwalks ([constant FENCED]), and a fence
-## stands along its edge there — the fence is where a racer stops.
+## buildings, the fences and the nets). The play area reaches far past the
+## run into the woods ([constant PLAY_MARGIN]), so the trees, boulders and
+## snowmen out there can be hit; it keeps clear of the buildings and the lift,
+## which are not solid. Along the catwalks ([constant FENCED]) a fence stands
+## in the trees at its edge — the fence is where a racer stops.
 ##
 ## [b]The fall line[/b] is [constant SECTIONS], each eased into the next over
 ## its own length — the big jump's lip over 3 m, so a racer leaves the ground
@@ -118,16 +120,33 @@ const WIDTHS: Array[Vector2] = [
 	Vector2(1450.0, 15.0), Vector2(1475.0, 12.0), Vector2(1560.0, 12.0), Vector2(1585.0, 16.0),
 	Vector2(1680.0, 16.0), Vector2(1710.0, 18.0), Vector2(1795.0, 20.0), Vector2(1925.0, 20.0),
 ]
-## How far into the snow either side of the run a racer may go — on the open
-## slopes; along [constant FENCED] only [constant FENCE_MARGIN].
-const PLAY_MARGIN := 8.0
+## Where the woods begin, past the run's edge: [constant WOODS_MARGIN] on the
+## open slopes, [constant WOODS_FENCED] along [constant FENCED] (eased over
+## [constant FENCE_EASE]). Trees, boulders, shrubs, snowmen and buildings stand
+## beyond it, so the run looks as a groomed piste does.
+const WOODS_MARGIN := 8.0
+const WOODS_FENCED := 2.0
+## How far past the run's edge a racer may go: far out into the woods on the
+## open slopes ([constant PLAY_MARGIN]), so a racer can leave the piste, explore
+## and hit a tree; on the narrow ways to a fence standing in the trees
+## ([constant FENCE_MARGIN]); and along the big jump's nets and round the
+## finish only to the woods' edge ([constant WOODS_MARGIN]). Each change eased
+## over [constant MARGIN_EASE] either side, so the edge narrows as a funnel a
+## racer slides along, never a step that snaps them sideways.
+const PLAY_MARGIN := 30.0
+const FENCE_MARGIN := 10.0
+const MARGIN_EASE := 30.0
+## The play area keeps this far off the world's left edge, and out of the
+## lift's clearing on the right.
+const PLAY_EDGE := 6.0
+## How far the play area keeps off a building's levelled pad.
+const HOUSE_CLEARANCE := 1.5
 ## The narrow ways through the woods, `(metres down from, to)`: the catwalk,
-## the restaurant's path and the chute. There the play area hugs the run, and
-## a wooden fence stands along its edge (eased over [constant FENCE_EASE]
-## either end, where the fence follows the play area out to its full width).
+## the restaurant's path and the chute. There the woods close in on the run,
+## and a wooden fence stands along the play area's edge (from [constant
+## MARGIN_EASE] before to after, where the fence follows the play area out).
 const FENCED: Array[Vector2] = [Vector2(268.0, 384.0), Vector2(658.0, 702.0),
 	Vector2(1192.0, 1288.0)]
-const FENCE_MARGIN := 2.0
 const FENCE_EASE := 10.0
 ## The finish area's fence, from where to where down, along the play area's
 ## edge; and the big jump's orange nets, from the take-off table to the foot of
@@ -284,7 +303,7 @@ const CATWALK_WOODS := 0.7
 # ---------------------------------------------------------------- buildings
 
 ## The resort's buildings: a prefab, metres down, and either the side of the
-## run it stands beside (`side`, just past the play area) or where it stands
+## run it stands beside (`side`, just past the woods' edge) or where it stands
 ## across (`x`), and a `scale`. Each faces the run, turned a little.
 const HOUSES: Array[Dictionary] = [
 	{"id": "mountain_hut", "d": 24.0, "side": -1.0},
@@ -492,9 +511,19 @@ static func fenced(d: float) -> float:
 		f = maxf(f, _window(d, r.x - FENCE_EASE, r.y + FENCE_EASE, FENCE_EASE))
 	return f
 
-## How far past the run's edge the play area reaches at [param d].
+## How far past the run's edge the woods begin at [param d].
+static func woods_margin(d: float) -> float:
+	return lerpf(WOODS_MARGIN, WOODS_FENCED, fenced(d))
+
+## How far past the run's edge the play area reaches at [param d] (before
+## [method _edges] keeps it off the world's edges and the buildings).
 static func play_margin(d: float) -> float:
-	return lerpf(PLAY_MARGIN, FENCE_MARGIN, fenced(d))
+	var f: float = 0.0
+	for r: Vector2 in FENCED:
+		f = maxf(f, _window(d, r.x - MARGIN_EASE, r.y + MARGIN_EASE, MARGIN_EASE))
+	var held: float = maxf(_window(d, NETS.x - MARGIN_EASE, NETS.y + MARGIN_EASE, MARGIN_EASE),
+		smoothstep(FINISH_FENCE.x - MARGIN_EASE, FINISH_FENCE.x, d))
+	return lerpf(lerpf(PLAY_MARGIN, FENCE_MARGIN, f), WOODS_MARGIN, held)
 
 ## Half the run's width, square to it: [constant WIDTHS], smoothstepped.
 static func half_width(d: float) -> float:
@@ -1100,8 +1129,13 @@ func _edges(play: bool) -> Array[PackedVector2Array]:
 			var there: float = maxf(at + k, 0.0)
 			reach = minf(reach, lateral_half_width(there) + (play_margin(there) if play else 0.0))
 			k += 1.0
-		left.push_back(Vector2(clampf(centre_x(at) - reach, 1.0, WORLD.x - 1.0), -d))
-		right.push_back(Vector2(clampf(centre_x(at) + reach, 1.0, LIFT_X - LIFT_CLEARING), -d))
+		var reach_l: float = reach
+		var reach_r: float = reach
+		if play:
+			reach_l = minf(reach_l, _short_of_houses(at, -1.0, step))
+			reach_r = minf(reach_r, _short_of_houses(at, 1.0, step))
+		left.push_back(Vector2(clampf(centre_x(at) - reach_l, PLAY_EDGE, WORLD.x - 1.0), -d))
+		right.push_back(Vector2(clampf(centre_x(at) + reach_r, 1.0, LIFT_X - LIFT_CLEARING), -d))
 		if d >= last:
 			break
 		d = minf(d + step, last)
@@ -1109,6 +1143,25 @@ func _edges(play: bool) -> Array[PackedVector2Array]:
 		_hold_inside_run(left, -1.0)
 		_hold_inside_run(right, 1.0)
 	return [left, right]
+
+## How far across from the run's middle at [param d] the play area may reach on
+## [param side] and still keep every building's pad, plus [constant
+## HOUSE_CLEARANCE], out of the pieces within [param step] of it. The buildings
+## are not collidable: a play area reaching over one would let a racer through
+## its walls.
+func _short_of_houses(d: float, side: float, step: float) -> float:
+	var reach: float = INF
+	for house: Array in _houses:
+		var r: float = pad_radius(house[0], house[4]) + HOUSE_CLEARANCE
+		var k: float = -step
+		while k <= step:
+			var there: float = maxf(d + k, 0.0)
+			var dz: float = absf(-there - house[2])
+			var across: float = side * (house[1] - centre_x(there))
+			if dz < r and across > 0.0:
+				reach = minf(reach, across - sqrt(r * r - dz * dz))
+			k += 1.0
+	return reach
 
 ## Pull the run's edge on [param side] in wherever a straight piece of it
 ## passes outside the run, a few passes, since a moved vertex moves two pieces.
@@ -1172,7 +1225,7 @@ func _place_objects(course: CourseData) -> Dictionary[String, Array]:
 		var diam: float = lerpf(1.2, 3.5, pow(rng.randf(), 1.6))
 		var d: float = rng.randf_range(20.0, WORLD.y - 20.0)
 		var side: float = -1.0 if rng.randf() < 0.5 else 1.0
-		var x: float = centre_x(d) + side * (lateral_half_width(d) + play_margin(d)
+		var x: float = centre_x(d) + side * (lateral_half_width(d) + woods_margin(d)
 			+ PLAY_CLEARANCE + diam * 0.5 + rng.randf_range(2.0, 40.0))
 		var yaw: float = rng.randf() * TAU
 		if x > 2.0 and x < WORLD.x - 2.0 and not _on_lift(x, -d, diam * 0.5) \
@@ -1193,7 +1246,7 @@ func _place_objects(course: CourseData) -> Dictionary[String, Array]:
 			var z: float = -(gz + rng.randf_range(0.1, 0.9) * step)
 			var height: float = lerpf(5.0, 16.0, pow(rng.randf(), 0.8))
 			var diam: float = height * rng.randf_range(0.34, 0.44)
-			var off: float = beyond_edge(x, z) - play_margin(-z)
+			var off: float = beyond_edge(x, z) - woods_margin(-z)
 			var keep: float = (0.2 + 0.9 * _density_noise.get_noise_2d(x, z)
 				+ 0.4 * smoothstep(5.0, 30.0, off)) * smoothstep(TREELINE.x, TREELINE.y, -z) \
 				* (1.0 - 0.5 * smoothstep(PLAY.y - 40.0, PLAY.y, -z)) \
@@ -1213,7 +1266,7 @@ func _place_objects(course: CourseData) -> Dictionary[String, Array]:
 				continue
 			var height: float = rng.randf_range(0.7, 1.6)
 			var s := Vector3(height * 1.2, height, height * 1.2)
-			var x: float = centre_x(d_s) + side * (lateral_half_width(d_s) + play_margin(d_s)
+			var x: float = centre_x(d_s) + side * (lateral_half_width(d_s) + woods_margin(d_s)
 				+ PLAY_CLEARANCE + s.x * 0.5 + rng.randf_range(0.5, 10.0))
 			if x > 1.0 and x < WORLD.x - 1.0 and not _on_lift(x, -d_s, s.x * 0.5) \
 					and taken.is_free(x, -d_s, s.x * 0.45):
@@ -1245,8 +1298,8 @@ func _place_fences(out: Dictionary[String, Array], taken: CourseGenKit.Occupancy
 	var edges: Array[PackedVector2Array] = _edges(true)
 	var wooden: Array[Vector2] = []
 	for r: Vector2 in FENCED:
-		wooden.push_back(Vector2(r.x - FENCE_EASE, r.y + FENCE_EASE))
-	wooden.push_back(FINISH_FENCE)
+		wooden.push_back(Vector2(r.x - MARGIN_EASE, r.y + MARGIN_EASE))
+	wooden.push_back(Vector2(FINISH_FENCE.x - MARGIN_EASE, FINISH_FENCE.y))
 	for side: int in 2:
 		var sign_x: float = -1.0 if side == 0 else 1.0
 		for r: Vector2 in wooden:
@@ -1261,7 +1314,8 @@ func _place_fences(out: Dictionary[String, Array], taken: CourseGenKit.Occupancy
 				for h: float in PropMesh.RAIL_HEIGHTS:
 					_span(out["fence_rail"], _post_top(posts[i], h), _post_top(posts[i + 1], h),
 						Vector2(0.09, 0.06))
-		var poles: PackedVector2Array = _along_edge(edges[side], play, sign_x, NETS, POLE_SPACING)
+		var poles: PackedVector2Array = _along_edge(edges[side], play, sign_x,
+			Vector2(NETS.x - MARGIN_EASE, NETS.y), POLE_SPACING)
 		for p: Vector2 in poles:
 			out["net_pole"].push_back([p.x, p.y, PropMesh.park_size(PropMesh.Kind.NET_POLE), 0.0])
 			taken.add(p.x, p.y, 0.4)
@@ -1413,7 +1467,7 @@ func _place_flags(into: Array) -> void:
 
 ## Snowmen beside the run at the start, at each feature's gate and round the
 ## finish, a big one beyond the finish line, and two igloos out on the meadow
-## — all outside the play area.
+## — all past the woods' edge, so a racer exploring can hit them.
 func _place_snowmen(rng: RandomNumberGenerator, snowmen: Array, igloos: Array,
 		taken: CourseGenKit.Occupancy) -> void:
 	var size: Vector3 = PropMesh.park_size(PropMesh.Kind.SNOWMAN)
@@ -1439,15 +1493,15 @@ func _place_snowmen(rng: RandomNumberGenerator, snowmen: Array, igloos: Array,
 		igloos.push_back([x, -d, igloo * rng.randf_range(0.9, 1.1), rng.randf_range(0.8, 1.6)])
 		taken.add(x, -d, 3.0)
 
-## Across X, [param extra] metres beyond the play area's edge on [param side]
-## at [param d] metres down: past the widest the play area reaches anywhere
-## within two of its pieces, bends included.
+## Across X, [param extra] metres beyond the woods' edge ([method
+## woods_margin]) on [param side] at [param d] metres down: past the widest it
+## reaches anywhere within two of the play area's pieces, bends included.
 func _outside(d: float, side: float, extra: float) -> float:
 	var reach: float = 0.0
 	var k: float = -CORRIDOR_STEP * 2.0
 	while k <= CORRIDOR_STEP * 2.0:
 		var at: float = maxf(d + k, 0.0)
 		reach = maxf(reach, side * (centre_x(at) - centre_x(d)) + lateral_half_width(at)
-			+ play_margin(at))
+			+ woods_margin(at))
 		k += 1.0
 	return centre_x(d) + side * (reach + PLAY_CLEARANCE + extra)

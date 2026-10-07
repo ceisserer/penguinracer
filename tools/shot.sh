@@ -70,6 +70,9 @@ ARGS+=(--rendering-method "${METHOD:-mobile}")
 ARGS+=(--resolution "${SHOT_RESOLUTION:-1280x720}" --fixed-fps 60 --
     --capture="$OUT" --capture-frames="$FRAMES"
     --auto-input="$INPUT" --course="$COURSE" --no-audio)
+# The window opens minimized, so a capture does not take over the screen of a
+# machine somebody is working at; SHOT_VISIBLE=1 shows it.
+[[ -z "${SHOT_VISIBLE:-}" ]] && ARGS+=(--minimized)
 # The weather, which is not in the positional arguments because every reference
 # capture in the repository is a clear sunny day and has to stay one.
 # SHOT_LIGHT is sunny, cloudy, night or thunderstorm; SHOT_SNOW is 0..3; SHOT_WIND is none,

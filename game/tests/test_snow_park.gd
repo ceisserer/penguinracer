@@ -40,6 +40,7 @@ static func run(t: TestCase) -> void:
 	_the_boxes(t, gen, course, surface)
 	_the_berms(t, gen, surface)
 	_the_half_pipe(t, gen, surface)
+	_nothing_in_the_pipe_is_outside(t, gen, course)
 	_the_moguls(t, gen, surface)
 	var root: CourseRoot = scene.instantiate()
 	root.build_runtime()
@@ -100,11 +101,28 @@ static func _wide_and_narrow(t: TestCase, gen: GDScript, course: CourseData) -> 
 	t.ok(seq.size() >= 7, "they take turns (%d stretches)" % seq.size())
 	var play: PackedVector2Array = course.effective_play_bounds()
 	for r: Vector2 in gen.FENCED:
+		# The widest side: the other may be held in short of a building.
 		var mid: float = (r.x + r.y) * 0.5
-		var across: float = _width_at(play, -mid)
-		var run: float = 2.0 * gen.lateral_half_width(mid)
-		t.between(across - run, 2.0 * gen.FENCE_MARGIN - 0.5, 2.0 * gen.FENCE_MARGIN + 0.5,
-			"at %.0f m the play area hugs the run (%.1f m either side)" % [mid, (across - run) * 0.5])
+		var past: float = _past_run(gen, play, mid)
+		t.between(past, gen.FENCE_MARGIN - 0.5, gen.FENCE_MARGIN + 0.5,
+			"at %.0f m the play area reaches %.1f m past the run, to its fence" % [mid, past])
+	# Off the narrow ways it reaches far out into the woods: a racer can leave
+	# the piste and hit a tree, which a play area hugging the run never let
+	# anybody do.
+	for mid: float in [100.0, 200.0, 500.0, 820.0, 1080.0, 1400.0]:
+		var past: float = _past_run(gen, play, mid)
+		t.ok(past > 20.0, "at %.0f m the play area reaches %.1f m past the run" % [mid, past])
+
+## How far [param polygon] reaches past the run's edge at [param d], on the
+## side it reaches further.
+static func _past_run(gen: GDScript, polygon: PackedVector2Array, d: float) -> float:
+	var hits: Array[float] = []
+	for i: int in polygon.size():
+		var a: Vector2 = polygon[i]
+		var b: Vector2 = polygon[(i + 1) % polygon.size()]
+		if (a.y + d) * (b.y + d) <= 0.0 and absf(b.y - a.y) > 1e-6:
+			hits.push_back(absf(lerpf(a.x, b.x, (-d - a.y) / (b.y - a.y)) - gen.centre_x(d)))
+	return (hits.max() if not hits.is_empty() else 0.0) - gen.lateral_half_width(d)
 
 ## How wide [param polygon] is across X at [param z].
 static func _width_at(polygon: PackedVector2Array, z: float) -> float:
@@ -256,6 +274,37 @@ static func _the_half_pipe(t: TestCase, gen: GDScript, surface: HeightmapSurface
 	t.ok(absf(_rise(gen, surface, gen.PIPE.x - 5.0, coping, 0.0)) < 0.8,
 		"and they rise out of the run, not out of nowhere")
 
+## Down the half-pipe the play area's edges are long rows of collinear
+## vertices. [method Geometry2D.is_point_in_polygon] read 0.16 % of the points
+## in the pipe as outside it, and the simulation snapped the racer 17 m onto
+## the edge; [PlayArea] has to read every one as inside, and agree with the
+## plain count over every edge anywhere on the course.
+static func _nothing_in_the_pipe_is_outside(t: TestCase, gen: GDScript,
+		course: CourseData) -> void:
+	t.begin("snow park/the play area holds the pipe")
+	var polygon: PackedVector2Array = course.effective_play_bounds()
+	var area := PlayArea.new(polygon)
+	var reach: float = gen.pipe_coping() + gen.PIPE_DECK
+	var outside: int = 0
+	var d: float = gen.PIPE.x
+	while d < gen.PIPE.y:
+		var a: float = -reach
+		while a <= reach:
+			if not area.contains(Vector2(gen.centre_x(d) + a, -d)):
+				outside += 1
+			a += 0.05
+		d += 0.05
+	t.ok(outside == 0, "no point of the pipe reads as outside (%d)" % outside)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	var differ: int = 0
+	for i: int in 20000:
+		var p := Vector2(rng.randf_range(0.0, gen.WORLD.x), -rng.randf_range(0.0, gen.WORLD.y))
+		if area.contains(p) != PlayArea.is_inside(p, polygon):
+			differ += 1
+	t.ok(differ == 0, "the banded test agrees with the count over every edge (%d differ)"
+		% differ)
+
 static func _the_moguls(t: TestCase, gen: GDScript, surface: HeightmapSurface) -> void:
 	t.begin("snow park/moguls")
 	var lo: float = INF
@@ -295,6 +344,7 @@ static func _the_markers(t: TestCase, gen: GDScript, course: CourseData,
 	var trail: PackedVector2Array = course.effective_trail_bounds()
 	var counts: Dictionary[String, int] = {}
 	var misplaced: PackedStringArray = []
+	var reachable: Dictionary[String, int] = {}
 	for type_name: String in root.object_transforms:
 		var prefab: ObjectPrefab = root.object_prefabs.get(type_name, null)
 		var list: Array = root.object_transforms[type_name]
@@ -308,9 +358,15 @@ static func _the_markers(t: TestCase, gen: GDScript, course: CourseData,
 				"start", "finish", "flag":
 					pass
 				_:
-					var reach: float = (xf.basis.x.length() * 0.5 + 1.0) \
-						if prefab != null and prefab.collidable else 0.0
-					if CourseGenKit.near_polygon(at, play, reach) and type_name != "lift_cable":
+					# Whatever is solid keeps off the run; whatever is not —
+					# the buildings, the lift, the fences — out of the play
+					# area, where a racer would pass through it.
+					if prefab != null and prefab.collidable:
+						if CourseGenKit.near_polygon(at, trail, xf.basis.x.length() * 0.5 + 1.0):
+							misplaced.push_back("%s at %.0f m" % [type_name, -at.y])
+						elif CourseGenKit.is_inside(at, play):
+							reachable[type_name] = reachable.get(type_name, 0) + 1
+					elif CourseGenKit.is_inside(at, play) and type_name != "lift_cable":
 						misplaced.push_back("%s at %.0f m" % [type_name, -at.y])
 	for type_name: String in ["tree", "shrub", "boulder", "snowman", "igloo", "herring",
 			"flag", "lift_tower", "lift_cable", "lift_chair", "lift_station", "chalet",
@@ -320,6 +376,9 @@ static func _the_markers(t: TestCase, gen: GDScript, course: CourseData,
 			% [type_name, counts.get(type_name, 0)])
 	t.ok(misplaced.is_empty(), "every marker where it belongs: %s"
 		% ", ".join(misplaced.slice(0, 8)))
+	t.ok(reachable.get("tree", 0) > 300 and reachable.get("snowman", 0) > 0,
+		"a racer leaving the run can hit trees (%d) and snowmen (%d)"
+		% [reachable.get("tree", 0), reachable.get("snowman", 0)])
 	t.eq_f(float(counts.get("lift_station", 0)), 2.0, 0.0, "a station at either end")
 	var flags: Array = root.object_transforms.get("flag", [])
 	for d: float in gen.apexes():

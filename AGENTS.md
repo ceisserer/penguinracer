@@ -160,6 +160,7 @@ godot --path game -- --character=trixi                             # ... as anot
 godot --path game -- --remote-keyboard                             # ... over a pulsed remote keyboard
 godot --path game -- --no-audio                                    # ... silent, for captures
 godot --path game -- --no-intro                                    # ... skipping the start animation
+godot --path game -- --minimized                                   # ... window minimized (every capture or test run)
 godot --path game -- --fps                                         # ... with a frame-rate readout (this run only)
 godot --path game -- --lang=de                                     # ... in German (en|de|auto)
 godot --path game -- --touch=buttons                               # ... with a phone's on-screen controls (tilt|tilt_steer|tilt_speed|buttons|off)
@@ -200,13 +201,13 @@ godot --headless --path game res://scenes/server.tscn -- --port=27015 \
 ./tools/build_android.sh [--release] [--install]                   # Android APK (setup: .devcontainer/setup-android.sh)
 
 # headless verification
-godot --path game -- --capture=/tmp/shot.png --capture-frames=200 \
+godot --path game -- --minimized --capture=/tmp/shot.png --capture-frames=200 \
     --auto-input=carve --camera=above --course=wild_mountains
 # --auto-input= is carve | brake | paddle | jump (jump is the only way to capture the
 # gauge's inner half) | ai (the computer's driver: follows a course's line to the finish). It also DISABLES the start animation, so those captures run on a
 # different clock from a player's. To reproduce what a player saw in the first seconds,
 # pass no input source — --capture= plus --course= plays the intro and steers nowhere:
-godot --path game -- --capture=/tmp/shot.png --capture-frames=655 \
+godot --path game -- --minimized --capture=/tmp/shot.png --capture-frames=655 \
     --course=penguins_cant_fly --opponents=3 --character=trixi --no-audio
 
 # web — streamed build: base + one .pck per course + one for music
@@ -364,6 +365,11 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   x 450–700, y 250–520 out of a Bunny Hill `carve` capture; everything else reproduces to the byte.
   Captures off the real GPU are not byte-reproducible run to run at all — measure the frame, not
   the md5.
+- **Open every windowed run minimized — this machine is in use.** Captures and any
+  `godot --path game …` run that opens a window pass `--minimized` (`DebugCapture` minimizes
+  the window on start; rendering and `--capture=` work as usual). `tools/shot.sh` passes it by
+  default; `SHOT_VISIBLE=1` shows the window, and only do that when asked to. The headless suite
+  opens no window at all.
 - **The real GPU can stop drawing for every run at once.** On 2026-10-07 every `shot.sh`,
   `tree_portrait.sh` and `prop_portrait.sh` run hung until killed, on both renderers and with
   unchanged code too, minutes after the same commands had worked. The xvfb software path drew
@@ -456,10 +462,22 @@ Each entry is the rule; the discovery story is in `PROGRESS.md` or the cited `hi
   along its long edges, so pieces shorter than that get none; outward is taken from the winding.
 - **`Geometry2D.is_point_in_polygon` miscounts a vertex its ray grazes.** It casts toward a corner
   beyond the polygon's bounds, and a cast passing 0.08 mm from one of Snow Park's 644 play-area
-  vertices read a boulder 20 m outside as inside. Generators and tests use
-  `CourseGenKit.is_inside` (even-odd across +X, edges half-open). `RacePhysics._apply_bounds`
-  still calls Godot's, so a racer could in principle be snapped to the edge from the middle of the
-  run; never seen, not fixed.
+  vertices read a boulder 20 m outside as inside. It also read 0.16 % of the points inside Snow
+  Park's straight half-pipe — long rows of collinear vertices — as outside, and
+  `RacePhysics._apply_bounds` snapped the racer 17 m onto the pipe's flank several times a run.
+  Nothing in the game or the generators calls it on a play area any more: `PlayArea` (even-odd
+  across +X, edges half-open, indexed in 8 m bands of z) answers the simulation and the AI, and
+  `CourseGenKit.is_inside` is its plain form (`TestSnowPark` holds the pipe to it).
+- **Do not design a play area that hugs the run.** A racer held to the piste can neither explore
+  nor hit a tree by accident, so the trees are scenery and the course is a corridor — Snow Park
+  shipped that way (8 m past the run, 2 m on the catwalks, every tree outside) and had to be
+  widened. Give a new course a play area reaching well into the woods (Forest Trail 18 m, Snow
+  Park 30 m on open slopes and 10 m to the catwalks' fences) with trees, boulders and snowmen
+  standing *inside* it and only off the run itself; hold the computer to the trail
+  (`trail_bounds`), not the player. Keep out of the play area only what is not solid (buildings,
+  the lift), by a notch round it. And ease every narrowing over tens of metres
+  (`MARGIN_EASE`): a racer outside the new edge is snapped onto it, and a step of the edge —
+  Snow Park's pipe exit narrowed 10 m within one 6 m piece — reads as a teleport.
 - **Where a racer may go and where the course is raced can be two polygons.** Forest Trail's
   play area reaches 18 m into the woods (`PLAY_MARGIN`); its trail (`CourseData.trail_bounds`,
   the old 5 m corridor) is what the torches line and what a computer opponent is held to
@@ -1172,7 +1190,8 @@ the whole sky to cyan-white, against which no disc can show. The fog
   restaurant to the village, with a terrain park built into the piste. It goes as a real piste
   does: wide open faces and narrow ways through the woods take turns (`WIDTHS`, `FENCED`), and
   so do steep pitches (27–32°) and flats (14–17°) (`SECTIONS`). Along a narrow way the play area
-  hugs the run (`FENCE_MARGIN`, 2 m) and a wooden fence stands just outside it, so the fence is
+  reaches 10 m past the run (`FENCE_MARGIN`) into the woods, which close in to 2 m
+  (`WOODS_FENCED`), and a wooden fence stands just outside it among the trees, so the fence is
   where a racer stops; orange nets line the big jump, a fence the finish. No trees above the
   treeline, thick ones along the catwalks. Every feature is relief in the heightmap — rollers; three table-tops (25° lips) beside a chicken
   line of fun boxes glazed with `hockey_ice`; a banked slalom of four turns, a berm on the
@@ -1181,7 +1200,11 @@ the whole sky to cyan-white, against which no disc can show. The fog
   before the finish. Herring hang over the jumps on the flight's arc, so only a racer in the air
   takes them (collection is a 3D distance). A chairlift climbs beside it from the village to the
   summit and nothing solid stands within reach of the play area; the trail is the run (opponents
-  are held to it), the play area 8 m wider on the open slopes.
+  are held to it). The play area reaches 30 m past the run on the open slopes (`PLAY_MARGIN`,
+  out to 6 m from the world's left edge and the lift's clearing on the right), so a racer can
+  leave the piste into the woods (which begin 8 m out, `WOODS_MARGIN`) and hit the trees, boulders
+  and snowmen there; it narrows to the woods' edge along the big jump's nets and round the
+  finish, every change eased over 30 m (`MARGIN_EASE`), and is notched round each building.
 - **There is water** (`CourseData.water`, `WaterRenderer`, `water.gdshader`); ETR has none.
   A course carries it as a signed depth per heightmap vertex (FORMAT_RF, `water.res`): metres
   of water over the ground where it is wet, negative where the bank stands over the water's

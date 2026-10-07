@@ -52,6 +52,10 @@ var remote_keyboard: bool = false
 ## [method TouchScheme.resolve].
 var touch: String = ""
 var no_audio: bool = false
+## `--minimized`: open the window minimized, so a capture or a test run does
+## not take over the screen of a machine somebody is working at. See
+## [DebugCapture].
+var minimized: bool = false
 ## `--lang=de` / `?lang=en`: the interface language for this run, unparsed —
 ## see [method GameConfig.active_language]. Empty means the settings file's.
 var language: String = ""
@@ -196,6 +200,8 @@ func parse(argv: PackedStringArray, query: Dictionary) -> void:
 			language = arg.trim_prefix("--lang=")
 		elif arg == "--no-audio":
 			no_audio = true
+		elif arg == "--minimized":
+			minimized = true
 		elif arg == "--no-intro":
 			no_intro = true
 		elif arg == "--fps":

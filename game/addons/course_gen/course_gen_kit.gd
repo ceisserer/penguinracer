@@ -111,23 +111,12 @@ static func near_polygon(at: Vector2, polygon: PackedVector2Array, margin: float
 			return true
 	return false
 
-## Whether [param at] is inside [param polygon]: even-odd along a ray across
-## +X, each edge taken half-open, so a ray through a vertex counts it once.
-## [method Geometry2D.is_point_in_polygon] casts toward a corner beyond the
-## polygon's bounds instead, and miscounts a vertex its cast grazes: a boulder
-## 20 m out of Snow Park's play area read as inside, its cast passing 0.08 mm
-## from a vertex 1250 m up the course.
+## Whether [param at] is inside [param polygon]: [method PlayArea.is_inside],
+## the same count the simulation makes. [method Geometry2D.is_point_in_polygon]
+## miscounts a vertex its cast grazes: a boulder 20 m out of Snow Park's play
+## area read as inside, its cast passing 0.08 mm from a vertex 1250 m up.
 static func is_inside(at: Vector2, polygon: PackedVector2Array) -> bool:
-	var inside: bool = false
-	var j: int = polygon.size() - 1
-	for i: int in polygon.size():
-		var a: Vector2 = polygon[i]
-		var b: Vector2 = polygon[j]
-		if (a.y > at.y) != (b.y > at.y) \
-				and at.x < a.x + (at.y - a.y) * (b.x - a.x) / (b.y - a.y):
-			inside = not inside
-		j = i
-	return inside
+	return PlayArea.is_inside(at, polygon)
 
 ## The prefab every row of log colliders shares: nothing to draw, only
 ## something to hit. Overwritten each run like the props.

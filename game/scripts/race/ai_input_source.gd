@@ -179,6 +179,7 @@ var _item_z := PackedFloat32Array()
 
 # --- the course, read once per run ---
 var _bounds := PackedVector2Array()
+var _area: PlayArea = null
 var _bounds_ready: bool = false
 var _bounds_z_min: float = -INF
 var _bounds_centre_x: float = 0.0
@@ -445,6 +446,7 @@ func _gather(physics: RacePhysics, pos: Vector3) -> void:
 func _read_course(physics: RacePhysics) -> void:
 	_bounds_ready = true
 	_bounds = physics.bounds_polygon
+	_area = physics.bounds_area
 	_min_x = physics.play_min_x
 	_max_x = physics.play_max_x
 	if _bounds.is_empty():
@@ -472,5 +474,4 @@ func _read_course(physics: RacePhysics) -> void:
 func _in_bounds(x: float, z: float) -> bool:
 	if _bounds.is_empty():
 		return x >= _min_x and x <= _max_x
-	return Geometry2D.is_point_in_polygon(
-		Vector2(x, maxf(z, _bounds_z_min + BOUNDS_INSET)), _bounds)
+	return _area.contains(Vector2(x, maxf(z, _bounds_z_min + BOUNDS_INSET)))
